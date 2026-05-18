@@ -1,0 +1,274 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsExistingDoc() {
+      return signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    function ownsIncomingDoc() {
+      return signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isPinRequestPublicResponseUpdate() {
+      return resource.data.status == 'pending'
+        && request.auth == null
+        && request.time < resource.data.expiresAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'responseLat',
+          'responseLng',
+          'responseAccuracy',
+          'responseAt',
+          'responseNote',
+        ])
+        && (
+          (
+            request.resource.data.status == 'received'
+            && request.resource.data.responseLat is number
+            && request.resource.data.responseLng is number
+            && (
+              request.resource.data.responseAccuracy == null
+              || request.resource.data.responseAccuracy is number
+            )
+            && request.resource.data.responseAt is timestamp
+            && request.resource.data.responseNote is string
+          ) || (
+            request.resource.data.status == 'received_note'
+            && request.resource.data.responseLat == resource.data.responseLat
+            && request.resource.data.responseLng == resource.data.responseLng
+            && request.resource.data.responseAccuracy == resource.data.responseAccuracy
+            && request.resource.data.responseAt is timestamp
+            && request.resource.data.responseNote is string
+          )
+        );
+    }
+
+    match /van_places/{placeId} {
+      allow read: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+      allow update: if ownsExistingDoc() && ownsIncomingDoc();
+      allow delete: if ownsExistingDoc();
+    }
+
+    match /users/{userId} {
+      allow get, create, update, delete: if signedIn()
+        && request.auth.uid == userId;
+
+      match /van_jobs/{jobId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /van_quotes/{quoteId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /van_invoices/{invoiceId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /van_business_profile/{profileId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /van_pin_requests/{requestId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /fcmTokens/{tokenId} {
+        allow get, create, update, delete: if signedIn()
+          && request.auth.uid == userId;
+      }
+    }
+
+    match /van_pin_requests/{requestId} {
+      allow get: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow list: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update: if
+        (signedIn() && resource.data.ownerId == request.auth.uid)
+        || isPinRequestPublicResponseUpdate();
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /van_routes/{routeId} {
+      allow read: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+      allow update: if ownsExistingDoc() && ownsIncomingDoc();
+      allow delete: if ownsExistingDoc();
+    }
+
+    match /van_route_templates/{templateId} {
+      allow read: if ownsExistingDoc();
+      allow create: if ownsIncomingDoc();
+      allow update: if ownsExistingDoc() && ownsIncomingDoc();
+      allow delete: if ownsExistingDoc();
+    }
+
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+
+    match /van_community_places_pending/{submissionId} {
+      allow get: if isAdmin()
+        || (signedIn() && resource.data.submittedBy == request.auth.uid);
+      allow list: if isAdmin()
+        || (signedIn() && resource.data.submittedBy == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.submittedBy == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.verifyCount == 0
+        && request.resource.data.reportCount == 0
+        && request.resource.data.keys().hasOnly([
+          'submittedBy',
+          'submittedAt',
+          'sourcePlaceId',
+          'placeName',
+          'dropName',
+          'dropType',
+          'postcodeArea',
+          'exactLat',
+          'exactLng',
+          'deliveryNote',
+          'warningNote',
+          'accessNote',
+          'status',
+          'verifyCount',
+          'reportCount',
+        ])
+        && request.resource.data.submittedAt is timestamp
+        && request.resource.data.sourcePlaceId is string
+        && request.resource.data.placeName is string
+        && request.resource.data.dropName is string
+        && request.resource.data.dropType is string
+        && request.resource.data.postcodeArea is string
+        && request.resource.data.exactLat is number
+        && request.resource.data.exactLng is number
+        && request.resource.data.deliveryNote is string
+        && request.resource.data.warningNote is string
+        && request.resource.data.accessNote is string;
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.submittedBy == request.auth.uid
+          && request.resource.data.submittedBy == request.auth.uid
+          && request.resource.data.status == 'pending'
+          && request.resource.data.verifyCount == resource.data.verifyCount
+          && request.resource.data.reportCount == resource.data.reportCount
+          && request.resource.data.keys().hasOnly([
+            'submittedBy',
+            'submittedAt',
+            'sourcePlaceId',
+            'placeName',
+            'dropName',
+            'dropType',
+            'postcodeArea',
+            'exactLat',
+            'exactLng',
+            'deliveryNote',
+            'warningNote',
+            'accessNote',
+            'status',
+            'verifyCount',
+            'reportCount',
+          ])
+          && request.resource.data.submittedAt is timestamp
+          && request.resource.data.sourcePlaceId is string
+          && request.resource.data.placeName is string
+          && request.resource.data.dropName is string
+          && request.resource.data.dropType is string
+          && request.resource.data.postcodeArea is string
+          && request.resource.data.exactLat is number
+          && request.resource.data.exactLng is number
+          && request.resource.data.deliveryNote is string
+          && request.resource.data.warningNote is string
+          && request.resource.data.accessNote is string
+        );
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.submittedBy == request.auth.uid);
+    }
+
+    match /van_community_places/{placeId} {
+      allow get, list: if signedIn();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly([
+          'approvedBy',
+          'approvedAt',
+          'sourcePendingId',
+          'sourcePlaceId',
+          'placeName',
+          'dropName',
+          'dropType',
+          'postcodeArea',
+          'exactLat',
+          'exactLng',
+          'deliveryNote',
+          'warningNote',
+          'accessNote',
+          'status',
+          'verifyCount',
+          'reportCount',
+        ])
+        && request.resource.data.approvedBy is string
+        && request.resource.data.approvedAt is timestamp
+        && request.resource.data.sourcePendingId is string
+        && request.resource.data.sourcePlaceId is string
+        && request.resource.data.placeName is string
+        && request.resource.data.dropName is string
+        && request.resource.data.dropType is string
+        && request.resource.data.postcodeArea is string
+        && request.resource.data.exactLat is number
+        && request.resource.data.exactLng is number
+        && request.resource.data.deliveryNote is string
+        && request.resource.data.warningNote is string
+        && request.resource.data.accessNote is string
+        && request.resource.data.status == 'approved'
+        && request.resource.data.verifyCount == 0
+        && request.resource.data.reportCount == 0;
+      allow delete: if isAdmin();
+    }
+
+    match /van_community_place_reports/{reportId} {
+      allow get, list: if isAdmin();
+      allow create: if signedIn()
+        && request.resource.data.reportedBy == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.reportedAt is timestamp
+        && request.resource.data.communityPlaceId is string
+        && request.resource.data.sourcePlaceId is string
+        && request.resource.data.placeName is string
+        && request.resource.data.dropType is string
+        && request.resource.data.postcodeArea is string
+        && request.resource.data.exactLat is number
+        && request.resource.data.exactLng is number
+        && request.resource.data.reason is string
+        && request.resource.data.keys().hasOnly([
+          'reportedBy',
+          'reportedAt',
+          'communityPlaceId',
+          'sourcePlaceId',
+          'placeName',
+          'dropType',
+          'postcodeArea',
+          'exactLat',
+          'exactLng',
+          'status',
+          'reason',
+        ]);
+      allow update, delete: if isAdmin();
+    }
+  }
+}

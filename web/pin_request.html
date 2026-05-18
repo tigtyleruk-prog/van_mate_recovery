@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Share exact delivery pin</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-0: #09111e;
+      --bg-1: #0e1a2c;
+      --bg-2: #162641;
+      --panel: rgba(14, 22, 38, 0.88);
+      --panel-border: rgba(255, 255, 255, 0.10);
+      --text: #f5f8ff;
+      --muted: rgba(245, 248, 255, 0.74);
+      --accent: #4a7dff;
+      --success: #58d0a4;
+      --error: #ff9b7d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(74, 125, 255, 0.22), transparent 28%),
+        radial-gradient(circle at top right, rgba(88, 208, 164, 0.10), transparent 24%),
+        linear-gradient(180deg, var(--bg-0), var(--bg-1) 44%, var(--bg-2));
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(680px, 100%);
+      padding: 24px;
+      border-radius: 28px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 28px 72px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(16px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(74, 125, 255, 0.14);
+      border: 1px solid rgba(74, 125, 255, 0.22);
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 42px);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+    }
+
+    .lede {
+      margin: 14px 0 0;
+      max-width: 58ch;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .request-id {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.70);
+      font-size: 13px;
+      word-break: break-word;
+    }
+
+    .copy-link-panel {
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .link-box {
+      width: 100%;
+      min-height: 76px;
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: inherit;
+      line-height: 1.5;
+      resize: none;
+    }
+
+    .link-box:focus {
+      outline: 2px solid rgba(74, 125, 255, 0.45);
+      outline-offset: 2px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 18px;
+      min-width: 160px;
+      background: linear-gradient(135deg, #3c66ee, #5d8bff);
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 12px 26px rgba(74, 125, 255, 0.20);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 18px;
+      line-height: 1.45;
+      font-weight: 750;
+      border: 1px solid rgba(88, 208, 164, 0.24);
+      background: rgba(88, 208, 164, 0.12);
+      color: #e9fff6;
+      display: none;
+    }
+
+    .status.error {
+      border-color: rgba(255, 155, 125, 0.26);
+      background: rgba(255, 155, 125, 0.12);
+      color: #fff2ec;
+    }
+
+    .panel {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .map-shell {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+    }
+
+    .map-frame {
+      position: relative;
+    }
+
+    .map-canvas {
+      width: 100%;
+      height: min(52vh, 360px);
+      min-height: 240px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #0d1524;
+    }
+
+    .map-crosshair {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+    }
+
+    .map-crosshair::before {
+      content: "";
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 0 0 8px rgba(74, 125, 255, 0.14);
+      background: rgba(74, 125, 255, 0.22);
+    }
+
+    .map-note {
+      margin-top: 10px;
+    }
+
+    .note-modal-body {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .map-hint {
+      margin: 8px 0 0;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .panel-title {
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 850;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .panel-text {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .warning-panel {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 155, 125, 0.10);
+      border: 1px solid rgba(255, 155, 125, 0.22);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(3, 8, 16, 0.72);
+      backdrop-filter: blur(14px);
+      z-index: 30;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-sheet {
+      width: min(640px, 100%);
+      padding: 22px;
+      border-radius: 26px;
+      background: rgba(14, 22, 38, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.40);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 28px);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+    }
+
+    .modal-text {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .map-placeholder {
+      margin-top: 16px;
+      min-height: 160px;
+      border-radius: 20px;
+      border: 1px dashed rgba(255, 255, 255, 0.18);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(74, 125, 255, 0.18), transparent 26%),
+        radial-gradient(circle at 80% 30%, rgba(88, 208, 164, 0.14), transparent 24%),
+        rgba(255, 255, 255, 0.04);
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.84);
+      font-size: 14px;
+      font-weight: 800;
+      text-align: center;
+      padding: 18px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .modal-actions button {
+      flex: 1 1 160px;
+    }
+
+    .warning-title {
+      margin: 0 0 7px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #fff4ee;
+      letter-spacing: 0.1px;
+    }
+
+    .field {
+      width: 100%;
+      min-height: 96px;
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: inherit;
+      resize: vertical;
+    }
+
+    .field::placeholder {
+      color: rgba(255, 255, 255, 0.46);
+    }
+
+    .footer {
+      margin-top: 16px;
+      color: rgba(255, 255, 255, 0.50);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+  </style>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+  <main class="card">
+    <div class="eyebrow">Van Mate</div>
+    <h1>Share exact delivery pin</h1>
+    <p class="lede">
+      This sends a one-time location pin to the driver. It does not track you live.
+    </p>
+
+    <div class="request-id" id="requestIdLabel">Request loading...</div>
+
+    <div class="warning-panel">
+      <div class="warning-title">Are you at the delivery entrance/drop-off point?</div>
+      <p class="panel-text">
+        You will be asked to confirm before your location is shared. Only share your current location if you are physically at the correct entrance, bay, gatehouse, or drop-off point.
+      </p>
+      <p class="panel-text" style="margin-top: 10px;">
+        If you are not there, please forward this link to someone on site or send the driver written instructions.
+      </p>
+    </div>
+
+    <div class="copy-link-panel">
+      <div class="panel-title">Open in another browser</div>
+      <p class="panel-text">
+        If location sharing does not work here, copy this link and open it in Chrome or Safari.
+      </p>
+      <textarea
+        id="linkField"
+        class="link-box"
+        readonly
+        aria-label="Current request link"
+      ></textarea>
+      <div class="actions">
+        <button id="copyLinkButton" type="button" class="secondary">Copy link</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="shareButton" type="button">Share exact pin</button>
+      <button id="retryButton" type="button" class="secondary">Try again</button>
+    </div>
+
+    <div id="message" class="status"></div>
+    <div id="error" class="status error"></div>
+
+    <div class="panel">
+      <div class="panel-title">Having trouble?</div>
+      <p class="panel-text">
+        Some in-app browsers block location sharing. Open this link in Chrome/Safari and try again.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Pin note</div>
+      <p class="panel-text">
+        Optional. Add a short note like "Use rear gate", "Loading bay is round the back", or "Meet at reception".
+      </p>
+      <textarea
+        id="noteInput"
+        class="field"
+        maxlength="240"
+        placeholder="Add a note for the driver..."
+      ></textarea>
+      <div class="actions">
+        <button id="sendNoteButton" type="button" class="secondary">Send note only</button>
+      </div>
+    </div>
+
+    <p class="footer">
+      Allow location access when your browser asks. No account is needed on this page.
+    </p>
+  </main>
+
+  <div id="safetyModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="safetyModalTitle">
+      <div class="eyebrow">Van Mate</div>
+      <h2 id="safetyModalTitle" class="modal-title">Are you at the exact pickup/drop-off point now?</h2>
+      <p class="modal-text">
+        Only share your current location if you are at the place the driver needs to go - for example the entrance, loading bay, driveway, gate, collection point or drop-off point.
+      </p>
+      <div class="modal-actions">
+        <button id="confirmHereButton" type="button">Yes, I&apos;m here now</button>
+        <button id="chooseMapButton" type="button" class="secondary">No, choose it on a map</button>
+        <button id="cancelSafetyButton" type="button" class="secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+    <div id="mapModal" class="modal-overlay" aria-hidden="true">
+      <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="mapModalTitle">
+        <div class="eyebrow">Van Mate</div>
+        <h2 id="mapModalTitle" class="modal-title">Choose the pickup/drop-off point</h2>
+        <p class="modal-text">
+          Move the pin to the entrance, loading bay, driveway, gate or exact place the driver should go.
+        </p>
+        <div class="map-shell">
+          <div class="map-frame">
+            <div id="mapContainer" class="map-canvas" aria-label="Map picker"></div>
+            <div class="map-crosshair" aria-hidden="true"></div>
+          </div>
+          <p class="map-hint" id="mapStatus">Drag the map until the crosshair sits on the correct point.</p>
+        </div>
+        <div class="modal-actions">
+          <button id="useSelectedPinButton" type="button">Use pin</button>
+          <button id="cancelMapButton" type="button" class="secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="noteModal" class="modal-overlay" aria-hidden="true">
+      <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="noteModalTitle">
+        <div class="eyebrow">Van Mate</div>
+        <h2 id="noteModalTitle" class="modal-title">Add entrance / gate note?</h2>
+        <p class="modal-text">
+          Optional. Add a short note to help the driver find the exact entrance, loading bay, driveway or gate.
+        </p>
+        <div class="note-modal-body">
+          <textarea
+            id="pinNoteInput"
+            class="field"
+            maxlength="240"
+            placeholder="Add a note for the driver..."
+          ></textarea>
+          <div class="modal-actions">
+            <button id="savePinButton" type="button">Save pin</button>
+            <button id="skipNoteButton" type="button" class="secondary">Skip note</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD1FUKyO00FC0IYXfZzgPCE2SNooQF4jvg",
+      authDomain: "vanmate-56eac.firebaseapp.com",
+      projectId: "vanmate-56eac",
+      storageBucket: "vanmate-56eac.firebasestorage.app",
+      messagingSenderId: "406913319321",
+      appId: "1:406913319321:web:7b451a037012bd6d9bd308",
+      measurementId: "G-1W5Z7DQTCY"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const params = new URLSearchParams(window.location.search);
+    const requestId = (params.get("id") || "").trim();
+    const requestRef = requestId ? db.collection("van_pin_requests").doc(requestId) : null;
+
+    const requestIdLabel = document.getElementById("requestIdLabel");
+    const shareButton = document.getElementById("shareButton");
+    const retryButton = document.getElementById("retryButton");
+    const copyLinkButton = document.getElementById("copyLinkButton");
+    const sendNoteButton = document.getElementById("sendNoteButton");
+    const noteInput = document.getElementById("noteInput");
+    const linkField = document.getElementById("linkField");
+    const messageEl = document.getElementById("message");
+    const errorEl = document.getElementById("error");
+    const safetyModal = document.getElementById("safetyModal");
+    const mapModal = document.getElementById("mapModal");
+    const noteModal = document.getElementById("noteModal");
+    const confirmHereButton = document.getElementById("confirmHereButton");
+    const chooseMapButton = document.getElementById("chooseMapButton");
+    const cancelSafetyButton = document.getElementById("cancelSafetyButton");
+    const useSelectedPinButton = document.getElementById("useSelectedPinButton");
+    const cancelMapButton = document.getElementById("cancelMapButton");
+    const mapContainer = document.getElementById("mapContainer");
+    const mapStatus = document.getElementById("mapStatus");
+    const pinNoteInput = document.getElementById("pinNoteInput");
+    const savePinButton = document.getElementById("savePinButton");
+    const skipNoteButton = document.getElementById("skipNoteButton");
+    const currentPageUrl = window.location.href;
+
+    linkField.value = currentPageUrl;
+
+    let mapInstance = null;
+    let mapMarker = null;
+    let selectedMapLatLng = null;
+    let selectedMapReady = false;
+    let requestSeedPromise = null;
+    let locationPermissionProbePromise = null;
+
+    const ukFallbackCenter = { lat: 53.4808, lng: -2.2426 };
+    useSelectedPinButton.disabled = true;
+
+    function showMessage(text) {
+      messageEl.textContent = text;
+      messageEl.style.display = "block";
+      errorEl.style.display = "none";
+      errorEl.textContent = "";
+    }
+
+    function showError(text) {
+      errorEl.textContent = text;
+      errorEl.style.display = "block";
+      messageEl.style.display = "none";
+      messageEl.textContent = "";
+    }
+
+    function clearStatus() {
+      messageEl.style.display = "none";
+      messageEl.textContent = "";
+      errorEl.style.display = "none";
+      errorEl.textContent = "";
+    }
+
+    function setModalOpen(modal, open) {
+      if (!modal) return;
+      modal.classList.toggle("open", open);
+      modal.setAttribute("aria-hidden", open ? "false" : "true");
+      document.body.style.overflow = open ? "hidden" : "";
+    }
+
+    function openSafetyModal() {
+      clearStatus();
+      setModalOpen(safetyModal, true);
+    }
+
+    function closeSafetyModal() {
+      setModalOpen(safetyModal, false);
+    }
+
+    function openMapModal() {
+      clearStatus();
+      setModalOpen(mapModal, true);
+    }
+
+    function closeMapModal() {
+      setModalOpen(mapModal, false);
+    }
+
+    function openNoteModal(initialValue) {
+      if (pinNoteInput) {
+        pinNoteInput.value = initialValue || "";
+      }
+      setModalOpen(noteModal, true);
+      window.setTimeout(() => {
+        pinNoteInput?.focus();
+      }, 0);
+    }
+
+    function closeNoteModal() {
+      setModalOpen(noteModal, false);
+    }
+
+    function disableActions(disabled) {
+      shareButton.disabled = disabled;
+      retryButton.disabled = disabled;
+      sendNoteButton.disabled = disabled;
+      copyLinkButton.disabled = disabled;
+    }
+
+    function setMapStatus(text) {
+      if (mapStatus) {
+        mapStatus.textContent = text;
+      }
+    }
+
+    function setMapSelection(latLng) {
+      selectedMapLatLng = latLng;
+      if (mapMarker) {
+        mapMarker.setLatLng(latLng);
+      } else if (mapInstance) {
+        mapMarker = L.marker(latLng, { interactive: false }).addTo(mapInstance);
+      }
+      setMapStatus(
+        `Selected pin: ${latLng.lat.toFixed(5)}, ${latLng.lng.toFixed(5)}`
+      );
+    }
+
+    function refreshMapSelectionFromCenter() {
+      if (!mapInstance) return;
+      const center = mapInstance.getCenter();
+      setMapSelection(center);
+    }
+
+    function initializeMap(center) {
+      if (!mapContainer || typeof L === "undefined") {
+        setMapStatus("Map library failed to load.");
+        return;
+      }
+
+      const target = isValidLatLng(center) ? center : ukFallbackCenter;
+      if (mapInstance) {
+        mapInstance.setView([target.lat, target.lng], mapInstance.getZoom() || 14);
+        setTimeout(() => mapInstance.invalidateSize(), 0);
+        refreshMapSelectionFromCenter();
+        return;
+      }
+
+      mapInstance = L.map(mapContainer, {
+        zoomControl: false,
+        attributionControl: false,
+      }).setView([target.lat, target.lng], 14);
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(mapInstance);
+
+      mapInstance.on("moveend", refreshMapSelectionFromCenter);
+      mapInstance.on("zoomend", refreshMapSelectionFromCenter);
+
+      setMapSelection(target);
+      selectedMapReady = true;
+      useSelectedPinButton.disabled = false;
+      setTimeout(() => mapInstance.invalidateSize(), 0);
+    }
+
+    function isValidLatLng(candidate) {
+      if (!candidate) return false;
+      const latitude = Number(candidate.lat);
+      const longitude = Number(candidate.lng);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return false;
+      }
+      if (latitude === 0 && longitude === 0) {
+        return false;
+      }
+      return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+    }
+
+    function isUkCoordinate(candidate) {
+      if (!isValidLatLng(candidate)) {
+        return false;
+      }
+      return (
+        candidate.lat >= 49.0 &&
+        candidate.lat <= 61.8 &&
+        candidate.lng >= -11.0 &&
+        candidate.lng <= 3.8
+      );
+    }
+
+    function sanitizeMapCenter(candidate) {
+      if (isUkCoordinate(candidate)) {
+        return candidate;
+      }
+      return ukFallbackCenter;
+    }
+
+    async function loadRequestSeed() {
+      if (!requestRef) {
+        return null;
+      }
+      if (!requestSeedPromise) {
+        requestSeedPromise = requestRef.get().then((snapshot) => {
+          if (!snapshot.exists) {
+            return null;
+          }
+          const data = snapshot.data() || {};
+          return {
+            dropName: (data.dropName || "").toString().trim(),
+            address: (data.address || "").toString().trim(),
+            postcode: (data.postcode || "").toString().trim(),
+            responseLat: Number(data.responseLat),
+            responseLng: Number(data.responseLng),
+          };
+        }).catch((error) => {
+          console.error("Could not load request seed", error);
+          return null;
+        });
+      }
+      return requestSeedPromise;
+    }
+
+    async function geocodeRequestSeed(seed) {
+      const query = [
+        seed?.dropName,
+        seed?.address,
+        seed?.postcode,
+      ].filter((value) => (value || "").trim().length > 0).join(", ");
+
+      if (!query) {
+        return null;
+      }
+
+      try {
+        const url = new URL("https://nominatim.openstreetmap.org/search");
+        url.searchParams.set("format", "jsonv2");
+        url.searchParams.set("limit", "1");
+        url.searchParams.set("countrycodes", "gb");
+        url.searchParams.set("q", query);
+
+        const response = await fetch(url.toString(), {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        if (!response.ok) {
+          return null;
+        }
+        const results = await response.json();
+        if (!Array.isArray(results) || results.length === 0) {
+          return null;
+        }
+
+        const first = results[0];
+        const lat = Number(first.lat);
+        const lng = Number(first.lon);
+        const candidate = { lat, lng };
+        if (!isUkCoordinate(candidate)) {
+          return null;
+        }
+        return candidate;
+      } catch (error) {
+        console.error("Could not geocode request seed", error);
+        return null;
+      }
+    }
+
+    async function maybeUseCurrentLocationForMapStart() {
+      if (!navigator.permissions || !navigator.geolocation) {
+        return null;
+      }
+
+      try {
+        const permissionStatus = await navigator.permissions.query({
+          name: "geolocation",
+        });
+        if (permissionStatus.state !== "granted") {
+          return null;
+        }
+
+        const position = await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              });
+            },
+            () => resolve(null),
+            {
+              enableHighAccuracy: true,
+              timeout: 6000,
+              maximumAge: 600000,
+            }
+          );
+        });
+        if (!isUkCoordinate(position)) {
+          return null;
+        }
+        return position;
+      } catch (error) {
+        console.error("Could not probe current location for map start", error);
+        return null;
+      }
+    }
+
+    async function resolveMapStartCenter() {
+      const seed = await loadRequestSeed();
+      if (seed) {
+        const savedResponse = {
+          lat: Number(seed.responseLat),
+          lng: Number(seed.responseLng),
+        };
+        if (isValidLatLng(savedResponse)) {
+          return savedResponse;
+        }
+
+        const geocoded = await geocodeRequestSeed(seed);
+        if (geocoded) {
+          return geocoded;
+        }
+      }
+
+      const currentLocation = await maybeUseCurrentLocationForMapStart();
+      if (currentLocation) {
+        return currentLocation;
+      }
+
+      return ukFallbackCenter;
+    }
+
+    async function submitExactPin({
+      latitude,
+      longitude,
+      accuracy,
+      responseSource,
+      responseNote,
+    }) {
+      if (!requestRef) {
+        showError("Missing request id.");
+        disableActions(false);
+        return;
+      }
+
+      const payload = {
+        status: "received",
+        responseLat: latitude,
+        responseLng: longitude,
+        responseAccuracy: typeof accuracy === "number" ? accuracy : null,
+        responseAt: new Date(),
+        responseNote: (responseNote || "").trim(),
+        responseSource: responseSource || "",
+      };
+
+      try {
+        await requestRef.update(payload);
+        if (responseSource === "chosenOnMap") {
+          showMessage("Exact pin chosen on map. You can close this page.");
+        } else {
+          showMessage("Exact pin shared. You can close this page.");
+        }
+        disableActions(true);
+      } catch (error) {
+        console.error("Pin request update failed", error);
+        showError("Firestore update failed. Please try again.");
+        disableActions(false);
+      }
+    }
+
+    async function copyCurrentLink() {
+      clearStatus();
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(currentPageUrl);
+          showMessage("Link copied.");
+          return;
+        }
+      } catch (error) {
+        console.error("Link copy failed", error);
+      }
+
+      linkField.focus();
+      linkField.select();
+      try {
+        linkField.setSelectionRange(0, linkField.value.length);
+      } catch (_) {}
+      showError("Copy failed. Please select and copy the link manually.");
+    }
+
+    if (!requestId) {
+      requestIdLabel.textContent = "Missing request id.";
+      disableActions(true);
+      showError("Missing request id. Please open the full Van Mate link from the driver.");
+    } else {
+      requestIdLabel.textContent = `Request ID: ${requestId}`;
+    }
+
+    function shareMyLocation(responseSource) {
+      clearStatus();
+
+      if (!requestRef) {
+        showError("Missing request id.");
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        showError("Location unavailable. Try opening this link in Chrome/Safari, or send a Google Maps pin instead.");
+        return;
+      }
+
+      disableActions(true);
+
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          submitExactPin({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            responseSource: responseSource || "currentLocationConfirmed",
+            responseNote: noteInput.value.trim(),
+          }),
+        (error) => {
+          disableActions(false);
+
+          if (error && error.code === error.PERMISSION_DENIED) {
+            showError("Location permission was denied. Please allow location access or open this link in Chrome/Safari.");
+            return;
+          }
+
+          if (error && error.code === error.POSITION_UNAVAILABLE) {
+            showError("Location unavailable. Try opening this link in Chrome/Safari, or send a Google Maps pin instead.");
+            return;
+          }
+
+          if (error && error.code === error.TIMEOUT) {
+            showError("Location timed out. Move outside or try again.");
+            return;
+          }
+
+          showError("Location unavailable. Try again or send a note instead.");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    async function openMapModal() {
+      clearStatus();
+      selectedMapLatLng = null;
+      selectedMapReady = false;
+      useSelectedPinButton.disabled = true;
+      setModalOpen(mapModal, true);
+      const startCenter = await resolveMapStartCenter();
+      if (!mapModal.classList.contains("open")) {
+        return;
+      }
+      initializeMap(startCenter);
+    }
+
+    function submitChosenMapPin() {
+      if (!selectedMapLatLng) {
+        showError("Please move the map first.");
+        return;
+      }
+
+      closeMapModal();
+      openNoteModal(noteInput.value.trim());
+    }
+
+    function saveChosenMapPin() {
+      const note = (pinNoteInput?.value || "").trim();
+      noteInput.value = note;
+      closeNoteModal();
+      submitExactPin({
+        latitude: selectedMapLatLng.lat,
+        longitude: selectedMapLatLng.lng,
+        accuracy: null,
+        responseSource: "chosenOnMap",
+        responseNote: note,
+      });
+    }
+
+    function skipChosenMapPinNote() {
+      noteInput.value = "";
+      closeNoteModal();
+      submitExactPin({
+        latitude: selectedMapLatLng.lat,
+        longitude: selectedMapLatLng.lng,
+        accuracy: null,
+        responseSource: "chosenOnMap",
+        responseNote: "",
+      });
+    }
+
+    function sendNoteInstead() {
+      clearStatus();
+
+      if (!requestRef) {
+        showError("Missing request id.");
+        return;
+      }
+
+      const note = (noteInput.value || "").trim();
+      if (!note) {
+        showError("Please paste a map link or short note first.");
+        return;
+      }
+
+      disableActions(true);
+
+      requestRef.update({
+        status: "received_note",
+        responseNote: note,
+        responseSource: "",
+        responseAt: new Date()
+      })
+        .then(() => {
+          showMessage("Note sent. You can close this page.");
+          noteInput.disabled = true;
+        })
+        .catch((error) => {
+          console.error("Pin request update failed", error);
+          showError("Firestore update failed. Please try again.");
+          disableActions(false);
+        });
+    }
+
+    function startSafetyFlow() {
+      openSafetyModal();
+    }
+
+    shareButton.addEventListener("click", startSafetyFlow);
+    retryButton.addEventListener("click", startSafetyFlow);
+    sendNoteButton.addEventListener("click", sendNoteInstead);
+    copyLinkButton.addEventListener("click", copyCurrentLink);
+    confirmHereButton.addEventListener("click", () => {
+      closeSafetyModal();
+      shareMyLocation("currentLocationConfirmed");
+    });
+    chooseMapButton.addEventListener("click", async () => {
+      closeSafetyModal();
+      await openMapModal();
+    });
+    cancelSafetyButton.addEventListener("click", closeSafetyModal);
+    useSelectedPinButton.addEventListener("click", submitChosenMapPin);
+    cancelMapButton.addEventListener("click", closeMapModal);
+    savePinButton.addEventListener("click", saveChosenMapPin);
+    skipNoteButton.addEventListener("click", skipChosenMapPinNote);
+    safetyModal.addEventListener("click", (event) => {
+      if (event.target === safetyModal) {
+        closeSafetyModal();
+      }
+    });
+    mapModal.addEventListener("click", (event) => {
+      if (event.target === mapModal) {
+        closeMapModal();
+      }
+    });
+    noteModal.addEventListener("click", (event) => {
+      if (event.target === noteModal) {
+        skipChosenMapPinNote();
+      }
+    });
+  </script>
+</body>
+</html>

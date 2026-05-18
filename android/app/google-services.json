@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "406913319321",
+    "project_id": "vanmate-56eac",
+    "storage_bucket": "vanmate-56eac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:406913319321:android:4bb1aecdb073f9919bd308",
+        "android_client_info": {
+          "package_name": "com.davidtyler.vanmate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBwgrjvYAChKR-lW30ZUROejwCsB3_ymrI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

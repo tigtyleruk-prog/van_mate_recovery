@@ -1,0 +1,94 @@
+import 'package:flutter/foundation.dart';
+
+enum VanJobStatus {
+  draft,
+  requestSent,
+  replyReceived,
+  quoteSent,
+  confirmed,
+  completed,
+  cancelled,
+}
+
+extension VanJobStatusLabel on VanJobStatus {
+  String get value => name;
+
+  String get label {
+    switch (this) {
+      case VanJobStatus.draft:
+        return 'Draft';
+      case VanJobStatus.requestSent:
+        return 'Pending customer request';
+      case VanJobStatus.replyReceived:
+        return 'Reply received';
+      case VanJobStatus.quoteSent:
+        return 'Quote sent';
+      case VanJobStatus.confirmed:
+        return 'Confirmed';
+      case VanJobStatus.completed:
+        return 'Completed';
+      case VanJobStatus.cancelled:
+        return 'Cancelled';
+    }
+  }
+}
+
+VanJobStatus vanJobStatusFromString(Object? value) {
+  final text = value?.toString().trim().toLowerCase() ?? '';
+  switch (text) {
+    case 'requestsent':
+    case 'request_sent':
+    case 'pending':
+    case 'pending_customer_request':
+      return VanJobStatus.requestSent;
+    case 'replyreceived':
+    case 'reply_received':
+      return VanJobStatus.replyReceived;
+    case 'quotesent':
+    case 'quote_sent':
+      return VanJobStatus.quoteSent;
+    case 'confirmed':
+      return VanJobStatus.confirmed;
+    case 'completed':
+      return VanJobStatus.completed;
+    case 'cancelled':
+      return VanJobStatus.cancelled;
+    default:
+      return VanJobStatus.draft;
+  }
+}
+
+@immutable
+class VanJobRequestDraft {
+  const VanJobRequestDraft({
+    required this.jobId,
+    required this.customerName,
+    required this.phoneNumber,
+    required this.jobTitle,
+    required this.scheduledAt,
+    required this.jobDateLabel,
+    required this.jobTimeLabel,
+    required this.address,
+    required this.requestExactPin,
+    required this.checklistItems,
+    required this.customQuestions,
+    this.customerEmail = '',
+    this.postcode = '',
+    this.notesMessage = '',
+  });
+
+  final String jobId;
+  final String customerName;
+  final String phoneNumber;
+  final String customerEmail;
+  final String jobTitle;
+  final DateTime scheduledAt;
+  final String jobDateLabel;
+  final String jobTimeLabel;
+  final String address;
+  final String postcode;
+  final bool requestExactPin;
+  final List<String> checklistItems;
+  final List<String> customQuestions;
+  final String notesMessage;
+}
