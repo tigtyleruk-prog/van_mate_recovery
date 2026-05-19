@@ -1,11 +1,59 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../helpers/van_text_formatters.dart';
 import 'van_job_request_draft.dart';
+
+const Duration vanJobRequestDefaultExpiry = Duration(days: 7);
 
 String buildVanJobRequestLink(String requestId) {
   final normalizedId = requestId.trim();
   return 'vanmate://customer-request/$normalizedId';
+}
+
+String buildVanJobRequestShareMessage({
+  required String requestLink,
+  String jobTitle = '',
+  String customerName = '',
+  String address = '',
+}) {
+  final cleanedLink = requestLink.trim();
+  final cleanedJobTitle = _shortRequestContext(jobTitle);
+  final cleanedCustomerName = _shortRequestContext(customerName);
+  final cleanedAddress = _shortRequestContext(address);
+
+  final lines = <String>[
+    'Hi, please fill in these job details for me so I can plan the job properly.',
+    '',
+    'It only takes a minute and helps me get the right access info and exact location/pin.',
+  ];
+
+  if (cleanedJobTitle.isNotEmpty) {
+    lines.add('Job: $cleanedJobTitle');
+  }
+  if (cleanedCustomerName.isNotEmpty) {
+    lines.add('Customer: $cleanedCustomerName');
+  }
+  if (cleanedAddress.isNotEmpty) {
+    lines.add('Address: $cleanedAddress');
+  }
+
+  lines.add('');
+  lines.add('Open request:');
+  lines.add(cleanedLink);
+  lines.add('');
+  lines.add('Thanks.');
+
+  return lines.join('\n');
+}
+
+String _shortRequestContext(String value, {int maxLength = 72}) {
+  final cleaned = sanitizeVanText(value).trim();
+  if (cleaned.length <= maxLength) {
+    return cleaned;
+  }
+
+  return '${cleaned.substring(0, maxLength - 3).trimRight()}...';
 }
 
 String _readVanRequestText(dynamic value, {String fallback = ''}) {

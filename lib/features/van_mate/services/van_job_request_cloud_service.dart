@@ -151,7 +151,7 @@ class VanJobRequestCloudService {
       status: 'pending',
       createdAt: now,
       updatedAt: now,
-      expiresAt: now.add(const Duration(hours: 48)),
+      expiresAt: now.add(vanJobRequestDefaultExpiry),
       scheduledAt: draft.scheduledAt,
       jobDateLabel: draft.jobDateLabel,
       jobTimeLabel: draft.jobTimeLabel,
@@ -356,6 +356,64 @@ class VanJobRequestCloudService {
       exactPinLng: exactPinLng,
       exactPinSource: exactPinSource.trim(),
       exactPinNote: exactPinNote.trim(),
+    );
+
+    final collectionPath = rootCollectionName;
+    logVanFirebaseWriteStart(
+      collectionPath: collectionPath,
+      docId: normalizedRequestId,
+      uid: normalizedOwnerUid,
+      source: source,
+    );
+    try {
+      await _requests.doc(normalizedRequestId).set(
+        updated.toFirestore(),
+        SetOptions(merge: true),
+      );
+      logVanFirebaseWriteSuccess(
+        collectionPath: collectionPath,
+        docId: normalizedRequestId,
+        uid: normalizedOwnerUid,
+        source: source,
+      );
+    } catch (error) {
+      logVanFirebaseWriteFailure(
+        collectionPath: collectionPath,
+        docId: normalizedRequestId,
+        uid: normalizedOwnerUid,
+        error: error,
+        source: source,
+      );
+      rethrow;
+    }
+
+    await _mirrorPrivateRequest(
+      ownerUid: normalizedOwnerUid,
+      request: updated,
+      source: source,
+    );
+    return updated;
+  }
+
+  Future<VanJobRequestRecord?> cancelRequest({
+    required String requestId,
+    required String ownerUid,
+    String source = 'van_mate.job_request',
+  }) async {
+    final normalizedRequestId = requestId.trim();
+    final normalizedOwnerUid = ownerUid.trim();
+    if (normalizedRequestId.isEmpty || normalizedOwnerUid.isEmpty) {
+      return null;
+    }
+
+    final existing = await loadRequestById(normalizedRequestId);
+    if (existing == null || existing.ownerUid.trim() != normalizedOwnerUid) {
+      return existing;
+    }
+
+    final updated = existing.copyWith(
+      status: 'cancelled',
+      updatedAt: DateTime.now(),
     );
 
     final collectionPath = rootCollectionName;

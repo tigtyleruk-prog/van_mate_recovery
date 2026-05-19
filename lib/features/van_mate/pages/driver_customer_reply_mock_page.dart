@@ -146,6 +146,102 @@ class DriverCustomerReplyMockData {
   bool get isCompleted => isCompletedJob;
   bool get isCancelled => status == 'cancelled';
 
+  bool get hasRequest => requestId?.trim().isNotEmpty == true;
+
+  bool get isRequestExpired {
+    if (!hasRequest || requestStatus == 'cancelled') {
+      return false;
+    }
+
+    final expiresAt = requestExpiresAt;
+    return expiresAt != null && DateTime.now().isAfter(expiresAt);
+  }
+
+  bool get isRequestPending =>
+      requestStatus == 'pending' && !isRequestExpired;
+
+  bool get isRequestSubmitted => requestStatus == 'submitted';
+
+  bool get isRequestCancelled => requestStatus == 'cancelled';
+
+  bool get isRequestExactPinReceived => isRequestSubmitted && exactPinShared;
+
+  String get requestStatusLabel {
+    if (!hasRequest || requestStatus == 'draft') {
+      return 'Not sent';
+    }
+    if (isRequestCancelled) {
+      return 'Cancelled';
+    }
+    if (isRequestExpired) {
+      return 'Expired';
+    }
+    if (isRequestExactPinReceived) {
+      return 'Exact pin received';
+    }
+    if (isRequestSubmitted || isReplyReceived) {
+      return 'Reply received';
+    }
+    return 'Awaiting customer reply';
+  }
+
+  String get requestBadgeLabel {
+    if (!hasRequest || requestStatus == 'draft') {
+      return 'Not sent';
+    }
+    if (isRequestCancelled) {
+      return 'Cancelled';
+    }
+    if (isRequestExpired) {
+      return 'Expired';
+    }
+    if (isRequestExactPinReceived) {
+      return 'Exact pin received';
+    }
+    if (isRequestSubmitted || isReplyReceived) {
+      return 'Reply received';
+    }
+    return 'Request sent';
+  }
+
+  String get requestStatusSummary {
+    if (!hasRequest || requestStatus == 'draft') {
+      return 'Request not sent yet.';
+    }
+    if (isRequestCancelled) {
+      return 'Request cancelled.';
+    }
+    if (isRequestExpired) {
+      return 'Request expired.';
+    }
+    if (isRequestExactPinReceived) {
+      return 'Exact pin received.';
+    }
+    if (isRequestSubmitted || isReplyReceived) {
+      return 'Customer reply received.';
+    }
+    return 'Request sent.';
+  }
+
+  VanJobRequestDraft toDraft() {
+    return VanJobRequestDraft(
+      jobId: jobId,
+      customerName: customerName,
+      phoneNumber: phoneNumber,
+      customerEmail: customerEmail,
+      jobTitle: jobTitle,
+      scheduledAt: scheduledAtOrParsed ?? DateTime.now(),
+      jobDateLabel: jobDateLabel,
+      jobTimeLabel: jobTimeLabel,
+      address: address,
+      postcode: postcode,
+      notesMessage: notesMessage,
+      requestExactPin: requestExactPin,
+      checklistItems: checklistItems,
+      customQuestions: customQuestions,
+    );
+  }
+
   String get statusLabel {
     switch (status) {
       case 'requestSent':
@@ -547,6 +643,7 @@ class DriverReplyMockState {
       <String, VanInvoiceHistoryEntry>{};
   final Map<String, VanJobRequestRecord> _jobRequestsById =
       <String, VanJobRequestRecord>{};
+  String? _recentRequestRefreshNotice;
 
   Future<void> ensureLoaded() => _storage.ensureLoaded();
 
@@ -657,10 +754,16 @@ class DriverReplyMockState {
     }
 
     try {
+      final previousRequestsById = Map<String, VanJobRequestRecord>.from(
+        _jobRequestsById,
+      );
       final cloudRequests = await VanJobRequestCloudService.instance
           .loadRequestsForOwner(ownerUid: ownerUid);
       if (cloudRequests.isNotEmpty) {
-        _mergeCloudRequests(cloudRequests);
+        _mergeCloudRequests(
+          cloudRequests,
+          previousRequestsById: previousRequestsById,
+        );
         await saveToStorage(syncCloud: false);
       }
       logVanFirebaseHydration(
@@ -676,6 +779,12 @@ class DriverReplyMockState {
       );
       rethrow;
     }
+  }
+
+  String? takeRecentRequestRefreshNotice() {
+    final notice = _recentRequestRefreshNotice;
+    _recentRequestRefreshNotice = null;
+    return notice;
   }
 
   Future<void> clearAllLocalJobData() async {
@@ -979,14 +1088,33 @@ class DriverReplyMockState {
   }
 
   Future<DriverCustomerReplyMockData> sendJobRequest(
-    VanJobRequestDraft draft,
-  ) async {
+    VanJobRequestDraft draft, {
+    bool forceNewRequest = false,
+  }) async {
     final existing = _jobsById[draft.jobId];
+    final existingRequest = forceNewRequest
+        ? null
+        : _requestForJob(draft.jobId);
+    if (existingRequest != null &&
+        existingRequest.status != 'cancelled' &&
+        !existingRequest.isExpired) {
+      final merged = _replyFromRequestRecord(
+        existingRequest,
+        existing: existing,
+      );
+      _jobsById[merged.jobId] = merged;
+      _activeJobId = merged.jobId;
+      _scheduleSave();
+      return merged;
+    }
+
     final now = DateTime.now();
-    final existingRequestId = existing?.requestId?.trim() ?? '';
-    final requestId = existingRequestId.isNotEmpty
-        ? existingRequestId
-        : VanJobRequestCloudService.instance.createRequestId();
+    final requestId = forceNewRequest ||
+            existingRequest == null ||
+            existingRequest.status == 'cancelled' ||
+            existingRequest.isExpired
+        ? VanJobRequestCloudService.instance.createRequestId()
+        : existingRequest.requestId;
     final requestLink = buildVanJobRequestLink(requestId);
     final updated = _withDefaultsFromDraft(
       draft,
@@ -997,10 +1125,9 @@ class DriverReplyMockState {
     ).copyWith(
       requestId: requestId,
       requestStatus: 'pending',
-      requestCreatedAt: existing?.requestCreatedAt ?? now,
+      requestCreatedAt: now,
       requestUpdatedAt: now,
-      requestExpiresAt:
-          existing?.requestExpiresAt ?? now.add(const Duration(hours: 48)),
+      requestExpiresAt: now.add(vanJobRequestDefaultExpiry),
       requestLink: requestLink,
     );
     _jobsById[updated.jobId] = updated;
@@ -1026,7 +1153,7 @@ class DriverReplyMockState {
         source: 'van_mate.job_request_send',
       );
       if (ownerUid != null && ownerUid.trim().isNotEmpty) {
-      final record = await VanJobRequestCloudService.instance
+        final record = await VanJobRequestCloudService.instance
             .createOrUpdateFromDraft(
               ownerUid: ownerUid,
               jobId: updated.jobId,
@@ -1035,7 +1162,8 @@ class DriverReplyMockState {
               source: 'van_mate.job_request',
             );
         _jobRequestsById[record.requestId] = record;
-        _jobsById[updated.jobId] = _replyFromRequestRecord(record, existing: updated);
+        _jobsById[updated.jobId] =
+            _replyFromRequestRecord(record, existing: updated);
         await saveToStorage(syncCloud: false);
       }
     } catch (error) {
@@ -1126,10 +1254,60 @@ class DriverReplyMockState {
         exactPinLat: updated.exactPinLatitude,
         exactPinLng: updated.exactPinLongitude,
       );
+      _recentRequestRefreshNotice = updated.exactPinShared
+          ? 'Exact pin received for ${updated.jobTitle}'
+          : 'Customer reply received';
     }
     _activeJobId = jobId;
     _scheduleSave();
     return updated;
+  }
+
+  Future<VanJobRequestRecord?> cancelRequestForJob({
+    required String jobId,
+  }) async {
+    final request = _requestForJob(jobId);
+    if (request == null || request.requestId.trim().isEmpty) {
+      return null;
+    }
+
+    final ownerUid = request.ownerUid.trim().isNotEmpty
+        ? request.ownerUid.trim()
+        : (await VanFirebaseAuthService.instance.ensureCurrentUid(
+            source: 'van_mate.job_request_cancel',
+          ) ??
+            '');
+    final cloudUpdated = await VanJobRequestCloudService.instance.cancelRequest(
+      requestId: request.requestId,
+      ownerUid: ownerUid,
+      source: 'van_mate.job_request_cancel',
+    );
+    final updatedRequest = cloudUpdated ?? request.copyWith(
+      status: 'cancelled',
+      updatedAt: DateTime.now(),
+    );
+    _jobRequestsById[updatedRequest.requestId] = updatedRequest;
+    final existingJob = _jobsById[jobId];
+    final nextStatus = existingJob == null ||
+            existingJob.status == 'draft' ||
+            existingJob.status == 'requestSent'
+        ? 'cancelled'
+        : existingJob.status;
+    final updatedJob = (existingJob ?? _replyFromRequestRecord(updatedRequest))
+        .copyWith(
+          status: nextStatus,
+          requestId: updatedRequest.requestId,
+          requestStatus: 'cancelled',
+          requestCreatedAt: updatedRequest.createdAt,
+          requestUpdatedAt: updatedRequest.updatedAt,
+          requestSubmittedAt: updatedRequest.submittedAt,
+          requestExpiresAt: updatedRequest.expiresAt,
+          requestLink: buildVanJobRequestLink(updatedRequest.requestId),
+        );
+    _jobsById[jobId] = updatedJob;
+    _activeJobId = jobId;
+    _scheduleSave();
+    return updatedRequest;
   }
 
   DriverCustomerReplyMockData? _updateJob(
@@ -1538,12 +1716,24 @@ class DriverReplyMockState {
     }
   }
 
-  void _mergeCloudRequests(List<VanJobRequestRecord> cloudRequests) {
+  void _mergeCloudRequests(
+    List<VanJobRequestRecord> cloudRequests, {
+    Map<String, VanJobRequestRecord>? previousRequestsById,
+  }) {
     for (final request in cloudRequests) {
       final existing = _jobRequestsById[request.requestId];
       final existingUpdated = existing?.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       if (existing == null || request.updatedAt.isAfter(existingUpdated)) {
         _jobRequestsById[request.requestId] = request;
+      }
+
+      final previous = previousRequestsById?[request.requestId];
+      if (previous != null &&
+          previous.status != request.status &&
+          request.status == 'submitted') {
+        _recentRequestRefreshNotice = request.hasExactPin
+            ? 'Exact pin received for ${request.publicJobTitle}'
+            : 'Customer reply received';
       }
 
       final linkedJob = _jobsById[request.jobId];
@@ -1559,6 +1749,31 @@ class DriverReplyMockState {
 
       _jobsById[request.jobId] = requestReply;
     }
+  }
+
+  VanJobRequestRecord? _requestForJob(String jobId) {
+    final normalizedJobId = jobId.trim();
+    if (normalizedJobId.isEmpty) {
+      return null;
+    }
+
+    final job = _jobsById[normalizedJobId];
+    final requestId = job?.requestId?.trim();
+    if (requestId != null && requestId.isNotEmpty) {
+      final request = _jobRequestsById[requestId];
+      if (request != null) {
+        return request;
+      }
+    }
+
+    final candidates = _jobRequestsById.values
+        .where((request) => request.jobId.trim() == normalizedJobId)
+        .toList(growable: false);
+    if (candidates.isEmpty) {
+      return null;
+    }
+    candidates.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return candidates.first;
   }
 
   VanJobRequestRecord _requestRecordFromJob(
@@ -1584,8 +1799,7 @@ class DriverReplyMockState {
       status: requestStatus,
       createdAt: job.requestCreatedAt ?? job.createdAt ?? now,
       updatedAt: job.requestUpdatedAt ?? now,
-      expiresAt:
-          job.requestExpiresAt ?? now.add(const Duration(hours: 48)),
+      expiresAt: job.requestExpiresAt ?? now.add(vanJobRequestDefaultExpiry),
       scheduledAt: job.scheduledAtOrParsed,
       jobDateLabel: job.jobDateLabel,
       jobTimeLabel: job.jobTimeLabel,

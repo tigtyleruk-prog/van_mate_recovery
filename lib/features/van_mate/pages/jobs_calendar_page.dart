@@ -53,6 +53,11 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
       await DriverReplyMockState.instance.loadJobRequestsFromCloud();
       if (mounted) {
         setState(() {});
+        final notice =
+            DriverReplyMockState.instance.takeRecentRequestRefreshNotice();
+        if (notice != null && notice.isNotEmpty) {
+          _showSnack(notice);
+        }
       }
     } catch (error) {
       debugPrint('Job request refresh failed: $error');
@@ -292,14 +297,30 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
   }
 
   List<_JobsStatusChip> _jobChips(DriverCustomerReplyMockData job) {
-    final exactPinLabel = job.exactPinShared
+    final exactPinLabel = job.isRequestExactPinReceived
+        ? 'Exact pin received'
+        : job.exactPinShared
         ? 'Exact pin saved'
         : 'Exact pin missing';
     final exactPinColor = job.exactPinShared
         ? const Color(0xFF58D0A4)
         : const Color(0xFFFFC38C);
+    final requestColor = job.isRequestCancelled || job.isRequestExpired
+        ? const Color(0xFFFFC38C)
+        : job.isRequestExactPinReceived || job.isRequestSubmitted
+        ? const Color(0xFF58D0A4)
+        : const Color(0xFF4A7DFF);
+    final requestIcon = job.isRequestCancelled
+        ? Icons.cancel
+        : job.isRequestExpired
+        ? Icons.schedule
+        : job.isRequestExactPinReceived
+        ? Icons.location_on
+        : job.isRequestSubmitted
+        ? Icons.check_circle
+        : Icons.pending_actions;
 
-    return <_JobsStatusChip>[
+    final chips = <_JobsStatusChip>[
       _JobsStatusChip(
         label: job.statusLabel,
         color: const Color(0xFF58D0A4),
@@ -324,6 +345,20 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
           icon: Icons.schedule,
         ),
     ];
+
+    if (job.hasRequest && job.requestStatusLabel != 'Not sent') {
+      chips.insert(
+        1,
+        _JobsStatusChip(
+          label: job.requestStatusLabel,
+          color: requestColor,
+          icon: requestIcon,
+          filled: job.isRequestSubmitted || job.isRequestExactPinReceived,
+        ),
+      );
+    }
+
+    return chips;
   }
 
   List<_JobsInlineActionButton> _jobActions(
@@ -737,28 +772,58 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
           ),
           const SizedBox(height: 12),
           _JobsMockJobCard(
-            accent: job.isQuoteSent || job.isReplyReceived
+            accent: job.isRequestCancelled || job.isRequestExpired
+                ? const Color(0xFFFFC38C)
+                : job.isRequestSubmitted || job.isRequestExactPinReceived
                 ? const Color(0xFF58D0A4)
                 : const Color(0xFF4A7DFF),
-            icon: job.isQuoteSent || job.isReplyReceived
+            icon: job.isRequestCancelled
+                ? Icons.cancel
+                : job.isRequestExpired
+                ? Icons.schedule
+                : job.isRequestSubmitted || job.isRequestExactPinReceived
                 ? Icons.check_circle
                 : Icons.mark_email_read_outlined,
-            eyebrow: job.statusLabel,
+            eyebrow: job.requestBadgeLabel,
             title: job.customerName,
             subtitle: job.jobTitle,
-            body: job.isQuoteSent
-                ? 'Quote sent to the customer. Waiting for response.'
-                : 'Customer reply reviewed. Ready to head out.',
+            body: job.isRequestExactPinReceived
+                ? 'Customer reply received and exact pin is saved.'
+                : job.isRequestSubmitted
+                ? 'Customer reply received.'
+                : job.isRequestPending
+                ? 'Waiting for the customer to reply.'
+                : job.isRequestCancelled
+                ? 'Request cancelled.'
+                : job.isRequestExpired
+                ? 'Request expired.'
+                : 'Request not sent yet.',
             chips: [
+              if (job.hasRequest && job.requestBadgeLabel != 'Not sent')
+                _JobsStatusChip(
+                  label: job.requestBadgeLabel,
+                  color: job.isRequestCancelled || job.isRequestExpired
+                      ? const Color(0xFFFFC38C)
+                      : job.isRequestExactPinReceived || job.isRequestSubmitted
+                      ? const Color(0xFF58D0A4)
+                      : const Color(0xFF4A7DFF),
+                  icon: job.isRequestCancelled
+                      ? Icons.cancel
+                      : job.isRequestExpired
+                      ? Icons.schedule
+                      : job.isRequestExactPinReceived
+                      ? Icons.location_on
+                      : job.isRequestSubmitted
+                      ? Icons.check_circle
+                      : Icons.pending_actions,
+                  filled: job.isRequestSubmitted ||
+                      job.isRequestExactPinReceived,
+                ),
               _JobsStatusChip(
-                label: job.statusLabel,
-                color: const Color(0xFF58D0A4),
-                icon: Icons.check_circle,
-                filled: true,
-              ),
-              _JobsStatusChip(
-                label: job.exactPinShared
-                    ? 'Exact pin shared'
+                label: job.isRequestExactPinReceived
+                    ? 'Exact pin received'
+                    : job.exactPinShared
+                    ? 'Exact pin saved'
                     : 'Exact pin missing',
                 color: job.exactPinShared
                     ? const Color(0xFF58D0A4)

@@ -308,7 +308,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Job request created.'),
+        content: Text('Job request ready.'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -323,6 +323,12 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     final requestLink = job.requestLink.trim().isNotEmpty
         ? job.requestLink.trim()
         : buildVanJobRequestLink(requestId);
+    final shareMessage = buildVanJobRequestShareMessage(
+      requestLink: requestLink,
+      jobTitle: job.jobTitle,
+      customerName: job.customerName,
+      address: job.address,
+    );
     final navigator = Navigator.of(context);
 
     await showModalBottomSheet<void>(
@@ -359,7 +365,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Request link',
+                        'Customer request link',
                         style: Theme.of(sheetContext).textTheme.titleLarge
                             ?.copyWith(
                               color: Colors.white,
@@ -368,7 +374,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Test link only for now. Share this with the customer or open the form locally.',
+                        'This creates a secure request for this job. For now this uses a test app link. You can copy/share it or open the customer form locally for testing.',
                         style: Theme.of(sheetContext).textTheme.bodyMedium
                             ?.copyWith(
                               color: Colors.white.withValues(alpha: 0.74),
@@ -404,7 +410,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                               }
                             },
                             icon: const Icon(Icons.copy),
-                            label: const Text('Copy request link'),
+                            label: const Text('Copy link'),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF4A7DFF),
                               foregroundColor: Colors.white,
@@ -414,13 +420,12 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                             onPressed: () async {
                               await SharePlus.instance.share(
                                 ShareParams(
-                                  text:
-                                      'Van Mate customer request link:\n$requestLink',
+                                  text: shareMessage,
                                 ),
                               );
                             },
                             icon: const Icon(Icons.share),
-                            label: const Text('Share request link'),
+                            label: const Text('Share link'),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF58D0A4),
                               foregroundColor: Colors.white,
@@ -442,7 +447,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                               );
                             },
                             icon: const Icon(Icons.open_in_new),
-                            label: const Text('Open customer form locally/test'),
+                            label: const Text('Open test form'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
                               side: BorderSide(
@@ -2153,6 +2158,10 @@ class _CustomerRequestPreviewPageState
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom;
 
     final items = _draft.checklistItems;
+    final requestUnavailable = _loadedRequest != null &&
+        (_loadedRequest!.isExpired ||
+            _loadedRequest!.status == 'cancelled' ||
+            _loadedRequest!.isSubmitted);
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -2192,6 +2201,34 @@ class _CustomerRequestPreviewPageState
                         ),
                       ),
                       const SizedBox(height: 16),
+                      if (requestUnavailable) ...[
+                        _JobRequestGlassCard(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Color(0xFFFFC38C),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _loadedRequest!.isExpired
+                                      ? 'This request has expired. Please ask the driver for a new link.'
+                                      : _loadedRequest!.status == 'cancelled'
+                                      ? 'This request has been cancelled. Please ask the driver for a new link.'
+                                      : 'This request has already been submitted.',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.76),
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       _buildSubmissionSuccessCard(context),
                       if (_submissionComplete) const SizedBox(height: 12),
                       _JobRequestGlassCard(
@@ -2468,7 +2505,9 @@ class _CustomerRequestPreviewPageState
                               ),
                             ),
                             FilledButton.icon(
-                              onPressed: _submitDetails,
+                              onPressed: requestUnavailable
+                                  ? null
+                                  : _submitDetails,
                               icon: const Icon(Icons.send),
                               label: const Text('Submit details'),
                               style: FilledButton.styleFrom(

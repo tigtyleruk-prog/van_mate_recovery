@@ -3,9 +3,12 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../helpers/app_theme.dart';
+import '../models/van_job_request_record.dart';
 import '../helpers/van_text_formatters.dart';
+import 'create_job_request_flow.dart';
 import 'driver_customer_reply_mock_page.dart';
 import '../widgets/van_form_field_styles.dart';
 
@@ -96,6 +99,121 @@ class _JobDetailPageState extends State<JobDetailPage> {
     }
 
     return parts.join('\n\n');
+  }
+
+  String? _requestLink() {
+    final link = reply.requestLink.trim();
+    if (link.isNotEmpty) {
+      return link;
+    }
+
+    final requestId = reply.requestId?.trim() ?? '';
+    if (requestId.isNotEmpty) {
+      return buildVanJobRequestLink(requestId);
+    }
+
+    return null;
+  }
+
+  bool get _hasRequest => reply.hasRequest;
+
+  bool get _canCancelRequest =>
+      _hasRequest &&
+      !reply.isRequestCancelled &&
+      !reply.isRequestExpired &&
+      !reply.isCompleted;
+
+  Future<void> _copyRequestLink() async {
+    final link = _requestLink();
+    if (link == null) {
+      _showSnack('No request link available.');
+      return;
+    }
+
+    await Clipboard.setData(ClipboardData(text: link));
+    _showSnack('Request link copied.');
+  }
+
+  Future<void> _shareRequestLink() async {
+    final link = _requestLink();
+    if (link == null) {
+      _showSnack('No request link available.');
+      return;
+    }
+
+    await SharePlus.instance.share(
+      ShareParams(
+        text: buildVanJobRequestShareMessage(
+          requestLink: link,
+          jobTitle: reply.jobTitle,
+          customerName: reply.customerName,
+          address: reply.address,
+        ),
+      ),
+    );
+  }
+
+  void _openTestForm() {
+    final requestId = reply.requestId?.trim();
+    if (requestId == null || requestId.isEmpty) {
+      _showSnack('No request has been created yet.');
+      return;
+    }
+
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CustomerRequestPreviewPage.forRequestId(
+            requestId: requestId,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _resendRequest() async {
+    final previousRequestId = reply.requestId?.trim() ?? '';
+    final updated = await DriverReplyMockState.instance.sendJobRequest(
+      reply.toDraft(),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    final updatedRequestId = updated.requestId?.trim() ?? '';
+    final reusedExisting = previousRequestId.isNotEmpty &&
+        previousRequestId == updatedRequestId;
+    _showSnack(
+      reusedExisting
+          ? 'Existing request reused for ${updated.customerName}.'
+          : 'New request created for ${updated.customerName}.',
+    );
+  }
+
+  Future<void> _newRequest() async {
+    final updated = await DriverReplyMockState.instance.sendJobRequest(
+      reply.toDraft(),
+      forceNewRequest: true,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    _showSnack('New request created for ${updated.customerName}.');
+  }
+
+  Future<void> _cancelRequest() async {
+    if (!_canCancelRequest) {
+      _showSnack('This request cannot be cancelled.');
+      return;
+    }
+
+    await DriverReplyMockState.instance.cancelRequestForJob(jobId: reply.jobId);
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    _showSnack('Request cancelled.');
   }
 
   String _formatJobDate(DateTime date) {
@@ -1090,6 +1208,168 @@ Please reply to confirm if you're happy to go ahead.
                             _buildSmallInfoCard('Address', reply.address),
                             const SizedBox(height: 10),
                             _buildSmallInfoCard('Phone', reply.phoneNumber),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildShellCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Customer request',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _buildChip(
+                                  reply.isRequestExactPinReceived
+                                      ? 'Reply received'
+                                      : reply.requestBadgeLabel,
+                                  color: reply.isRequestCancelled
+                                      ? const Color(0xFFFFC38C)
+                                      : reply.isRequestExpired
+                                      ? const Color(0xFFFFC38C)
+                                      : const Color(0xFF4A7DFF),
+                                  icon: reply.isRequestCancelled
+                                      ? Icons.cancel
+                                      : reply.isRequestExpired
+                                      ? Icons.schedule
+                                      : reply.isRequestSubmitted ||
+                                          reply.isRequestPending
+                                      ? Icons.mark_email_read_outlined
+                                      : Icons.send_outlined,
+                                  filled: true,
+                                ),
+                                if (reply.isRequestPending)
+                                  _buildChip(
+                                    'Awaiting customer reply',
+                                    color: const Color(0xFF4A7DFF),
+                                    icon: Icons.hourglass_bottom,
+                                  ),
+                                if (reply.isRequestSubmitted)
+                                  _buildChip(
+                                    'Reply received',
+                                    color: const Color(0xFF58D0A4),
+                                    icon: Icons.check_circle,
+                                    filled: true,
+                                  ),
+                                if (reply.isRequestExactPinReceived)
+                                  _buildChip(
+                                    'Exact pin received',
+                                    color: const Color(0xFF58D0A4),
+                                    icon: Icons.location_on,
+                                    filled: true,
+                                  ),
+                                if (reply.isRequestExpired)
+                                  _buildChip(
+                                    'Expired',
+                                    color: const Color(0xFFFFC38C),
+                                    icon: Icons.schedule,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _buildSmallInfoCard(
+                              'Status',
+                              reply.requestStatusSummary,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildSmallInfoCard(
+                              'Request link',
+                              _requestLink() ?? 'No request link yet.',
+                            ),
+                            const SizedBox(height: 12),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final stacked = constraints.maxWidth < 520;
+                                final resendLabel = reply.hasRequest &&
+                                        !reply.isRequestCancelled &&
+                                        !reply.isRequestExpired
+                                    ? 'Resend request'
+                                    : 'Send request';
+                                final buttons = <Widget>[
+                                  _buildActionButton(
+                                    label: 'Copy link again',
+                                    icon: Icons.copy,
+                                    color: const Color(0xFF4A7DFF),
+                                    onTap: () => unawaited(_copyRequestLink()),
+                                  ),
+                                  _buildActionButton(
+                                    label: 'Share link again',
+                                    icon: Icons.share,
+                                    color: const Color(0xFF58D0A4),
+                                    onTap: () => unawaited(_shareRequestLink()),
+                                  ),
+                                  _buildActionButton(
+                                    label: 'Open test form',
+                                    icon: Icons.open_in_new,
+                                    color: const Color(0xFFB48CFF),
+                                    onTap: _openTestForm,
+                                  ),
+                                  _buildActionButton(
+                                    label: resendLabel,
+                                    icon: Icons.refresh,
+                                    color: const Color(0xFF4A7DFF),
+                                    filled: true,
+                                    onTap: () => unawaited(_resendRequest()),
+                                  ),
+                                  if (reply.isRequestSubmitted ||
+                                      reply.isRequestCancelled ||
+                                      reply.isRequestExpired)
+                                    _buildActionButton(
+                                      label: 'New request',
+                                      icon: Icons.add_task,
+                                      color: const Color(0xFFB48CFF),
+                                      onTap: () => unawaited(_newRequest()),
+                                    ),
+                                  if (_canCancelRequest)
+                                    _buildActionButton(
+                                      label: 'Cancel request',
+                                      icon: Icons.cancel_outlined,
+                                      color: const Color(0xFFFFC38C),
+                                      onTap: () => unawaited(_cancelRequest()),
+                                    ),
+                                ];
+
+                                if (stacked) {
+                                  return Column(
+                                    children: [
+                                      for (
+                                        var i = 0;
+                                        i < buttons.length;
+                                        i++
+                                      ) ...[
+                                        buttons[i],
+                                        if (i < buttons.length - 1)
+                                          const SizedBox(height: 10),
+                                      ],
+                                    ],
+                                  );
+                                }
+
+                                return Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    for (final button in buttons)
+                                      SizedBox(
+                                        width: constraints.maxWidth < 620
+                                            ? constraints.maxWidth
+                                            : 176,
+                                        child: button,
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
