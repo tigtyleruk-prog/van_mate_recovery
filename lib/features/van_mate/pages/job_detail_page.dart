@@ -88,14 +88,14 @@ class _JobDetailPageState extends State<JobDetailPage> {
         continue;
       }
 
-      parts.add('$cleanedQuestion - $cleanedAnswer');
+      parts.add(formatCustomQuestionAnswer(cleanedQuestion, cleanedAnswer));
     }
 
     if (parts.isEmpty) {
       return null;
     }
 
-    return parts.join('\n');
+    return parts.join('\n\n');
   }
 
   String _formatJobDate(DateTime date) {

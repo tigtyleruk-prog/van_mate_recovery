@@ -81,6 +81,18 @@ Future<void> runVanMateApp() async {
       debugPrint('Van Mate cloud job load failed: $error');
     }
     try {
+      logVanFirebaseHydration(stage: 'started', target: 'cloud job requests');
+      await DriverReplyMockState.instance.loadJobRequestsFromCloud();
+      logVanFirebaseHydration(stage: 'completed', target: 'cloud job requests');
+    } catch (error) {
+      logVanFirebaseHydration(
+        stage: 'failed',
+        target: 'cloud job requests',
+        extra: error.toString(),
+      );
+      debugPrint('Van Mate cloud job request load failed: $error');
+    }
+    try {
       logVanFirebaseHydration(stage: 'started', target: 'cloud business profile');
       await VanBusinessProfileStorage.instance.loadFromCloud();
       logVanFirebaseHydration(

@@ -24,7 +24,41 @@ class JobsCalendarPage extends StatefulWidget {
   State<JobsCalendarPage> createState() => _JobsCalendarPageState();
 }
 
-class _JobsCalendarPageState extends State<JobsCalendarPage> {
+class _JobsCalendarPageState extends State<JobsCalendarPage>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_refreshCloudRequests());
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshCloudRequests());
+    }
+  }
+
+  Future<void> _refreshCloudRequests() async {
+    try {
+      await DriverReplyMockState.instance.loadJobRequestsFromCloud();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (error) {
+      debugPrint('Job request refresh failed: $error');
+    }
+  }
+
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),

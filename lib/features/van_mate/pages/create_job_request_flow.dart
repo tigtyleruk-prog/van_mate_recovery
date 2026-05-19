@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -5,11 +6,16 @@ import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:share_plus/share_plus.dart';
+
+// ignore_for_file: use_build_context_synchronously
 
 import '../helpers/app_theme.dart';
 import '../models/van_job_request_draft.dart';
+import '../models/van_job_request_record.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
 import '../models/van_exact_pin_source.dart';
+import '../services/van_job_request_cloud_service.dart';
 import '../widgets/van_form_field_styles.dart';
 import '../widgets/van_exact_pin_flow.dart';
 
@@ -286,18 +292,174 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     );
   }
 
-  void _sendRequest() {
+  Future<void> _sendRequest() async {
     if (!_validateMainFields()) {
       return;
     }
 
     FocusScope.of(context).unfocus();
-    DriverReplyMockState.instance.sendJobRequest(_buildDraft());
+    final job = await DriverReplyMockState.instance.sendJobRequest(_buildDraft());
+    if (!mounted) {
+      return;
+    }
+    await _showRequestLinkSheet(job);
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Job request created.'),
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  Future<void> _showRequestLinkSheet(
+    DriverCustomerReplyMockData job,
+  ) async {
+    final requestId = job.requestId?.trim().isNotEmpty == true
+        ? job.requestId!.trim()
+        : job.jobId.trim();
+    final requestLink = job.requestLink.trim().isNotEmpty
+        ? job.requestLink.trim()
+        : buildVanJobRequestLink(requestId);
+    final navigator = Navigator.of(context);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.11),
+                        Colors.white.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.14),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Request link',
+                        style: Theme.of(sheetContext).textTheme.titleLarge
+                            ?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Test link only for now. Share this with the customer or open the form locally.',
+                        style: Theme.of(sheetContext).textTheme.bodyMedium
+                            ?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.74),
+                              height: 1.45,
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      SelectableText(
+                        requestLink,
+                        style: Theme.of(sheetContext).textTheme.bodyMedium
+                            ?.copyWith(
+                              color: const Color(0xFF8AB4FF),
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: requestLink),
+                              );
+                              if (sheetContext.mounted) {
+                                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Request link copied.'),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.copy),
+                            label: const Text('Copy request link'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF4A7DFF),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () async {
+                              await SharePlus.instance.share(
+                                ShareParams(
+                                  text:
+                                      'Van Mate customer request link:\n$requestLink',
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.share),
+                            label: const Text('Share request link'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF58D0A4),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop();
+                              if (!mounted) {
+                                return;
+                              }
+                              navigator.push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      CustomerRequestPreviewPage.forRequestId(
+                                    requestId: requestId,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.open_in_new),
+                            label: const Text('Open customer form locally/test'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.16),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -791,10 +953,37 @@ class CustomerRequestPreviewPage extends StatefulWidget {
     super.key,
     required this.draft,
     required this.jobId,
+    this.requestId,
   });
 
   final VanJobRequestDraft draft;
   final String jobId;
+  final String? requestId;
+
+  factory CustomerRequestPreviewPage.forRequestId({
+    Key? key,
+    required String requestId,
+  }) {
+    return CustomerRequestPreviewPage(
+      key: key,
+      draft: VanJobRequestDraft(
+        jobId: requestId,
+        customerName: '',
+        phoneNumber: '',
+        jobTitle: '',
+        scheduledAt: DateTime.now(),
+        jobDateLabel: '',
+        jobTimeLabel: '',
+        address: '',
+        requestExactPin: false,
+        checklistItems: const <String>[],
+        customQuestions: const <String>[],
+        notesMessage: '',
+      ),
+      jobId: requestId,
+      requestId: requestId,
+    );
+  }
 
   @override
   State<CustomerRequestPreviewPage> createState() =>
@@ -813,9 +1002,11 @@ class _CustomerRequestPreviewPageState
 
   late final TextEditingController _additionalNotesController;
   late final TextEditingController _pinNoteController;
-  late final Map<String, TextEditingController> _customAnswerControllers;
-  late final Map<String, TextEditingController> _checklistNoteControllers;
-  late final Map<String, String?> _choiceAnswers;
+  final Map<String, TextEditingController> _customAnswerControllers =
+      <String, TextEditingController>{};
+  final Map<String, TextEditingController> _checklistNoteControllers =
+      <String, TextEditingController>{};
+  final Map<String, String?> _choiceAnswers = <String, String?>{};
   final ScrollController _scrollController = ScrollController();
 
   bool _exactPinShared = false;
@@ -823,52 +1014,25 @@ class _CustomerRequestPreviewPageState
   bool _photoPlaceholderAdded = false;
   bool _submissionComplete = false;
   DriverCustomerReplyMockData? _savedReply;
+  VanJobRequestRecord? _loadedRequest;
+  bool _isLoadingRequest = false;
+  String? _requestLoadError;
+
+  VanJobRequestDraft get _draft => _loadedRequest?.toDraft() ?? widget.draft;
+  String get _resolvedJobId => _loadedRequest?.jobId ?? widget.jobId;
 
   @override
   void initState() {
     super.initState();
-    _savedReply = DriverReplyMockState.instance.jobById(widget.jobId);
     _additionalNotesController = TextEditingController();
     _pinNoteController = TextEditingController();
-    _customAnswerControllers = <String, TextEditingController>{
-      for (final question in widget.draft.customQuestions)
-        question: TextEditingController(),
-    };
-    _checklistNoteControllers = <String, TextEditingController>{
-      if (widget.draft.checklistItems.contains(_parkingQuestion))
-        _parkingQuestion: TextEditingController(),
-      if (widget.draft.checklistItems.contains(_accessQuestion))
-        _accessQuestion: TextEditingController(),
-      if (widget.draft.checklistItems.contains(_heavyQuestion))
-        _heavyQuestion: TextEditingController(),
-      if (widget.draft.checklistItems.contains(_fragileQuestion))
-        _fragileQuestion: TextEditingController(),
-      if (widget.draft.checklistItems.contains(_photosQuestion))
-        _photosQuestion: TextEditingController(),
-    };
-    _choiceAnswers = <String, String?>{};
-    final reply = _savedReply;
-    if (reply != null) {
-      _exactPinShared = reply.exactPinShared;
-      _exactPinShareSource = reply.exactPinShareSource;
-      _submissionComplete = reply.status == 'replyReceived' ||
-          reply.status == 'quoteSent' ||
-          reply.status == 'confirmed' ||
-          reply.status == 'completed';
-      _additionalNotesController.text = reply.additionalNotes;
-      _pinNoteController.text = reply.exactPinNote ?? '';
-      for (final response in reply.checklistResponses) {
-        if (_checklistNoteControllers.containsKey(response.question)) {
-          _choiceAnswers[response.question] = response.answer;
-          _noteControllerFor(response.question).text = response.note ?? '';
-        }
-      }
-      for (final response in reply.customQuestionResponses) {
-        final controller = _customAnswerControllers[response.question];
-        if (controller != null) {
-          controller.text = response.answer;
-        }
-      }
+    _savedReply = DriverReplyMockState.instance.jobById(_resolvedJobId);
+    _populateFromDraft(_draft);
+    if (widget.requestId?.trim().isNotEmpty == true) {
+      _isLoadingRequest = true;
+      unawaited(_loadRequestFromCloud(widget.requestId!.trim()));
+    } else {
+      _applySavedReply(_savedReply);
     }
   }
 
@@ -884,6 +1048,156 @@ class _CustomerRequestPreviewPageState
       controller.dispose();
     }
     super.dispose();
+  }
+
+  void _populateFromDraft(VanJobRequestDraft draft) {
+    for (final question in draft.customQuestions) {
+      _customAnswerControllers.putIfAbsent(
+        question,
+        () => TextEditingController(),
+      );
+    }
+    for (final item in draft.checklistItems) {
+      _checklistNoteControllers.putIfAbsent(
+        item,
+        () => TextEditingController(),
+      );
+    }
+  }
+
+  void _applySavedReply(DriverCustomerReplyMockData? reply) {
+    final resolved = reply;
+    if (resolved == null) {
+      return;
+    }
+
+    _exactPinShared = resolved.exactPinShared;
+    _exactPinShareSource = resolved.exactPinShareSource;
+    _submissionComplete = resolved.status == 'replyReceived' ||
+        resolved.status == 'quoteSent' ||
+        resolved.status == 'confirmed' ||
+        resolved.status == 'completed';
+    _additionalNotesController.text = resolved.additionalNotes;
+    _pinNoteController.text = resolved.exactPinNote ?? '';
+    for (final response in resolved.checklistResponses) {
+      if (_checklistNoteControllers.containsKey(response.question)) {
+        _choiceAnswers[response.question] = response.answer;
+        _noteControllerFor(response.question).text = response.note ?? '';
+      }
+    }
+    for (final response in resolved.customQuestionResponses) {
+      final controller = _customAnswerControllers[response.question];
+      if (controller != null) {
+        controller.text = response.answer;
+      }
+    }
+  }
+
+  DriverCustomerReplyMockData _replyFromRequestRecord(
+    VanJobRequestRecord record,
+  ) {
+    return DriverCustomerReplyMockData(
+      jobId: record.jobId,
+      customerName: record.publicCustomerName,
+      jobTitle: record.publicJobTitle,
+      scheduledAt: record.scheduledAt,
+      jobDateLabel: record.jobDateLabel,
+      jobTimeLabel: record.jobTimeLabel,
+      address: record.publicAddressSummary,
+      phoneNumber: record.publicPhoneNumber,
+      customerEmail: record.publicCustomerEmail,
+      requestExactPin: record.exactPinRequested,
+      checklistItems: record.checklistItems,
+      customQuestions: record.customQuestions,
+      status: record.isSubmitted || record.hasReply
+          ? 'replyReceived'
+          : 'requestSent',
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      requestSentAt: record.createdAt,
+      replyReceivedAt: record.customerSubmittedAt,
+      exactPinShared: record.hasExactPin,
+      checklistResponses: record.checklistResponses
+          .map(
+            (response) => DriverChecklistResponse(
+              question: response.question,
+              answer: response.answer,
+              note: response.note.isEmpty ? null : response.note,
+              icon: Icons.checklist,
+            ),
+          )
+          .toList(growable: false),
+      customQuestionResponses: record.customQuestionResponses
+          .map(
+            (response) => DriverCustomQuestionResponse(
+              question: response.question,
+              answer: response.answer,
+            ),
+          )
+          .toList(growable: false),
+      additionalNotes: record.additionalNotes,
+      exactPinShareSource: vanExactPinSourceFromStorage(record.exactPinSource),
+      exactPinNote: record.exactPinNote,
+      exactPinLatitude: record.exactPinLat,
+      exactPinLongitude: record.exactPinLng,
+      requestId: record.requestId,
+      requestStatus: record.status,
+      requestCreatedAt: record.createdAt,
+      requestUpdatedAt: record.updatedAt,
+      requestSubmittedAt: record.customerSubmittedAt,
+      requestExpiresAt: record.expiresAt,
+      requestLink: buildVanJobRequestLink(record.requestId),
+    );
+  }
+
+  Future<void> _loadRequestFromCloud(String requestId) async {
+    try {
+      final request = await VanJobRequestCloudService.instance
+          .loadRequestById(requestId);
+      if (!mounted) {
+        return;
+      }
+      if (request == null) {
+        final localRequest =
+            DriverReplyMockState.instance.requestForId(requestId);
+        if (localRequest != null) {
+          setState(() {
+            _loadedRequest = localRequest;
+            _savedReply =
+                DriverReplyMockState.instance.jobById(localRequest.jobId) ??
+                _replyFromRequestRecord(localRequest);
+            _populateFromDraft(localRequest.toDraft());
+            _applySavedReply(_savedReply);
+            _isLoadingRequest = false;
+            _requestLoadError = null;
+          });
+          return;
+        }
+        setState(() {
+          _requestLoadError = 'Request not found.';
+          _isLoadingRequest = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _loadedRequest = request;
+        _savedReply = DriverReplyMockState.instance.jobById(request.jobId) ??
+            _replyFromRequestRecord(request);
+        _populateFromDraft(request.toDraft());
+        _applySavedReply(_savedReply);
+        _isLoadingRequest = false;
+        _requestLoadError = null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _requestLoadError = error.toString();
+        _isLoadingRequest = false;
+      });
+    }
   }
 
   TextEditingController _noteControllerFor(String item) {
@@ -951,7 +1265,7 @@ class _CustomerRequestPreviewPageState
       note: _pinNoteController.text.trim(),
       latitude: selectedPin?.latitude,
       longitude: selectedPin?.longitude,
-      jobId: widget.jobId,
+      jobId: _resolvedJobId,
     );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1074,7 +1388,7 @@ class _CustomerRequestPreviewPageState
   }
 
   LatLng? _exactPinSelectedLatLng() {
-    final reply = DriverReplyMockState.instance.jobById(widget.jobId) ?? _savedReply;
+    final reply = DriverReplyMockState.instance.jobById(_resolvedJobId) ?? _savedReply;
     if (reply?.hasExactPinCoordinates == true) {
       return LatLng(reply!.exactPinLatitude!, reply.exactPinLongitude!);
     }
@@ -1138,8 +1452,8 @@ class _CustomerRequestPreviewPageState
 
   Future<CameraPosition?> _approximateCameraFromJobDetails() async {
     final query = [
-      widget.draft.address.trim(),
-      widget.draft.postcode.trim(),
+      _draft.address.trim(),
+      _draft.postcode.trim(),
     ].where((value) => value.isNotEmpty).join(', ');
     if (query.isEmpty) {
       return null;
@@ -1188,7 +1502,7 @@ class _CustomerRequestPreviewPageState
 
   int _answeredChecklistCount() {
     var answered = 0;
-    for (final item in widget.draft.checklistItems) {
+    for (final item in _draft.checklistItems) {
       switch (item) {
         case _parkingQuestion:
         case _stairsQuestion:
@@ -1227,15 +1541,73 @@ class _CustomerRequestPreviewPageState
 
   Future<void> _submitDetails() async {
     _dismissKeyboard();
-    setState(() {
-      _submissionComplete = true;
-    });
-
+    final reply = _buildReplyFromPreview();
     final checklistAnswers = _answeredChecklistCount();
     final customAnswers = _answeredCustomQuestionCount();
 
+    final request = _loadedRequest;
+    if (request != null &&
+        (request.isExpired ||
+            request.status == 'cancelled' ||
+            request.isSubmitted)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This request can no longer be submitted.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (_loadedRequest != null) {
+      try {
+        await VanJobRequestCloudService.instance.submitCustomerReply(
+          requestId: _loadedRequest!.requestId,
+          ownerUid: _loadedRequest!.ownerUid,
+          jobId: _resolvedJobId,
+          checklistResponses: reply.checklistResponses
+              .map(
+                (response) => VanJobRequestChecklistResponse(
+                  question: response.question,
+                  answer: response.answer,
+                  note: response.note ?? '',
+                ),
+              )
+              .toList(growable: false),
+          customQuestionResponses: reply.customQuestionResponses
+              .map(
+                (response) => VanJobRequestCustomQuestionResponse(
+                  question: response.question,
+                  answer: response.answer,
+                ),
+              )
+              .toList(growable: false),
+          additionalNotes: reply.additionalNotes,
+          exactPinSource:
+              vanExactPinSourceToStorage(_exactPinShareSource) ?? '',
+          exactPinNote: reply.exactPinNote ?? '',
+          exactPinLat: reply.exactPinLatitude,
+          exactPinLng: reply.exactPinLongitude,
+        );
+      } catch (error) {
+        debugPrint('[VanJobRequestCloud] submit reply failed: $error');
+      }
+    }
+
+    DriverReplyMockState.instance.saveCustomerReplyForJob(_resolvedJobId, reply);
+    if (mounted) {
+      setState(() {
+        _submissionComplete = true;
+        _savedReply = reply;
+      });
+    }
+
+    if (!mounted) {
+      return;
+    }
+    final scaffoldContext = context;
     await showModalBottomSheet<void>(
-      context: context,
+      context: scaffoldContext,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
@@ -1358,20 +1730,7 @@ class _CustomerRequestPreviewPageState
                           width: double.infinity,
                           height: 50,
                           child: FilledButton(
-                            onPressed: () {
-                              final reply = _buildReplyFromPreview();
-                              DriverReplyMockState.instance
-                                  .saveCustomerReplyForJob(
-                                widget.jobId,
-                                reply,
-                              );
-                              Navigator.of(sheetContext).pop();
-                              if (mounted) {
-                                setState(() {
-                                  _savedReply = reply;
-                                });
-                              }
-                            },
+                            onPressed: () => Navigator.of(sheetContext).pop(),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFF58D0A4),
                               foregroundColor: Colors.white,
@@ -1395,7 +1754,7 @@ class _CustomerRequestPreviewPageState
   }
 
   DriverCustomerReplyMockData _buildReplyFromPreview() {
-    final storedJob = DriverReplyMockState.instance.jobById(widget.jobId);
+    final storedJob = DriverReplyMockState.instance.jobById(_resolvedJobId);
     final checklistResponses = <DriverChecklistResponse>[
       for (final entry in _checklistNoteControllers.entries)
         DriverChecklistResponse(
@@ -1413,20 +1772,20 @@ class _CustomerRequestPreviewPageState
     ];
 
     return DriverCustomerReplyMockData(
-      jobId: widget.jobId,
-      customerName: widget.draft.customerName,
-      jobTitle: widget.draft.jobTitle,
-      scheduledAt: widget.draft.scheduledAt,
-      jobDateLabel: widget.draft.jobDateLabel,
-      jobTimeLabel: widget.draft.jobTimeLabel,
-      address: widget.draft.address,
-      phoneNumber: widget.draft.phoneNumber,
-      customerEmail: widget.draft.customerEmail,
-      postcode: widget.draft.postcode,
-      requestExactPin: widget.draft.requestExactPin,
-      checklistItems: widget.draft.checklistItems,
-      customQuestions: widget.draft.customQuestions,
-      notesMessage: widget.draft.notesMessage,
+      jobId: _resolvedJobId,
+      customerName: _draft.customerName,
+      jobTitle: _draft.jobTitle,
+      scheduledAt: _draft.scheduledAt,
+      jobDateLabel: _draft.jobDateLabel,
+      jobTimeLabel: _draft.jobTimeLabel,
+      address: _draft.address,
+      phoneNumber: _draft.phoneNumber,
+      customerEmail: _draft.customerEmail,
+      postcode: _draft.postcode,
+      requestExactPin: _draft.requestExactPin,
+      checklistItems: _draft.checklistItems,
+      customQuestions: _draft.customQuestions,
+      notesMessage: _draft.notesMessage,
       status: 'replyReceived',
       createdAt: _savedReply?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
@@ -1711,10 +2070,89 @@ class _CustomerRequestPreviewPageState
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingRequest) {
+      return Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppTheme.backgroundImage(),
+            Container(color: Colors.black.withValues(alpha: 0.34)),
+            const SafeArea(
+              child: Center(
+                child: CircularProgressIndicator(color: Color(0xFF58D0A4)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_requestLoadError != null) {
+      return Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppTheme.backgroundImage(),
+            Container(color: Colors.black.withValues(alpha: 0.34)),
+            SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(24),
+                        color: Colors.black.withValues(alpha: 0.24),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.orange,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Could not load customer request.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _requestLoadError!,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.76),
+                                  height: 1.45,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final theme = Theme.of(context);
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom;
 
-    final items = widget.draft.checklistItems;
+    final items = _draft.checklistItems;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -1763,31 +2201,31 @@ class _CustomerRequestPreviewPageState
                             _PreviewInfoRow(
                               icon: Icons.checklist,
                               label: 'Job title',
-                              value: widget.draft.jobTitle.isEmpty
+                              value: _draft.jobTitle.isEmpty
                                   ? 'No title yet'
-                                  : widget.draft.jobTitle,
+                                  : _draft.jobTitle,
                             ),
                             const SizedBox(height: 12),
                             _PreviewInfoRow(
                               icon: Icons.person,
                               label: 'Customer name',
-                              value: widget.draft.customerName.isEmpty
+                              value: _draft.customerName.isEmpty
                                   ? 'No customer name yet'
-                                  : widget.draft.customerName,
+                                  : _draft.customerName,
                             ),
                             const SizedBox(height: 12),
                             _PreviewInfoRow(
                               icon: Icons.phone,
                               label: 'Phone number',
-                              value: widget.draft.phoneNumber.isEmpty
+                              value: _draft.phoneNumber.isEmpty
                                   ? 'No phone number yet'
-                                  : widget.draft.phoneNumber,
+                                  : _draft.phoneNumber,
                             ),
                             const SizedBox(height: 12),
                             _PreviewInfoRow(
                               icon: Icons.location_on,
                               label: 'Requested pin',
-                              value: widget.draft.requestExactPin
+                              value: _draft.requestExactPin
                                   ? 'Exact pin requested'
                                   : 'Exact pin not requested',
                             ),
@@ -1832,7 +2270,7 @@ class _CustomerRequestPreviewPageState
                         ),
                       ),
                       const SizedBox(height: 12),
-                      if (widget.draft.customQuestions.isNotEmpty)
+                      if (_draft.customQuestions.isNotEmpty)
                         _JobRequestGlassCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1846,14 +2284,14 @@ class _CustomerRequestPreviewPageState
                                 children: [
                                   for (
                                     var index = 0;
-                                    index < widget.draft.customQuestions.length;
+                                    index < _draft.customQuestions.length;
                                     index++
                                   ) ...[
                                     _buildCustomQuestionAnswer(
-                                      widget.draft.customQuestions[index],
+                                      _draft.customQuestions[index],
                                     ),
                                     if (index <
-                                        widget.draft.customQuestions.length - 1)
+                                        _draft.customQuestions.length - 1)
                                       const SizedBox(height: 12),
                                   ],
                                 ],
@@ -1861,7 +2299,7 @@ class _CustomerRequestPreviewPageState
                             ],
                           ),
                         ),
-                      if (widget.draft.customQuestions.isNotEmpty)
+                      if (_draft.customQuestions.isNotEmpty)
                         const SizedBox(height: 12),
                       _JobRequestGlassCard(
                         child: Column(
@@ -1882,7 +2320,7 @@ class _CustomerRequestPreviewPageState
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'Job date: ${widget.draft.jobDateLabel} | Job time: ${widget.draft.jobTimeLabel}',
+                              'Job date: ${_draft.jobDateLabel} | Job time: ${_draft.jobTimeLabel}',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.72),
                                 fontWeight: FontWeight.w600,
@@ -1890,7 +2328,7 @@ class _CustomerRequestPreviewPageState
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Address: ${widget.draft.address.isEmpty ? "Not added yet" : widget.draft.address}',
+                              'Address: ${_draft.address.isEmpty ? "Not added yet" : _draft.address}',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.72),
                               ),

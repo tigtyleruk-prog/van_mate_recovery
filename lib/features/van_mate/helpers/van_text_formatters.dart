@@ -58,16 +58,34 @@ String formatDateTime(DateTime date, TimeOfDay time) {
   return '${formatDate(date)} at ${formatTime(time)}';
 }
 
-String formatAnswerWithNote(String answer, String note) {
+String formatAnswerWithNote(String answer, [String? note]) {
   final cleanedAnswer = sanitizeVanText(answer).trim();
-  final cleanedNote = sanitizeVanText(note).trim();
-  final noteText = _isBlankNote(cleanedNote) ? 'No extra note.' : cleanedNote;
+  final cleanedNote = _cleanReplyNote(cleanedAnswer, note);
 
   if (cleanedAnswer.isEmpty) {
-    return noteText;
+    return cleanedNote ?? '';
   }
 
-  return '$cleanedAnswer - $noteText';
+  if (cleanedNote == null) {
+    return cleanedAnswer;
+  }
+
+  return '$cleanedAnswer\nNote: $cleanedNote';
+}
+
+String formatCustomQuestionAnswer(String question, String answer) {
+  final cleanedQuestion = sanitizeVanText(question).trim();
+  final cleanedAnswer = sanitizeVanText(answer).trim();
+
+  if (cleanedQuestion.isEmpty) {
+    return cleanedAnswer;
+  }
+
+  if (cleanedAnswer.isEmpty) {
+    return cleanedQuestion;
+  }
+
+  return '$cleanedQuestion\nAnswer: $cleanedAnswer';
 }
 
 String formatMileage(num value) {
@@ -99,4 +117,42 @@ bool _isBlankNote(String value) {
       normalized == 'n/a' ||
       normalized == 'na' ||
       normalized == 'no note';
+}
+
+String? _cleanReplyNote(String answer, String? note) {
+  final cleanedNote = sanitizeVanText(note).trim();
+  if (cleanedNote.isEmpty) {
+    return null;
+  }
+
+  var normalizedNote = _stripRepeatedAnswerPrefix(cleanedNote, answer);
+  if (_isBlankNote(normalizedNote)) {
+    return null;
+  }
+
+  return normalizedNote;
+}
+
+String _stripRepeatedAnswerPrefix(String note, String answer) {
+  final cleanedAnswer = answer.trim();
+  if (cleanedAnswer.isEmpty) {
+    return note.trim();
+  }
+
+  var result = note.trim();
+  final pattern = RegExp(
+    '^${RegExp.escape(cleanedAnswer)}(?:\\s*[-–—:,]\\s*|\\s+)',
+    caseSensitive: false,
+  );
+
+  while (true) {
+    final match = pattern.firstMatch(result);
+    if (match == null) {
+      break;
+    }
+
+    result = result.substring(match.end).trimLeft();
+  }
+
+  return result.trim();
 }

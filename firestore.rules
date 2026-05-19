@@ -51,8 +51,31 @@ service cloud.firestore {
             && request.resource.data.responseAccuracy == resource.data.responseAccuracy
             && request.resource.data.responseAt is timestamp
             && request.resource.data.responseNote is string
-          )
+        )
         );
+    }
+
+    function isJobRequestPublicResponseUpdate() {
+      return resource.data.status == 'pending'
+        && request.auth == null
+        && request.time < resource.data.expiresAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'submittedAt',
+          'customerSubmittedAt',
+          'checklistResponses',
+          'customQuestionResponses',
+          'additionalNotes',
+          'exactPinLat',
+          'exactPinLng',
+          'exactPinSource',
+          'exactPinNote',
+          'updatedAt',
+        ])
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.submittedAt is timestamp
+        && request.resource.data.customerSubmittedAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
     }
 
     match /van_places/{placeId} {
@@ -86,6 +109,11 @@ service cloud.firestore {
         allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
+      match /van_job_requests/{requestId} {
+        allow get, create, update, delete: if signedIn()
+          && request.auth.uid == userId;
+      }
+
       match /fcmTokens/{tokenId} {
         allow get, create, update, delete: if signedIn()
           && request.auth.uid == userId;
@@ -101,6 +129,23 @@ service cloud.firestore {
         (signedIn() && resource.data.ownerId == request.auth.uid)
         || isPinRequestPublicResponseUpdate();
       allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /van_job_requests/{requestId} {
+      allow get: if (
+          signedIn() && resource.data.ownerUid == request.auth.uid
+        ) || (
+          request.auth == null
+          && resource.data.status == 'pending'
+          && request.time < resource.data.expiresAt
+        );
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if (
+          signedIn() && resource.data.ownerUid == request.auth.uid
+        ) || isJobRequestPublicResponseUpdate();
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
 
     match /van_routes/{routeId} {

@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../helpers/app_theme.dart';
@@ -10,11 +11,13 @@ import '../helpers/van_live_pin_request.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_exact_pin_source.dart';
 import '../models/van_job_request_draft.dart';
+import '../models/van_job_request_record.dart';
 import '../models/van_invoice_history_entry.dart';
 import '../models/van_invoice_draft.dart';
 import '../services/van_driver_mock_state_storage.dart';
 import '../services/van_firebase_auth_service.dart';
 import '../services/van_firebase_debug_logging.dart';
+import '../services/van_job_request_cloud_service.dart';
 import '../services/van_jobs_cloud_service.dart';
 import '../services/van_quotes_cloud_service.dart';
 import '../services/van_invoices_cloud_service.dart';
@@ -57,6 +60,13 @@ class DriverCustomerReplyMockData {
     this.exactPinNote,
     this.exactPinLatitude,
     this.exactPinLongitude,
+    this.requestId,
+    this.requestStatus = 'draft',
+    this.requestCreatedAt,
+    this.requestUpdatedAt,
+    this.requestSubmittedAt,
+    this.requestExpiresAt,
+    this.requestLink = '',
   });
 
   final String jobId;
@@ -92,6 +102,13 @@ class DriverCustomerReplyMockData {
   final String? exactPinNote;
   final double? exactPinLatitude;
   final double? exactPinLongitude;
+  final String? requestId;
+  final String requestStatus;
+  final DateTime? requestCreatedAt;
+  final DateTime? requestUpdatedAt;
+  final DateTime? requestSubmittedAt;
+  final DateTime? requestExpiresAt;
+  final String requestLink;
 
   DateTime? get scheduledAtOrParsed {
     final direct = scheduledAt;
@@ -184,6 +201,13 @@ class DriverCustomerReplyMockData {
     String? exactPinNote,
     double? exactPinLatitude,
     double? exactPinLongitude,
+    String? requestId,
+    String? requestStatus,
+    DateTime? requestCreatedAt,
+    DateTime? requestUpdatedAt,
+    DateTime? requestSubmittedAt,
+    DateTime? requestExpiresAt,
+    String? requestLink,
   }) {
     return DriverCustomerReplyMockData(
       jobId: jobId ?? this.jobId,
@@ -220,6 +244,13 @@ class DriverCustomerReplyMockData {
       exactPinNote: exactPinNote ?? this.exactPinNote,
       exactPinLatitude: exactPinLatitude ?? this.exactPinLatitude,
       exactPinLongitude: exactPinLongitude ?? this.exactPinLongitude,
+      requestId: requestId ?? this.requestId,
+      requestStatus: requestStatus ?? this.requestStatus,
+      requestCreatedAt: requestCreatedAt ?? this.requestCreatedAt,
+      requestUpdatedAt: requestUpdatedAt ?? this.requestUpdatedAt,
+      requestSubmittedAt: requestSubmittedAt ?? this.requestSubmittedAt,
+      requestExpiresAt: requestExpiresAt ?? this.requestExpiresAt,
+      requestLink: requestLink ?? this.requestLink,
     );
   }
 
@@ -274,6 +305,13 @@ class DriverCustomerReplyMockData {
       'exactPinNote': exactPinNote,
       'exactPinLatitude': exactPinLatitude,
       'exactPinLongitude': exactPinLongitude,
+      'requestId': requestId,
+      'requestStatus': requestStatus,
+      'requestCreatedAt': requestCreatedAt?.toIso8601String(),
+      'requestUpdatedAt': requestUpdatedAt?.toIso8601String(),
+      'requestSubmittedAt': requestSubmittedAt?.toIso8601String(),
+      'requestExpiresAt': requestExpiresAt?.toIso8601String(),
+      'requestLink': requestLink,
     };
   }
 
@@ -346,6 +384,13 @@ class DriverCustomerReplyMockData {
       exactPinNote: _jsonTextOrNull(json['exactPinNote']),
       exactPinLatitude: _jsonDoubleOrNull(json['exactPinLatitude']),
       exactPinLongitude: _jsonDoubleOrNull(json['exactPinLongitude']),
+      requestId: _jsonTextOrNull(json['requestId']),
+      requestStatus: _jsonText(json['requestStatus'], fallback: 'draft'),
+      requestCreatedAt: _jsonDateTime(json['requestCreatedAt']),
+      requestUpdatedAt: _jsonDateTime(json['requestUpdatedAt']),
+      requestSubmittedAt: _jsonDateTime(json['requestSubmittedAt']),
+      requestExpiresAt: _jsonDateTime(json['requestExpiresAt']),
+      requestLink: _jsonText(json['requestLink']),
     );
   }
 }
@@ -381,7 +426,7 @@ String? _displayNoteText(String? note) {
     return null;
   }
 
-  return _hasUsefulNote(note) ? note.trim() : 'No extra note.';
+  return _hasUsefulNote(note) ? note.trim() : null;
 }
 
 DateTime? _parseScheduledAt(String dateLabel, String timeLabel) {
@@ -500,6 +545,8 @@ class DriverReplyMockState {
       <String, DriverCustomerReplyMockData>{};
   final Map<String, VanInvoiceHistoryEntry> _invoiceHistoryByJobKey =
       <String, VanInvoiceHistoryEntry>{};
+  final Map<String, VanJobRequestRecord> _jobRequestsById =
+      <String, VanJobRequestRecord>{};
 
   Future<void> ensureLoaded() => _storage.ensureLoaded();
 
@@ -593,9 +640,48 @@ class DriverReplyMockState {
     }
   }
 
+  Future<void> loadJobRequestsFromCloud() async {
+    logVanFirebaseHydration(
+      stage: 'started',
+      target: 'job request cloud load',
+    );
+    final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
+      source: 'van_mate.job_request_cloud_load',
+    );
+    if (ownerUid == null || ownerUid.trim().isEmpty) {
+      logVanFirebaseSkip(
+        reason: 'job request cloud load skipped',
+        extra: 'uid=$ownerUid',
+      );
+      return;
+    }
+
+    try {
+      final cloudRequests = await VanJobRequestCloudService.instance
+          .loadRequestsForOwner(ownerUid: ownerUid);
+      if (cloudRequests.isNotEmpty) {
+        _mergeCloudRequests(cloudRequests);
+        await saveToStorage(syncCloud: false);
+      }
+      logVanFirebaseHydration(
+        stage: 'completed',
+        target: 'job request cloud load',
+        extra: 'requests=${cloudRequests.length}',
+      );
+    } catch (error) {
+      logVanFirebaseHydration(
+        stage: 'failed',
+        target: 'job request cloud load',
+        extra: error.toString(),
+      );
+      rethrow;
+    }
+  }
+
   Future<void> clearAllLocalJobData() async {
     _jobsById.clear();
     _invoiceHistoryByJobKey.clear();
+    _jobRequestsById.clear();
     savedInvoice = null;
     _activeJobId = null;
     await _storage.clear();
@@ -646,6 +732,11 @@ class DriverReplyMockState {
         ownerUid: ownerUid,
         invoices: invoiceEntries,
         source: 'van_mate.invoices',
+      ),
+      VanJobRequestCloudService.instance.saveRequests(
+        ownerUid: ownerUid,
+        requests: _jobRequestsById.values.toList(growable: false),
+        source: 'van_mate.job_requests',
       ),
     ]);
   }
@@ -835,6 +926,13 @@ class DriverReplyMockState {
       exactPinNote: exactPinNote ?? existing?.exactPinNote,
       exactPinLatitude: exactPinLatitude ?? existing?.exactPinLatitude,
       exactPinLongitude: exactPinLongitude ?? existing?.exactPinLongitude,
+      requestId: existing?.requestId,
+      requestStatus: existing?.requestStatus ?? 'draft',
+      requestCreatedAt: existing?.requestCreatedAt,
+      requestUpdatedAt: existing?.requestUpdatedAt,
+      requestSubmittedAt: existing?.requestSubmittedAt,
+      requestExpiresAt: existing?.requestExpiresAt,
+      requestLink: existing?.requestLink ?? '',
     );
   }
 
@@ -880,19 +978,70 @@ class DriverReplyMockState {
     return updated;
   }
 
-  DriverCustomerReplyMockData sendJobRequest(VanJobRequestDraft draft) {
+  Future<DriverCustomerReplyMockData> sendJobRequest(
+    VanJobRequestDraft draft,
+  ) async {
     final existing = _jobsById[draft.jobId];
+    final now = DateTime.now();
+    final existingRequestId = existing?.requestId?.trim() ?? '';
+    final requestId = existingRequestId.isNotEmpty
+        ? existingRequestId
+        : VanJobRequestCloudService.instance.createRequestId();
+    final requestLink = buildVanJobRequestLink(requestId);
     final updated = _withDefaultsFromDraft(
       draft,
       status: 'requestSent',
       existing: existing,
-      requestSentAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      requestSentAt: now,
+      updatedAt: now,
+    ).copyWith(
+      requestId: requestId,
+      requestStatus: 'pending',
+      requestCreatedAt: existing?.requestCreatedAt ?? now,
+      requestUpdatedAt: now,
+      requestExpiresAt:
+          existing?.requestExpiresAt ?? now.add(const Duration(hours: 48)),
+      requestLink: requestLink,
     );
     _jobsById[updated.jobId] = updated;
     _activeJobId = updated.jobId;
+    _jobRequestsById[requestId] = _requestRecordFromJob(
+      updated,
+      ownerUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+      requestId: requestId,
+      requestStatus: 'pending',
+      submittedAt: null,
+      customerSubmittedAt: null,
+      checklistResponses: const <VanJobRequestChecklistResponse>[],
+      customQuestionResponses: const <VanJobRequestCustomQuestionResponse>[],
+      additionalNotes: '',
+      exactPinSource: '',
+      exactPinNote: '',
+      exactPinLat: null,
+      exactPinLng: null,
+    );
     _scheduleSave();
-    return updated;
+    try {
+      final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
+        source: 'van_mate.job_request_send',
+      );
+      if (ownerUid != null && ownerUid.trim().isNotEmpty) {
+      final record = await VanJobRequestCloudService.instance
+            .createOrUpdateFromDraft(
+              ownerUid: ownerUid,
+              jobId: updated.jobId,
+              draft: draft,
+              requestId: requestId,
+              source: 'van_mate.job_request',
+            );
+        _jobRequestsById[record.requestId] = record;
+        _jobsById[updated.jobId] = _replyFromRequestRecord(record, existing: updated);
+        await saveToStorage(syncCloud: false);
+      }
+    } catch (error) {
+      debugPrint('[VanJobRequestCloud] create request failed: $error');
+    }
+    return _jobsById[updated.jobId] ?? updated;
   }
 
   DriverCustomerReplyMockData saveCustomerReplyForJob(
@@ -932,8 +1081,52 @@ class DriverReplyMockState {
       customQuestionResponses: reply.customQuestionResponses,
       additionalNotes: reply.additionalNotes,
       quoteAmount: existing?.quoteAmount ?? reply.quoteAmount,
+      requestId: existing?.requestId ?? reply.requestId,
+      requestStatus: 'submitted',
+      requestCreatedAt: existing?.requestCreatedAt ?? reply.requestCreatedAt,
+      requestUpdatedAt: DateTime.now(),
+      requestSubmittedAt:
+          existing?.requestSubmittedAt ?? reply.requestSubmittedAt ?? DateTime.now(),
+      requestExpiresAt: existing?.requestExpiresAt ?? reply.requestExpiresAt,
+      requestLink: existing?.requestLink ?? reply.requestLink,
     );
     _jobsById[jobId] = updated;
+    final requestId = updated.requestId?.trim();
+    if (requestId != null && requestId.isNotEmpty) {
+      _jobRequestsById[requestId] = _requestRecordFromJob(
+        updated,
+        ownerUid: _jobRequestsById[requestId]?.ownerUid ??
+            FirebaseAuth.instance.currentUser?.uid ??
+            '',
+        requestId: requestId,
+        requestStatus: 'submitted',
+        submittedAt: updated.requestSubmittedAt ?? DateTime.now(),
+        customerSubmittedAt: updated.requestSubmittedAt ?? DateTime.now(),
+        checklistResponses: updated.checklistResponses
+            .map(
+              (response) => VanJobRequestChecklistResponse(
+                question: response.question,
+                answer: response.answer,
+                note: response.note ?? '',
+              ),
+            )
+            .toList(growable: false),
+        customQuestionResponses: updated.customQuestionResponses
+            .map(
+              (response) => VanJobRequestCustomQuestionResponse(
+                question: response.question,
+                answer: response.answer,
+              ),
+            )
+            .toList(growable: false),
+        additionalNotes: updated.additionalNotes,
+        exactPinSource:
+            vanExactPinSourceToStorage(updated.exactPinShareSource) ?? '',
+        exactPinNote: updated.exactPinNote ?? '',
+        exactPinLat: updated.exactPinLatitude,
+        exactPinLng: updated.exactPinLongitude,
+      );
+    }
     _activeJobId = jobId;
     _scheduleSave();
     return updated;
@@ -1231,6 +1424,9 @@ class DriverReplyMockState {
         active?.exactPinShareSource,
       ),
       'exactPinNote': active?.exactPinNote,
+      'jobRequests': _jobRequestsById.values
+          .map((request) => request.toFirestore())
+          .toList(),
       'invoiceHistory': _invoiceHistoryByJobKey.values
           .map((entry) => entry.toJson())
           .toList(),
@@ -1264,6 +1460,23 @@ class DriverReplyMockState {
           );
           if (entry.jobKey.trim().isNotEmpty) {
             _invoiceHistoryByJobKey[entry.jobKey] = entry;
+          }
+        }
+      }
+    }
+
+    _jobRequestsById.clear();
+    final requestsJson = json['jobRequests'];
+    if (requestsJson is List) {
+      for (final item in requestsJson) {
+        if (item is Map) {
+          final data = Map<String, dynamic>.from(item);
+          final request = VanJobRequestRecord.fromJson(
+            data,
+            fallbackRequestId: data['requestId']?.toString() ?? '',
+          );
+          if (request.requestId.trim().isNotEmpty) {
+            _jobRequestsById[request.requestId] = request;
           }
         }
       }
@@ -1325,6 +1538,181 @@ class DriverReplyMockState {
     }
   }
 
+  void _mergeCloudRequests(List<VanJobRequestRecord> cloudRequests) {
+    for (final request in cloudRequests) {
+      final existing = _jobRequestsById[request.requestId];
+      final existingUpdated = existing?.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      if (existing == null || request.updatedAt.isAfter(existingUpdated)) {
+        _jobRequestsById[request.requestId] = request;
+      }
+
+      final linkedJob = _jobsById[request.jobId];
+      final requestReply = _replyFromRequestRecord(request, existing: linkedJob);
+      final shouldApply = request.isSubmitted ||
+          request.hasReply ||
+          linkedJob?.status == 'requestSent' ||
+          linkedJob?.status == 'draft' ||
+          linkedJob == null;
+      if (!shouldApply) {
+        continue;
+      }
+
+      _jobsById[request.jobId] = requestReply;
+    }
+  }
+
+  VanJobRequestRecord _requestRecordFromJob(
+    DriverCustomerReplyMockData job, {
+    required String ownerUid,
+    required String requestId,
+    required String requestStatus,
+    required DateTime? submittedAt,
+    required DateTime? customerSubmittedAt,
+    required List<VanJobRequestChecklistResponse> checklistResponses,
+    required List<VanJobRequestCustomQuestionResponse> customQuestionResponses,
+    required String additionalNotes,
+    required String exactPinSource,
+    required String exactPinNote,
+    required double? exactPinLat,
+    required double? exactPinLng,
+  }) {
+    final now = job.updatedAt ?? DateTime.now();
+    return VanJobRequestRecord(
+      requestId: requestId,
+      ownerUid: ownerUid,
+      jobId: job.jobId,
+      status: requestStatus,
+      createdAt: job.requestCreatedAt ?? job.createdAt ?? now,
+      updatedAt: job.requestUpdatedAt ?? now,
+      expiresAt:
+          job.requestExpiresAt ?? now.add(const Duration(hours: 48)),
+      scheduledAt: job.scheduledAtOrParsed,
+      jobDateLabel: job.jobDateLabel,
+      jobTimeLabel: job.jobTimeLabel,
+      publicJobTitle: job.jobTitle,
+      publicCustomerName: job.customerName,
+      publicAddressSummary: job.address,
+      publicPhoneNumber: job.phoneNumber,
+      publicCustomerEmail: job.customerEmail,
+      checklistItems: job.checklistItems,
+      customQuestions: job.customQuestions,
+      exactPinRequested: job.requestExactPin,
+      driverMessagePreview: job.notesMessage,
+      submittedAt: submittedAt,
+      customerSubmittedAt: customerSubmittedAt,
+      checklistResponses: checklistResponses,
+      customQuestionResponses: customQuestionResponses,
+      additionalNotes: additionalNotes,
+      exactPinLat: exactPinLat,
+      exactPinLng: exactPinLng,
+      exactPinSource: exactPinSource,
+      exactPinNote: exactPinNote,
+    );
+  }
+
+  DriverCustomerReplyMockData _replyFromRequestRecord(
+    VanJobRequestRecord request, {
+    DriverCustomerReplyMockData? existing,
+  }) {
+    final checklistResponses = request.checklistResponses
+        .map(
+          (response) => DriverChecklistResponse(
+            question: response.question,
+            answer: response.answer,
+            note: response.note,
+          ),
+        )
+        .toList(growable: false);
+    final customResponses = request.customQuestionResponses
+        .map(
+          (response) => DriverCustomQuestionResponse(
+            question: response.question,
+            answer: response.answer,
+          ),
+        )
+        .toList(growable: false);
+
+    final status = request.isSubmitted || request.hasReply
+        ? (existing?.isCompletedJob == true
+              ? 'completed'
+              : existing?.status == 'confirmed'
+              ? 'confirmed'
+              : existing?.status == 'quoteSent'
+              ? 'quoteSent'
+              : 'replyReceived')
+        : (existing?.status ?? 'requestSent');
+
+    return (existing ??
+            DriverCustomerReplyMockData(
+              jobId: request.jobId,
+              customerName: request.publicCustomerName,
+              jobTitle: request.publicJobTitle,
+              scheduledAt: request.scheduledAt,
+              jobDateLabel: request.jobDateLabel,
+              jobTimeLabel: request.jobTimeLabel,
+              address: request.publicAddressSummary,
+              phoneNumber: request.publicPhoneNumber,
+              customerEmail: request.publicCustomerEmail,
+              requestExactPin: request.exactPinRequested,
+              checklistItems: request.checklistItems,
+              customQuestions: request.customQuestions,
+              status: status,
+              createdAt: request.createdAt,
+              updatedAt: request.updatedAt,
+              exactPinShared: request.hasExactPin,
+              checklistResponses: checklistResponses,
+              customQuestionResponses: customResponses,
+              additionalNotes: request.additionalNotes,
+              exactPinShareSource:
+                  vanExactPinSourceFromStorage(request.exactPinSource),
+              exactPinNote: request.exactPinNote,
+              exactPinLatitude: request.exactPinLat,
+              exactPinLongitude: request.exactPinLng,
+              requestId: request.requestId,
+              requestStatus: request.status,
+              requestCreatedAt: request.createdAt,
+              requestUpdatedAt: request.updatedAt,
+              requestSubmittedAt: request.submittedAt,
+              requestExpiresAt: request.expiresAt,
+              requestLink: buildVanJobRequestLink(request.requestId),
+            ))
+        .copyWith(
+          jobId: request.jobId,
+          customerName: request.publicCustomerName,
+          jobTitle: request.publicJobTitle,
+          scheduledAt: request.scheduledAt,
+          jobDateLabel: request.jobDateLabel,
+          jobTimeLabel: request.jobTimeLabel,
+          address: request.publicAddressSummary,
+          phoneNumber: request.publicPhoneNumber,
+          customerEmail: request.publicCustomerEmail,
+          requestExactPin: request.exactPinRequested,
+          checklistItems: request.checklistItems,
+          customQuestions: request.customQuestions,
+          status: status,
+          updatedAt: request.updatedAt,
+          replyReceivedAt: request.isSubmitted || request.hasReply
+              ? (request.customerSubmittedAt ?? request.submittedAt)
+              : existing?.replyReceivedAt,
+          exactPinShared: request.hasExactPin,
+          checklistResponses: checklistResponses,
+          customQuestionResponses: customResponses,
+          additionalNotes: request.additionalNotes,
+          exactPinShareSource:
+              vanExactPinSourceFromStorage(request.exactPinSource),
+          exactPinNote: request.exactPinNote,
+          exactPinLatitude: request.exactPinLat,
+          exactPinLongitude: request.exactPinLng,
+          requestId: request.requestId,
+          requestStatus: request.status,
+          requestCreatedAt: request.createdAt,
+          requestUpdatedAt: request.updatedAt,
+          requestSubmittedAt: request.submittedAt,
+          requestExpiresAt: request.expiresAt,
+          requestLink: buildVanJobRequestLink(request.requestId),
+        );
+  }
+
   bool _hasLegacyState(Map<String, dynamic> json) {
     return _jsonBool(json['jobReady']) ||
         _jsonBool(json['pinSavedToJob']) ||
@@ -1382,6 +1770,10 @@ class DriverReplyMockState {
 
   VanInvoiceDraft? invoiceForJob(String jobKey) {
     return _invoiceHistoryByJobKey[jobKey]?.draft;
+  }
+
+  VanJobRequestRecord? requestForId(String requestId) {
+    return _jobRequestsById[requestId.trim()];
   }
 
   void upsertInvoiceForJob(String jobKey, VanInvoiceDraft draft) {
@@ -2807,14 +3199,14 @@ Please reply to confirm if you're happy to go ahead.
         continue;
       }
 
-      parts.add('$cleanedQuestion - $cleanedAnswer');
+      parts.add(formatCustomQuestionAnswer(cleanedQuestion, cleanedAnswer));
     }
 
     if (parts.isEmpty) {
       return null;
     }
 
-    return parts.join('\n');
+    return parts.join('\n\n');
   }
 
   Widget _buildField({
@@ -2966,18 +3358,14 @@ Please reply to confirm if you're happy to go ahead.
     return match.answer.isEmpty ? fallback : match.answer;
   }
 
-  String _checklistNote(String question) {
+  String? _checklistNote(String question) {
     final match = reply.checklistResponses.firstWhere(
       (item) => item.question == question,
       orElse: () => const DriverChecklistResponse(question: '', answer: ''),
     );
     final note = match.note?.trim() ?? '';
-    if (note.isEmpty) {
-      return 'No extra note.';
-    }
-    if (note.toLowerCase().contains('no extra note') ||
-        note.toLowerCase() == 'none') {
-      return 'No extra note.';
+    if (note.isEmpty || !_hasUsefulNote(note)) {
+      return null;
     }
     return note;
   }
