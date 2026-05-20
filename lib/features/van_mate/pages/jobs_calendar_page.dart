@@ -24,6 +24,8 @@ class JobsCalendarPage extends StatefulWidget {
   State<JobsCalendarPage> createState() => _JobsCalendarPageState();
 }
 
+const bool kVanMateDeveloperToolsEnabled = false;
+
 class _JobsCalendarPageState extends State<JobsCalendarPage>
     with WidgetsBindingObserver {
   @override
@@ -53,8 +55,8 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
       await DriverReplyMockState.instance.loadJobRequestsFromCloud();
       if (mounted) {
         setState(() {});
-        final notice =
-            DriverReplyMockState.instance.takeRecentRequestRefreshNotice();
+        final notice = DriverReplyMockState.instance
+            .takeRecentRequestRefreshNotice();
         if (notice != null && notice.isNotEmpty) {
           _showSnack(notice);
         }
@@ -299,38 +301,38 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
   List<_JobsStatusChip> _jobChips(DriverCustomerReplyMockData job) {
     final exactPinLabel = job.isRequestExactPinReceived
         ? 'Exact pin received'
-        : job.exactPinShared
-        ? 'Exact pin saved'
-        : 'Exact pin missing';
+        : job.requestExactPin
+        ? 'Exact pin missing'
+        : 'Exact pin not requested';
     final exactPinColor = job.exactPinShared
         ? const Color(0xFF58D0A4)
         : const Color(0xFFFFC38C);
-    final requestColor = job.isRequestCancelled || job.isRequestExpired
+    final statusColor = job.isRequestCancelled || job.isRequestExpired
         ? const Color(0xFFFFC38C)
-        : job.isRequestExactPinReceived || job.isRequestSubmitted
-        ? const Color(0xFF58D0A4)
-        : const Color(0xFF4A7DFF);
-    final requestIcon = job.isRequestCancelled
+        : job.isRequestPending
+        ? const Color(0xFF4A7DFF)
+        : const Color(0xFF58D0A4);
+    final statusIcon = job.isCompleted
+        ? Icons.check_circle
+        : job.isConfirmed
+        ? Icons.verified
+        : job.isQuoteSent
+        ? Icons.request_quote_outlined
+        : job.isRequestSubmitted || job.isReplyReceived
+        ? Icons.check_circle
+        : job.isRequestCancelled
         ? Icons.cancel
         : job.isRequestExpired
         ? Icons.schedule
-        : job.isRequestExactPinReceived
-        ? Icons.location_on
-        : job.isRequestSubmitted
-        ? Icons.check_circle
+        : job.isRequestPending
+        ? Icons.mark_email_read_outlined
         : Icons.pending_actions;
 
     final chips = <_JobsStatusChip>[
       _JobsStatusChip(
         label: job.statusLabel,
-        color: const Color(0xFF58D0A4),
-        icon: job.isCompleted
-            ? Icons.check_circle
-            : job.isConfirmed
-            ? Icons.verified
-            : job.isQuoteSent
-            ? Icons.request_quote_outlined
-            : Icons.pending_actions,
+        color: statusColor,
+        icon: statusIcon,
         filled: true,
       ),
       _JobsStatusChip(
@@ -346,14 +348,13 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
         ),
     ];
 
-    if (job.hasRequest && job.requestStatusLabel != 'Not sent') {
+    if (job.isRequestPending) {
       chips.insert(
         1,
         _JobsStatusChip(
           label: job.requestStatusLabel,
-          color: requestColor,
-          icon: requestIcon,
-          filled: job.isRequestSubmitted || job.isRequestExactPinReceived,
+          color: const Color(0xFF4A7DFF),
+          icon: Icons.hourglass_bottom,
         ),
       );
     }
@@ -415,7 +416,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
         ),
       );
 
-      if (!job.isDraft) {
+      if (_hasCustomerReply(job)) {
         actions.add(
           _JobsInlineActionButton(
             label: 'View reply',
@@ -427,9 +428,9 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
 
       actions.add(
         _JobsInlineActionButton(
-          label: job.isQuoteSent || job.isConfirmed
+          label: _hasCustomerReply(job) || job.isQuoteSent || job.isConfirmed
               ? 'View quote'
-              : 'Create quote',
+              : 'Create quote (job info)',
           icon: Icons.request_quote_outlined,
           onTap: () => _createQuoteFor(job),
         ),
@@ -656,7 +657,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
       jobs: jobs,
       emptyTitle: 'No pending customer requests.',
       emptyMessage:
-          'Drafts, requests and replies will appear here until the job is confirmed or completed.',
+          'Pending customer requests will appear here until the reply comes back.',
     );
   }
 
@@ -816,8 +817,8 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                       : job.isRequestSubmitted
                       ? Icons.check_circle
                       : Icons.pending_actions,
-                  filled: job.isRequestSubmitted ||
-                      job.isRequestExactPinReceived,
+                  filled:
+                      job.isRequestSubmitted || job.isRequestExactPinReceived,
                 ),
               _JobsStatusChip(
                 label: job.isRequestExactPinReceived
@@ -1006,9 +1007,11 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                 icon: Icons.request_quote_outlined,
               ),
               _JobsStatusChip(
-                label: job.exactPinShared
-                    ? 'Exact pin saved'
-                    : 'Exact pin missing',
+                label: job.isRequestExactPinReceived
+                    ? 'Exact pin received'
+                    : job.requestExactPin
+                    ? 'Exact pin missing'
+                    : 'Exact pin not requested',
                 color: job.exactPinShared
                     ? const Color(0xFF58D0A4)
                     : const Color(0xFFFFC38C),
@@ -1246,7 +1249,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                           _buildUpcomingJobsSection(context),
                           const SizedBox(height: 12),
                           _buildCompletedJobsSection(context),
-                          if (kDebugMode) ...[
+                          if (kDebugMode && kVanMateDeveloperToolsEnabled) ...[
                             const SizedBox(height: 12),
                             _buildTestingToolsSection(context),
                           ],

@@ -124,7 +124,7 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
       }
 
       VanMatePushNotificationService.instance.registerOpenHandler(
-        _handleExactPinNotificationOpen,
+        _handleNotificationOpen,
       );
     });
     unawaited(_initialize());
@@ -175,10 +175,15 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
     });
   }
 
-  void _handleExactPinNotificationOpen(
-    VanMateExactPinNotificationPayload payload,
-  ) {
+  void _handleNotificationOpen(VanMateExactPinNotificationPayload payload) {
     if (!mounted) {
+      return;
+    }
+
+    if (payload.isCustomerReplyNotification) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const JobsCalendarPage()));
       return;
     }
 

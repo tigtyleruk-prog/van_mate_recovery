@@ -8,7 +8,6 @@ import 'package:share_plus/share_plus.dart';
 import '../helpers/app_theme.dart';
 import '../models/van_job_request_record.dart';
 import '../helpers/van_text_formatters.dart';
-import 'create_job_request_flow.dart';
 import 'driver_customer_reply_mock_page.dart';
 import '../widgets/van_form_field_styles.dart';
 
@@ -103,13 +102,16 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
   String? _requestLink() {
     final link = reply.requestLink.trim();
-    if (link.isNotEmpty) {
-      return link;
-    }
-
     final requestId = reply.requestId?.trim() ?? '';
     if (requestId.isNotEmpty) {
-      return buildVanJobRequestLink(requestId);
+      return resolveVanJobRequestDisplayLink(
+        requestId: requestId,
+        requestLink: link,
+      );
+    }
+
+    if (link.isNotEmpty) {
+      return link;
     }
 
     return null;
@@ -123,6 +125,15 @@ class _JobDetailPageState extends State<JobDetailPage> {
       !reply.isRequestExpired &&
       !reply.isCompleted;
 
+  bool _hasCustomerReply() {
+    return reply.isReplyReceived ||
+        reply.replyReceivedAt != null ||
+        reply.exactPinShared ||
+        reply.checklistResponses.isNotEmpty ||
+        reply.customQuestionResponses.isNotEmpty ||
+        reply.additionalNotes.trim().isNotEmpty;
+  }
+
   Future<void> _copyRequestLink() async {
     final link = _requestLink();
     if (link == null) {
@@ -130,8 +141,14 @@ class _JobDetailPageState extends State<JobDetailPage> {
       return;
     }
 
-    await Clipboard.setData(ClipboardData(text: link));
-    _showSnack('Request link copied.');
+    try {
+      await Clipboard.setData(ClipboardData(text: link));
+      _showSnack('Link copied');
+    } catch (_) {
+      _showSnack(
+        'Copy failed - long press the address bar or open in Chrome/Safari.',
+      );
+    }
   }
 
   Future<void> _shareRequestLink() async {
@@ -146,26 +163,7 @@ class _JobDetailPageState extends State<JobDetailPage> {
         text: buildVanJobRequestShareMessage(
           requestLink: link,
           jobTitle: reply.jobTitle,
-          customerName: reply.customerName,
           address: reply.address,
-        ),
-      ),
-    );
-  }
-
-  void _openTestForm() {
-    final requestId = reply.requestId?.trim();
-    if (requestId == null || requestId.isEmpty) {
-      _showSnack('No request has been created yet.');
-      return;
-    }
-
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => CustomerRequestPreviewPage.forRequestId(
-            requestId: requestId,
-          ),
         ),
       ),
     );
@@ -181,8 +179,8 @@ class _JobDetailPageState extends State<JobDetailPage> {
     }
     setState(() {});
     final updatedRequestId = updated.requestId?.trim() ?? '';
-    final reusedExisting = previousRequestId.isNotEmpty &&
-        previousRequestId == updatedRequestId;
+    final reusedExisting =
+        previousRequestId.isNotEmpty && previousRequestId == updatedRequestId;
     _showSnack(
       reusedExisting
           ? 'Existing request reused for ${updated.customerName}.'
@@ -1230,43 +1228,45 @@ Please reply to confirm if you're happy to go ahead.
                               runSpacing: 8,
                               children: [
                                 _buildChip(
-                                  reply.isRequestExactPinReceived
-                                      ? 'Reply received'
-                                      : reply.requestBadgeLabel,
+                                  reply.requestBadgeLabel,
                                   color: reply.isRequestCancelled
                                       ? const Color(0xFFFFC38C)
                                       : reply.isRequestExpired
                                       ? const Color(0xFFFFC38C)
-                                      : const Color(0xFF4A7DFF),
+                                      : reply.isRequestPending
+                                      ? const Color(0xFF4A7DFF)
+                                      : const Color(0xFF58D0A4),
                                   icon: reply.isRequestCancelled
                                       ? Icons.cancel
                                       : reply.isRequestExpired
                                       ? Icons.schedule
-                                      : reply.isRequestSubmitted ||
-                                          reply.isRequestPending
+                                      : reply.isRequestPending
                                       ? Icons.mark_email_read_outlined
+                                      : reply.isRequestSubmitted ||
+                                            reply.isReplyReceived
+                                      ? Icons.check_circle
                                       : Icons.send_outlined,
                                   filled: true,
                                 ),
                                 if (reply.isRequestPending)
                                   _buildChip(
-                                    'Awaiting customer reply',
+                                    reply.requestStatusLabel,
                                     color: const Color(0xFF4A7DFF),
                                     icon: Icons.hourglass_bottom,
                                   ),
-                                if (reply.isRequestSubmitted)
+                                if (reply.isRequestPending ||
+                                    reply.isRequestSubmitted ||
+                                    reply.isReplyReceived)
                                   _buildChip(
-                                    'Reply received',
-                                    color: const Color(0xFF58D0A4),
-                                    icon: Icons.check_circle,
-                                    filled: true,
-                                  ),
-                                if (reply.isRequestExactPinReceived)
-                                  _buildChip(
-                                    'Exact pin received',
-                                    color: const Color(0xFF58D0A4),
+                                    reply.isRequestExactPinReceived
+                                        ? 'Exact pin received'
+                                        : reply.requestExactPin
+                                        ? 'Exact pin missing'
+                                        : 'Exact pin not requested',
+                                    color: reply.isRequestExactPinReceived
+                                        ? const Color(0xFF58D0A4)
+                                        : const Color(0xFFFFC38C),
                                     icon: Icons.location_on,
-                                    filled: true,
                                   ),
                                 if (reply.isRequestExpired)
                                   _buildChip(
@@ -1290,29 +1290,24 @@ Please reply to confirm if you're happy to go ahead.
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 520;
-                                final resendLabel = reply.hasRequest &&
+                                final resendLabel =
+                                    reply.hasRequest &&
                                         !reply.isRequestCancelled &&
                                         !reply.isRequestExpired
                                     ? 'Resend request'
                                     : 'Send request';
                                 final buttons = <Widget>[
                                   _buildActionButton(
-                                    label: 'Copy link again',
+                                    label: 'Copy link',
                                     icon: Icons.copy,
                                     color: const Color(0xFF4A7DFF),
                                     onTap: () => unawaited(_copyRequestLink()),
                                   ),
                                   _buildActionButton(
-                                    label: 'Share link again',
+                                    label: 'Share link',
                                     icon: Icons.share,
                                     color: const Color(0xFF58D0A4),
                                     onTap: () => unawaited(_shareRequestLink()),
-                                  ),
-                                  _buildActionButton(
-                                    label: 'Open test form',
-                                    icon: Icons.open_in_new,
-                                    color: const Color(0xFFB48CFF),
-                                    onTap: _openTestForm,
                                   ),
                                   _buildActionButton(
                                     label: resendLabel,
@@ -1487,12 +1482,13 @@ Please reply to confirm if you're happy to go ahead.
                                           filled: true,
                                           onTap: _openQuote,
                                         ),
-                                        _buildActionButton(
-                                          label: 'View reply',
-                                          icon: Icons.question_answer,
-                                          color: const Color(0xFF4A7DFF),
-                                          onTap: _openReply,
-                                        ),
+                                        if (_hasCustomerReply())
+                                          _buildActionButton(
+                                            label: 'View reply',
+                                            icon: Icons.question_answer,
+                                            color: const Color(0xFF4A7DFF),
+                                            onTap: _openReply,
+                                          ),
                                       ]
                                     : _completed
                                     ? <Widget>[
@@ -1503,12 +1499,13 @@ Please reply to confirm if you're happy to go ahead.
                                           filled: true,
                                           onTap: _openQuote,
                                         ),
-                                        _buildActionButton(
-                                          label: 'View reply',
-                                          icon: Icons.question_answer,
-                                          color: const Color(0xFF4A7DFF),
-                                          onTap: _openReply,
-                                        ),
+                                        if (_hasCustomerReply())
+                                          _buildActionButton(
+                                            label: 'View reply',
+                                            icon: Icons.question_answer,
+                                            color: const Color(0xFF4A7DFF),
+                                            onTap: _openReply,
+                                          ),
                                       ]
                                     : <Widget>[
                                         _buildActionButton(
@@ -1525,17 +1522,20 @@ Please reply to confirm if you're happy to go ahead.
                                           onTap: _callCustomer,
                                         ),
                                         _buildActionButton(
-                                          label: 'View quote',
+                                          label: _hasCustomerReply()
+                                              ? 'View quote'
+                                              : 'Create quote (job info)',
                                           icon: Icons.request_quote_outlined,
                                           color: const Color(0xFF4A7DFF),
                                           onTap: _openQuote,
                                         ),
-                                        _buildActionButton(
-                                          label: 'View reply',
-                                          icon: Icons.question_answer,
-                                          color: const Color(0xFF4A7DFF),
-                                          onTap: _openReply,
-                                        ),
+                                        if (_hasCustomerReply())
+                                          _buildActionButton(
+                                            label: 'View reply',
+                                            icon: Icons.question_answer,
+                                            color: const Color(0xFF4A7DFF),
+                                            onTap: _openReply,
+                                          ),
                                       ];
 
                                 if (stacked) {

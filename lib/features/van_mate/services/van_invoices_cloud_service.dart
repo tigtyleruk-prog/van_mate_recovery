@@ -34,8 +34,21 @@ class VanInvoicesCloudService {
       return const <VanInvoiceHistoryEntry>[];
     }
 
+    if (kDebugMode) {
+      debugPrint(
+        '[VanInvoicesCloud] load start uid=$normalizedOwnerUid path=users/$normalizedOwnerUid/van_invoices',
+      );
+    }
     final snapshot = await _invoices(normalizedOwnerUid).get();
+    if (kDebugMode) {
+      final fetchedIds = snapshot.docs.map((doc) => doc.id).join(', ');
+      debugPrint(
+        '[VanInvoicesCloud] fetched ${snapshot.docs.length} invoice docs uid=$normalizedOwnerUid ids=${fetchedIds.isEmpty ? '(none)' : fetchedIds}',
+      );
+    }
     final invoices = <VanInvoiceHistoryEntry>[];
+    var skippedDeleted = 0;
+    var skippedArchived = 0;
     for (final doc in snapshot.docs) {
       final data = doc.data();
       final normalized = Map<String, dynamic>.from(data);
@@ -43,12 +56,37 @@ class VanInvoicesCloudService {
         normalized['jobKey'] = doc.id;
       }
       try {
-        invoices.add(VanInvoiceHistoryEntry.fromJson(normalized));
+        final entry = VanInvoiceHistoryEntry.fromJson(normalized);
+        if (entry.deleted) {
+          skippedDeleted += 1;
+          if (kDebugMode) {
+            debugPrint(
+              '[VanInvoicesCloud] hidden invoice ${doc.id}: deleted=true',
+            );
+          }
+        }
+        if (entry.archived) {
+          skippedArchived += 1;
+          if (kDebugMode) {
+            debugPrint(
+              '[VanInvoicesCloud] hidden invoice ${doc.id}: archived=true',
+            );
+          }
+        }
+        invoices.add(entry);
       } catch (error) {
         debugPrint('[VanInvoicesCloud] skip invoice ${doc.id}: $error');
       }
     }
     invoices.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+    if (kDebugMode) {
+      final visibleCount = invoices
+          .where((entry) => !entry.deleted && !entry.archived)
+          .length;
+      debugPrint(
+        '[VanInvoicesCloud] showing $visibleCount past invoices uid=$normalizedOwnerUid hiddenDeleted=$skippedDeleted hiddenArchived=$skippedArchived totalLoaded=${invoices.length}',
+      );
+    }
     return invoices;
   }
 
@@ -71,8 +109,8 @@ class VanInvoicesCloudService {
       id: normalizedJobKey,
       ownerUid: normalizedOwnerUid,
       source: source,
-      createdAt: invoice.savedAt,
-      updatedAt: invoice.savedAt,
+      createdAt: invoice.createdAt ?? invoice.savedAt,
+      updatedAt: invoice.updatedAt ?? invoice.savedAt,
       data: invoice.toJson(),
     );
     final collectionPath = 'users/$normalizedOwnerUid/van_invoices';
@@ -88,10 +126,9 @@ class VanInvoicesCloudService {
         authType: 'anonymous',
         source: source,
       );
-      await _invoices(normalizedOwnerUid).doc(normalizedJobKey).set(
-        payload,
-        SetOptions(merge: true),
-      );
+      await _invoices(
+        normalizedOwnerUid,
+      ).doc(normalizedJobKey).set(payload, SetOptions(merge: true));
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: normalizedJobKey,
@@ -119,7 +156,8 @@ class VanInvoicesCloudService {
     if (normalizedOwnerUid.isEmpty || invoices.isEmpty) {
       logVanFirebaseSkip(
         reason: 'invoice batch save skipped',
-        extra: 'source=$source uid=$normalizedOwnerUid invoices=${invoices.length}',
+        extra:
+            'source=$source uid=$normalizedOwnerUid invoices=${invoices.length}',
       );
       return;
     }
@@ -138,8 +176,8 @@ class VanInvoicesCloudService {
         id: normalizedJobKey,
         ownerUid: normalizedOwnerUid,
         source: source,
-        createdAt: invoice.savedAt,
-        updatedAt: invoice.savedAt,
+        createdAt: invoice.createdAt ?? invoice.savedAt,
+        updatedAt: invoice.updatedAt ?? invoice.savedAt,
         data: invoice.toJson(),
       );
       logVanFirebaseWriteStart(
@@ -148,7 +186,11 @@ class VanInvoicesCloudService {
         uid: normalizedOwnerUid,
         source: source,
       );
-      batch.set(collection.doc(normalizedJobKey), payload, SetOptions(merge: true));
+      batch.set(
+        collection.doc(normalizedJobKey),
+        payload,
+        SetOptions(merge: true),
+      );
       docIds.add(normalizedJobKey);
     }
 

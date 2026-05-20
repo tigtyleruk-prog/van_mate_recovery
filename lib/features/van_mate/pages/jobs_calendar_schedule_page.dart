@@ -133,14 +133,14 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
             ),
             _ScheduleActionData(
               label: 'View reply',
-              enabled: !job.isDraft,
+              enabled: _hasCustomerReply(job),
               icon: Icons.question_answer,
               onTap: () => _openReplyFor(job),
             ),
             _ScheduleActionData(
               label: job.isQuoteSent || job.isConfirmed || job.isCompleted
                   ? 'View quote'
-                  : 'Create quote',
+                  : 'Create quote (job info)',
               enabled: !job.isCompleted,
               icon: Icons.request_quote_outlined,
               onTap: () => _createQuoteFor(job),
@@ -289,6 +289,15 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
         ? 'Exact pin saved.'
         : 'Exact pin missing.';
     return '$location\n$pinText';
+  }
+
+  bool _hasCustomerReply(DriverCustomerReplyMockData job) {
+    return job.isReplyReceived ||
+        job.replyReceivedAt != null ||
+        job.exactPinShared ||
+        job.checklistResponses.isNotEmpty ||
+        job.customQuestionResponses.isNotEmpty ||
+        job.additionalNotes.trim().isNotEmpty;
   }
 
   late final List<_ScheduleDayData> _days = <_ScheduleDayData>[

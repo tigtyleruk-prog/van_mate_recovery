@@ -13,7 +13,9 @@ String _firebaseErrorText(Object error) {
   if (error is FirebaseException) {
     final code = error.code.trim();
     final message = error.message?.trim() ?? '';
-    return code.isEmpty ? message : '$code${message.isNotEmpty ? ': $message' : ''}';
+    return code.isEmpty
+        ? message
+        : '$code${message.isNotEmpty ? ': $message' : ''}';
   }
   return error.toString();
 }
@@ -54,6 +56,7 @@ void logVanFirebaseAuthState({
 }) {
   final buffer = StringBuffer('[VanFirebase][Auth] $stage');
   buffer.write(' uid=${user?.uid ?? 'null'}');
+  buffer.write(' email=${user?.email ?? 'null'}');
   buffer.write(' anonymous=${user?.isAnonymous ?? false}');
   buffer.write(' authType=${_authTypeLabel(user)}');
   if (extra != null && extra.trim().isNotEmpty) {
@@ -121,10 +124,7 @@ void logVanFirebaseWriteFailure({
   debugPrint(buffer.toString());
 }
 
-void logVanFirebaseSkip({
-  required String reason,
-  String? extra,
-}) {
+void logVanFirebaseSkip({required String reason, String? extra}) {
   final buffer = StringBuffer('[VanFirebase][Skip] $reason');
   if (extra != null && extra.trim().isNotEmpty) {
     buffer.write(' $extra');

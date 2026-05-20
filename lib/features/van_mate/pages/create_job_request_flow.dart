@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
@@ -27,16 +28,14 @@ class CreateJobRequestPage extends StatefulWidget {
 }
 
 class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
-  final String _jobId =
-      'job_${DateTime.now().microsecondsSinceEpoch}';
+  final String _jobId = 'job_${DateTime.now().microsecondsSinceEpoch}';
   final TextEditingController _customerNameController = TextEditingController(
     text: '',
   );
   final TextEditingController _phoneNumberController = TextEditingController(
     text: '',
   );
-  final TextEditingController _customerEmailController =
-      TextEditingController(
+  final TextEditingController _customerEmailController = TextEditingController(
     text: '',
   );
   final TextEditingController _jobTitleController = TextEditingController(
@@ -246,19 +245,18 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     final job = DriverReplyMockState.instance.upsertDraftJob(draft);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => CustomerRequestPreviewPage(
-          draft: draft,
-          jobId: job.jobId,
-        ),
+        builder: (_) =>
+            CustomerRequestPreviewPage(draft: draft, jobId: job.jobId),
       ),
     );
   }
 
   bool _validateMainFields() {
     final draft = _buildDraft();
-    final hasAddress = draft.address.trim().isNotEmpty ||
-        draft.postcode.trim().isNotEmpty;
-    final hasRequired = draft.customerName.trim().isNotEmpty &&
+    final hasAddress =
+        draft.address.trim().isNotEmpty || draft.postcode.trim().isNotEmpty;
+    final hasRequired =
+        draft.customerName.trim().isNotEmpty &&
         draft.jobTitle.trim().isNotEmpty &&
         draft.jobDateLabel.trim().isNotEmpty &&
         draft.jobTimeLabel.trim().isNotEmpty &&
@@ -298,7 +296,9 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     }
 
     FocusScope.of(context).unfocus();
-    final job = await DriverReplyMockState.instance.sendJobRequest(_buildDraft());
+    final job = await DriverReplyMockState.instance.sendJobRequest(
+      _buildDraft(),
+    );
     if (!mounted) {
       return;
     }
@@ -314,19 +314,17 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     );
   }
 
-  Future<void> _showRequestLinkSheet(
-    DriverCustomerReplyMockData job,
-  ) async {
+  Future<void> _showRequestLinkSheet(DriverCustomerReplyMockData job) async {
     final requestId = job.requestId?.trim().isNotEmpty == true
         ? job.requestId!.trim()
         : job.jobId.trim();
-    final requestLink = job.requestLink.trim().isNotEmpty
-        ? job.requestLink.trim()
-        : buildVanJobRequestLink(requestId);
+    final requestLink = resolveVanJobRequestDisplayLink(
+      requestId: requestId,
+      requestLink: job.requestLink,
+    );
     final shareMessage = buildVanJobRequestShareMessage(
       requestLink: requestLink,
       jobTitle: job.jobTitle,
-      customerName: job.customerName,
       address: job.address,
     );
     final navigator = Navigator.of(context);
@@ -374,7 +372,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'This creates a secure request for this job. For now this uses a test app link. You can copy/share it or open the customer form locally for testing.',
+                        'Share this link with the customer so they can send back job details, access info and an exact pin.',
                         style: Theme.of(sheetContext).textTheme.bodyMedium
                             ?.copyWith(
                               color: Colors.white.withValues(alpha: 0.74),
@@ -397,16 +395,33 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                         children: [
                           FilledButton.icon(
                             onPressed: () async {
-                              await Clipboard.setData(
-                                ClipboardData(text: requestLink),
-                              );
-                              if (sheetContext.mounted) {
-                                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Request link copied.'),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
+                              try {
+                                await Clipboard.setData(
+                                  ClipboardData(text: requestLink),
                                 );
+                                if (sheetContext.mounted) {
+                                  ScaffoldMessenger.of(
+                                    sheetContext,
+                                  ).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Link copied'),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              } catch (_) {
+                                if (sheetContext.mounted) {
+                                  ScaffoldMessenger.of(
+                                    sheetContext,
+                                  ).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Copy failed - long press the address bar or open in Chrome/Safari.',
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
                               }
                             },
                             icon: const Icon(Icons.copy),
@@ -419,9 +434,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                           FilledButton.icon(
                             onPressed: () async {
                               await SharePlus.instance.share(
-                                ShareParams(
-                                  text: shareMessage,
-                                ),
+                                ShareParams(text: shareMessage),
                               );
                             },
                             icon: const Icon(Icons.share),
@@ -431,30 +444,31 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                               foregroundColor: Colors.white,
                             ),
                           ),
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.of(sheetContext).pop();
-                              if (!mounted) {
-                                return;
-                              }
-                              navigator.push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      CustomerRequestPreviewPage.forRequestId(
-                                    requestId: requestId,
+                          if (kDebugMode)
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.of(sheetContext).pop();
+                                if (!mounted) {
+                                  return;
+                                }
+                                navigator.push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        CustomerRequestPreviewPage.forRequestId(
+                                          requestId: requestId,
+                                        ),
                                   ),
+                                );
+                              },
+                              icon: const Icon(Icons.open_in_new),
+                              label: const Text('Open test form'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.16),
                                 ),
-                              );
-                            },
-                            icon: const Icon(Icons.open_in_new),
-                            label: const Text('Open test form'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.16),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ],
@@ -547,8 +561,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                     icon: Icons.email,
                                     label: 'Customer email',
                                     hintText: 'Enter customer email',
-                                    keyboardType:
-                                        TextInputType.emailAddress,
+                                    keyboardType: TextInputType.emailAddress,
                                   ),
                                   _JobRequestInputField(
                                     controller: _jobTitleController,
@@ -1078,7 +1091,8 @@ class _CustomerRequestPreviewPageState
 
     _exactPinShared = resolved.exactPinShared;
     _exactPinShareSource = resolved.exactPinShareSource;
-    _submissionComplete = resolved.status == 'replyReceived' ||
+    _submissionComplete =
+        resolved.status == 'replyReceived' ||
         resolved.status == 'quoteSent' ||
         resolved.status == 'confirmed' ||
         resolved.status == 'completed';
@@ -1157,14 +1171,16 @@ class _CustomerRequestPreviewPageState
 
   Future<void> _loadRequestFromCloud(String requestId) async {
     try {
-      final request = await VanJobRequestCloudService.instance
-          .loadRequestById(requestId);
+      final request = await VanJobRequestCloudService.instance.loadRequestById(
+        requestId,
+      );
       if (!mounted) {
         return;
       }
       if (request == null) {
-        final localRequest =
-            DriverReplyMockState.instance.requestForId(requestId);
+        final localRequest = DriverReplyMockState.instance.requestForId(
+          requestId,
+        );
         if (localRequest != null) {
           setState(() {
             _loadedRequest = localRequest;
@@ -1187,7 +1203,8 @@ class _CustomerRequestPreviewPageState
 
       setState(() {
         _loadedRequest = request;
-        _savedReply = DriverReplyMockState.instance.jobById(request.jobId) ??
+        _savedReply =
+            DriverReplyMockState.instance.jobById(request.jobId) ??
             _replyFromRequestRecord(request);
         _populateFromDraft(request.toDraft());
         _applySavedReply(_savedReply);
@@ -1257,10 +1274,7 @@ class _CustomerRequestPreviewPageState
     );
   }
 
-  void _setExactPinShared(
-    VanExactPinSource source, {
-    LatLng? selectedPin,
-  }) {
+  void _setExactPinShared(VanExactPinSource source, {LatLng? selectedPin}) {
     setState(() {
       _exactPinShared = true;
       _exactPinShareSource = source;
@@ -1393,7 +1407,8 @@ class _CustomerRequestPreviewPageState
   }
 
   LatLng? _exactPinSelectedLatLng() {
-    final reply = DriverReplyMockState.instance.jobById(_resolvedJobId) ?? _savedReply;
+    final reply =
+        DriverReplyMockState.instance.jobById(_resolvedJobId) ?? _savedReply;
     if (reply?.hasExactPinCoordinates == true) {
       return LatLng(reply!.exactPinLatitude!, reply.exactPinLongitude!);
     }
@@ -1474,10 +1489,7 @@ class _CustomerRequestPreviewPageState
       if (!_isUsablePickerCoordinate(candidate)) {
         return null;
       }
-      return CameraPosition(
-        target: candidate,
-        zoom: 15.1,
-      );
+      return CameraPosition(target: candidate, zoom: 15.1);
     } catch (_) {
       return null;
     }
@@ -1599,7 +1611,10 @@ class _CustomerRequestPreviewPageState
       }
     }
 
-    DriverReplyMockState.instance.saveCustomerReplyForJob(_resolvedJobId, reply);
+    DriverReplyMockState.instance.saveCustomerReplyForJob(
+      _resolvedJobId,
+      reply,
+    );
     if (mounted) {
       setState(() {
         _submissionComplete = true;
@@ -2158,7 +2173,8 @@ class _CustomerRequestPreviewPageState
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom;
 
     final items = _draft.checklistItems;
-    final requestUnavailable = _loadedRequest != null &&
+    final requestUnavailable =
+        _loadedRequest != null &&
         (_loadedRequest!.isExpired ||
             _loadedRequest!.status == 'cancelled' ||
             _loadedRequest!.isSubmitted);
@@ -2465,10 +2481,11 @@ class _CustomerRequestPreviewPageState
                                   'Use rear gate or loading bay is round the back.',
                               maxLines: 2,
                               onChanged: (_) {
-                                DriverReplyMockState.instance.setExactPinDetails(
-                                  source: _exactPinShareSource,
-                                  note: _pinNoteController.text.trim(),
-                                );
+                                DriverReplyMockState.instance
+                                    .setExactPinDetails(
+                                      source: _exactPinShareSource,
+                                      note: _pinNoteController.text.trim(),
+                                    );
                               },
                             ),
                           ],

@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_service.dart';
 
@@ -13,17 +14,30 @@ class VanMateExactPinNotificationPayload {
   const VanMateExactPinNotificationPayload({
     required this.type,
     required this.requestId,
-    required this.dropId,
-    required this.dropName,
+    this.dropId = '',
+    this.dropName = '',
+    this.jobId = '',
+    this.ownerUid = '',
+    this.jobTitle = '',
+    this.hasExactPin = false,
   });
 
   final String type;
   final String requestId;
   final String dropId;
   final String dropName;
+  final String jobId;
+  final String ownerUid;
+  final String jobTitle;
+  final bool hasExactPin;
 
   bool get isPinResponseNotification =>
       type == 'exact_pin_received' || type == 'location_note_received';
+
+  bool get isCustomerReplyNotification => type == 'customer_reply';
+
+  bool get isOpenableNotification =>
+      isPinResponseNotification || isCustomerReplyNotification;
 
   bool get isExactPinReceived => type == 'exact_pin_received';
 
@@ -32,15 +46,44 @@ class VanMateExactPinNotificationPayload {
     return trimmed.isEmpty ? 'A customer/site' : trimmed;
   }
 
-  String get snackbarBody => type == 'location_note_received'
-      ? (dropName.trim().isNotEmpty
-            ? 'Location note received for ${dropName.trim()}'
-            : 'Location note received')
-      : dropName.trim().isNotEmpty
-      ? 'Exact pin received for ${dropName.trim()}'
-      : 'Exact pin received for this drop';
+  String get displayJobTitle {
+    final trimmed = jobTitle.trim();
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+
+    final dropTitle = dropName.trim();
+    if (dropTitle.isNotEmpty) {
+      return dropTitle;
+    }
+
+    return 'this job';
+  }
+
+  String get snackbarBody {
+    if (isCustomerReplyNotification) {
+      if (jobTitle.trim().isNotEmpty && hasExactPin) {
+        return 'Exact pin received for $displayJobTitle';
+      }
+
+      return jobTitle.trim().isNotEmpty
+          ? 'Customer reply received for $displayJobTitle'
+          : 'Customer reply received';
+    }
+
+    return type == 'location_note_received'
+        ? (dropName.trim().isNotEmpty
+              ? 'Location note received for ${dropName.trim()}'
+              : 'Location note received')
+        : dropName.trim().isNotEmpty
+        ? 'Exact pin received for ${dropName.trim()}'
+        : 'Exact pin received for this drop';
+  }
 
   String get notificationTitle {
+    if (isCustomerReplyNotification) {
+      return 'Van Mate';
+    }
     if (type == 'exact_pin_received') {
       return 'Exact pin received';
     }
@@ -51,6 +94,16 @@ class VanMateExactPinNotificationPayload {
   }
 
   String get notificationBody {
+    if (isCustomerReplyNotification) {
+      if (hasExactPin && jobTitle.trim().isNotEmpty) {
+        return 'Exact pin received for ${jobTitle.trim()}';
+      }
+
+      return jobTitle.trim().isNotEmpty
+          ? 'Customer reply received for ${jobTitle.trim()}'
+          : 'Customer reply received';
+    }
+
     if (type == 'location_note_received') {
       return dropName.trim().isNotEmpty
           ? '${dropName.trim()} sent location details.'
@@ -69,6 +122,10 @@ class VanMateExactPinNotificationPayload {
     final requestId = _readString(data['requestId']);
     final dropId = _readString(data['dropId']);
     final dropName = _readString(data['dropName']);
+    final jobId = _readString(data['jobId']);
+    final ownerUid = _readString(data['ownerUid']);
+    final jobTitle = _readString(data['jobTitle']);
+    final hasExactPin = _readBool(data['hasExactPin']);
 
     if (type.isEmpty || requestId.isEmpty) {
       return null;
@@ -79,11 +136,24 @@ class VanMateExactPinNotificationPayload {
       requestId: requestId,
       dropId: dropId,
       dropName: dropName,
+      jobId: jobId,
+      ownerUid: ownerUid,
+      jobTitle: jobTitle,
+      hasExactPin: hasExactPin,
     );
   }
 
   static String _readString(dynamic value) {
     return value?.toString().trim() ?? '';
+  }
+
+  static bool _readBool(dynamic value) {
+    if (value is bool) {
+      return value;
+    }
+
+    final normalized = _readString(value).toLowerCase();
+    return normalized == 'true';
   }
 }
 
@@ -110,7 +180,6 @@ class VanMatePushNotificationService {
   bool _isProcessingUserSync = false;
   String? _currentUid;
   String? _currentToken;
-  String? _permissionPromptedForUid;
   void Function(VanMateExactPinNotificationPayload payload)?
   _openNotificationHandler;
   VanMateExactPinNotificationPayload? _pendingOpenNotification;
@@ -175,7 +244,7 @@ class VanMatePushNotificationService {
         _currentUid = uid;
       }
 
-      if (_shouldRequestPermissionForUid(uid)) {
+      if (await _shouldRequestPermissionForUid(uid)) {
         try {
           await _messaging.requestPermission(
             alert: true,
@@ -187,7 +256,7 @@ class VanMatePushNotificationService {
           debugPrint('FCM permission request failed: $error');
           debugPrintStack(stackTrace: stackTrace);
         } finally {
-          _permissionPromptedForUid = uid;
+          await _markPermissionPrompted(uid);
         }
       }
 
@@ -206,8 +275,19 @@ class VanMatePushNotificationService {
     }
   }
 
-  bool _shouldRequestPermissionForUid(String uid) {
-    return _supportsNativePushNotifications && _permissionPromptedForUid != uid;
+  Future<bool> _shouldRequestPermissionForUid(String uid) async {
+    if (!_supportsNativePushNotifications) {
+      return false;
+    }
+
+    final settings = await _messaging.getNotificationSettings();
+    if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional) {
+      return false;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    return !(prefs.getBool(_permissionPromptedKey(uid)) ?? false);
   }
 
   bool get _supportsNativePushNotifications {
@@ -221,7 +301,7 @@ class VanMatePushNotificationService {
 
   void _handleForegroundMessage(RemoteMessage message) {
     final payload = VanMateExactPinNotificationPayload.fromMap(message.data);
-    if (payload == null || !payload.isPinResponseNotification) {
+    if (payload == null || !payload.isOpenableNotification) {
       return;
     }
 
@@ -245,7 +325,7 @@ class VanMatePushNotificationService {
 
   void _handleOpenedMessage(RemoteMessage message) {
     final payload = VanMateExactPinNotificationPayload.fromMap(message.data);
-    if (payload == null || !payload.isPinResponseNotification) {
+    if (payload == null || !payload.isOpenableNotification) {
       return;
     }
 
@@ -279,17 +359,24 @@ class VanMatePushNotificationService {
 
     _currentToken = token;
 
-    await _firestore
+    final docRef = _firestore
         .collection('users')
         .doc(uid)
         .collection('fcmTokens')
-        .doc(docId)
-        .set(<String, dynamic>{
-          'token': token,
-          'platform': _platformLabel,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        .doc(docId);
+    final snapshot = await docRef.get();
+    final payload = <String, dynamic>{
+      'token': token,
+      'platform': _platformLabel,
+      'app': 'van_mate',
+      'enabled': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (!snapshot.exists || snapshot.data()?['createdAt'] == null) {
+      payload['createdAt'] = FieldValue.serverTimestamp();
+    }
+
+    await docRef.set(payload, SetOptions(merge: true));
   }
 
   Future<void> _deleteTokenDoc({
@@ -334,7 +421,6 @@ class VanMatePushNotificationService {
     final token = _currentToken;
     _currentUid = null;
     _currentToken = null;
-    _permissionPromptedForUid = null;
 
     await _tokenRefreshSubscription?.cancel();
     _tokenRefreshSubscription = null;
@@ -345,6 +431,18 @@ class VanMatePushNotificationService {
 
     await _deleteTokenDoc(uid: uid, tokenDocId: _tokenDocId(token));
   }
+
+  Future<void> _markPermissionPrompted(String uid) async {
+    if (!_supportsNativePushNotifications || uid.trim().isEmpty) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_permissionPromptedKey(uid), true);
+  }
+
+  String _permissionPromptedKey(String uid) =>
+      'van_mate_push_permission_prompted_${uid.trim()}';
 
   String _tokenDocId(String token) {
     final encoded = base64Url.encode(utf8.encode(token));

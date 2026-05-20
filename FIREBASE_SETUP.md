@@ -32,3 +32,21 @@ Run these from `van_mate_app/` after creating the new Firebase Android app:
 flutterfire configure
 flutter pub get
 ```
+
+## Hosting for customer request pages
+
+The hosted customer request page lives in `web/request.html` and is deployed
+with Firebase Hosting.
+
+Deploy hosting after web changes with:
+
+```powershell
+flutter build web
+firebase deploy --only hosting
+```
+
+If Firestore rules also changed:
+
+```powershell
+firebase deploy --only hosting,firestore:rules
+```

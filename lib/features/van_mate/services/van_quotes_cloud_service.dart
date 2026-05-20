@@ -42,8 +42,20 @@ class VanQuotesCloudService {
       return const <DriverCustomerReplyMockData>[];
     }
 
+    if (kDebugMode) {
+      debugPrint(
+        '[VanQuotesCloud] load start uid=$normalizedOwnerUid path=users/$normalizedOwnerUid/van_quotes',
+      );
+    }
     final snapshot = await _quotes(normalizedOwnerUid).get();
+    if (kDebugMode) {
+      final fetchedIds = snapshot.docs.map((doc) => doc.id).join(', ');
+      debugPrint(
+        '[VanQuotesCloud] fetched ${snapshot.docs.length} quote docs uid=$normalizedOwnerUid ids=${fetchedIds.isEmpty ? '(none)' : fetchedIds}',
+      );
+    }
     final quotes = <DriverCustomerReplyMockData>[];
+    var hiddenCount = 0;
     for (final doc in snapshot.docs) {
       final data = doc.data();
       final normalized = Map<String, dynamic>.from(data);
@@ -52,24 +64,40 @@ class VanQuotesCloudService {
       }
       try {
         final quote = DriverCustomerReplyMockData.fromJson(normalized);
-        if (_hasQuoteState(quote)) {
-          quotes.add(quote);
+        if (quote.isHiddenFromNormalLists) {
+          hiddenCount += 1;
+          if (kDebugMode) {
+            debugPrint(
+              '[VanQuotesCloud] hidden quote ${doc.id}: deleted=${quote.deleted} archived=${quote.archived}',
+            );
+          }
         }
+        quotes.add(quote);
       } catch (error) {
         debugPrint('[VanQuotesCloud] skip quote ${doc.id}: $error');
       }
     }
     quotes.sort((a, b) {
-      final aUpdated = a.quoteSentAt ??
+      final aUpdated =
+          a.quoteSentAt ??
           a.quoteSavedAt ??
           a.updatedAt ??
           DateTime.fromMillisecondsSinceEpoch(0);
-      final bUpdated = b.quoteSentAt ??
+      final bUpdated =
+          b.quoteSentAt ??
           b.quoteSavedAt ??
           b.updatedAt ??
           DateTime.fromMillisecondsSinceEpoch(0);
       return bUpdated.compareTo(aUpdated);
     });
+    if (kDebugMode) {
+      final visibleCount = quotes
+          .where((job) => !job.isHiddenFromNormalLists)
+          .length;
+      debugPrint(
+        '[VanQuotesCloud] showing $visibleCount quotes uid=$normalizedOwnerUid hidden=$hiddenCount totalLoaded=${quotes.length}',
+      );
+    }
     return quotes;
   }
 
@@ -91,7 +119,8 @@ class VanQuotesCloudService {
     if (!_hasQuoteState(job)) {
       logVanFirebaseSkip(
         reason: 'quote save skipped',
-        extra: 'source=$source uid=$normalizedOwnerUid docId=$normalizedJobId reason=no_quote_state',
+        extra:
+            'source=$source uid=$normalizedOwnerUid docId=$normalizedJobId reason=no_quote_state',
       );
       return;
     }
@@ -117,10 +146,9 @@ class VanQuotesCloudService {
         authType: 'anonymous',
         source: source,
       );
-      await _quotes(normalizedOwnerUid).doc(normalizedJobId).set(
-        payload,
-        SetOptions(merge: true),
-      );
+      await _quotes(
+        normalizedOwnerUid,
+      ).doc(normalizedJobId).set(payload, SetOptions(merge: true));
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: normalizedJobId,
@@ -181,7 +209,11 @@ class VanQuotesCloudService {
         uid: normalizedOwnerUid,
         source: source,
       );
-      batch.set(collection.doc(normalizedJobId), payload, SetOptions(merge: true));
+      batch.set(
+        collection.doc(normalizedJobId),
+        payload,
+        SetOptions(merge: true),
+      );
       writes++;
       docIds.add(normalizedJobId);
     }

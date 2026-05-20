@@ -358,7 +358,7 @@ Future<VanPinRequest?> _requestVanLivePin(
 
   if (copyLinkInstead) {
     await Clipboard.setData(ClipboardData(text: link));
-    _showMessage(messenger, 'Request link copied.');
+    _showMessage(messenger, 'Link copied.');
     return request;
   }
 

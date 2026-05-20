@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../firebase_options.dart';
 import '../features/van_mate/pages/driver_customer_reply_mock_page.dart';
-import '../features/van_mate/services/van_business_profile_storage.dart';
 import '../features/van_mate/services/van_firebase_auth_service.dart';
 import '../features/van_mate/services/van_firebase_debug_logging.dart';
 import '../features/van_mate/services/van_user_cloud_service.dart';
@@ -37,18 +36,12 @@ Future<void> runVanMateApp() async {
       debugPrint('Van Mate mock state load failed: $error');
     }
     try {
-      logVanFirebaseHydration(
-        stage: 'started',
-        target: 'cloud auth/bootstrap',
-      );
+      logVanFirebaseHydration(stage: 'started', target: 'cloud auth/bootstrap');
       await VanFirebaseAuthService.instance.ensureSignedIn(
         source: 'van_mate.bootstrap',
       );
       final user = FirebaseAuth.instance.currentUser;
-      logVanFirebaseAuthState(
-        stage: 'bootstrap current user',
-        user: user,
-      );
+      logVanFirebaseAuthState(stage: 'bootstrap current user', user: user);
       if (user != null) {
         await VanUserCloudService.instance.ensureUserDocument(
           uid: user.uid,
@@ -69,43 +62,9 @@ Future<void> runVanMateApp() async {
       debugPrint('Van Mate auth bootstrap failed: $error');
     }
     try {
-      logVanFirebaseHydration(stage: 'started', target: 'cloud jobs');
-      await DriverReplyMockState.instance.loadFromCloud();
-      logVanFirebaseHydration(stage: 'completed', target: 'cloud jobs');
+      await DriverReplyMockState.instance.hydrateFromCloud();
     } catch (error) {
-      logVanFirebaseHydration(
-        stage: 'failed',
-        target: 'cloud jobs',
-        extra: error.toString(),
-      );
-      debugPrint('Van Mate cloud job load failed: $error');
-    }
-    try {
-      logVanFirebaseHydration(stage: 'started', target: 'cloud job requests');
-      await DriverReplyMockState.instance.loadJobRequestsFromCloud();
-      logVanFirebaseHydration(stage: 'completed', target: 'cloud job requests');
-    } catch (error) {
-      logVanFirebaseHydration(
-        stage: 'failed',
-        target: 'cloud job requests',
-        extra: error.toString(),
-      );
-      debugPrint('Van Mate cloud job request load failed: $error');
-    }
-    try {
-      logVanFirebaseHydration(stage: 'started', target: 'cloud business profile');
-      await VanBusinessProfileStorage.instance.loadFromCloud();
-      logVanFirebaseHydration(
-        stage: 'completed',
-        target: 'cloud business profile',
-      );
-    } catch (error) {
-      logVanFirebaseHydration(
-        stage: 'failed',
-        target: 'cloud business profile',
-        extra: error.toString(),
-      );
-      debugPrint('Van Mate cloud profile load failed: $error');
+      debugPrint('Van Mate cloud hydrate failed: $error');
     }
     await VanMatePremiumService.instance.ensureLoaded();
     await VanMatePushNotificationService.instance.initialize(

@@ -14,9 +14,7 @@ import 'van_invoice_preview_page.dart';
 
 Future<void> openVanInvoiceHistoryPage(BuildContext context) {
   return Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => const VanInvoiceHistoryPage(),
-    ),
+    MaterialPageRoute<void>(builder: (_) => const VanInvoiceHistoryPage()),
   );
 }
 
@@ -28,10 +26,36 @@ class VanInvoiceHistoryPage extends StatefulWidget {
 }
 
 class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
+  bool _isHydratingInvoices = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hydrateInvoices();
+  }
+
   void _showSnack(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
+  }
+
+  Future<void> _hydrateInvoices() async {
+    _isHydratingInvoices = true;
+
+    try {
+      await DriverReplyMockState.instance.loadInvoicesFromCloud();
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Past invoices cloud hydrate failed: $error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isHydratingInvoices = false;
+        });
+      }
+    }
   }
 
   List<VanInvoiceDraft> _invoices() {
@@ -105,9 +129,7 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Mark invoice as paid?'),
-        content: const Text(
-          'This will remove it from outstanding totals.',
-        ),
+        content: const Text('This will remove it from outstanding totals.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -247,7 +269,9 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
     final statusColor = draft.isPaid
         ? const Color(0xFF58D0A4)
         : const Color(0xFFFFC56F);
-    final statusIcon = draft.isPaid ? Icons.check_circle : Icons.hourglass_bottom;
+    final statusIcon = draft.isPaid
+        ? Icons.check_circle
+        : Icons.hourglass_bottom;
 
     return _buildShellCard(
       child: Column(
@@ -263,24 +287,24 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
                     Text(
                       'Invoice ${draft.invoiceNumber}',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       draft.customerName,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.82),
-                            height: 1.35,
-                          ),
+                        color: Colors.white.withValues(alpha: 0.82),
+                        height: 1.35,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       draft.jobReference,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.68),
-                          ),
+                        color: Colors.white.withValues(alpha: 0.68),
+                      ),
                     ),
                   ],
                 ),
@@ -289,9 +313,9 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
               Text(
                 draft.totalDueText,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
@@ -312,8 +336,8 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
           Text(
             draft.invoiceDate,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.72),
-                ),
+              color: Colors.white.withValues(alpha: 0.72),
+            ),
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
@@ -420,9 +444,7 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
                         children: [
                           Text(
                             'Invoice history',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
+                            style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w900,
@@ -441,16 +463,39 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    if (invoices.isEmpty)
+                    if (_isHydratingInvoices && invoices.isEmpty)
+                      _buildShellCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Loading invoices...',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Fetching saved invoices from Firestore.',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.74),
+                                    height: 1.45,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (invoices.isEmpty)
                       _buildShellCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'No invoices yet.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
+                              style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,

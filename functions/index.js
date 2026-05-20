@@ -7,6 +7,7 @@ const { HttpsError, onCall } = require('firebase-functions/v2/https');
 admin.initializeApp();
 
 const PIN_REQUEST_COLLECTION = 'van_pin_requests';
+const JOB_REQUEST_COLLECTION = 'van_job_requests';
 const USERS_COLLECTION = 'users';
 const PLACES_COLLECTION = 'van_places';
 const ROUTES_COLLECTION = 'van_routes';
@@ -14,6 +15,8 @@ const USAGE_COLLECTION = 'usage';
 const FCM_TOKENS_SUBCOLLECTION = 'fcmTokens';
 const EXACT_PIN_NOTIFICATION_TYPE = 'exact_pin_received';
 const LOCATION_NOTE_NOTIFICATION_TYPE = 'location_note_received';
+const CUSTOMER_REPLY_NOTIFICATION_TYPE = 'customer_reply';
+const REPLY_NOTIFICATION_SENT_AT_FIELD = 'replyNotificationSentAt';
 const MAX_ROUTE_STOPS = 25;
 const MAX_DAILY_HALFWAY_REFRESHES = 8;
 const ROUTE_PROVIDER = 'google_routes';
@@ -356,6 +359,111 @@ exports.onVanPinRequestReceived = onDocumentUpdated(
 
       await pruneInvalidTokens(ownerId, records, response.responses);
     }
+  },
+);
+
+exports.onVanJobRequestReplyNotification = onDocumentUpdated(
+  `${JOB_REQUEST_COLLECTION}/{requestId}`,
+  async (event) => {
+    const before = event.data && event.data.before ? event.data.before.data() : null;
+    const after = event.data && event.data.after ? event.data.after.data() : null;
+    const requestId = event.params.requestId;
+
+    if (!before || !after) {
+      return;
+    }
+
+    if (after[REPLY_NOTIFICATION_SENT_AT_FIELD] != null) {
+      return;
+    }
+
+    const beforeStatus = readString(before.status);
+    const afterStatus = readString(after.status);
+    const beforeHasReply = readBool(before.hasReply);
+    const afterHasReply = readBool(after.hasReply);
+    const becameSubmitted = beforeStatus !== 'submitted' && afterStatus === 'submitted';
+    const becameReplied = !beforeHasReply && afterHasReply;
+
+    if (!becameSubmitted && !becameReplied) {
+      return;
+    }
+
+    const ownerUid = readString(after.ownerUid);
+    if (!ownerUid) {
+      return;
+    }
+
+    const jobId = readString(after.jobId) || requestId;
+    const jobTitle = firstNonEmpty([
+      after.publicJobTitle,
+      after.jobTitle,
+      after.publicCustomerName,
+    ]);
+    const hasExactPin = readBool(after.hasExactPin);
+    const body = hasExactPin
+      ? (jobTitle
+          ? `Exact pin received for ${jobTitle}`
+          : 'Exact pin received')
+      : (jobTitle
+          ? `Customer reply received for ${jobTitle}`
+          : 'Customer reply received');
+    const payloadData = {
+      type: CUSTOMER_REPLY_NOTIFICATION_TYPE,
+      requestId: requestId || '',
+      jobId,
+      ownerUid,
+      hasExactPin: hasExactPin ? 'true' : 'false',
+      jobTitle,
+    };
+
+    const tokenRecords = await loadTokens(ownerUid);
+    if (tokenRecords.length === 0) {
+      console.error(`No FCM tokens found for owner ${ownerUid}`);
+      return;
+    }
+
+    const uniqueRecords = dedupeTokenRecords(tokenRecords);
+    const chunks = chunk(uniqueRecords, 500);
+
+    for (const records of chunks) {
+      const enabledRecords = records.filter((record) => record.enabled !== false);
+      const tokens = enabledRecords.map((record) => record.token);
+      if (tokens.length === 0) {
+        continue;
+      }
+
+      const response = await admin.messaging().sendEachForMulticast({
+        tokens,
+        notification: {
+          title: 'Van Mate',
+          body,
+        },
+        data: payloadData,
+      });
+
+      await pruneInvalidTokens(ownerUid, enabledRecords, response.responses);
+    }
+
+    const notificationSentAt = admin.firestore.FieldValue.serverTimestamp();
+    const updates = {
+      [REPLY_NOTIFICATION_SENT_AT_FIELD]: notificationSentAt,
+      updatedAt: notificationSentAt,
+    };
+
+    await Promise.allSettled([
+      admin
+        .firestore()
+        .collection(JOB_REQUEST_COLLECTION)
+        .doc(requestId)
+        .set(updates, { merge: true }),
+      admin
+        .firestore()
+        .collection(USERS_COLLECTION)
+        .doc(ownerUid)
+        .collection(JOB_REQUEST_COLLECTION)
+        .doc(requestId)
+        .set(updates, { merge: true }),
+    ]);
   },
 );
 
@@ -1050,6 +1158,7 @@ async function loadTokens(ownerId) {
       return {
         token: readString(data.token),
         tokenDocId: doc.id,
+        enabled: data.enabled !== false,
       };
     })
     .filter((record) => record.token);

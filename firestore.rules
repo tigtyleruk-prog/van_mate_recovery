@@ -63,6 +63,8 @@ service cloud.firestore {
           'status',
           'submittedAt',
           'customerSubmittedAt',
+          'hasReply',
+          'hasExactPin',
           'checklistResponses',
           'customQuestionResponses',
           'additionalNotes',
@@ -75,7 +77,18 @@ service cloud.firestore {
         && request.resource.data.status == 'submitted'
         && request.resource.data.submittedAt is timestamp
         && request.resource.data.customerSubmittedAt is timestamp
+        && request.resource.data.hasReply is bool
+        && request.resource.data.hasExactPin is bool
         && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isPublicJobRequestRead() {
+      return request.auth == null
+        && (
+          resource.data.status == 'pending'
+          || resource.data.status == 'submitted'
+          || resource.data.status == 'cancelled'
+        );
     }
 
     match /van_places/{placeId} {
@@ -134,11 +147,7 @@ service cloud.firestore {
     match /van_job_requests/{requestId} {
       allow get: if (
           signedIn() && resource.data.ownerUid == request.auth.uid
-        ) || (
-          request.auth == null
-          && resource.data.status == 'pending'
-          && request.time < resource.data.expiresAt
-        );
+        ) || isPublicJobRequestRead();
       allow list: if false;
       allow create: if signedIn()
         && request.resource.data.ownerUid == request.auth.uid;

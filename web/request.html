@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Van Mate request</title>
+  <meta name="description" content="Fill in job access details and send the exact location pin to the driver." />
+  <meta property="og:title" content="Van Mate request" />
+  <meta property="og:description" content="Fill in job access details and send the exact location pin to the driver." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" id="ogUrl" content="" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Van Mate request" />
+  <meta name="twitter:description" content="Fill in job access details and send the exact location pin to the driver." />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-0: #08111d;
+      --bg-1: #0c1727;
+      --bg-2: #14243d;
+      --panel: rgba(12, 20, 34, 0.90);
+      --panel-strong: rgba(18, 28, 46, 0.94);
+      --border: rgba(255, 255, 255, 0.10);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #f5f8ff;
+      --muted: rgba(245, 248, 255, 0.72);
+      --subtle: rgba(245, 248, 255, 0.56);
+      --accent: #4a7dff;
+      --accent-2: #58d0a4;
+      --warning: #ffbf7e;
+      --error: #ff8f7a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(74, 125, 255, 0.22), transparent 25%),
+        radial-gradient(circle at top right, rgba(88, 208, 164, 0.12), transparent 24%),
+        radial-gradient(circle at bottom center, rgba(255, 191, 126, 0.08), transparent 20%),
+        linear-gradient(180deg, var(--bg-0), var(--bg-1) 45%, var(--bg-2));
+    }
+
+    .page {
+      width: min(980px, 100%);
+      margin: 0 auto;
+      padding: 16px 16px 28px;
+    }
+
+    .hero {
+      padding: 8px 8px 6px;
+      margin-bottom: 12px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(74, 125, 255, 0.22);
+      background: rgba(74, 125, 255, 0.14);
+      color: rgba(255, 255, 255, 0.96);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4.4vw, 46px);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .lede {
+      margin: 10px 0 0;
+      max-width: 58ch;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+      gap: 14px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      padding: 18px;
+      border-radius: 26px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(16px);
+    }
+
+    .card.strong {
+      background: var(--panel-strong);
+      border-color: var(--border-strong);
+    }
+
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+    }
+
+    .section-text {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .request-id {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
+      word-break: break-word;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .micro-text {
+      margin: 8px 0 0;
+      color: var(--subtle);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .debug-panel {
+      display: none;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 143, 122, 0.10);
+      border: 1px solid rgba(255, 143, 122, 0.22);
+      color: #fff3ef;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .debug-panel.show {
+      display: block;
+    }
+
+    .debug-panel .debug-code {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .banner {
+      display: none;
+      padding: 14px 16px;
+      border-radius: 20px;
+      line-height: 1.5;
+      font-size: 14px;
+      font-weight: 750;
+      border: 1px solid rgba(88, 208, 164, 0.24);
+      background: rgba(88, 208, 164, 0.12);
+      color: #ebfff5;
+    }
+
+    .banner.show {
+      display: block;
+    }
+
+    .banner.error {
+      border-color: rgba(255, 143, 122, 0.24);
+      background: rgba(255, 143, 122, 0.10);
+      color: #fff3ef;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.1px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .status-pill.pending {
+      border-color: rgba(74, 125, 255, 0.26);
+      background: rgba(74, 125, 255, 0.12);
+    }
+
+    .status-pill.submitted,
+    .status-pill.success {
+      border-color: rgba(88, 208, 164, 0.26);
+      background: rgba(88, 208, 164, 0.12);
+    }
+
+    .status-pill.warning {
+      border-color: rgba(255, 191, 126, 0.26);
+      background: rgba(255, 191, 126, 0.12);
+    }
+
+    .summary-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: 110px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .summary-label {
+      color: rgba(255, 255, 255, 0.54);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .summary-value {
+      color: rgba(255, 255, 255, 0.96);
+      font-size: 14px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .form-section {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .question-card {
+      padding: 14px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .question-title {
+      margin: 0 0 10px;
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 850;
+    }
+
+    .field,
+    .select {
+      width: 100%;
+      padding: 13px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+    }
+
+    .field::placeholder,
+    .select option[disabled] {
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .field {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.75) 50%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.75) 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) calc(50% - 3px),
+        calc(100% - 12px) calc(50% - 3px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 38px;
+    }
+
+    .helper {
+      margin-top: 10px;
+      color: var(--subtle);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 16px;
+      min-height: 48px;
+      padding: 12px 16px;
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(135deg, #3c66ee, #5d8bff);
+      box-shadow: 0 12px 26px rgba(74, 125, 255, 0.20);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    button.success {
+      background: linear-gradient(135deg, #2ebd88, #58d0a4);
+      box-shadow: 0 12px 26px rgba(88, 208, 164, 0.18);
+    }
+
+    button.warning {
+      background: linear-gradient(135deg, #f08a46, #ffb06a);
+      color: #fff;
+      box-shadow: 0 12px 26px rgba(255, 191, 126, 0.16);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .full {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .footer {
+      margin-top: 14px;
+      color: rgba(255, 255, 255, 0.50);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .answer-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .answer-choice {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .choice {
+      min-height: 46px;
+      padding: 11px 14px;
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: inherit;
+      font-weight: 800;
+    }
+
+    .choice.active {
+      border-color: rgba(74, 125, 255, 0.34);
+      background: rgba(74, 125, 255, 0.18);
+    }
+
+    .inline-note {
+      margin-top: 10px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .success-screen {
+      display: grid;
+      gap: 12px;
+    }
+
+    .success-heading {
+      margin: 0;
+      font-size: clamp(28px, 4.6vw, 42px);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .success-note {
+      margin: 0;
+      color: var(--subtle);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .spacer {
+      height: 4px;
+    }
+
+    @media (max-width: 880px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding: 12px 12px 22px;
+      }
+
+      .hero {
+        padding: 10px 6px 4px;
+      }
+
+      .card {
+        padding: 16px;
+        border-radius: 22px;
+      }
+
+      .summary-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+
+      .answer-choice {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow">Van Mate customer request</div>
+      <h1>Fill in the job details</h1>
+      <p class="lede">
+        Send back access details and an exact location pin if you are at the drop-off point.
+      </p>
+      <div id="requestIdLabel" class="request-id">Secure request loaded</div>
+      <div class="top-actions">
+        <button id="copyLinkButton" type="button" class="secondary">Copy link</button>
+      </div>
+      <p class="micro-text">
+        If location sharing does not work here, copy the link and open it in Chrome or Safari.
+      </p>
+    </section>
+
+    <div id="banner" class="banner"></div>
+    <div id="debugPanel" class="debug-panel" aria-live="polite"></div>
+
+    <article id="successCard" class="card strong success-screen hidden" aria-live="polite">
+      <div id="successPill" class="status-pill success">Submitted</div>
+      <h2 class="success-heading" id="successTitle">Request submitted</h2>
+      <p class="section-text" id="successText">
+        Thanks, your job details have been sent to the driver.
+      </p>
+      <p class="success-note" id="successNote">
+        You can close this page now.
+      </p>
+    </article>
+
+    <div id="contentLayout" class="layout">
+      <section class="stack">
+        <article class="card strong">
+          <div id="statusPill" class="status-pill pending">Loading request...</div>
+          <div class="spacer"></div>
+          <h2 class="section-title" id="title">Loading job request...</h2>
+          <p class="section-text" id="description">
+            We are loading the request details now.
+          </p>
+          <div class="summary-grid" id="summaryGrid"></div>
+        </article>
+
+        <article class="card" id="formCard">
+          <h2 class="section-title">Your answers</h2>
+          <p class="section-text">
+            Please answer each item so the driver gets the right access information.
+          </p>
+          <div class="form-section" id="checklistSection"></div>
+          <div class="form-section" id="customSection"></div>
+          <div class="form-section">
+            <div class="question-card">
+              <div class="question-title">Additional notes</div>
+              <textarea id="additionalNotes" class="field" maxlength="500" placeholder="Add any extra access notes, instructions or context..."></textarea>
+              <div class="helper">Optional. Use this for anything else the driver should know.</div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <aside class="stack">
+        <article class="card">
+          <h2 class="section-title">Exact pin</h2>
+          <p class="section-text" id="pinHelp">
+            If you are at the exact entrance, gate, bay or drop-off point, share your current location.
+          </p>
+          <div class="actions">
+            <button id="shareLocationButton" type="button" class="success full">Share my current location</button>
+            <button id="notHereButton" type="button" class="secondary full">Continue without pin</button>
+          </div>
+          <div id="pinStatus" class="banner" style="margin-top: 14px;"></div>
+          <div class="question-card inline-note">
+            <div class="question-title">Exact pin note</div>
+            <textarea id="exactPinNote" class="field" maxlength="240" placeholder="Optional note for the driver about the entrance, gate, reception, loading bay..."></textarea>
+            <div class="helper">If you are not at the entrance/drop-off point, continue without a pin and add a note.</div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h2 class="section-title">Submit</h2>
+          <p class="section-text">
+            Once everything looks right, send the request back to the driver.
+          </p>
+          <div class="actions">
+            <button id="submitButton" type="button" class="full">Submit request</button>
+          </div>
+          <p class="footer">
+            This page does not require an account. It only updates this one request.
+          </p>
+        </article>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD1FUKyO00FC0IYXfZzgPCE2SNooQF4jvg",
+      authDomain: "vanmate-56eac.firebaseapp.com",
+      projectId: "vanmate-56eac",
+      storageBucket: "vanmate-56eac.firebasestorage.app",
+      messagingSenderId: "406913319321",
+      appId: "1:406913319321:web:7b451a037012bd6d9bd308",
+      measurementId: "G-1W5Z7DQTCY"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const debugMode =
+      window.location.hostname.includes("localhost") ||
+      window.location.hostname.includes("web.app") ||
+      window.location.hostname.includes("firebaseapp.com");
+
+    const params = new URLSearchParams(window.location.search);
+    const requestId = (params.get("id") || "").trim();
+    const requestRef = requestId ? db.collection("van_job_requests").doc(requestId) : null;
+
+    const state = {
+      loading: true,
+      submitting: false,
+      submitted: false,
+      blocked: false,
+      request: null,
+      requestMessage: "",
+      exactPinShared: false,
+      exactPinLat: null,
+      exactPinLng: null,
+      exactPinSource: "none",
+      locationStatus: "idle",
+      additionalNotes: "",
+      exactPinNote: "",
+      checklist: {},
+      custom: {},
+    };
+
+    const requestIdLabel = document.getElementById("requestIdLabel");
+    const copyLinkButton = document.getElementById("copyLinkButton");
+    const banner = document.getElementById("banner");
+    const debugPanel = document.getElementById("debugPanel");
+    const successCard = document.getElementById("successCard");
+    const successTitle = document.getElementById("successTitle");
+    const successText = document.getElementById("successText");
+    const contentLayout = document.getElementById("contentLayout");
+    const statusPill = document.getElementById("statusPill");
+    const title = document.getElementById("title");
+    const description = document.getElementById("description");
+    const summaryGrid = document.getElementById("summaryGrid");
+    const checklistSection = document.getElementById("checklistSection");
+    const customSection = document.getElementById("customSection");
+    const formCard = document.getElementById("formCard");
+    const additionalNotes = document.getElementById("additionalNotes");
+    const exactPinNote = document.getElementById("exactPinNote");
+    const pinStatus = document.getElementById("pinStatus");
+    const pinHelp = document.getElementById("pinHelp");
+    const submitButton = document.getElementById("submitButton");
+    const shareLocationButton = document.getElementById("shareLocationButton");
+    const notHereButton = document.getElementById("notHereButton");
+    const successNote = document.getElementById("successNote");
+    let fixedInputsBound = false;
+
+    function updateMetaTags() {
+      const currentUrl = window.location.href.split("#")[0];
+      const ogUrl = document.getElementById("ogUrl");
+      if (ogUrl) {
+        ogUrl.setAttribute("content", currentUrl);
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function shortText(value, maxLength = 120) {
+      const cleaned = String(value ?? "").trim();
+      if (cleaned.length <= maxLength) {
+        return cleaned;
+      }
+      return `${cleaned.slice(0, maxLength - 3).trimEnd()}...`;
+    }
+
+    function asDate(value) {
+      if (!value) return null;
+      if (typeof value.toDate === "function") {
+        return value.toDate();
+      }
+      if (value instanceof Date) {
+        return value;
+      }
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function formatDateTime(value) {
+      const date = asDate(value);
+      if (!date) return "";
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
+    }
+
+    function isExpired(request) {
+      if (!request) return false;
+      if (request.status === "cancelled" || request.status === "submitted") {
+        return false;
+      }
+      return request.expiresAt instanceof Date && Date.now() > request.expiresAt.getTime();
+    }
+
+    function isBlocked(request) {
+      return !request || request.status === "cancelled" || request.status === "submitted" || isExpired(request);
+    }
+
+    function statusInfo(request) {
+      if (!request) {
+        return { label: "Loading request...", tone: "pending" };
+      }
+
+      if (request.status === "cancelled") {
+        return { label: "Request cancelled", tone: "warning" };
+      }
+
+      if (request.status === "submitted") {
+        return { label: "Request already submitted", tone: "submitted" };
+      }
+
+      if (isExpired(request)) {
+        return { label: "Request expired", tone: "warning" };
+      }
+
+      return { label: "Awaiting customer reply", tone: "pending" };
+    }
+
+    function checklistOptionsFor(question) {
+      const lower = question.toLowerCase();
+      if (lower.includes("photos")) {
+        return ["Photo requested", "No photos requested"];
+      }
+      if (lower.includes("access restrictions")) {
+        return ["No restrictions", "Yes", "Not sure"];
+      }
+      if (lower.includes("stairs or lift")) {
+        return ["Stairs", "Lift", "Ground floor", "Not sure"];
+      }
+      return ["Yes", "No", "Not sure"];
+    }
+
+    function setBanner(message, tone = "success") {
+      banner.textContent = message;
+      banner.className = `banner show ${tone === "error" ? "error" : ""}`.trim();
+    }
+
+    function clearBanner() {
+      banner.textContent = "";
+      banner.className = "banner";
+    }
+
+    function setPinStatus(message, tone = "success") {
+      pinStatus.textContent = message;
+      pinStatus.className = `banner show ${tone === "error" ? "error" : ""}`.trim();
+    }
+
+    function clearPinStatus() {
+      pinStatus.textContent = "";
+      pinStatus.className = "banner";
+    }
+
+    function showDebugPanel(message) {
+      if (!debugPanel) {
+        return;
+      }
+
+      debugPanel.innerHTML = message;
+      debugPanel.className = "debug-panel show";
+    }
+
+    function clearDebugPanel() {
+      if (!debugPanel) {
+        return;
+      }
+
+      debugPanel.textContent = "";
+      debugPanel.className = "debug-panel";
+    }
+
+    function normalizeFirestoreErrorCode(error) {
+      const raw = String(
+        error?.code || error?.name || error?.message || "",
+      ).trim().toLowerCase();
+      if (!raw) {
+        return "unknown-error";
+      }
+
+      const matches = [
+        "permission-denied",
+        "missing-or-insufficient-permissions",
+        "invalid-argument",
+        "unavailable",
+        "deadline-exceeded",
+        "failed-precondition",
+        "not-found",
+      ];
+      for (const code of matches) {
+        if (raw.includes(code)) {
+          return code;
+        }
+      }
+
+      return raw;
+    }
+
+    function fallbackCopyText(text) {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "readonly");
+      textarea.style.position = "fixed";
+      textarea.style.top = "-9999px";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      let copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } catch (error) {
+        copied = false;
+      }
+      textarea.remove();
+      return copied;
+    }
+
+    async function copyCurrentRequestLink() {
+      clearBanner();
+      clearDebugPanel();
+
+      const link = window.location.href.split("#")[0];
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(link);
+          setBanner("Link copied", "success");
+          return;
+        }
+      } catch (error) {
+        console.debug("Clipboard API copy failed", error);
+      }
+
+      if (fallbackCopyText(link)) {
+        setBanner("Link copied", "success");
+        return;
+      }
+
+      setBanner(
+        "Copy failed — long press the address bar or open in Chrome/Safari.",
+        "error",
+      );
+    }
+
+    function focusQuestionField(kind, question) {
+      const selector = kind === "checklist"
+        ? "[data-checklist-question]"
+        : "[data-custom-question]";
+      const attribute = kind === "checklist"
+        ? "data-checklist-question"
+        : "data-custom-question";
+
+      for (const field of document.querySelectorAll(selector)) {
+        if (field.getAttribute(attribute) !== question) {
+          continue;
+        }
+
+        field.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (typeof field.focus === "function") {
+          field.focus({ preventScroll: true });
+        }
+        return;
+      }
+    }
+
+    function validateSubmission(request) {
+      for (const question of request.checklistItems) {
+        const entry = state.checklist[question] || { answer: "", note: "" };
+        if (!String(entry.answer || "").trim()) {
+          return {
+            kind: "checklist",
+            question,
+            message: `Please answer: ${question}`,
+          };
+        }
+      }
+
+      for (const question of request.customQuestions) {
+        const answer = String(state.custom[question] || "").trim();
+        if (!answer) {
+          return {
+            kind: "custom",
+            question,
+            message: `Please answer: ${question}`,
+          };
+        }
+      }
+
+      return null;
+    }
+
+    function showSuccessScreen() {
+      if (successTitle) {
+        successTitle.textContent = 'Request submitted';
+      }
+      if (successText) {
+        successText.textContent = 'Thanks, your job details have been sent to the driver.';
+      }
+      if (successNote) {
+        successNote.textContent = 'You can close this page now.';
+      }
+      successCard.classList.remove("hidden");
+      contentLayout.classList.add("hidden");
+    }
+
+    function hideSuccessScreen() {
+      successCard.classList.add("hidden");
+      contentLayout.classList.remove("hidden");
+    }
+
+    function renderStatus(request) {
+      const info = statusInfo(request);
+      statusPill.className = `status-pill ${info.tone}`;
+      statusPill.textContent = info.label;
+
+      if (!request) {
+        title.textContent = "Loading job request...";
+        description.textContent = "We are loading the request details now.";
+        return;
+      }
+
+      if (request.status === "cancelled") {
+        title.textContent = "This request was cancelled";
+        description.textContent = "The driver cancelled this request, so it cannot be submitted from this link.";
+        return;
+      }
+
+      if (request.status === "submitted") {
+        title.textContent = "This request was already submitted";
+        description.textContent = "Thanks. The driver already has your reply.";
+        return;
+      }
+
+      if (isExpired(request)) {
+        title.textContent = "This request has expired";
+        description.textContent = "This request is no longer active. Please ask the driver to resend a fresh link.";
+        return;
+      }
+
+      title.textContent = request.publicJobTitle || "Job request";
+      description.textContent = "Fill in the details and send them back.";
+    }
+
+    function renderSummary(request) {
+      if (!request) {
+        summaryGrid.innerHTML = "";
+        return;
+      }
+
+      const rows = [];
+      if (request.publicCustomerName) {
+        rows.push([
+          "Customer",
+          escapeHtml(shortText(request.publicCustomerName, 110)),
+        ]);
+      }
+      if (request.publicAddressSummary) {
+        rows.push([
+          "Address",
+          escapeHtml(shortText(request.publicAddressSummary, 140)),
+        ]);
+      }
+      if (request.jobDateLabel || request.jobTimeLabel) {
+        rows.push([
+          "Schedule",
+          escapeHtml([request.jobDateLabel, request.jobTimeLabel].filter(Boolean).join(" ")),
+        ]);
+      }
+      if (request.exactPinRequested) {
+        rows.push([
+          "Exact pin",
+          "Requested",
+        ]);
+      }
+      if (request.expiresAt) {
+        rows.push([
+          "Expires",
+          escapeHtml(formatDateTime(request.expiresAt)),
+        ]);
+      }
+
+      summaryGrid.innerHTML = rows.map(([label, value]) => `
+        <div class="summary-row">
+          <div class="summary-label">${label}</div>
+          <div class="summary-value">${value}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderChecklist(request) {
+      const items = request?.checklistItems || [];
+      if (!items.length) {
+        checklistSection.innerHTML = "";
+        return;
+      }
+
+      checklistSection.innerHTML = items.map((question) => {
+        const options = checklistOptionsFor(question);
+        const selected = state.checklist[question] || { answer: "", note: "" };
+        const selectedAnswer = selected.answer || "";
+        const noteValue = selected.note || "";
+        return `
+          <div class="question-card">
+            <div class="question-title">${escapeHtml(question)}</div>
+            <div class="answer-grid">
+              <select class="select" data-checklist-question="${escapeHtml(question)}">
+                <option value="" ${selectedAnswer ? "" : "selected"} disabled>Select an answer</option>
+                ${options.map((option) => `
+                  <option value="${escapeHtml(option)}" ${selectedAnswer === option ? "selected" : ""}>${escapeHtml(option)}</option>
+                `).join("")}
+              </select>
+              <textarea class="field" data-checklist-note="${escapeHtml(question)}" maxlength="240" placeholder="Optional note">${escapeHtml(noteValue)}</textarea>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderCustomQuestions(request) {
+      const items = request?.customQuestions || [];
+      if (!items.length) {
+        customSection.innerHTML = "";
+        return;
+      }
+
+      customSection.innerHTML = items.map((question) => {
+        const value = state.custom[question] || "";
+        return `
+          <div class="question-card">
+            <div class="question-title">${escapeHtml(question)}</div>
+            <textarea class="field" data-custom-question="${escapeHtml(question)}" maxlength="500" placeholder="Type your answer here...">${escapeHtml(value)}</textarea>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderPinSection(request) {
+      const exactRequested = !!request?.exactPinRequested;
+      const hasPin = state.exactPinShared && Number.isFinite(state.exactPinLat) && Number.isFinite(state.exactPinLng);
+      const isGettingLocation = state.locationStatus === "getting";
+      const locationFailed =
+        state.locationStatus === "denied" ||
+        state.locationStatus === "timedOut" ||
+        state.locationStatus === "unavailable";
+
+      shareLocationButton.disabled = !exactRequested || state.submitting || state.submitted || isBlocked(request);
+      notHereButton.disabled = !exactRequested || state.submitting || state.submitted || isBlocked(request);
+      shareLocationButton.textContent = isGettingLocation
+        ? "Getting location..."
+        : locationFailed
+          ? "Try again"
+          : hasPin
+            ? "Location shared"
+            : "Share my current location";
+      notHereButton.textContent = "Continue without pin";
+
+      if (!exactRequested) {
+        pinHelp.textContent = "This request does not need an exact pin.";
+        exactPinNote.disabled = true;
+        exactPinNote.value = "";
+        clearPinStatus();
+        return;
+      }
+
+      exactPinNote.disabled = state.submitting || state.submitted || isBlocked(request);
+      exactPinNote.value = state.exactPinNote || "";
+
+      if (hasPin) {
+        state.locationStatus = "shared";
+        setPinStatus("Location shared", "success");
+      } else if (isGettingLocation) {
+        setPinStatus("Getting location...", "success");
+      } else if (state.locationStatus === "skipped") {
+        setPinStatus(
+          "Continuing without a pin. You can still submit the request.",
+          "warning",
+        );
+      } else if (state.locationStatus === "denied") {
+        setPinStatus(
+          "Location permission was denied. You can try again or submit without an exact pin.",
+          "error",
+        );
+      } else if (state.locationStatus === "timedOut") {
+        setPinStatus(
+          "Location timed out. You can try again or submit without an exact pin.",
+          "error",
+        );
+      } else if (state.locationStatus === "unavailable") {
+        setPinStatus(
+          "Location couldn't be shared. You can try again or submit without an exact pin.",
+          "error",
+        );
+      } else {
+        clearPinStatus();
+      }
+    }
+
+    function renderSubmitState(request) {
+      const blocked = isBlocked(request);
+      submitButton.disabled = state.submitting || state.submitted || blocked;
+      submitButton.textContent = state.submitting
+        ? "Submitting..."
+        : (request?.status === "submitted" ? "Already submitted" : "Submit request");
+
+      additionalNotes.disabled = state.submitting || state.submitted || blocked;
+      exactPinNote.disabled = state.submitting || state.submitted || blocked;
+      shareLocationButton.disabled = state.submitting || state.submitted || blocked || !request?.exactPinRequested;
+      notHereButton.disabled = state.submitting || state.submitted || blocked || !request?.exactPinRequested;
+      formCard.classList.toggle("hidden", blocked || !request);
+    }
+
+    function renderAll() {
+      renderStatus(state.request);
+      renderSummary(state.request);
+
+      if (!state.request) {
+        hideSuccessScreen();
+        checklistSection.innerHTML = "";
+        customSection.innerHTML = "";
+        additionalNotes.disabled = true;
+        exactPinNote.disabled = true;
+        shareLocationButton.disabled = true;
+        notHereButton.disabled = true;
+        submitButton.disabled = true;
+        formCard.classList.add("hidden");
+        return;
+      }
+
+      const isSuccess = state.submitted || state.request.status === "submitted";
+      if (isSuccess) {
+        showSuccessScreen();
+      } else {
+        hideSuccessScreen();
+      }
+
+      additionalNotes.value = state.additionalNotes || "";
+      exactPinNote.value = state.exactPinNote || "";
+      renderChecklist(state.request);
+      renderCustomQuestions(state.request);
+      renderPinSection(state.request);
+      renderSubmitState(state.request);
+      bindInputs();
+    }
+
+    function bindInputs() {
+      document.querySelectorAll("[data-checklist-question]").forEach((select) => {
+        select.addEventListener("change", (event) => {
+          const question = select.getAttribute("data-checklist-question");
+          if (!question) return;
+          state.checklist[question] = state.checklist[question] || { answer: "", note: "" };
+          state.checklist[question].answer = event.target.value;
+        });
+      });
+
+      document.querySelectorAll("[data-checklist-note]").forEach((field) => {
+        field.addEventListener("input", (event) => {
+          const question = field.getAttribute("data-checklist-note");
+          if (!question) return;
+          state.checklist[question] = state.checklist[question] || { answer: "", note: "" };
+          state.checklist[question].note = event.target.value;
+        });
+      });
+
+      document.querySelectorAll("[data-custom-question]").forEach((field) => {
+        field.addEventListener("input", (event) => {
+          const question = field.getAttribute("data-custom-question");
+          if (!question) return;
+          state.custom[question] = event.target.value;
+        });
+      });
+
+      if (!fixedInputsBound) {
+        additionalNotes.addEventListener("input", () => {
+          state.additionalNotes = additionalNotes.value;
+        });
+
+        exactPinNote.addEventListener("input", () => {
+          state.exactPinNote = exactPinNote.value;
+        });
+
+        fixedInputsBound = true;
+      }
+    }
+
+    function normalizeRequest(data) {
+      const rawChecklistItems = Array.isArray(data.checklistItems) ? data.checklistItems : [];
+      const rawCustomQuestions = Array.isArray(data.customQuestions) ? data.customQuestions : [];
+      return {
+        requestId: String(data.requestId || requestId || "").trim(),
+        ownerUid: String(data.ownerUid || "").trim(),
+        jobId: String(data.jobId || "").trim(),
+        status: String(data.status || "pending").trim(),
+        createdAt: asDate(data.createdAt),
+        updatedAt: asDate(data.updatedAt),
+        expiresAt: asDate(data.expiresAt),
+        scheduledAt: asDate(data.scheduledAt),
+        jobDateLabel: String(data.jobDateLabel || "").trim(),
+        jobTimeLabel: String(data.jobTimeLabel || "").trim(),
+        publicJobTitle: String(data.publicJobTitle || "").trim(),
+        publicCustomerName: String(data.publicCustomerName || "").trim(),
+        publicAddressSummary: String(data.publicAddressSummary || "").trim(),
+        publicPhoneNumber: String(data.publicPhoneNumber || "").trim(),
+        publicCustomerEmail: String(data.publicCustomerEmail || "").trim(),
+        checklistItems: rawChecklistItems.map((item) => String(item || "").trim()).filter(Boolean),
+        customQuestions: rawCustomQuestions.map((item) => String(item || "").trim()).filter(Boolean),
+        exactPinRequested: !!data.exactPinRequested,
+        submittedAt: asDate(data.submittedAt),
+        customerSubmittedAt: asDate(data.customerSubmittedAt),
+        checklistResponses: Array.isArray(data.checklistResponses) ? data.checklistResponses : [],
+        customQuestionResponses: Array.isArray(data.customQuestionResponses) ? data.customQuestionResponses : [],
+        additionalNotesText: String(data.additionalNotes || "").trim(),
+        exactPinLat: typeof data.exactPinLat === "number" ? data.exactPinLat : null,
+        exactPinLng: typeof data.exactPinLng === "number" ? data.exactPinLng : null,
+        exactPinSource: String(data.exactPinSource || "").trim(),
+        exactPinNote: String(data.exactPinNote || "").trim(),
+      };
+    }
+
+    function applyStateFromRequest(request) {
+      state.request = request;
+      state.requestMessage = "";
+      state.exactPinShared = Number.isFinite(request.exactPinLat) && Number.isFinite(request.exactPinLng);
+      state.exactPinLat = state.exactPinShared ? request.exactPinLat : null;
+      state.exactPinLng = state.exactPinShared ? request.exactPinLng : null;
+      state.exactPinSource = state.exactPinShared
+        ? (request.exactPinSource || "currentLocationConfirmed")
+        : "none";
+      state.locationStatus = state.exactPinShared ? "shared" : "idle";
+      state.additionalNotes = request.additionalNotesText || "";
+      state.exactPinNote = request.exactPinNote || "";
+
+      request.checklistItems.forEach((question) => {
+        if (!state.checklist[question]) {
+          state.checklist[question] = { answer: "", note: "" };
+        }
+      });
+      request.customQuestions.forEach((question) => {
+        if (!state.custom[question]) {
+          state.custom[question] = "";
+        }
+      });
+    }
+
+    function setBusy(isBusy) {
+      state.submitting = isBusy;
+      submitButton.disabled = isBusy || state.submitted || isBlocked(state.request);
+      shareLocationButton.disabled = isBusy || state.submitted || isBlocked(state.request) || !state.request?.exactPinRequested;
+      notHereButton.disabled = isBusy || state.submitted || isBlocked(state.request) || !state.request?.exactPinRequested;
+    }
+
+    function showMessage(message, tone = "success") {
+      if (tone === "error") {
+        setBanner(message, "error");
+      } else {
+        setBanner(message, "success");
+      }
+    }
+
+    async function loadRequest() {
+      updateMetaTags();
+      if (!requestRef) {
+        requestIdLabel.textContent = "Missing request link.";
+        clearDebugPanel();
+        renderAll();
+        statusPill.className = "status-pill warning";
+        statusPill.textContent = "Missing request link";
+        title.textContent = "Missing request link";
+        description.textContent = "Open the link from the driver again so the request link is included.";
+        setBanner("Missing request link. Please open the full Van Mate link from the driver.", "error");
+        return;
+      }
+
+      requestIdLabel.textContent = "Secure request loaded";
+      try {
+        const snapshot = await requestRef.get();
+        if (!snapshot.exists) {
+          state.loading = false;
+          state.request = null;
+          clearDebugPanel();
+          renderAll();
+          statusPill.className = "status-pill warning";
+          statusPill.textContent = "Request not found";
+          title.textContent = "Request not found";
+          description.textContent = "This request link no longer points to an active request.";
+          setBanner("We could not find this request.", "error");
+          return;
+        }
+
+        const request = normalizeRequest(snapshot.data() || {});
+        state.loading = false;
+        applyStateFromRequest(request);
+        clearDebugPanel();
+
+        if (request.status === "cancelled") {
+          state.blocked = true;
+          renderAll();
+          setBanner("This request was cancelled by the driver and cannot be submitted.", "error");
+          return;
+        }
+
+        if (request.status === "submitted") {
+          state.blocked = true;
+          state.submitted = true;
+          renderAll();
+          clearBanner();
+          return;
+        }
+
+        if (isExpired(request)) {
+          state.blocked = true;
+          renderAll();
+          setBanner("This request has expired. Please ask the driver to resend it.", "error");
+          return;
+        }
+
+        state.blocked = false;
+        renderAll();
+        clearBanner();
+      } catch (error) {
+        console.error("Could not load request", error);
+        state.loading = false;
+        state.request = null;
+        showDebugPanel(
+          `<span class="debug-code">Load failed</span><br>${escapeHtml(
+            String(error?.message || error?.code || "unknown-error"),
+          )}`,
+        );
+        renderAll();
+        statusPill.className = "status-pill warning";
+        statusPill.textContent = "Request unavailable";
+        title.textContent = "Request unavailable";
+        description.textContent = "We could not load this request just now.";
+        setBanner("We could not load this request just now.", "error");
+      }
+    }
+
+    function collectChecklistResponses(request) {
+      return request.checklistItems.map((question) => {
+        const entry = state.checklist[question] || { answer: "", note: "" };
+        const answer = String(entry.answer || "").trim();
+        const note = String(entry.note || "").trim();
+        if (!answer) {
+          throw new Error(`Please answer: ${question}`);
+        }
+        return { question, answer, note };
+      });
+    }
+
+    function collectCustomQuestionResponses(request) {
+      return request.customQuestions.map((question) => {
+        const answer = String(state.custom[question] || "").trim();
+        if (!answer) {
+          throw new Error(`Please answer: ${question}`);
+        }
+        return { question, answer };
+      });
+    }
+
+    function getSubmitPayload(request) {
+      const now = new Date();
+      const exactPinShared = state.exactPinShared && Number.isFinite(state.exactPinLat) && Number.isFinite(state.exactPinLng);
+      return {
+        status: "submitted",
+        submittedAt: now,
+        customerSubmittedAt: now,
+        hasReply: true,
+        hasExactPin: exactPinShared,
+        checklistResponses: collectChecklistResponses(request),
+        customQuestionResponses: collectCustomQuestionResponses(request),
+        additionalNotes: String(additionalNotes.value || "").trim(),
+        exactPinLat: exactPinShared ? state.exactPinLat : null,
+        exactPinLng: exactPinShared ? state.exactPinLng : null,
+        exactPinSource: exactPinShared ? "currentLocationConfirmed" : "none",
+        exactPinNote: String(exactPinNote.value || "").trim(),
+        updatedAt: now,
+      };
+    }
+
+    async function submitRequest() {
+      const request = state.request;
+      if (!request || state.submitting || state.submitted || isBlocked(request)) {
+        return;
+      }
+
+      try {
+        setBusy(true);
+        clearBanner();
+        clearDebugPanel();
+        const validationError = validateSubmission(request);
+        if (validationError) {
+          setBusy(false);
+          showMessage(validationError.message, "error");
+          focusQuestionField(validationError.kind, validationError.question);
+          return;
+        }
+        const payload = getSubmitPayload(request);
+        const submittedAt = new Date();
+        if (debugMode) {
+          console.log("[Van Mate request submit]", {
+            requestId,
+            payload,
+          });
+        }
+        await requestRef.update(payload);
+        state.request = {
+          ...request,
+          status: "submitted",
+          submittedAt,
+          customerSubmittedAt: submittedAt,
+          hasReply: true,
+          hasExactPin: payload.hasExactPin,
+          additionalNotesText: payload.additionalNotes,
+          exactPinLat: payload.exactPinLat,
+          exactPinLng: payload.exactPinLng,
+          exactPinSource: payload.exactPinSource,
+          exactPinNote: payload.exactPinNote,
+        };
+        state.submitting = false;
+        state.submitted = true;
+        state.blocked = true;
+        renderAll();
+        statusPill.className = "status-pill success";
+        statusPill.textContent = "Request submitted";
+        pinHelp.textContent = "This request has now been submitted.";
+      } catch (error) {
+        const errorCode = normalizeFirestoreErrorCode(error);
+        if (debugMode) {
+          console.error("[Van Mate request submit failed]", {
+            requestId,
+            error,
+          });
+        } else {
+          console.error("Submit failed", errorCode);
+        }
+        setBusy(false);
+        const debugMessage = debugMode && error?.message
+          ? ` Debug: ${errorCode} | ${error.message}`
+          : ` Debug: ${errorCode}`;
+        setBanner(
+          `Could not submit request. Please try again.${debugMessage}`,
+          "error",
+        );
+        showDebugPanel(
+          `<span class="debug-code">Debug: ${errorCode}</span>${
+            debugMode && error?.message
+              ? `<br>${escapeHtml(String(error.message))}`
+              : ""
+          }`,
+        );
+      }
+    }
+
+    async function shareCurrentLocation() {
+      const request = state.request;
+      if (!request || !request.exactPinRequested || state.submitting || state.submitted || isBlocked(request)) {
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        state.locationStatus = "unavailable";
+        setPinStatus(
+          "Location couldn't be shared. Continue without a pin and add a note, or try again.",
+          "error",
+        );
+        renderPinSection(request);
+        return;
+      }
+
+      state.locationStatus = "getting";
+      setBusy(true);
+      clearPinStatus();
+      renderPinSection(request);
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          state.exactPinShared = true;
+          state.exactPinLat = position.coords.latitude;
+          state.exactPinLng = position.coords.longitude;
+          state.exactPinSource = "currentLocationConfirmed";
+          state.locationStatus = "shared";
+          state.requestMessage = "";
+          setBusy(false);
+          renderAll();
+          setPinStatus("Location shared", "success");
+        },
+        (error) => {
+          state.exactPinShared = false;
+          state.exactPinLat = null;
+          state.exactPinLng = null;
+          state.exactPinSource = "none";
+          setBusy(false);
+          if (error && error.code === error.PERMISSION_DENIED) {
+            state.locationStatus = "denied";
+            setPinStatus(
+              "Location couldn't be shared. Continue without a pin and add a note, or try again.",
+              "error",
+            );
+            renderPinSection(request);
+            return;
+          }
+          if (error && error.code === error.POSITION_UNAVAILABLE) {
+            state.locationStatus = "unavailable";
+            setPinStatus(
+              "Location couldn't be shared. Continue without a pin and add a note, or try again.",
+              "error",
+            );
+            renderPinSection(request);
+            return;
+          }
+          if (error && error.code === error.TIMEOUT) {
+            state.locationStatus = "timedOut";
+            setPinStatus(
+              "Location couldn't be shared. Continue without a pin and add a note, or try again.",
+              "error",
+            );
+            renderPinSection(request);
+            return;
+          }
+          state.locationStatus = "unavailable";
+          setPinStatus(
+            "Location couldn't be shared. Continue without a pin and add a note, or try again.",
+            "error",
+          );
+          renderPinSection(request);
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 12000,
+          maximumAge: 60000,
+        }
+      );
+    }
+
+    function notAtLocation() {
+      const request = state.request;
+      if (!request || !request.exactPinRequested || state.submitting || state.submitted || isBlocked(request)) {
+        return;
+      }
+
+      state.exactPinShared = false;
+      state.exactPinLat = null;
+      state.exactPinLng = null;
+      state.exactPinSource = "none";
+      state.locationStatus = "skipped";
+      state.requestMessage = "No exact pin will be shared. Please add any helpful access notes below.";
+      renderAll();
+      setPinStatus(
+        "Continuing without a pin. You can still submit the request.",
+        "warning",
+      );
+    }
+
+    submitButton.addEventListener("click", submitRequest);
+    shareLocationButton.addEventListener("click", shareCurrentLocation);
+    notHereButton.addEventListener("click", notAtLocation);
+    copyLinkButton.addEventListener("click", copyCurrentRequestLink);
+
+    loadRequest();
+  </script>
+</body>
+</html>

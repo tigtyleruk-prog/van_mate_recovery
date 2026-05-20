@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../auth/auth_choice_page.dart';
 import '../auth/display_name_page.dart';
 import '../features/van_mate/pages/van_premium_page.dart';
 import '../features/van_mate/pages/van_community_review_page.dart';
@@ -43,7 +44,63 @@ class _ProfilePageState extends State<ProfilePage> {
         final hasDisplayName = displayName?.isNotEmpty == true;
         final theme = Theme.of(context);
 
-        if (user != null && !isGuest && !hasDisplayName) {
+        if (user == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Profile')),
+            body: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: CircleAvatar(
+                            radius: 30,
+                            backgroundColor: theme.colorScheme.primary
+                                .withValues(alpha: 0.16),
+                            child: Text(
+                              'V',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Log in to manage your profile',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'You are not signed in right now.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          onPressed: () => _openAuthChoice(context),
+                          child: const Text('Log in or create account'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (!isGuest && !hasDisplayName) {
           _scheduleDisplayNamePrompt(user);
         }
 
@@ -132,12 +189,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                             const SizedBox(height: 12),
                             FilledButton(
-                              onPressed: user == null
-                                  ? null
-                                  : () => _openDisplayNameEditor(
-                                      user,
-                                      autoPrompt: false,
-                                    ),
+                              onPressed: () => _openDisplayNameEditor(
+                                user,
+                                autoPrompt: false,
+                              ),
                               child: Text(
                                 hasDisplayName
                                     ? 'Edit display name'
@@ -512,7 +567,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ),
                       ),
-                      if (isGuest && user != null) ...[
+                      if (isGuest) ...[
                         const SizedBox(height: 20),
                         Container(
                           padding: const EdgeInsets.all(16),
@@ -528,7 +583,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
                           child: Text(
-                            'Guest accounts are temporary. Upgrade to keep your data with you across reinstalls and devices.',
+                            'Guest accounts are temporary. Create an account or log in to keep your van data across reinstalls and devices.',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               height: 1.45,
                               color: theme.colorScheme.onSurfaceVariant,
@@ -546,20 +601,26 @@ class _ProfilePageState extends State<ProfilePage> {
                           },
                           child: const Text('Upgrade guest account'),
                         ),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () => _openAuthChoice(context),
+                          child: const Text('Log in or create account'),
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: _isSigningOut ? null : _signOut,
+                          child: _isSigningOut
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Sign out'),
+                        ),
                       ],
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: _isSigningOut ? null : _signOut,
-                        child: _isSigningOut
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Sign out'),
-                      ),
                     ],
                   ),
                 ),
@@ -569,6 +630,12 @@ class _ProfilePageState extends State<ProfilePage> {
         );
       },
     );
+  }
+
+  void _openAuthChoice(BuildContext context) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const AuthChoicePage()));
   }
 
   Future<void> _signOut() async {

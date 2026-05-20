@@ -5,34 +5,55 @@ import '../helpers/van_text_formatters.dart';
 import 'van_job_request_draft.dart';
 
 const Duration vanJobRequestDefaultExpiry = Duration(days: 7);
+const String vanJobRequestHostedBaseUrl = 'https://vanmate-56eac.web.app';
 
 String buildVanJobRequestLink(String requestId) {
+  return buildVanJobRequestHostedLink(requestId);
+}
+
+String buildVanJobRequestHostedLink(String requestId) {
+  final normalizedId = requestId.trim();
+  return '$vanJobRequestHostedBaseUrl/request.html?id=$normalizedId';
+}
+
+String buildVanJobRequestTestLink(String requestId) {
   final normalizedId = requestId.trim();
   return 'vanmate://customer-request/$normalizedId';
+}
+
+String resolveVanJobRequestDisplayLink({
+  required String requestId,
+  required String requestLink,
+}) {
+  final cleanedLink = requestLink.trim();
+  if (cleanedLink.isEmpty) {
+    return buildVanJobRequestHostedLink(requestId);
+  }
+
+  if (cleanedLink.startsWith('http://') || cleanedLink.startsWith('https://')) {
+    return cleanedLink;
+  }
+
+  return buildVanJobRequestHostedLink(requestId);
 }
 
 String buildVanJobRequestShareMessage({
   required String requestLink,
   String jobTitle = '',
-  String customerName = '',
   String address = '',
 }) {
   final cleanedLink = requestLink.trim();
-  final cleanedJobTitle = _shortRequestContext(jobTitle);
-  final cleanedCustomerName = _shortRequestContext(customerName);
-  final cleanedAddress = _shortRequestContext(address);
+  final cleanedJobTitle = _cleanShareContext(jobTitle);
+  final cleanedAddress = _cleanShareContext(address);
 
   final lines = <String>[
-    'Hi, please fill in these job details for me so I can plan the job properly.',
+    'Hi, please fill in this Van Mate job request so I can plan the job properly.',
     '',
-    'It only takes a minute and helps me get the right access info and exact location/pin.',
+    'It helps with access info and the exact location/pin.',
   ];
 
   if (cleanedJobTitle.isNotEmpty) {
     lines.add('Job: $cleanedJobTitle');
-  }
-  if (cleanedCustomerName.isNotEmpty) {
-    lines.add('Customer: $cleanedCustomerName');
   }
   if (cleanedAddress.isNotEmpty) {
     lines.add('Address: $cleanedAddress');
@@ -47,13 +68,55 @@ String buildVanJobRequestShareMessage({
   return lines.join('\n');
 }
 
-String _shortRequestContext(String value, {int maxLength = 72}) {
+String _cleanShareContext(String value, {int maxLength = 72}) {
   final cleaned = sanitizeVanText(value).trim();
+  if (cleaned.isEmpty || _looksLikeJunkShareContext(cleaned)) {
+    return '';
+  }
+
   if (cleaned.length <= maxLength) {
     return cleaned;
   }
 
   return '${cleaned.substring(0, maxLength - 3).trimRight()}...';
+}
+
+bool _looksLikeJunkShareContext(String value) {
+  final normalized = value.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (normalized.isEmpty) {
+    return true;
+  }
+
+  const junkValues = <String>{
+    'n/a',
+    'na',
+    'none',
+    'null',
+    'unknown',
+    'test',
+    'testing',
+    'demo',
+    'sample',
+    'example',
+    'dummy',
+    'placeholder',
+    'tbd',
+    'tbc',
+    'todo',
+    'temp',
+    'temporary',
+    'asdf',
+    'lorem ipsum',
+  };
+  if (junkValues.contains(normalized)) {
+    return true;
+  }
+
+  final junkPattern = RegExp(
+    r'\b(test|testing|demo|sample|example|dummy|placeholder|lorem|ipsum)\b',
+    caseSensitive: false,
+  );
+  return junkPattern.hasMatch(normalized);
 }
 
 String _readVanRequestText(dynamic value, {String fallback = ''}) {
@@ -129,10 +192,7 @@ class VanJobRequestCustomQuestionResponse {
   final String answer;
 
   Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'question': question,
-      'answer': answer,
-    };
+    return <String, dynamic>{'question': question, 'answer': answer};
   }
 
   factory VanJobRequestCustomQuestionResponse.fromJson(
@@ -334,11 +394,17 @@ class VanJobRequestRecord {
       'customQuestions': customQuestions,
       'exactPinRequested': exactPinRequested,
       'driverMessagePreview': driverMessagePreview,
-      'submittedAt': submittedAt == null ? null : Timestamp.fromDate(submittedAt!),
+      'hasReply': hasReply,
+      'hasExactPin': hasExactPin,
+      'submittedAt': submittedAt == null
+          ? null
+          : Timestamp.fromDate(submittedAt!),
       'customerSubmittedAt': customerSubmittedAt == null
           ? null
           : Timestamp.fromDate(customerSubmittedAt!),
-      'checklistResponses': checklistResponses.map((item) => item.toJson()).toList(),
+      'checklistResponses': checklistResponses
+          .map((item) => item.toJson())
+          .toList(),
       'customQuestionResponses': customQuestionResponses
           .map((item) => item.toJson())
           .toList(),
@@ -360,7 +426,9 @@ class VanJobRequestRecord {
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
-      'submittedAt': submittedAt == null ? null : Timestamp.fromDate(submittedAt!),
+      'submittedAt': submittedAt == null
+          ? null
+          : Timestamp.fromDate(submittedAt!),
       'customerSubmittedAt': customerSubmittedAt == null
           ? null
           : Timestamp.fromDate(customerSubmittedAt!),
@@ -401,23 +469,23 @@ class VanJobRequestRecord {
     final customJson = data['customQuestionResponses'];
     final checklistResponses = checklistJson is List
         ? checklistJson
-            .whereType<Map>()
-            .map(
-              (item) => VanJobRequestChecklistResponse.fromJson(
-                Map<String, dynamic>.from(item),
-              ),
-            )
-            .toList(growable: false)
+              .whereType<Map>()
+              .map(
+                (item) => VanJobRequestChecklistResponse.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false)
         : const <VanJobRequestChecklistResponse>[];
     final customResponses = customJson is List
         ? customJson
-            .whereType<Map>()
-            .map(
-              (item) => VanJobRequestCustomQuestionResponse.fromJson(
-                Map<String, dynamic>.from(item),
-              ),
-            )
-            .toList(growable: false)
+              .whereType<Map>()
+              .map(
+                (item) => VanJobRequestCustomQuestionResponse.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false)
         : const <VanJobRequestCustomQuestionResponse>[];
 
     return VanJobRequestRecord(
@@ -428,11 +496,14 @@ class VanJobRequestRecord {
       ownerUid: _readVanRequestText(data['ownerUid']),
       jobId: _readVanRequestText(data['jobId']),
       status: _readVanRequestText(data['status'], fallback: 'pending'),
-      createdAt: _readVanRequestDateTime(data['createdAt']) ??
+      createdAt:
+          _readVanRequestDateTime(data['createdAt']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
-      updatedAt: _readVanRequestDateTime(data['updatedAt']) ??
+      updatedAt:
+          _readVanRequestDateTime(data['updatedAt']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
-      expiresAt: _readVanRequestDateTime(data['expiresAt']) ??
+      expiresAt:
+          _readVanRequestDateTime(data['expiresAt']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       scheduledAt: _readVanRequestDateTime(data['scheduledAt']),
       jobDateLabel: _readVanRequestText(data['jobDateLabel']),

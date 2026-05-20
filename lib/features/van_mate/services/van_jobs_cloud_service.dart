@@ -31,8 +31,20 @@ class VanJobsCloudService {
       return const <DriverCustomerReplyMockData>[];
     }
 
+    if (kDebugMode) {
+      debugPrint(
+        '[VanJobsCloud] load start uid=$normalizedOwnerUid path=users/$normalizedOwnerUid/van_jobs',
+      );
+    }
     final snapshot = await _jobs(normalizedOwnerUid).get();
+    if (kDebugMode) {
+      final fetchedIds = snapshot.docs.map((doc) => doc.id).join(', ');
+      debugPrint(
+        '[VanJobsCloud] fetched ${snapshot.docs.length} job docs uid=$normalizedOwnerUid ids=${fetchedIds.isEmpty ? '(none)' : fetchedIds}',
+      );
+    }
     final jobs = <DriverCustomerReplyMockData>[];
+    var hiddenCount = 0;
     for (final doc in snapshot.docs) {
       final data = doc.data();
       final normalized = Map<String, dynamic>.from(data);
@@ -40,16 +52,39 @@ class VanJobsCloudService {
         normalized['jobId'] = doc.id;
       }
       try {
-        jobs.add(DriverCustomerReplyMockData.fromJson(normalized));
+        final job = DriverCustomerReplyMockData.fromJson(normalized);
+        if (job.isHiddenFromNormalLists) {
+          hiddenCount += 1;
+          if (kDebugMode) {
+            debugPrint(
+              '[VanJobsCloud] hidden job ${doc.id}: deleted=${job.deleted} archived=${job.archived}',
+            );
+          }
+        }
+        jobs.add(job);
       } catch (error) {
         debugPrint('[VanJobsCloud] skip job ${doc.id}: $error');
       }
     }
     jobs.sort((a, b) {
-      final aUpdated = a.updatedAt ?? a.completedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bUpdated = b.updatedAt ?? b.completedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final aUpdated =
+          a.updatedAt ??
+          a.completedAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bUpdated =
+          b.updatedAt ??
+          b.completedAt ??
+          DateTime.fromMillisecondsSinceEpoch(0);
       return bUpdated.compareTo(aUpdated);
     });
+    if (kDebugMode) {
+      final visibleCount = jobs
+          .where((job) => !job.isHiddenFromNormalLists)
+          .length;
+      debugPrint(
+        '[VanJobsCloud] showing $visibleCount jobs uid=$normalizedOwnerUid hidden=$hiddenCount totalLoaded=${jobs.length}',
+      );
+    }
     return jobs;
   }
 
@@ -89,10 +124,9 @@ class VanJobsCloudService {
         authType: 'anonymous',
         source: source,
       );
-      await _jobs(normalizedOwnerUid).doc(normalizedJobId).set(
-        payload,
-        SetOptions(merge: true),
-      );
+      await _jobs(
+        normalizedOwnerUid,
+      ).doc(normalizedJobId).set(payload, SetOptions(merge: true));
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: normalizedJobId,
@@ -149,7 +183,11 @@ class VanJobsCloudService {
         uid: normalizedOwnerUid,
         source: source,
       );
-      batch.set(collection.doc(normalizedJobId), payload, SetOptions(merge: true));
+      batch.set(
+        collection.doc(normalizedJobId),
+        payload,
+        SetOptions(merge: true),
+      );
       docIds.add(normalizedJobId);
     }
 

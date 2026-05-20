@@ -17,6 +17,7 @@ import '../models/van_invoice_draft.dart';
 import '../services/van_driver_mock_state_storage.dart';
 import '../services/van_firebase_auth_service.dart';
 import '../services/van_firebase_debug_logging.dart';
+import '../services/van_business_profile_storage.dart';
 import '../services/van_job_request_cloud_service.dart';
 import '../services/van_jobs_cloud_service.dart';
 import '../services/van_quotes_cloud_service.dart';
@@ -67,6 +68,8 @@ class DriverCustomerReplyMockData {
     this.requestSubmittedAt,
     this.requestExpiresAt,
     this.requestLink = '',
+    this.deleted = false,
+    this.archived = false,
   });
 
   final String jobId;
@@ -109,6 +112,8 @@ class DriverCustomerReplyMockData {
   final DateTime? requestSubmittedAt;
   final DateTime? requestExpiresAt;
   final String requestLink;
+  final bool deleted;
+  final bool archived;
 
   DateTime? get scheduledAtOrParsed {
     final direct = scheduledAt;
@@ -146,6 +151,8 @@ class DriverCustomerReplyMockData {
   bool get isCompleted => isCompletedJob;
   bool get isCancelled => status == 'cancelled';
 
+  bool get isHiddenFromNormalLists => deleted || archived;
+
   bool get hasRequest => requestId?.trim().isNotEmpty == true;
 
   bool get isRequestExpired {
@@ -157,8 +164,9 @@ class DriverCustomerReplyMockData {
     return expiresAt != null && DateTime.now().isAfter(expiresAt);
   }
 
-  bool get isRequestPending =>
-      requestStatus == 'pending' && !isRequestExpired;
+  bool get isRequestPending => requestStatus == 'pending' && !isRequestExpired;
+
+  bool get isPendingCustomerRequest => isRequestPending;
 
   bool get isRequestSubmitted => requestStatus == 'submitted';
 
@@ -176,9 +184,6 @@ class DriverCustomerReplyMockData {
     if (isRequestExpired) {
       return 'Expired';
     }
-    if (isRequestExactPinReceived) {
-      return 'Exact pin received';
-    }
     if (isRequestSubmitted || isReplyReceived) {
       return 'Reply received';
     }
@@ -195,13 +200,10 @@ class DriverCustomerReplyMockData {
     if (isRequestExpired) {
       return 'Expired';
     }
-    if (isRequestExactPinReceived) {
-      return 'Exact pin received';
-    }
     if (isRequestSubmitted || isReplyReceived) {
       return 'Reply received';
     }
-    return 'Request sent';
+    return 'Pending customer request';
   }
 
   String get requestStatusSummary {
@@ -214,13 +216,16 @@ class DriverCustomerReplyMockData {
     if (isRequestExpired) {
       return 'Request expired.';
     }
+    if (isRequestPending) {
+      return 'Awaiting customer reply.';
+    }
     if (isRequestExactPinReceived) {
       return 'Exact pin received.';
     }
     if (isRequestSubmitted || isReplyReceived) {
       return 'Customer reply received.';
     }
-    return 'Request sent.';
+    return 'Awaiting customer reply.';
   }
 
   VanJobRequestDraft toDraft() {
@@ -304,6 +309,8 @@ class DriverCustomerReplyMockData {
     DateTime? requestSubmittedAt,
     DateTime? requestExpiresAt,
     String? requestLink,
+    bool? deleted,
+    bool? archived,
   }) {
     return DriverCustomerReplyMockData(
       jobId: jobId ?? this.jobId,
@@ -347,6 +354,8 @@ class DriverCustomerReplyMockData {
       requestSubmittedAt: requestSubmittedAt ?? this.requestSubmittedAt,
       requestExpiresAt: requestExpiresAt ?? this.requestExpiresAt,
       requestLink: requestLink ?? this.requestLink,
+      deleted: deleted ?? this.deleted,
+      archived: archived ?? this.archived,
     );
   }
 
@@ -408,49 +417,55 @@ class DriverCustomerReplyMockData {
       'requestSubmittedAt': requestSubmittedAt?.toIso8601String(),
       'requestExpiresAt': requestExpiresAt?.toIso8601String(),
       'requestLink': requestLink,
+      'deleted': deleted,
+      'archived': archived,
     };
   }
 
   factory DriverCustomerReplyMockData.fromJson(Map<String, dynamic> json) {
-    final checklistJson = json['checklistResponses'];
-    final customJson = json['customQuestionResponses'];
+    final draftJson = json['draft'];
+    final effectiveJson = draftJson is Map
+        ? <String, dynamic>{...json, ...Map<String, dynamic>.from(draftJson)}
+        : json;
+    final checklistJson = effectiveJson['checklistResponses'];
+    final customJson = effectiveJson['customQuestionResponses'];
     return DriverCustomerReplyMockData(
-      jobId: _jsonText(json['jobId']),
-      customerName: _jsonText(json['customerName']),
-      jobTitle: _jsonText(json['jobTitle']),
-      scheduledAt: _jsonDateTime(json['scheduledAt']),
-      jobDateLabel: _jsonText(json['jobDateLabel']),
-      jobTimeLabel: _jsonText(json['jobTimeLabel']),
-      address: _jsonText(json['address']),
-      phoneNumber: _jsonText(json['phoneNumber']),
-      customerEmail: _jsonText(json['customerEmail']),
-      postcode: _jsonText(json['postcode']),
-      notesMessage: _jsonText(json['notesMessage']),
-      requestExactPin: _jsonBool(json['requestExactPin']),
+      jobId: _jsonText(effectiveJson['jobId']),
+      customerName: _jsonText(effectiveJson['customerName']),
+      jobTitle: _jsonText(effectiveJson['jobTitle']),
+      scheduledAt: _jsonDateTime(effectiveJson['scheduledAt']),
+      jobDateLabel: _jsonText(effectiveJson['jobDateLabel']),
+      jobTimeLabel: _jsonText(effectiveJson['jobTimeLabel']),
+      address: _jsonText(effectiveJson['address']),
+      phoneNumber: _jsonText(effectiveJson['phoneNumber']),
+      customerEmail: _jsonText(effectiveJson['customerEmail']),
+      postcode: _jsonText(effectiveJson['postcode']),
+      notesMessage: _jsonText(effectiveJson['notesMessage']),
+      requestExactPin: _jsonBool(effectiveJson['requestExactPin']),
       checklistItems:
-          (json['checklistItems'] as List?)
+          (effectiveJson['checklistItems'] as List?)
               ?.map((item) => sanitizeVanText(item?.toString()).trim())
               .where((item) => item.trim().isNotEmpty)
               .toList(growable: false) ??
           const <String>[],
       customQuestions:
-          (json['customQuestions'] as List?)
+          (effectiveJson['customQuestions'] as List?)
               ?.map((item) => sanitizeVanText(item?.toString()).trim())
               .where((item) => item.trim().isNotEmpty)
               .toList(growable: false) ??
           const <String>[],
-      status: _jsonText(json['status'], fallback: 'draft'),
-      createdAt: _jsonDateTime(json['createdAt']),
-      updatedAt: _jsonDateTime(json['updatedAt']),
-      draftSavedAt: _jsonDateTime(json['draftSavedAt']),
-      requestSentAt: _jsonDateTime(json['requestSentAt']),
-      replyReceivedAt: _jsonDateTime(json['replyReceivedAt']),
-      quoteSavedAt: _jsonDateTime(json['quoteSavedAt']),
-      quoteSentAt: _jsonDateTime(json['quoteSentAt']),
-      confirmedAt: _jsonDateTime(json['confirmedAt']),
-      completedAt: _jsonDateTime(json['completedAt']),
-      quoteAmount: _jsonDoubleOrNull(json['quoteAmount']),
-      exactPinShared: _jsonBool(json['exactPinShared']),
+      status: _jsonText(effectiveJson['status'], fallback: 'draft'),
+      createdAt: _jsonDateTime(effectiveJson['createdAt']),
+      updatedAt: _jsonDateTime(effectiveJson['updatedAt']),
+      draftSavedAt: _jsonDateTime(effectiveJson['draftSavedAt']),
+      requestSentAt: _jsonDateTime(effectiveJson['requestSentAt']),
+      replyReceivedAt: _jsonDateTime(effectiveJson['replyReceivedAt']),
+      quoteSavedAt: _jsonDateTime(effectiveJson['quoteSavedAt']),
+      quoteSentAt: _jsonDateTime(effectiveJson['quoteSentAt']),
+      confirmedAt: _jsonDateTime(effectiveJson['confirmedAt']),
+      completedAt: _jsonDateTime(effectiveJson['completedAt']),
+      quoteAmount: _jsonDoubleOrNull(effectiveJson['quoteAmount']),
+      exactPinShared: _jsonBool(effectiveJson['exactPinShared']),
       checklistResponses: checklistJson is List
           ? checklistJson.whereType<Map>().map((item) {
               final map = Map<String, dynamic>.from(item);
@@ -473,20 +488,25 @@ class DriverCustomerReplyMockData {
                 )
                 .toList()
           : const <DriverCustomQuestionResponse>[],
-      additionalNotes: _jsonText(json['additionalNotes']),
+      additionalNotes: _jsonText(effectiveJson['additionalNotes']),
       exactPinShareSource: vanExactPinSourceFromStorage(
-        json['exactPinShareSource']?.toString(),
+        effectiveJson['exactPinShareSource']?.toString(),
       ),
-      exactPinNote: _jsonTextOrNull(json['exactPinNote']),
-      exactPinLatitude: _jsonDoubleOrNull(json['exactPinLatitude']),
-      exactPinLongitude: _jsonDoubleOrNull(json['exactPinLongitude']),
-      requestId: _jsonTextOrNull(json['requestId']),
-      requestStatus: _jsonText(json['requestStatus'], fallback: 'draft'),
-      requestCreatedAt: _jsonDateTime(json['requestCreatedAt']),
-      requestUpdatedAt: _jsonDateTime(json['requestUpdatedAt']),
-      requestSubmittedAt: _jsonDateTime(json['requestSubmittedAt']),
-      requestExpiresAt: _jsonDateTime(json['requestExpiresAt']),
-      requestLink: _jsonText(json['requestLink']),
+      exactPinNote: _jsonTextOrNull(effectiveJson['exactPinNote']),
+      exactPinLatitude: _jsonDoubleOrNull(effectiveJson['exactPinLatitude']),
+      exactPinLongitude: _jsonDoubleOrNull(effectiveJson['exactPinLongitude']),
+      requestId: _jsonTextOrNull(effectiveJson['requestId']),
+      requestStatus: _jsonText(
+        effectiveJson['requestStatus'],
+        fallback: 'draft',
+      ),
+      requestCreatedAt: _jsonDateTime(effectiveJson['requestCreatedAt']),
+      requestUpdatedAt: _jsonDateTime(effectiveJson['requestUpdatedAt']),
+      requestSubmittedAt: _jsonDateTime(effectiveJson['requestSubmittedAt']),
+      requestExpiresAt: _jsonDateTime(effectiveJson['requestExpiresAt']),
+      requestLink: _jsonText(effectiveJson['requestLink']),
+      deleted: _jsonBool(json['deleted']),
+      archived: _jsonBool(json['archived']),
     );
   }
 }
@@ -644,6 +664,9 @@ class DriverReplyMockState {
   final Map<String, VanJobRequestRecord> _jobRequestsById =
       <String, VanJobRequestRecord>{};
   String? _recentRequestRefreshNotice;
+  Future<void>? _cloudHydrateFuture;
+  bool _isHydratingCloud = false;
+  Future<void>? _invoiceCloudLoadFuture;
 
   Future<void> ensureLoaded() => _storage.ensureLoaded();
 
@@ -667,15 +690,13 @@ class DriverReplyMockState {
       logVanFirebaseHydration(
         stage: 'started',
         target: 'jobs cloud sync',
-        extra:
-            'jobs=${jobs.length} invoices=${_invoiceHistoryByJobKey.length}',
+        extra: 'jobs=${jobs.length} invoices=${_invoiceHistoryByJobKey.length}',
       );
       await _syncToCloud();
       logVanFirebaseHydration(
         stage: 'completed',
         target: 'jobs cloud sync',
-        extra:
-            'jobs=${jobs.length} invoices=${_invoiceHistoryByJobKey.length}',
+        extra: 'jobs=${jobs.length} invoices=${_invoiceHistoryByJobKey.length}',
       );
     } catch (error) {
       logVanFirebaseHydration(
@@ -701,31 +722,35 @@ class DriverReplyMockState {
     }
 
     try {
-      final results = await Future.wait([
-        VanJobsCloudService.instance.loadJobs(ownerUid: ownerUid),
-        VanQuotesCloudService.instance.loadQuotes(ownerUid: ownerUid),
-      ]);
-      final cloudJobs = results.expand((items) => items).toList(growable: false);
+      final List<List<DriverCustomerReplyMockData>> results =
+          await Future.wait([
+            VanJobsCloudService.instance.loadJobs(ownerUid: ownerUid),
+            VanQuotesCloudService.instance.loadQuotes(ownerUid: ownerUid),
+          ]);
+      final cloudJobs = results.first;
+      final cloudQuotes = results.last;
       final cloudInvoices = await VanInvoicesCloudService.instance.loadInvoices(
         ownerUid: ownerUid,
       );
 
-      if (cloudJobs.isEmpty && cloudInvoices.isEmpty) {
+      if (cloudJobs.isEmpty && cloudQuotes.isEmpty && cloudInvoices.isEmpty) {
         logVanFirebaseHydration(
           stage: 'completed',
           target: 'jobs cloud load',
-          extra: 'no_cloud_jobs_or_invoices',
+          extra: 'no_cloud_jobs_quotes_or_invoices',
         );
         return;
       }
 
       _mergeCloudJobs(cloudJobs);
+      _mergeCloudJobs(cloudQuotes);
       _mergeCloudInvoices(cloudInvoices);
       await saveToStorage(syncCloud: false);
       logVanFirebaseHydration(
         stage: 'completed',
         target: 'jobs cloud load',
-        extra: 'jobs=${cloudJobs.length} invoices=${cloudInvoices.length}',
+        extra:
+            'jobs=${cloudJobs.length} quotes=${cloudQuotes.length} invoices=${cloudInvoices.length} visibleJobs=${jobs.length} invoicesVisible=${savedInvoiceHistory.length}',
       );
     } catch (error) {
       logVanFirebaseHydration(
@@ -737,11 +762,109 @@ class DriverReplyMockState {
     }
   }
 
-  Future<void> loadJobRequestsFromCloud() async {
-    logVanFirebaseHydration(
-      stage: 'started',
-      target: 'job request cloud load',
+  Future<void> hydrateFromCloud() {
+    final existingFuture = _cloudHydrateFuture;
+    if (existingFuture != null) {
+      return existingFuture;
+    }
+
+    final future = _hydrateFromCloudInternal();
+    _cloudHydrateFuture = future;
+    return future.whenComplete(() {
+      if (identical(_cloudHydrateFuture, future)) {
+        _cloudHydrateFuture = null;
+      }
+    });
+  }
+
+  Future<void> _hydrateFromCloudInternal() async {
+    if (_isHydratingCloud) {
+      return;
+    }
+
+    _isHydratingCloud = true;
+    final currentUser = VanFirebaseAuthService.instance.currentUser;
+    debugPrint(
+      '[VanFirebase][Auth] cloud hydrate uid=${currentUser?.uid ?? 'null'} email=${currentUser?.email ?? 'null'} anonymous=${currentUser?.isAnonymous ?? false}',
     );
+    logVanFirebaseHydration(stage: 'started', target: 'van cloud hydrate');
+    try {
+      await loadFromCloud();
+      await loadJobRequestsFromCloud();
+      await VanBusinessProfileStorage.instance.loadFromCloud();
+      logVanFirebaseHydration(
+        stage: 'completed',
+        target: 'van cloud hydrate',
+        extra:
+            'uid=${currentUser?.uid ?? 'null'} jobs=${jobs.length} invoices=${savedInvoiceHistory.length} requests=${_jobRequestsById.length}',
+      );
+    } catch (error) {
+      logVanFirebaseHydration(
+        stage: 'failed',
+        target: 'van cloud hydrate',
+        extra: error.toString(),
+      );
+      rethrow;
+    } finally {
+      _isHydratingCloud = false;
+    }
+  }
+
+  Future<void> loadInvoicesFromCloud() {
+    final existingFuture = _invoiceCloudLoadFuture;
+    if (existingFuture != null) {
+      return existingFuture;
+    }
+
+    final future = _loadInvoicesFromCloudInternal();
+    _invoiceCloudLoadFuture = future;
+    return future.whenComplete(() {
+      if (identical(_invoiceCloudLoadFuture, future)) {
+        _invoiceCloudLoadFuture = null;
+      }
+    });
+  }
+
+  Future<void> _loadInvoicesFromCloudInternal() async {
+    logVanFirebaseHydration(stage: 'started', target: 'invoice cloud load');
+    final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
+      source: 'van_mate.invoice_cloud_load',
+    );
+    if (ownerUid == null || ownerUid.trim().isEmpty) {
+      logVanFirebaseSkip(
+        reason: 'invoice cloud load skipped',
+        extra: 'uid=$ownerUid',
+      );
+      return;
+    }
+
+    try {
+      final cloudInvoices = await VanInvoicesCloudService.instance.loadInvoices(
+        ownerUid: ownerUid,
+      );
+      if (cloudInvoices.isNotEmpty) {
+        _mergeCloudInvoices(cloudInvoices);
+        await saveToStorage(syncCloud: false);
+      }
+      final shownCount = savedInvoiceHistory.length;
+      logVanFirebaseHydration(
+        stage: 'completed',
+        target: 'invoice cloud load',
+        extra:
+            'uid=$ownerUid fetched=${cloudInvoices.length} showing=$shownCount',
+      );
+    } catch (error) {
+      logVanFirebaseHydration(
+        stage: 'failed',
+        target: 'invoice cloud load',
+        extra: error.toString(),
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> loadJobRequestsFromCloud() async {
+    logVanFirebaseHydration(stage: 'started', target: 'job request cloud load');
     final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
       source: 'van_mate.job_request_cloud_load',
     );
@@ -803,6 +926,10 @@ class DriverReplyMockState {
   }
 
   void _scheduleSave() {
+    if (_isHydratingCloud) {
+      unawaited(saveToStorage(syncCloud: false));
+      return;
+    }
     unawaited(saveToStorage());
   }
 
@@ -818,8 +945,10 @@ class DriverReplyMockState {
       return;
     }
 
-    final jobsToSync = jobs;
-    final invoiceEntries = _invoiceHistoryByJobKey.values.toList(growable: false);
+    final jobsToSync = allJobs;
+    final invoiceEntries = _invoiceHistoryByJobKey.values.toList(
+      growable: false,
+    );
     logVanFirebaseAuthState(
       stage: 'sync owner resolved',
       user: VanFirebaseAuthService.instance.currentUser,
@@ -851,7 +980,7 @@ class DriverReplyMockState {
   }
 
   DriverCustomerReplyMockData? _latestJob() {
-    final jobs = _jobsById.values.toList();
+    final jobs = this.jobs.toList(growable: true);
     if (jobs.isEmpty) {
       return null;
     }
@@ -895,7 +1024,9 @@ class DriverReplyMockState {
   }
 
   List<DriverCustomerReplyMockData> get jobs {
-    final jobs = _jobsById.values.toList();
+    final jobs = _jobsById.values
+        .where((job) => !job.isHiddenFromNormalLists)
+        .toList();
     jobs.sort((a, b) => _jobSortDate(b).compareTo(_jobSortDate(a)));
     return jobs;
   }
@@ -926,7 +1057,8 @@ class DriverReplyMockState {
         (job) =>
             !job.isCompletedJob &&
             job.status != 'draft' &&
-            job.status != 'cancelled',
+            job.status != 'cancelled' &&
+            !job.isPendingCustomerRequest,
       )
       .toList(growable: false);
 
@@ -942,7 +1074,8 @@ class DriverReplyMockState {
             return scheduledDay.isAfter(today) &&
                 !job.isCompletedJob &&
                 job.status != 'draft' &&
-                job.status != 'cancelled';
+                job.status != 'cancelled' &&
+                !job.isPendingCustomerRequest;
           })
           .toList(growable: true)
         ..sort((a, b) => _jobSortDate(a).compareTo(_jobSortDate(b)));
@@ -951,15 +1084,8 @@ class DriverReplyMockState {
     return jobs.where((job) => job.status == status).toList(growable: false);
   }
 
-  List<DriverCustomerReplyMockData> get pendingJobs => jobs
-      .where(
-        (job) =>
-            job.status == 'draft' ||
-            job.status == 'requestSent' ||
-            job.status == 'replyReceived' ||
-            job.status == 'quoteSent',
-      )
-      .toList(growable: false);
+  List<DriverCustomerReplyMockData> get pendingJobs =>
+      jobs.where((job) => job.isPendingCustomerRequest).toList(growable: false);
 
   List<DriverCustomerReplyMockData> get confirmedJobs =>
       jobs.where((job) => job.status == 'confirmed').toList(growable: false);
@@ -1109,27 +1235,29 @@ class DriverReplyMockState {
     }
 
     final now = DateTime.now();
-    final requestId = forceNewRequest ||
+    final requestId =
+        forceNewRequest ||
             existingRequest == null ||
             existingRequest.status == 'cancelled' ||
             existingRequest.isExpired
         ? VanJobRequestCloudService.instance.createRequestId()
         : existingRequest.requestId;
     final requestLink = buildVanJobRequestLink(requestId);
-    final updated = _withDefaultsFromDraft(
-      draft,
-      status: 'requestSent',
-      existing: existing,
-      requestSentAt: now,
-      updatedAt: now,
-    ).copyWith(
-      requestId: requestId,
-      requestStatus: 'pending',
-      requestCreatedAt: now,
-      requestUpdatedAt: now,
-      requestExpiresAt: now.add(vanJobRequestDefaultExpiry),
-      requestLink: requestLink,
-    );
+    final updated =
+        _withDefaultsFromDraft(
+          draft,
+          status: 'requestSent',
+          existing: existing,
+          requestSentAt: now,
+          updatedAt: now,
+        ).copyWith(
+          requestId: requestId,
+          requestStatus: 'pending',
+          requestCreatedAt: now,
+          requestUpdatedAt: now,
+          requestExpiresAt: now.add(vanJobRequestDefaultExpiry),
+          requestLink: requestLink,
+        );
     _jobsById[updated.jobId] = updated;
     _activeJobId = updated.jobId;
     _jobRequestsById[requestId] = _requestRecordFromJob(
@@ -1162,8 +1290,10 @@ class DriverReplyMockState {
               source: 'van_mate.job_request',
             );
         _jobRequestsById[record.requestId] = record;
-        _jobsById[updated.jobId] =
-            _replyFromRequestRecord(record, existing: updated);
+        _jobsById[updated.jobId] = _replyFromRequestRecord(
+          record,
+          existing: updated,
+        );
         await saveToStorage(syncCloud: false);
       }
     } catch (error) {
@@ -1214,7 +1344,9 @@ class DriverReplyMockState {
       requestCreatedAt: existing?.requestCreatedAt ?? reply.requestCreatedAt,
       requestUpdatedAt: DateTime.now(),
       requestSubmittedAt:
-          existing?.requestSubmittedAt ?? reply.requestSubmittedAt ?? DateTime.now(),
+          existing?.requestSubmittedAt ??
+          reply.requestSubmittedAt ??
+          DateTime.now(),
       requestExpiresAt: existing?.requestExpiresAt ?? reply.requestExpiresAt,
       requestLink: existing?.requestLink ?? reply.requestLink,
     );
@@ -1223,7 +1355,8 @@ class DriverReplyMockState {
     if (requestId != null && requestId.isNotEmpty) {
       _jobRequestsById[requestId] = _requestRecordFromJob(
         updated,
-        ownerUid: _jobRequestsById[requestId]?.ownerUid ??
+        ownerUid:
+            _jobRequestsById[requestId]?.ownerUid ??
             FirebaseAuth.instance.currentUser?.uid ??
             '',
         requestId: requestId,
@@ -1256,7 +1389,7 @@ class DriverReplyMockState {
       );
       _recentRequestRefreshNotice = updated.exactPinShared
           ? 'Exact pin received for ${updated.jobTitle}'
-          : 'Customer reply received';
+          : 'Customer reply received for ${updated.jobTitle}';
     }
     _activeJobId = jobId;
     _scheduleSave();
@@ -1274,21 +1407,21 @@ class DriverReplyMockState {
     final ownerUid = request.ownerUid.trim().isNotEmpty
         ? request.ownerUid.trim()
         : (await VanFirebaseAuthService.instance.ensureCurrentUid(
-            source: 'van_mate.job_request_cancel',
-          ) ??
-            '');
+                source: 'van_mate.job_request_cancel',
+              ) ??
+              '');
     final cloudUpdated = await VanJobRequestCloudService.instance.cancelRequest(
       requestId: request.requestId,
       ownerUid: ownerUid,
       source: 'van_mate.job_request_cancel',
     );
-    final updatedRequest = cloudUpdated ?? request.copyWith(
-      status: 'cancelled',
-      updatedAt: DateTime.now(),
-    );
+    final updatedRequest =
+        cloudUpdated ??
+        request.copyWith(status: 'cancelled', updatedAt: DateTime.now());
     _jobRequestsById[updatedRequest.requestId] = updatedRequest;
     final existingJob = _jobsById[jobId];
-    final nextStatus = existingJob == null ||
+    final nextStatus =
+        existingJob == null ||
             existingJob.status == 'draft' ||
             existingJob.status == 'requestSent'
         ? 'cancelled'
@@ -1588,7 +1721,7 @@ class DriverReplyMockState {
     final active = activeJob;
     return <String, dynamic>{
       'activeJobId': _activeJobId,
-      'jobs': jobs.map((job) => job.toJson()).toList(),
+      'jobs': allJobs.map((job) => job.toJson()).toList(),
       'jobReady': active?.isReplyReceived ?? false,
       'pinSavedToJob': active?.exactPinShared ?? false,
       'quoteSaved': active?.quoteAmount != null,
@@ -1691,8 +1824,10 @@ class DriverReplyMockState {
         continue;
       }
 
-      final existingUpdated = existing.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final cloudUpdated = cloudJob.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final existingUpdated =
+          existing.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final cloudUpdated =
+          cloudJob.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       if (cloudUpdated.isAfter(existingUpdated)) {
         _jobsById[cloudJob.jobId] = cloudJob;
       }
@@ -1722,7 +1857,8 @@ class DriverReplyMockState {
   }) {
     for (final request in cloudRequests) {
       final existing = _jobRequestsById[request.requestId];
-      final existingUpdated = existing?.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final existingUpdated =
+          existing?.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       if (existing == null || request.updatedAt.isAfter(existingUpdated)) {
         _jobRequestsById[request.requestId] = request;
       }
@@ -1733,12 +1869,16 @@ class DriverReplyMockState {
           request.status == 'submitted') {
         _recentRequestRefreshNotice = request.hasExactPin
             ? 'Exact pin received for ${request.publicJobTitle}'
-            : 'Customer reply received';
+            : 'Customer reply received for ${request.publicJobTitle}';
       }
 
       final linkedJob = _jobsById[request.jobId];
-      final requestReply = _replyFromRequestRecord(request, existing: linkedJob);
-      final shouldApply = request.isSubmitted ||
+      final requestReply = _replyFromRequestRecord(
+        request,
+        existing: linkedJob,
+      );
+      final shouldApply =
+          request.isSubmitted ||
           request.hasReply ||
           linkedJob?.status == 'requestSent' ||
           linkedJob?.status == 'draft' ||
@@ -1821,6 +1961,8 @@ class DriverReplyMockState {
       exactPinLng: exactPinLng,
       exactPinSource: exactPinSource,
       exactPinNote: exactPinNote,
+      deleted: job.deleted,
+      archived: job.archived,
     );
   }
 
@@ -1877,8 +2019,9 @@ class DriverReplyMockState {
               checklistResponses: checklistResponses,
               customQuestionResponses: customResponses,
               additionalNotes: request.additionalNotes,
-              exactPinShareSource:
-                  vanExactPinSourceFromStorage(request.exactPinSource),
+              exactPinShareSource: vanExactPinSourceFromStorage(
+                request.exactPinSource,
+              ),
               exactPinNote: request.exactPinNote,
               exactPinLatitude: request.exactPinLat,
               exactPinLongitude: request.exactPinLng,
@@ -1889,6 +2032,8 @@ class DriverReplyMockState {
               requestSubmittedAt: request.submittedAt,
               requestExpiresAt: request.expiresAt,
               requestLink: buildVanJobRequestLink(request.requestId),
+              deleted: request.deleted || (existing?.deleted ?? false),
+              archived: request.archived || (existing?.archived ?? false),
             ))
         .copyWith(
           jobId: request.jobId,
@@ -1912,8 +2057,9 @@ class DriverReplyMockState {
           checklistResponses: checklistResponses,
           customQuestionResponses: customResponses,
           additionalNotes: request.additionalNotes,
-          exactPinShareSource:
-              vanExactPinSourceFromStorage(request.exactPinSource),
+          exactPinShareSource: vanExactPinSourceFromStorage(
+            request.exactPinSource,
+          ),
           exactPinNote: request.exactPinNote,
           exactPinLatitude: request.exactPinLat,
           exactPinLongitude: request.exactPinLng,
@@ -1924,6 +2070,8 @@ class DriverReplyMockState {
           requestSubmittedAt: request.submittedAt,
           requestExpiresAt: request.expiresAt,
           requestLink: buildVanJobRequestLink(request.requestId),
+          deleted: request.deleted || (existing?.deleted ?? false),
+          archived: request.archived || (existing?.archived ?? false),
         );
   }
 
@@ -1967,13 +2115,20 @@ class DriverReplyMockState {
   bool get jobConfirmed => activeJob?.isConfirmed ?? false;
   bool get jobCompleted => activeJob?.isCompleted ?? false;
   DateTime? get jobCompletedAt => activeJob?.completedAt;
-  bool get invoiceCreated => _invoiceHistoryByJobKey.isNotEmpty;
+  bool get invoiceCreated => savedInvoiceHistory.isNotEmpty;
   bool get invoiceSent => activeJob?.isCompleted ?? false;
   VanExactPinSource? get exactPinShareSource => activeJob?.exactPinShareSource;
   String? get exactPinNote => activeJob?.exactPinNote;
 
+  List<DriverCustomerReplyMockData> get allJobs {
+    final jobs = _jobsById.values.toList();
+    jobs.sort((a, b) => _jobSortDate(b).compareTo(_jobSortDate(a)));
+    return jobs;
+  }
+
   List<VanInvoiceHistoryEntry> get savedInvoiceHistory {
     final entries = _invoiceHistoryByJobKey.values.toList()
+      ..removeWhere((entry) => entry.deleted || entry.archived)
       ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
     return entries;
   }
@@ -1993,10 +2148,15 @@ class DriverReplyMockState {
   void upsertInvoiceForJob(String jobKey, VanInvoiceDraft draft) {
     final existing = _invoiceHistoryByJobKey[jobKey];
     final savedDraft = draft.copyWith(jobKey: jobKey);
+    final now = DateTime.now();
     _invoiceHistoryByJobKey[jobKey] = VanInvoiceHistoryEntry(
       jobKey: jobKey,
       draft: savedDraft,
       savedAt: existing?.savedAt ?? DateTime.now(),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      deleted: existing?.deleted ?? false,
+      archived: existing?.archived ?? false,
     );
     savedInvoice = savedDraft;
     _scheduleSave();
@@ -2013,11 +2173,16 @@ class DriverReplyMockState {
       paidAt: DateTime.now(),
       jobKey: jobKey,
     );
+    final now = DateTime.now();
 
     _invoiceHistoryByJobKey[jobKey] = VanInvoiceHistoryEntry(
       jobKey: jobKey,
       draft: updatedDraft,
       savedAt: entry.savedAt,
+      createdAt: entry.createdAt,
+      updatedAt: now,
+      deleted: entry.deleted,
+      archived: entry.archived,
     );
 
     if (savedInvoice?.jobKey == jobKey ||
@@ -2040,11 +2205,16 @@ class DriverReplyMockState {
       paidAt: null,
       jobKey: jobKey,
     );
+    final now = DateTime.now();
 
     _invoiceHistoryByJobKey[jobKey] = VanInvoiceHistoryEntry(
       jobKey: jobKey,
       draft: updatedDraft,
       savedAt: entry.savedAt,
+      createdAt: entry.createdAt,
+      updatedAt: now,
+      deleted: entry.deleted,
+      archived: entry.archived,
     );
 
     if (savedInvoice?.jobKey == jobKey ||

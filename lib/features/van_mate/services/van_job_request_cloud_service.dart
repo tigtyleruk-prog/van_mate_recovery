@@ -106,18 +106,47 @@ class VanJobRequestCloudService {
       return const <VanJobRequestRecord>[];
     }
 
+    if (kDebugMode) {
+      debugPrint(
+        '[VanJobRequestCloud] load start uid=$normalizedOwnerUid path=$rootCollectionName',
+      );
+    }
     final snapshot = await _requests
         .where(Filter('ownerUid', isEqualTo: normalizedOwnerUid))
         .get();
+    if (kDebugMode) {
+      final fetchedIds = snapshot.docs.map((doc) => doc.id).join(', ');
+      debugPrint(
+        '[VanJobRequestCloud] fetched ${snapshot.docs.length} request docs uid=$normalizedOwnerUid ids=${fetchedIds.isEmpty ? '(none)' : fetchedIds}',
+      );
+    }
     final requests = <VanJobRequestRecord>[];
+    var hiddenCount = 0;
     for (final doc in snapshot.docs) {
       try {
-        requests.add(VanJobRequestRecord.fromFirestore(doc));
+        final request = VanJobRequestRecord.fromFirestore(doc);
+        if (request.deleted || request.archived) {
+          hiddenCount += 1;
+          if (kDebugMode) {
+            debugPrint(
+              '[VanJobRequestCloud] hidden request ${doc.id}: deleted=${request.deleted} archived=${request.archived}',
+            );
+          }
+        }
+        requests.add(request);
       } catch (error) {
         debugPrint('[VanJobRequestCloud] skip request ${doc.id}: $error');
       }
     }
     requests.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    if (kDebugMode) {
+      final visibleCount = requests
+          .where((request) => !request.deleted && !request.archived)
+          .length;
+      debugPrint(
+        '[VanJobRequestCloud] showing $visibleCount request mirrors uid=$normalizedOwnerUid hidden=$hiddenCount totalLoaded=${requests.length}',
+      );
+    }
     return requests;
   }
 
@@ -223,7 +252,8 @@ class VanJobRequestCloudService {
     if (normalizedOwnerUid.isEmpty || requests.isEmpty) {
       logVanFirebaseSkip(
         reason: 'job request batch save skipped',
-        extra: 'source=$source uid=$normalizedOwnerUid requests=${requests.length}',
+        extra:
+            'source=$source uid=$normalizedOwnerUid requests=${requests.length}',
       );
       return;
     }
@@ -366,10 +396,9 @@ class VanJobRequestCloudService {
       source: source,
     );
     try {
-      await _requests.doc(normalizedRequestId).set(
-        updated.toFirestore(),
-        SetOptions(merge: true),
-      );
+      await _requests
+          .doc(normalizedRequestId)
+          .set(updated.toFirestore(), SetOptions(merge: true));
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: normalizedRequestId,
@@ -424,10 +453,9 @@ class VanJobRequestCloudService {
       source: source,
     );
     try {
-      await _requests.doc(normalizedRequestId).set(
-        updated.toFirestore(),
-        SetOptions(merge: true),
-      );
+      await _requests
+          .doc(normalizedRequestId)
+          .set(updated.toFirestore(), SetOptions(merge: true));
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: normalizedRequestId,
