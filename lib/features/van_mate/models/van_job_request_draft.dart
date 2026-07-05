@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'van_job_request_record.dart';
+
 enum VanJobStatus {
   draft,
   requestSent,
@@ -70,11 +72,25 @@ class VanJobRequestDraft {
     required this.jobTimeLabel,
     required this.address,
     required this.requestExactPin,
+    required this.requestPhotos,
+    required this.requiresExactPinAfterQuoteAccepted,
+    required this.selectedQuestionIds,
+    required this.answers,
     required this.checklistItems,
     required this.customQuestions,
     this.customerEmail = '',
     this.postcode = '',
     this.notesMessage = '',
+    this.scheduledDate = '',
+    this.scheduledStartTime = '',
+    this.estimatedDurationMinutes,
+    this.calendarStatus = 'unscheduled',
+    this.locationPending = false,
+    this.selectedServiceId = '',
+    this.selectedServiceName = '',
+    this.exactPinLatitude,
+    this.exactPinLongitude,
+    this.exactPinSource = 'none',
   });
 
   final String jobId;
@@ -88,7 +104,24 @@ class VanJobRequestDraft {
   final String address;
   final String postcode;
   final bool requestExactPin;
+  final bool requestPhotos;
+  final bool requiresExactPinAfterQuoteAccepted;
+  final String selectedServiceId;
+  final String selectedServiceName;
+  final List<String> selectedQuestionIds;
+  final List<VanJobRequestAnswer> answers;
   final List<String> checklistItems;
   final List<String> customQuestions;
   final String notesMessage;
+  final String scheduledDate;
+  final String scheduledStartTime;
+  final int? estimatedDurationMinutes;
+  final String calendarStatus;
+  final bool locationPending;
+  final double? exactPinLatitude;
+  final double? exactPinLongitude;
+  final String exactPinSource;
+
+  bool get hasLocationDetails =>
+      address.trim().isNotEmpty || postcode.trim().isNotEmpty;
 }

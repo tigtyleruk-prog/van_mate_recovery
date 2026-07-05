@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class VanDriverMockStateStorage {
@@ -46,11 +47,29 @@ class VanDriverMockStateStorage {
 
   Future<void> saveJson(Map<String, dynamic> state) async {
     await ensureLoaded();
-    await _preferences?.setString(_stateKey, jsonEncode(state));
+    await _preferences?.setString(_stateKey, jsonEncode(_jsonSafeValue(state)));
   }
 
   Future<void> clear() async {
     await ensureLoaded();
     await _preferences?.remove(_stateKey);
   }
+}
+
+dynamic _jsonSafeValue(dynamic value) {
+  if (value is Timestamp) {
+    return value.toDate().toIso8601String();
+  }
+  if (value is DateTime) {
+    return value.toIso8601String();
+  }
+  if (value is Map) {
+    return value.map(
+      (key, item) => MapEntry(key.toString(), _jsonSafeValue(item)),
+    );
+  }
+  if (value is Iterable) {
+    return value.map(_jsonSafeValue).toList(growable: false);
+  }
+  return value;
 }

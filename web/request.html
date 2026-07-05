@@ -231,39 +231,6 @@
       background: rgba(255, 191, 126, 0.12);
     }
 
-    .summary-grid {
-      display: grid;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .summary-row {
-      display: grid;
-      grid-template-columns: 110px minmax(0, 1fr);
-      gap: 10px;
-      align-items: start;
-      padding: 12px 14px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .summary-label {
-      color: rgba(255, 255, 255, 0.54);
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .summary-value {
-      color: rgba(255, 255, 255, 0.96);
-      font-size: 14px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
     .form-section {
       display: grid;
       gap: 12px;
@@ -382,6 +349,123 @@
       line-height: 1.45;
     }
 
+    .map-shell {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .map-canvas {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: min(52vh, 360px);
+      min-height: 240px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #0d1524;
+    }
+
+    .map-loading {
+      position: absolute;
+      inset: 12px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 18px;
+      color: rgba(255, 255, 255, 0.92);
+      background: rgba(10, 18, 30, 0.44);
+      backdrop-filter: blur(2px);
+      font-weight: 800;
+      pointer-events: none;
+    }
+
+    .map-loading.hidden {
+      display: none;
+    }
+
+    .fixed-map-pin {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 999999;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      font-size: 42px;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      line-height: 1;
+    }
+
+    .map-hint {
+      margin: 8px 0 0;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(3, 8, 16, 0.72);
+      backdrop-filter: blur(14px);
+      z-index: 30;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-sheet {
+      width: min(640px, 100%);
+      padding: 22px;
+      border-radius: 26px;
+      background: rgba(14, 22, 38, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.40);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 28px);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+    }
+
+    .modal-text {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .modal-actions button {
+      flex: 1 1 160px;
+    }
+
     .answer-grid {
       display: grid;
       gap: 10px;
@@ -415,6 +499,42 @@
 
     .hidden {
       display: none !important;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .photo-item {
+      position: relative;
+      overflow: hidden;
+      min-height: 110px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .photo-item img {
+      display: block;
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+    }
+
+    .photo-remove {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      min-height: 32px;
+      min-width: 32px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(6, 11, 20, 0.76);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: none;
     }
 
     .success-screen {
@@ -460,11 +580,6 @@
         border-radius: 22px;
       }
 
-      .summary-row {
-        grid-template-columns: 1fr;
-        gap: 4px;
-      }
-
       .answer-choice {
         grid-template-columns: 1fr;
       }
@@ -472,21 +587,29 @@
   </style>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-functions-compat.js"></script>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 </head>
 <body>
   <main class="page">
-    <section class="hero">
+    <section id="heroSection" class="hero">
       <div class="eyebrow">Van Mate customer request</div>
       <h1>Fill in the job details</h1>
-      <p class="lede">
-        Send back access details and an exact location pin if you are at the drop-off point.
+      <p id="heroLede" class="lede">
+        Answer the questions and send them back to the driver.
       </p>
       <div id="requestIdLabel" class="request-id">Secure request loaded</div>
-      <div class="top-actions">
+      <div id="copyLinkActions" class="top-actions">
         <button id="copyLinkButton" type="button" class="secondary">Copy link</button>
       </div>
-      <p class="micro-text">
-        If location sharing does not work here, copy the link and open it in Chrome or Safari.
+      <p id="copyLinkHelper" class="micro-text">
+        If location sharing does not work, copy this link and open it in Chrome or Safari.
       </p>
     </section>
 
@@ -494,10 +617,10 @@
     <div id="debugPanel" class="debug-panel" aria-live="polite"></div>
 
     <article id="successCard" class="card strong success-screen hidden" aria-live="polite">
-      <div id="successPill" class="status-pill success">Submitted</div>
-      <h2 class="success-heading" id="successTitle">Request submitted</h2>
+      <div id="successPill" class="status-pill success">Reply sent</div>
+      <h2 class="success-heading" id="successTitle">Reply sent</h2>
       <p class="section-text" id="successText">
-        Thanks, your job details have been sent to the driver.
+        Thanks, your reply has been sent to the driver.
       </p>
       <p class="success-note" id="successNote">
         You can close this page now.
@@ -513,59 +636,89 @@
           <p class="section-text" id="description">
             We are loading the request details now.
           </p>
-          <div class="summary-grid" id="summaryGrid"></div>
         </article>
 
         <article class="card" id="formCard">
-          <h2 class="section-title">Your answers</h2>
-          <p class="section-text">
-            Please answer each item so the driver gets the right access information.
-          </p>
+          <h2 class="section-title">Job questions</h2>
           <div class="form-section" id="checklistSection"></div>
           <div class="form-section" id="customSection"></div>
           <div class="form-section">
             <div class="question-card">
               <div class="question-title">Additional notes</div>
-              <textarea id="additionalNotes" class="field" maxlength="500" placeholder="Add any extra access notes, instructions or context..."></textarea>
-              <div class="helper">Optional. Use this for anything else the driver should know.</div>
+              <textarea id="additionalNotes" class="field" maxlength="500" placeholder="Anything else the driver should know?"></textarea>
+            </div>
+          </div>
+          <div class="form-section hidden" id="photosSection">
+            <div class="question-card">
+              <div class="question-title">Add photos</div>
+              <p class="section-text">Photos help the driver quote accurately.</p>
+              <div class="actions">
+                <button id="takePhotoButton" type="button" class="secondary full">Take photo</button>
+                <button id="choosePhotosButton" type="button" class="secondary full">Choose photos</button>
+              </div>
+              <input id="photoInput" class="hidden" type="file" multiple accept="image/*" />
+              <input id="cameraInput" class="hidden" type="file" accept="image/*" capture="environment" />
+              <div id="photoList" class="helper">No photos added.</div>
+              <div id="photoGrid" class="photo-grid"></div>
             </div>
           </div>
         </article>
       </section>
 
       <aside class="stack">
-        <article class="card">
-          <h2 class="section-title">Exact pin</h2>
+        <article class="card" id="pinCard">
+          <h2 class="section-title">Share the exact drop-off point</h2>
           <p class="section-text" id="pinHelp">
-            If you are at the exact entrance, gate, bay or drop-off point, share your current location.
+            If you are at the exact entrance, gate, bay or drop-off point, share your current location or choose on the map.
           </p>
           <div class="actions">
             <button id="shareLocationButton" type="button" class="success full">Share my current location</button>
+            <button id="chooseMapButton" type="button" class="secondary full">Choose on map</button>
             <button id="notHereButton" type="button" class="secondary full">Continue without pin</button>
           </div>
           <div id="pinStatus" class="banner" style="margin-top: 14px;"></div>
           <div class="question-card inline-note">
             <div class="question-title">Exact pin note</div>
             <textarea id="exactPinNote" class="field" maxlength="240" placeholder="Optional note for the driver about the entrance, gate, reception, loading bay..."></textarea>
-            <div class="helper">If you are not at the entrance/drop-off point, continue without a pin and add a note.</div>
+            <div class="helper">Use the note for gate, bay, reception or drop-off instructions if helpful.</div>
           </div>
         </article>
 
         <article class="card">
           <h2 class="section-title">Submit</h2>
           <p class="section-text">
-            Once everything looks right, send the request back to the driver.
+            Send your reply to the driver.
           </p>
           <div class="actions">
             <button id="submitButton" type="button" class="full">Submit request</button>
           </div>
           <p class="footer">
-            This page does not require an account. It only updates this one request.
+            No account needed.
           </p>
         </article>
       </aside>
     </div>
   </main>
+
+  <div id="mapModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="mapModalTitle">
+      <div class="eyebrow">Van Mate</div>
+      <h2 id="mapModalTitle" class="modal-title">Adjust pin on map</h2>
+          <p class="modal-text">
+            Move the map until the pin is on the entrance or delivery point, then confirm.
+          </p>
+          <div class="map-shell">
+            <div id="mapContainer" class="map-canvas" aria-label="Map picker"></div>
+            <div id="mapLoading" class="map-loading">Loading map...</div>
+            <div class="fixed-map-pin" aria-hidden="true">+</div>
+            <p class="map-hint" id="mapStatus">Move the map until the pin is on the entrance or delivery point, then confirm.</p>
+          </div>
+      <div class="modal-actions">
+        <button id="useSelectedPinButton" type="button">Confirm pin</button>
+        <button id="cancelMapButton" type="button" class="secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     const firebaseConfig = {
@@ -580,14 +733,25 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const functions = firebase.app().functions("us-central1");
+    const submitPublicJobRequestReply = functions.httpsCallable("submitPublicJobRequestReply");
     const debugMode =
       window.location.hostname.includes("localhost") ||
       window.location.hostname.includes("web.app") ||
       window.location.hostname.includes("firebaseapp.com");
 
     const params = new URLSearchParams(window.location.search);
-    const requestId = (params.get("id") || "").trim();
-    const requestRef = requestId ? db.collection("van_job_requests").doc(requestId) : null;
+    const requestedRequestId = (params.get("id") || "").trim();
+    const pathSegments = window.location.pathname
+      .split("/")
+      .map((segment) => String(segment || "").trim())
+      .filter((segment) => segment.length > 0);
+    const requestedShortCode =
+      pathSegments.length >= 2 && pathSegments[0].toLowerCase() === "r"
+        ? String(decodeURIComponent(pathSegments[1] || "")).trim().toUpperCase()
+        : "";
+    let requestId = requestedRequestId;
+    let requestRef = requestId ? db.collection("public_job_requests").doc(requestId) : null;
 
     const state = {
       loading: true,
@@ -605,32 +769,62 @@
       exactPinNote: "",
       checklist: {},
       custom: {},
+      answers: {},
+      selectedPhotos: [],
     };
+    const PHOTO_LIMIT = 5;
 
     const requestIdLabel = document.getElementById("requestIdLabel");
+    const heroSection = document.getElementById("heroSection");
+    const heroLede = document.getElementById("heroLede");
+    const copyLinkActions = document.getElementById("copyLinkActions");
+    const copyLinkHelper = document.getElementById("copyLinkHelper");
     const copyLinkButton = document.getElementById("copyLinkButton");
     const banner = document.getElementById("banner");
     const debugPanel = document.getElementById("debugPanel");
     const successCard = document.getElementById("successCard");
+    const successPill = document.getElementById("successPill");
     const successTitle = document.getElementById("successTitle");
     const successText = document.getElementById("successText");
     const contentLayout = document.getElementById("contentLayout");
     const statusPill = document.getElementById("statusPill");
     const title = document.getElementById("title");
     const description = document.getElementById("description");
-    const summaryGrid = document.getElementById("summaryGrid");
     const checklistSection = document.getElementById("checklistSection");
     const customSection = document.getElementById("customSection");
     const formCard = document.getElementById("formCard");
+    const photosSection = document.getElementById("photosSection");
+    const takePhotoButton = document.getElementById("takePhotoButton");
+    const choosePhotosButton = document.getElementById("choosePhotosButton");
+    const photoInput = document.getElementById("photoInput");
+    const cameraInput = document.getElementById("cameraInput");
+    const photoList = document.getElementById("photoList");
+    const photoGrid = document.getElementById("photoGrid");
+    const pinCard = document.getElementById("pinCard");
     const additionalNotes = document.getElementById("additionalNotes");
     const exactPinNote = document.getElementById("exactPinNote");
     const pinStatus = document.getElementById("pinStatus");
     const pinHelp = document.getElementById("pinHelp");
     const submitButton = document.getElementById("submitButton");
     const shareLocationButton = document.getElementById("shareLocationButton");
+    const chooseMapButton = document.getElementById("chooseMapButton");
     const notHereButton = document.getElementById("notHereButton");
+    const mapModal = document.getElementById("mapModal");
+    const mapContainer = document.getElementById("mapContainer");
+    const mapMarker = document.getElementById("mapMarker");
+    const mapStatus = document.getElementById("mapStatus");
+    const mapLoading = document.getElementById("mapLoading");
+    const useSelectedPinButton = document.getElementById("useSelectedPinButton");
+    const cancelMapButton = document.getElementById("cancelMapButton");
     const successNote = document.getElementById("successNote");
+    let mapInstance = null;
+    let selectedMapLatLng = null;
+    let selectedMapReady = false;
+    let mapInitialCenter = null;
+    let requestSeedPromise = null;
     let fixedInputsBound = false;
+    const ukFallbackCenter = { lat: 53.4808, lng: -2.2426 };
+    const mapLoadTimeoutMs = 3500;
 
     function updateMetaTags() {
       const currentUrl = window.location.href.split("#")[0];
@@ -640,6 +834,92 @@
       }
     }
 
+    async function resolveRequestReference() {
+      if (requestRef) {
+        return requestRef;
+      }
+
+      if (!requestedShortCode) {
+        return null;
+      }
+
+      const snapshot = await db
+        .collection("public_job_requests")
+        .where("shortCode", "==", requestedShortCode)
+        .limit(1)
+        .get();
+      if (snapshot.empty) {
+        return null;
+      }
+
+      const doc = snapshot.docs[0];
+      requestId = String(doc.id || "").trim();
+      requestRef = requestId
+        ? db.collection("public_job_requests").doc(requestId)
+        : null;
+      return requestRef;
+    }
+
+    function normalizeRequestStatus(value) {
+      const status = String(value || "").trim().toLowerCase();
+      switch (status) {
+        case "pending":
+        case "sent":
+        case "requestsent":
+        case "request_sent":
+        case "awaiting_reply":
+        case "awaitingreply":
+          return "request_sent";
+        case "submitted":
+        case "replyreceived":
+        case "reply_received":
+        case "received_note":
+        case "receivednote":
+          return "reply_received";
+        case "cancelled":
+        case "canceled":
+          return "cancelled";
+        case "draft":
+        case "no_request":
+        case "norequest":
+          return "draft";
+        default:
+          return status || "draft";
+      }
+    }
+
+    function isReplyAlreadySent(request) {
+      if (!request) {
+        return false;
+      }
+
+      return (
+        request.hasReply === true ||
+        request.status === "reply_received" ||
+        request.requestStatus === "reply_received" ||
+        request.replyReceivedAt instanceof Date ||
+        request.requestSubmittedAt instanceof Date ||
+        request.submittedAt instanceof Date ||
+        request.customerSubmittedAt instanceof Date
+      );
+    }
+
+    function shouldShowHeroControls(request) {
+      if (!request) {
+        return false;
+      }
+
+      if (request.deleted || request.archived || request.status === "cancelled" || request.status === "deleted") {
+        return false;
+      }
+
+      if (isExpired(request)) {
+        return false;
+      }
+
+      return !isReplyAlreadySent(request);
+    }
+
     function escapeHtml(value) {
       return String(value ?? "")
         .replaceAll("&", "&amp;")
@@ -647,14 +927,6 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#39;");
-    }
-
-    function shortText(value, maxLength = 120) {
-      const cleaned = String(value ?? "").trim();
-      if (cleaned.length <= maxLength) {
-        return cleaned;
-      }
-      return `${cleaned.slice(0, maxLength - 3).trimEnd()}...`;
     }
 
     function asDate(value) {
@@ -669,25 +941,28 @@
       return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
 
-    function formatDateTime(value) {
-      const date = asDate(value);
-      if (!date) return "";
-      return new Intl.DateTimeFormat(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(date);
-    }
-
     function isExpired(request) {
       if (!request) return false;
-      if (request.status === "cancelled" || request.status === "submitted") {
+      if (
+        request.deleted ||
+        request.archived ||
+        request.status === "cancelled" ||
+        request.status === "reply_received" ||
+        request.status === "deleted"
+      ) {
         return false;
       }
       return request.expiresAt instanceof Date && Date.now() > request.expiresAt.getTime();
     }
 
     function isBlocked(request) {
-      return !request || request.status === "cancelled" || request.status === "submitted" || isExpired(request);
+      return !request ||
+        request.deleted ||
+        request.archived ||
+        request.status === "cancelled" ||
+        request.status === "deleted" ||
+        request.status === "reply_received" ||
+        isExpired(request);
     }
 
     function statusInfo(request) {
@@ -695,19 +970,23 @@
         return { label: "Loading request...", tone: "pending" };
       }
 
+      if (request.deleted || request.archived || request.status === "deleted") {
+        return { label: "Request unavailable", tone: "warning" };
+      }
+
       if (request.status === "cancelled") {
         return { label: "Request cancelled", tone: "warning" };
       }
 
-      if (request.status === "submitted") {
-        return { label: "Request already submitted", tone: "submitted" };
+      if (request.status === "reply_received") {
+        return { label: "Reply received", tone: "success" };
       }
 
       if (isExpired(request)) {
         return { label: "Request expired", tone: "warning" };
       }
 
-      return { label: "Awaiting customer reply", tone: "pending" };
+      return { label: "Awaiting reply", tone: "pending" };
     }
 
     function checklistOptionsFor(question) {
@@ -722,6 +1001,37 @@
         return ["Stairs", "Lift", "Ground floor", "Not sure"];
       }
       return ["Yes", "No", "Not sure"];
+    }
+
+    function sharedAnswerInputType(answer) {
+      const type = String(answer?.answerType || answer?.type || "").trim().toLowerCase();
+      switch (type) {
+        case "yes_no":
+          return "yes_no";
+        case "multiple_choice":
+          return "multiple_choice";
+        case "date":
+          return "date";
+        case "time":
+          return "time";
+        case "long_text":
+          return "long_text";
+        default:
+          return "short_text";
+      }
+    }
+
+    function sharedAnswerOptions(answer) {
+      const explicitChoices = Array.isArray(answer?.choiceOptions)
+        ? answer.choiceOptions.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+      if (explicitChoices.length > 0) {
+        return explicitChoices;
+      }
+      if (sharedAnswerInputType(answer) === "yes_no") {
+        return ["Yes", "No", "Not sure"];
+      }
+      return [];
     }
 
     function setBanner(message, tone = "success") {
@@ -742,6 +1052,305 @@
     function clearPinStatus() {
       pinStatus.textContent = "";
       pinStatus.className = "banner";
+    }
+
+    function setModalOpen(modal, open) {
+      if (!modal) {
+        return;
+      }
+
+      modal.classList.toggle("open", open);
+      modal.setAttribute("aria-hidden", open ? "false" : "true");
+      document.body.style.overflow = open ? "hidden" : "";
+    }
+
+    function openMapModal() {
+      clearPinStatus();
+      selectedMapLatLng = null;
+      updateMapMarkerState();
+      selectedMapReady = false;
+      useSelectedPinButton.disabled = true;
+      setModalOpen(mapModal, true);
+      setMapStatus("Loading map...");
+      setMapLoading(true);
+      window.setTimeout(async () => {
+        const startCenter = await Promise.race([
+          resolveMapStartCenter(),
+          new Promise((resolve) =>
+            window.setTimeout(() => resolve(ukFallbackCenter), mapLoadTimeoutMs),
+          ),
+        ]);
+        if (!mapModal.classList.contains("open")) {
+          return;
+        }
+        initializeMap(startCenter);
+      }, 0);
+    }
+
+    function closeMapModal() {
+      setModalOpen(mapModal, false);
+    }
+
+    function setMapStatus(text) {
+      if (mapStatus) {
+        mapStatus.textContent = text;
+      }
+    }
+
+    function setMapLoading(loading) {
+      if (!mapLoading) {
+        return;
+      }
+      mapLoading.classList.toggle("hidden", !loading);
+    }
+
+    function updateMapMarkerState() {
+      if (!mapMarker) {
+        return;
+      }
+
+      mapMarker.classList.toggle("is-selected", Boolean(selectedMapLatLng));
+    }
+
+    function setMapSelection(latLng, { panTo = false } = {}) {
+      selectedMapLatLng = latLng;
+      updateMapMarkerState();
+
+      if (mapInstance && panTo) {
+        mapInstance.panTo([latLng.lat, latLng.lng], { animate: true });
+      }
+
+      setMapStatus("Pin selected. Tap Confirm pin when ready.");
+      useSelectedPinButton.disabled = false;
+    }
+
+    function syncMapCenterSelection() {
+      if (!mapInstance) {
+        return;
+      }
+
+      const center = mapInstance.getCenter();
+      if (!center) {
+        return;
+      }
+
+      if (
+        !selectedMapLatLng &&
+        mapInitialCenter &&
+        Math.abs(center.lat - mapInitialCenter.lat) < 0.000001 &&
+        Math.abs(center.lng - mapInitialCenter.lng) < 0.000001
+      ) {
+        return;
+      }
+
+      setMapSelection(
+        { lat: center.lat, lng: center.lng },
+        { panTo: false },
+      );
+    }
+
+    function initializeMap(center) {
+      if (!mapContainer || typeof L === "undefined") {
+        setMapStatus("Map picker unavailable here. Please share your current location instead.");
+        setMapLoading(false);
+        return;
+      }
+
+      const target = isValidLatLng(center) ? center : ukFallbackCenter;
+      mapInitialCenter = { lat: target.lat, lng: target.lng };
+      if (mapInstance) {
+        mapInstance.setView([target.lat, target.lng], mapInstance.getZoom() || 14);
+        window.setTimeout(() => mapInstance.invalidateSize(), 0);
+        selectedMapReady = true;
+        setMapStatus("Move the map until the pin is on the entrance or delivery point, then confirm.");
+        setMapLoading(false);
+        return;
+      }
+
+      mapInstance = L.map(mapContainer, {
+        zoomControl: false,
+        attributionControl: false,
+      }).setView([target.lat, target.lng], 14);
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(mapInstance);
+
+      mapInstance.on("moveend", syncMapCenterSelection);
+      mapInstance.on("zoomend", syncMapCenterSelection);
+      mapInstance.on("click", (event) => {
+        mapInstance.panTo(event.latlng, { animate: true });
+      });
+      selectedMapReady = true;
+      setMapStatus("Move the map until the pin is on the entrance or delivery point, then confirm.");
+      setMapLoading(false);
+      window.setTimeout(() => mapInstance.invalidateSize(), 0);
+    }
+
+    function isValidLatLng(candidate) {
+      if (!candidate) {
+        return false;
+      }
+      const latitude = Number(candidate.lat);
+      const longitude = Number(candidate.lng);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return false;
+      }
+      if (latitude === 0 && longitude === 0) {
+        return false;
+      }
+      return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+    }
+
+    function isUkCoordinate(candidate) {
+      if (!isValidLatLng(candidate)) {
+        return false;
+      }
+      return (
+        candidate.lat >= 49.0 &&
+        candidate.lat <= 61.8 &&
+        candidate.lng >= -11.0 &&
+        candidate.lng <= 3.8
+      );
+    }
+
+    function sanitizeMapCenter(candidate) {
+      if (isUkCoordinate(candidate)) {
+        return candidate;
+      }
+      return ukFallbackCenter;
+    }
+
+    async function loadRequestSeed() {
+      const activeRequestRef = await resolveRequestReference();
+      if (!activeRequestRef) {
+        return null;
+      }
+
+      if (!requestSeedPromise) {
+        requestSeedPromise = activeRequestRef.get().then((snapshot) => {
+          if (!snapshot.exists) {
+            return null;
+          }
+
+          const data = snapshot.data() || {};
+          return {
+            jobTitle: String(data.publicJobTitle || "").trim(),
+            address: String(data.publicAddressSummary || "").trim(),
+            customerName: String(data.publicCustomerName || "").trim(),
+          };
+        }).catch((error) => {
+          console.error("Could not load request seed", error);
+          return null;
+        });
+      }
+
+      return requestSeedPromise;
+    }
+
+    async function geocodeRequestSeed(seed) {
+      const query = [
+        seed?.jobTitle,
+        seed?.address,
+      ].filter((value) => String(value || "").trim().length > 0).join(", ");
+
+      if (!query) {
+        return null;
+      }
+
+      try {
+        const url = new URL("https://nominatim.openstreetmap.org/search");
+        url.searchParams.set("format", "jsonv2");
+        url.searchParams.set("limit", "1");
+        url.searchParams.set("countrycodes", "gb");
+        url.searchParams.set("q", query);
+
+        const response = await fetch(url.toString(), {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+        if (!response.ok) {
+          return null;
+        }
+
+        const results = await response.json();
+        if (!Array.isArray(results) || results.length === 0) {
+          return null;
+        }
+
+        const first = results[0];
+        const lat = Number(first.lat);
+        const lng = Number(first.lon);
+        const candidate = { lat, lng };
+        if (!isUkCoordinate(candidate)) {
+          return null;
+        }
+
+        return candidate;
+      } catch (error) {
+        console.error("Could not geocode request seed", error);
+        return null;
+      }
+    }
+
+    async function maybeUseCurrentLocationForMapStart() {
+      if (!navigator.permissions || !navigator.geolocation) {
+        return null;
+      }
+
+      try {
+        const permissionStatus = await navigator.permissions.query({
+          name: "geolocation",
+        });
+        if (permissionStatus.state !== "granted") {
+          return null;
+        }
+
+        const position = await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (current) => {
+              resolve({
+                lat: current.coords.latitude,
+                lng: current.coords.longitude,
+              });
+            },
+            () => resolve(null),
+            {
+              enableHighAccuracy: true,
+              timeout: 6000,
+              maximumAge: 600000,
+            },
+          );
+        });
+
+        if (!isUkCoordinate(position)) {
+          return null;
+        }
+
+        return position;
+      } catch (error) {
+        console.error("Could not probe current location for map start", error);
+        return null;
+      }
+    }
+
+    async function resolveMapStartCenter() {
+      const currentLocation = await maybeUseCurrentLocationForMapStart();
+      if (currentLocation) {
+        return currentLocation;
+      }
+
+      const seed = await loadRequestSeed();
+      if (seed) {
+        const geocoded = await geocodeRequestSeed(seed);
+        if (geocoded) {
+          return geocoded;
+        }
+      }
+
+      return ukFallbackCenter;
     }
 
     function showDebugPanel(message) {
@@ -838,10 +1447,10 @@
     function focusQuestionField(kind, question) {
       const selector = kind === "checklist"
         ? "[data-checklist-question]"
-        : "[data-custom-question]";
+        : (kind === "answer" ? "[data-answer-question]" : "[data-custom-question]");
       const attribute = kind === "checklist"
         ? "data-checklist-question"
-        : "data-custom-question";
+        : (kind === "answer" ? "data-answer-question" : "data-custom-question");
 
       for (const field of document.querySelectorAll(selector)) {
         if (field.getAttribute(attribute) !== question) {
@@ -857,6 +1466,22 @@
     }
 
     function validateSubmission(request) {
+      if (Array.isArray(request.answers) && request.answers.length > 0) {
+        for (const answer of request.answers) {
+          const questionId = String(answer.questionId || "").trim();
+          const questionText = String(answer.questionText || "Question").trim();
+          const value = String(state.answers[questionId] || "").trim();
+          if (!value) {
+            return {
+              kind: "answer",
+              question: questionId,
+              message: `Please answer: ${questionText}`,
+            };
+          }
+        }
+        return null;
+      }
+
       for (const question of request.checklistItems) {
         const entry = state.checklist[question] || { answer: "", note: "" };
         if (!String(entry.answer || "").trim()) {
@@ -883,22 +1508,57 @@
     }
 
     function showSuccessScreen() {
+      if (successPill) {
+        successPill.textContent = 'Reply sent';
+      }
       if (successTitle) {
-        successTitle.textContent = 'Request submitted';
+        successTitle.textContent = 'Reply sent';
       }
       if (successText) {
-        successText.textContent = 'Thanks, your job details have been sent to the driver.';
+        successText.textContent = 'Thanks, your reply has been sent to the driver.';
       }
       if (successNote) {
         successNote.textContent = 'You can close this page now.';
       }
       successCard.classList.remove("hidden");
       contentLayout.classList.add("hidden");
+      heroSection?.classList.add("hidden");
+      banner?.classList.add("hidden");
+      debugPanel?.classList.add("hidden");
     }
 
     function hideSuccessScreen() {
       successCard.classList.add("hidden");
       contentLayout.classList.remove("hidden");
+      heroSection?.classList.remove("hidden");
+      banner?.classList.remove("hidden");
+      debugPanel?.classList.remove("hidden");
+    }
+
+    function renderHeroState(request) {
+      const showHeroControls = shouldShowHeroControls(request);
+      const hideHero = state.submitted || isReplyAlreadySent(request);
+      const exactPinRequested = request?.exactPinRequested === true;
+      if (heroLede) {
+        heroLede.textContent = exactPinRequested
+          ? "Answer the questions below and share the exact drop-off location if you can."
+          : "Answer the questions and send them back to the driver.";
+      }
+      if (heroSection) {
+        heroSection.classList.toggle("hidden", hideHero);
+      }
+      if (copyLinkActions) {
+        copyLinkActions.classList.toggle(
+          "hidden",
+          !showHeroControls || !exactPinRequested,
+        );
+      }
+      if (copyLinkHelper) {
+        copyLinkHelper.classList.toggle(
+          "hidden",
+          !showHeroControls || !exactPinRequested,
+        );
+      }
     }
 
     function renderStatus(request) {
@@ -918,8 +1578,8 @@
         return;
       }
 
-      if (request.status === "submitted") {
-        title.textContent = "This request was already submitted";
+      if (request.status === "reply_received") {
+        title.textContent = "Reply received";
         description.textContent = "Thanks. The driver already has your reply.";
         return;
       }
@@ -931,56 +1591,14 @@
       }
 
       title.textContent = request.publicJobTitle || "Job request";
-      description.textContent = "Fill in the details and send them back.";
-    }
-
-    function renderSummary(request) {
-      if (!request) {
-        summaryGrid.innerHTML = "";
-        return;
-      }
-
-      const rows = [];
-      if (request.publicCustomerName) {
-        rows.push([
-          "Customer",
-          escapeHtml(shortText(request.publicCustomerName, 110)),
-        ]);
-      }
-      if (request.publicAddressSummary) {
-        rows.push([
-          "Address",
-          escapeHtml(shortText(request.publicAddressSummary, 140)),
-        ]);
-      }
-      if (request.jobDateLabel || request.jobTimeLabel) {
-        rows.push([
-          "Schedule",
-          escapeHtml([request.jobDateLabel, request.jobTimeLabel].filter(Boolean).join(" ")),
-        ]);
-      }
-      if (request.exactPinRequested) {
-        rows.push([
-          "Exact pin",
-          "Requested",
-        ]);
-      }
-      if (request.expiresAt) {
-        rows.push([
-          "Expires",
-          escapeHtml(formatDateTime(request.expiresAt)),
-        ]);
-      }
-
-      summaryGrid.innerHTML = rows.map(([label, value]) => `
-        <div class="summary-row">
-          <div class="summary-label">${label}</div>
-          <div class="summary-value">${value}</div>
-        </div>
-      `).join("");
+      description.textContent = "";
     }
 
     function renderChecklist(request) {
+      if (Array.isArray(request?.answers) && request.answers.length > 0) {
+        checklistSection.innerHTML = "";
+        return;
+      }
       const items = request?.checklistItems || [];
       if (!items.length) {
         checklistSection.innerHTML = "";
@@ -1010,6 +1628,47 @@
     }
 
     function renderCustomQuestions(request) {
+      if (Array.isArray(request?.answers) && request.answers.length > 0) {
+        const items = request.answers;
+        customSection.innerHTML = items.map((answer) => {
+          const questionId = String(answer.questionId || "").trim();
+          const questionText = String(answer.questionText || "").trim();
+          const helperText = String(answer.helperText || "").trim();
+          const value = String(state.answers[questionId] || "").trim();
+          const inputType = sharedAnswerInputType(answer);
+          const options = sharedAnswerOptions(answer);
+          let control = "";
+
+          if (inputType === "yes_no" || inputType === "multiple_choice") {
+            control = `
+              <select class="select" data-answer-question="${escapeHtml(questionId)}">
+                <option value="" ${value ? "" : "selected"} disabled>Select an answer</option>
+                ${options.map((option) => `
+                  <option value="${escapeHtml(option)}" ${value === option ? "selected" : ""}>${escapeHtml(option)}</option>
+                `).join("")}
+              </select>
+            `;
+          } else if (inputType === "date") {
+            control = `<input class="select" type="date" data-answer-question="${escapeHtml(questionId)}" value="${escapeHtml(value)}" />`;
+          } else if (inputType === "time") {
+            control = `<input class="select" type="time" data-answer-question="${escapeHtml(questionId)}" value="${escapeHtml(value)}" />`;
+          } else if (inputType === "long_text") {
+            control = `<textarea class="field" data-answer-question="${escapeHtml(questionId)}" maxlength="500" placeholder="Type your answer here...">${escapeHtml(value)}</textarea>`;
+          } else {
+            control = `<input class="select" type="text" data-answer-question="${escapeHtml(questionId)}" maxlength="240" placeholder="Type your answer here..." value="${escapeHtml(value)}" />`;
+          }
+
+          return `
+            <div class="question-card">
+              <div class="question-title">${escapeHtml(questionText)}</div>
+              ${control}
+              ${helperText ? `<div class="helper">${escapeHtml(helperText)}</div>` : ""}
+            </div>
+          `;
+        }).join("");
+        return;
+      }
+
       const items = request?.customQuestions || [];
       if (!items.length) {
         customSection.innerHTML = "";
@@ -1027,28 +1686,183 @@
       }).join("");
     }
 
+    function renderSelectedPhotos() {
+      if (!photoList || !photoGrid) {
+        return;
+      }
+      const photos = state.selectedPhotos || [];
+      if (photos.length === 0) {
+        photoList.textContent = "No photos added.";
+        photoGrid.innerHTML = "";
+        return;
+      }
+      photoList.textContent = `${photos.length} photo${photos.length === 1 ? "" : "s"} selected (max ${PHOTO_LIMIT}).`;
+      photoGrid.innerHTML = "";
+      photos.forEach((photo, index) => {
+        const item = document.createElement("div");
+        item.className = "photo-item";
+        const image = document.createElement("img");
+        image.src = photo.previewUrl;
+        image.alt = photo.fileName;
+        item.appendChild(image);
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "photo-remove";
+        remove.textContent = "x";
+        remove.addEventListener("click", () => removePhotoAt(index));
+        item.appendChild(remove);
+        photoGrid.appendChild(item);
+      });
+    }
+
+    function clearSelectedPhotos() {
+      (state.selectedPhotos || []).forEach((photo) => {
+        if (photo && photo.previewUrl) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
+      });
+      state.selectedPhotos = [];
+      if (photoInput) {
+        photoInput.value = "";
+      }
+      if (cameraInput) {
+        cameraInput.value = "";
+      }
+      renderSelectedPhotos();
+    }
+
+    function removePhotoAt(index) {
+      const current = state.selectedPhotos[index];
+      if (current && current.previewUrl) {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      state.selectedPhotos = state.selectedPhotos.filter((_, i) => i !== index);
+      renderSelectedPhotos();
+    }
+
+    function resizeImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const image = new Image();
+          image.onload = () => {
+            const maxDimension = 1600;
+            let { width, height } = image;
+            if (width > maxDimension || height > maxDimension) {
+              const ratio = Math.min(maxDimension / width, maxDimension / height);
+              width = Math.max(1, Math.round(width * ratio));
+              height = Math.max(1, Math.round(height * ratio));
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext("2d");
+            if (!context) {
+              reject(new Error("Could not process image."));
+              return;
+            }
+            context.drawImage(image, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.78);
+            const dataBase64 = dataUrl.split(",")[1] || "";
+            if (!dataBase64) {
+              reject(new Error("Could not process image."));
+              return;
+            }
+            resolve({
+              fileName: String(file.name || `photo_${Date.now()}.jpg`).trim(),
+              contentType: "image/jpeg",
+              dataBase64,
+              previewUrl: URL.createObjectURL(file),
+            });
+          };
+          image.onerror = () => reject(new Error("Could not read image."));
+          image.src = String(reader.result || "");
+        };
+        reader.onerror = () => reject(new Error("Could not read file."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handlePhotoInputChange(event) {
+      const inputElement = event && event.target ? event.target : photoInput;
+      const incomingFiles = Array.from((inputElement && inputElement.files) || []);
+      if (incomingFiles.length === 0) {
+        return;
+      }
+      const remainingSlots = PHOTO_LIMIT - state.selectedPhotos.length;
+      if (remainingSlots <= 0) {
+        setBanner(`You can add up to ${PHOTO_LIMIT} photos.`, "error");
+        if (inputElement) {
+          inputElement.value = "";
+        }
+        return;
+      }
+      const acceptedFiles = incomingFiles.slice(0, remainingSlots);
+      try {
+        const processed = [];
+        for (const file of acceptedFiles) {
+          if (!String(file.type || "").startsWith("image/")) {
+            continue;
+          }
+          processed.push(await resizeImageFile(file));
+        }
+        state.selectedPhotos = [...state.selectedPhotos, ...processed];
+        renderSelectedPhotos();
+      } catch (error) {
+        setBanner("Could not process one or more photos. Please try again.", "error");
+      } finally {
+        if (inputElement) {
+          inputElement.value = "";
+        }
+      }
+    }
+
+    function renderPhotosSection(request) {
+      const photosRequested = request?.requestPhotos === true;
+      if (photosSection) {
+        photosSection.classList.toggle("hidden", !photosRequested);
+      }
+      if (!photosRequested) {
+        clearSelectedPhotos();
+        return;
+      }
+      renderSelectedPhotos();
+    }
+
     function renderPinSection(request) {
       const exactRequested = !!request?.exactPinRequested;
-      const hasPin = state.exactPinShared && Number.isFinite(state.exactPinLat) && Number.isFinite(state.exactPinLng);
+      const hasPin = hasValidExactPinSelection();
+      const currentLocationPinCaptured =
+        hasPin && state.exactPinSource === "currentLocationConfirmed";
       const isGettingLocation = state.locationStatus === "getting";
       const locationFailed =
         state.locationStatus === "denied" ||
         state.locationStatus === "timedOut" ||
         state.locationStatus === "unavailable";
 
-      shareLocationButton.disabled = !exactRequested || state.submitting || state.submitted || isBlocked(request);
+      if (pinCard) {
+        pinCard.style.display = exactRequested ? "" : "none";
+      }
+
+      shareLocationButton.disabled =
+        !exactRequested ||
+        state.submitting ||
+        state.submitted ||
+        isBlocked(request) ||
+        currentLocationPinCaptured;
+      chooseMapButton.disabled = !exactRequested || state.submitting || state.submitted || isBlocked(request);
       notHereButton.disabled = !exactRequested || state.submitting || state.submitted || isBlocked(request);
       shareLocationButton.textContent = isGettingLocation
         ? "Getting location..."
         : locationFailed
           ? "Try again"
-          : hasPin
-            ? "Location shared"
+          : currentLocationPinCaptured
+            ? "Current location captured ✓"
             : "Share my current location";
+      chooseMapButton.textContent = hasPin ? "Adjust pin on map" : "Choose on map";
       notHereButton.textContent = "Continue without pin";
 
       if (!exactRequested) {
-        pinHelp.textContent = "This request does not need an exact pin.";
         exactPinNote.disabled = true;
         exactPinNote.value = "";
         clearPinStatus();
@@ -1060,7 +1874,10 @@
 
       if (hasPin) {
         state.locationStatus = "shared";
-        setPinStatus("Location shared", "success");
+        setPinStatus(
+          "Exact pin shared.",
+          "success",
+        );
       } else if (isGettingLocation) {
         setPinStatus("Getting location...", "success");
       } else if (state.locationStatus === "skipped") {
@@ -1090,22 +1907,37 @@
 
     function renderSubmitState(request) {
       const blocked = isBlocked(request);
-      submitButton.disabled = state.submitting || state.submitted || blocked;
+      const exactPinMissing =
+        request?.exactPinRequested === true && !hasValidExactPinSelection();
+      submitButton.disabled =
+        state.submitting || state.submitted || blocked || exactPinMissing;
       submitButton.textContent = state.submitting
         ? "Submitting..."
-        : (request?.status === "submitted" ? "Already submitted" : "Submit request");
+        : (request?.status === "reply_received" ? "Reply received" : "Submit request");
 
       additionalNotes.disabled = state.submitting || state.submitted || blocked;
-      exactPinNote.disabled = state.submitting || state.submitted || blocked;
-      shareLocationButton.disabled = state.submitting || state.submitted || blocked || !request?.exactPinRequested;
+      exactPinNote.disabled = state.submitting || state.submitted || blocked || !request?.exactPinRequested;
+      shareLocationButton.disabled =
+        state.submitting ||
+        state.submitted ||
+        blocked ||
+        !request?.exactPinRequested ||
+        (hasValidExactPinSelection() &&
+          state.exactPinSource === "currentLocationConfirmed");
+      chooseMapButton.disabled = state.submitting || state.submitted || blocked || !request?.exactPinRequested;
       notHereButton.disabled = state.submitting || state.submitted || blocked || !request?.exactPinRequested;
+      if (takePhotoButton) {
+        takePhotoButton.disabled =
+          state.submitting || state.submitted || blocked || request?.requestPhotos !== true;
+      }
+      if (choosePhotosButton) {
+        choosePhotosButton.disabled =
+          state.submitting || state.submitted || blocked || request?.requestPhotos !== true;
+      }
       formCard.classList.toggle("hidden", blocked || !request);
     }
 
     function renderAll() {
-      renderStatus(state.request);
-      renderSummary(state.request);
-
       if (!state.request) {
         hideSuccessScreen();
         checklistSection.innerHTML = "";
@@ -1113,23 +1945,28 @@
         additionalNotes.disabled = true;
         exactPinNote.disabled = true;
         shareLocationButton.disabled = true;
+        chooseMapButton.disabled = true;
         notHereButton.disabled = true;
         submitButton.disabled = true;
         formCard.classList.add("hidden");
         return;
       }
 
-      const isSuccess = state.submitted || state.request.status === "submitted";
+      const isSuccess = state.submitted || isReplyAlreadySent(state.request);
       if (isSuccess) {
         showSuccessScreen();
+        return;
       } else {
         hideSuccessScreen();
       }
 
+      renderStatus(state.request);
+      renderHeroState(state.request);
       additionalNotes.value = state.additionalNotes || "";
       exactPinNote.value = state.exactPinNote || "";
       renderChecklist(state.request);
       renderCustomQuestions(state.request);
+      renderPhotosSection(state.request);
       renderPinSection(state.request);
       renderSubmitState(state.request);
       bindInputs();
@@ -1162,6 +1999,16 @@
         });
       });
 
+      document.querySelectorAll("[data-answer-question]").forEach((field) => {
+        const updateAnswer = (event) => {
+          const questionId = field.getAttribute("data-answer-question");
+          if (!questionId) return;
+          state.answers[questionId] = event.target.value;
+        };
+        field.addEventListener("input", updateAnswer);
+        field.addEventListener("change", updateAnswer);
+      });
+
       if (!fixedInputsBound) {
         additionalNotes.addEventListener("input", () => {
           state.additionalNotes = additionalNotes.value;
@@ -1170,6 +2017,26 @@
         exactPinNote.addEventListener("input", () => {
           state.exactPinNote = exactPinNote.value;
         });
+        if (takePhotoButton && cameraInput) {
+          takePhotoButton.addEventListener("click", () => {
+            if (state.selectedPhotos.length >= PHOTO_LIMIT) {
+              setBanner(`You can add up to ${PHOTO_LIMIT} photos.`, "error");
+              return;
+            }
+            cameraInput.click();
+          });
+          cameraInput.addEventListener("change", handlePhotoInputChange);
+        }
+        if (choosePhotosButton && photoInput) {
+          choosePhotosButton.addEventListener("click", () => {
+            if (state.selectedPhotos.length >= PHOTO_LIMIT) {
+              setBanner(`You can add up to ${PHOTO_LIMIT} photos.`, "error");
+              return;
+            }
+            photoInput.click();
+          });
+          photoInput.addEventListener("change", handlePhotoInputChange);
+        }
 
         fixedInputsBound = true;
       }
@@ -1178,11 +2045,74 @@
     function normalizeRequest(data) {
       const rawChecklistItems = Array.isArray(data.checklistItems) ? data.checklistItems : [];
       const rawCustomQuestions = Array.isArray(data.customQuestions) ? data.customQuestions : [];
+      const rawAnswers = Array.isArray(data.answers) ? data.answers : [];
+      const exactPinLat =
+        typeof data.exactPinLat === "number"
+          ? data.exactPinLat
+          : (typeof data.exactPinLatitude === "number" ? data.exactPinLatitude : null);
+      const exactPinLng =
+        typeof data.exactPinLng === "number"
+          ? data.exactPinLng
+          : (typeof data.exactPinLongitude === "number" ? data.exactPinLongitude : null);
+      const exactPinShared = data.hasExactPin === true || data.exactPinShared === true;
+      const requestStatus = normalizeRequestStatus(
+        data.status || data.requestStatus,
+      );
+      const isDeleted =
+        data.deleted === true ||
+        data.archived === true ||
+        requestStatus === "deleted";
+      const replyReceivedAt = asDate(data.replyReceivedAt);
+      const requestSubmittedAt = asDate(data.requestSubmittedAt);
+      const submittedAt = asDate(data.submittedAt);
+      const customerSubmittedAt = asDate(data.customerSubmittedAt);
+      const checklistResponses = Array.isArray(data.checklistResponses) ? data.checklistResponses : [];
+      const customQuestionResponses = Array.isArray(data.customQuestionResponses) ? data.customQuestionResponses : [];
+      const answers = rawAnswers
+        .map((item, index) => {
+          const source = item && typeof item === "object" ? item : {};
+          const questionId = String(source.questionId || "").trim();
+          const questionText = String(source.questionText || "").trim();
+          if (!questionId || !questionText) {
+            return null;
+          }
+          return {
+            questionId,
+            questionText,
+            answerType: String(source.answerType || source.type || "").trim(),
+            category: String(source.category || "").trim(),
+            answerValue: String(source.answerValue || source.answer || "").trim(),
+            helperText: String(source.helperText || "").trim(),
+            choiceOptions: Array.isArray(source.choiceOptions) ? source.choiceOptions : [],
+            order: Number.isFinite(Number(source.order)) ? Number(source.order) : index,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.order - b.order);
+      const hasReply = !isDeleted && (
+        requestStatus === "reply_received" ||
+        replyReceivedAt instanceof Date ||
+        requestSubmittedAt instanceof Date ||
+        submittedAt instanceof Date ||
+        customerSubmittedAt instanceof Date ||
+        checklistResponses.some(
+          (item) =>
+            String(item?.answer || "").trim().length > 0 ||
+            String(item?.note || "").trim().length > 0,
+        ) ||
+        customQuestionResponses.some(
+          (item) => String(item?.answer || "").trim().length > 0,
+        ) ||
+        String(data.additionalNotes || "").trim().length > 0 ||
+        exactPinShared);
       return {
         requestId: String(data.requestId || requestId || "").trim(),
         ownerUid: String(data.ownerUid || "").trim(),
         jobId: String(data.jobId || "").trim(),
-        status: String(data.status || "pending").trim(),
+        status: isDeleted ? "deleted" : (hasReply ? "reply_received" : requestStatus),
+        requestStatus,
+        deleted: isDeleted,
+        archived: data.archived === true,
         createdAt: asDate(data.createdAt),
         updatedAt: asDate(data.updatedAt),
         expiresAt: asDate(data.expiresAt),
@@ -1194,17 +2124,27 @@
         publicAddressSummary: String(data.publicAddressSummary || "").trim(),
         publicPhoneNumber: String(data.publicPhoneNumber || "").trim(),
         publicCustomerEmail: String(data.publicCustomerEmail || "").trim(),
+        selectedServiceId: String(data.selectedServiceId || "").trim(),
+        selectedServiceName: String(data.selectedServiceName || "").trim(),
         checklistItems: rawChecklistItems.map((item) => String(item || "").trim()).filter(Boolean),
         customQuestions: rawCustomQuestions.map((item) => String(item || "").trim()).filter(Boolean),
+        answers,
         exactPinRequested: !!data.exactPinRequested,
-        submittedAt: asDate(data.submittedAt),
-        customerSubmittedAt: asDate(data.customerSubmittedAt),
-        checklistResponses: Array.isArray(data.checklistResponses) ? data.checklistResponses : [],
-        customQuestionResponses: Array.isArray(data.customQuestionResponses) ? data.customQuestionResponses : [],
+        requestPhotos: data.requestPhotos === true,
+        submittedAt,
+        customerSubmittedAt,
+        replyReceivedAt,
+        requestSubmittedAt,
+        hasReply,
+        hasExactPin: hasReply && exactPinShared,
+        checklistResponses,
+        customQuestionResponses,
         additionalNotesText: String(data.additionalNotes || "").trim(),
-        exactPinLat: typeof data.exactPinLat === "number" ? data.exactPinLat : null,
-        exactPinLng: typeof data.exactPinLng === "number" ? data.exactPinLng : null,
-        exactPinSource: String(data.exactPinSource || "").trim(),
+        exactPinLat: hasReply && exactPinShared ? exactPinLat : null,
+        exactPinLng: hasReply && exactPinShared ? exactPinLng : null,
+        exactPinLatitude: hasReply && exactPinShared ? exactPinLat : null,
+        exactPinLongitude: hasReply && exactPinShared ? exactPinLng : null,
+        exactPinSource: String(data.exactPinShareSource || data.exactPinSource || "").trim(),
         exactPinNote: String(data.exactPinNote || "").trim(),
       };
     }
@@ -1212,7 +2152,7 @@
     function applyStateFromRequest(request) {
       state.request = request;
       state.requestMessage = "";
-      state.exactPinShared = Number.isFinite(request.exactPinLat) && Number.isFinite(request.exactPinLng);
+      state.exactPinShared = request.hasExactPin;
       state.exactPinLat = state.exactPinShared ? request.exactPinLat : null;
       state.exactPinLng = state.exactPinShared ? request.exactPinLng : null;
       state.exactPinSource = state.exactPinShared
@@ -1232,13 +2172,26 @@
           state.custom[question] = "";
         }
       });
+      (request.answers || []).forEach((answer) => {
+        const questionId = String(answer.questionId || "").trim();
+        if (!questionId) {
+          return;
+        }
+        if (!Object.prototype.hasOwnProperty.call(state.answers, questionId)) {
+          state.answers[questionId] = String(
+            answer.answerValue || answer.answer || "",
+          ).trim();
+        }
+      });
     }
 
     function setBusy(isBusy) {
       state.submitting = isBusy;
       submitButton.disabled = isBusy || state.submitted || isBlocked(state.request);
       shareLocationButton.disabled = isBusy || state.submitted || isBlocked(state.request) || !state.request?.exactPinRequested;
+      chooseMapButton.disabled = isBusy || state.submitted || isBlocked(state.request) || !state.request?.exactPinRequested;
       notHereButton.disabled = isBusy || state.submitted || isBlocked(state.request) || !state.request?.exactPinRequested;
+      exactPinNote.disabled = isBusy || state.submitted || isBlocked(state.request) || !state.request?.exactPinRequested;
     }
 
     function showMessage(message, tone = "success") {
@@ -1251,21 +2204,37 @@
 
     async function loadRequest() {
       updateMetaTags();
-      if (!requestRef) {
-        requestIdLabel.textContent = "Missing request link.";
+      const activeRequestRef = await resolveRequestReference();
+      if (!activeRequestRef) {
+        requestIdLabel.textContent = requestedShortCode
+          ? `Request code: ${requestedShortCode}`
+          : "Missing request link.";
         clearDebugPanel();
         renderAll();
         statusPill.className = "status-pill warning";
-        statusPill.textContent = "Missing request link";
-        title.textContent = "Missing request link";
-        description.textContent = "Open the link from the driver again so the request link is included.";
-        setBanner("Missing request link. Please open the full Van Mate link from the driver.", "error");
+        statusPill.textContent = requestedShortCode
+          ? "Request not found"
+          : "Missing request link";
+        title.textContent = requestedShortCode
+          ? "Request not found"
+          : "Missing request link";
+        description.textContent = requestedShortCode
+          ? "This short request link is invalid or no longer active."
+          : "Open the link from the driver again so the request link is included.";
+        setBanner(
+          requestedShortCode
+            ? "We could not find this request link. Please ask the driver to resend it."
+            : "Missing request link. Please open the full Van Mate link from the driver.",
+          "error",
+        );
         return;
       }
 
-      requestIdLabel.textContent = "Secure request loaded";
+      requestIdLabel.textContent = requestedShortCode
+        ? `Request code: ${requestedShortCode}`
+        : "Secure request loaded";
       try {
-        const snapshot = await requestRef.get();
+        const snapshot = await activeRequestRef.get();
         if (!snapshot.exists) {
           state.loading = false;
           state.request = null;
@@ -1284,6 +2253,13 @@
         applyStateFromRequest(request);
         clearDebugPanel();
 
+        if (request.deleted || request.archived || request.status === "deleted") {
+          state.blocked = true;
+          renderAll();
+          setBanner("This request is no longer available.", "error");
+          return;
+        }
+
         if (request.status === "cancelled") {
           state.blocked = true;
           renderAll();
@@ -1291,7 +2267,7 @@
           return;
         }
 
-        if (request.status === "submitted") {
+        if (isReplyAlreadySent(request)) {
           state.blocked = true;
           state.submitted = true;
           renderAll();
@@ -1313,11 +2289,6 @@
         console.error("Could not load request", error);
         state.loading = false;
         state.request = null;
-        showDebugPanel(
-          `<span class="debug-code">Load failed</span><br>${escapeHtml(
-            String(error?.message || error?.code || "unknown-error"),
-          )}`,
-        );
         renderAll();
         statusPill.className = "status-pill warning";
         statusPill.textContent = "Request unavailable";
@@ -1328,6 +2299,20 @@
     }
 
     function collectChecklistResponses(request) {
+      if (Array.isArray(request.answers) && request.answers.length > 0) {
+        return request.answers
+          .filter((answer) => sharedAnswerInputType(answer) === "yes_no")
+          .map((answer) => {
+            const questionId = String(answer.questionId || "").trim();
+            const question = String(answer.questionText || "").trim();
+            const value = String(state.answers[questionId] || "").trim();
+            if (!value) {
+              throw new Error(`Please answer: ${question}`);
+            }
+            return { question, answer: value, note: "" };
+          });
+      }
+
       return request.checklistItems.map((question) => {
         const entry = state.checklist[question] || { answer: "", note: "" };
         const answer = String(entry.answer || "").trim();
@@ -1340,6 +2325,20 @@
     }
 
     function collectCustomQuestionResponses(request) {
+      if (Array.isArray(request.answers) && request.answers.length > 0) {
+        return request.answers
+          .filter((answer) => sharedAnswerInputType(answer) !== "yes_no")
+          .map((answer) => {
+            const questionId = String(answer.questionId || "").trim();
+            const question = String(answer.questionText || "").trim();
+            const value = String(state.answers[questionId] || "").trim();
+            if (!value) {
+              throw new Error(`Please answer: ${question}`);
+            }
+            return { question, answer: value };
+          });
+      }
+
       return request.customQuestions.map((question) => {
         const answer = String(state.custom[question] || "").trim();
         if (!answer) {
@@ -1349,24 +2348,90 @@
       });
     }
 
+    function collectSharedAnswers(request) {
+      if (!Array.isArray(request.answers) || request.answers.length === 0) {
+        return [];
+      }
+
+      return request.answers.map((answer, index) => {
+        const questionId = String(answer.questionId || "").trim();
+        const questionText = String(answer.questionText || "").trim();
+        const value = String(state.answers[questionId] || "").trim();
+        if (!value) {
+          throw new Error(`Please answer: ${questionText || "Question"}`);
+        }
+        return {
+          questionId,
+          questionText,
+          answerType: String(answer.answerType || answer.type || "").trim(),
+          category: String(answer.category || "").trim(),
+          answerValue: value,
+          answer: value,
+          order: Number.isFinite(Number(answer.order)) ? Number(answer.order) : index,
+        };
+      });
+    }
+
     function getSubmitPayload(request) {
-      const now = new Date();
-      const exactPinShared = state.exactPinShared && Number.isFinite(state.exactPinLat) && Number.isFinite(state.exactPinLng);
+      const exactPinRequested = request?.exactPinRequested === true;
+      const exactPinShared =
+        exactPinRequested &&
+        hasValidExactPinSelection();
+      const answers = collectSharedAnswers(request);
       return {
-        status: "submitted",
-        submittedAt: now,
-        customerSubmittedAt: now,
-        hasReply: true,
         hasExactPin: exactPinShared,
         checklistResponses: collectChecklistResponses(request),
         customQuestionResponses: collectCustomQuestionResponses(request),
+        answers,
         additionalNotes: String(additionalNotes.value || "").trim(),
-        exactPinLat: exactPinShared ? state.exactPinLat : null,
-        exactPinLng: exactPinShared ? state.exactPinLng : null,
-        exactPinSource: exactPinShared ? "currentLocationConfirmed" : "none",
-        exactPinNote: String(exactPinNote.value || "").trim(),
-        updatedAt: now,
+        exactPinLat: exactPinRequested && exactPinShared ? state.exactPinLat : null,
+        exactPinLng: exactPinRequested && exactPinShared ? state.exactPinLng : null,
+        exactPinShareSource: exactPinRequested && exactPinShared ? state.exactPinSource : "none",
+        exactPinNote: exactPinRequested ? String(exactPinNote.value || "").trim() : "",
+        photos: request?.requestPhotos === true
+          ? (state.selectedPhotos || [])
+              .map((photo) => ({
+                fileName: String(photo.fileName || "").trim(),
+                contentType: String(photo.contentType || "").trim(),
+                dataBase64: String(photo.dataBase64 || "").trim(),
+              }))
+              .filter((photo) => photo.fileName && photo.contentType && photo.dataBase64)
+          : [],
       };
+    }
+
+    function sanitizePayloadValue(value) {
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => sanitizePayloadValue(item))
+          .filter((item) => item !== undefined);
+      }
+
+      if (value && typeof value === "object" && !(value instanceof Date)) {
+        const cleaned = {};
+        Object.entries(value).forEach(([key, item]) => {
+          const sanitized = sanitizePayloadValue(item);
+          if (sanitized !== undefined) {
+            cleaned[key] = sanitized;
+          }
+        });
+        return cleaned;
+      }
+
+      return value;
+    }
+
+    function sanitizePayload(payload) {
+      return sanitizePayloadValue(payload);
+    }
+
+    function hasValidExactPinSelection() {
+      return Boolean(
+        state.exactPinShared &&
+          Number.isFinite(state.exactPinLat) &&
+          Number.isFinite(state.exactPinLng) &&
+          String(state.exactPinSource || "").trim()
+      );
     }
 
     async function submitRequest() {
@@ -1386,61 +2451,131 @@
           focusQuestionField(validationError.kind, validationError.question);
           return;
         }
+        if (request.exactPinRequested === true && !hasValidExactPinSelection()) {
+          setBusy(false);
+          showMessage("Share or choose the exact pin before submitting.", "error");
+          return;
+        }
         const payload = getSubmitPayload(request);
-        const submittedAt = new Date();
         if (debugMode) {
-          console.log("[Van Mate request submit]", {
+          console.log("[Van Mate request submit start]", {
             requestId,
-            payload,
+            ownerUid: request.ownerUid,
+            jobId: request.jobId,
+            targetPublicPath: `public_job_requests/${requestId}`,
+            targetPrivatePath: `users/${request.ownerUid}/van_jobs/${request.jobId}`,
+            checklistCount: payload.checklistResponses.length,
+            customCount: payload.customQuestionResponses.length,
+            exactPinSelected: payload.hasExactPin,
+            checklistKeys: payload.checklistResponses.map((item) => item.question),
+            customQuestionKeys: payload.customQuestionResponses.map((item) => item.question),
           });
         }
-        await requestRef.update(payload);
+        const response = await submitPublicJobRequestReply({
+          requestId,
+          ...sanitizePayload(payload),
+        });
+
+        const syncResult = await waitForPrivateJobSync();
+        if (!syncResult.ok) {
+          throw new Error(syncResult.message || "Could not confirm the driver job update.");
+        }
+
+        if (debugMode) {
+          console.log("[Van Mate request submit synced]", {
+            requestId,
+            ownerUid: request.ownerUid,
+            jobId: request.jobId,
+            targetPublicPath: `public_job_requests/${requestId}`,
+            targetPrivatePath: `users/${request.ownerUid}/van_jobs/${request.jobId}`,
+            checklistCount: payload.checklistResponses.length,
+            customCount: payload.customQuestionResponses.length,
+            exactPinSelected: payload.hasExactPin,
+            syncResult,
+            photoUploadFailed: response && response.data ? Boolean(response.data.photoUploadFailed) : false,
+          });
+        }
+
+        const submittedAt = new Date();
         state.request = {
           ...request,
-          status: "submitted",
-          submittedAt,
-          customerSubmittedAt: submittedAt,
+          status: "reply_received",
+          requestStatus: "reply_received",
+          replyReceivedAt: submittedAt,
+          requestSubmittedAt: submittedAt,
           hasReply: true,
           hasExactPin: payload.hasExactPin,
           additionalNotesText: payload.additionalNotes,
+          exactPinLatitude: payload.exactPinLat,
+          exactPinLongitude: payload.exactPinLng,
           exactPinLat: payload.exactPinLat,
           exactPinLng: payload.exactPinLng,
-          exactPinSource: payload.exactPinSource,
+          exactPinShared: payload.hasExactPin,
+          exactPinShareSource: payload.exactPinShareSource,
           exactPinNote: payload.exactPinNote,
         };
+        clearSelectedPhotos();
         state.submitting = false;
         state.submitted = true;
         state.blocked = true;
         renderAll();
         statusPill.className = "status-pill success";
-        statusPill.textContent = "Request submitted";
-        pinHelp.textContent = "This request has now been submitted.";
-      } catch (error) {
-        const errorCode = normalizeFirestoreErrorCode(error);
-        if (debugMode) {
-          console.error("[Van Mate request submit failed]", {
-            requestId,
-            error,
-          });
-        } else {
-          console.error("Submit failed", errorCode);
+        statusPill.textContent = "Reply sent";
+        pinHelp.textContent = "Thanks. The driver now has your reply.";
+        if (response && response.data && response.data.photoUploadFailed) {
+          setBanner("Some photos could not be uploaded. Your reply was sent without those photos.", "error");
         }
+      } catch (error) {
+        console.error("[Van Mate request submit failed]", {
+          requestId,
+          error,
+        });
         setBusy(false);
-        const debugMessage = debugMode && error?.message
-          ? ` Debug: ${errorCode} | ${error.message}`
-          : ` Debug: ${errorCode}`;
+        const mergedMessage = String(error && (error.message || error.details) || "").trim().toLowerCase();
         setBanner(
-          `Could not submit request. Please try again.${debugMessage}`,
+          mergedMessage.includes("photo")
+            ? "Could not upload photos. Please remove them and try again."
+            : "Could not send details. Please try again.",
           "error",
         );
-        showDebugPanel(
-          `<span class="debug-code">Debug: ${errorCode}</span>${
-            debugMode && error?.message
-              ? `<br>${escapeHtml(String(error.message))}`
-              : ""
-          }`,
-        );
       }
+    }
+
+    async function waitForPrivateJobSync() {
+      const activeRequestRef = await resolveRequestReference();
+      if (!activeRequestRef) {
+        return { ok: false, message: "Missing request reference." };
+      }
+
+      const timeoutMs = 20000;
+      const pollMs = 750;
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < timeoutMs) {
+        const snapshot = await activeRequestRef.get();
+        if (!snapshot.exists) {
+          return { ok: false, message: "Request disappeared before sync confirmation." };
+        }
+
+        const data = snapshot.data() || {};
+        const status = String(data.driverJobSyncStatus || "").trim().toLowerCase();
+        if (status === "synced" && (data.driverJobSyncedAt || data.driverJobSyncCompletedAt)) {
+          return { ok: true, status };
+        }
+        if (status === "failed") {
+          const message = String(
+            data.driverJobSyncError || "The driver job update could not be confirmed.",
+          ).trim();
+          return { ok: false, message };
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, pollMs));
+      }
+
+      return {
+        ok: false,
+        message:
+          "The driver job update did not confirm in time. Please try again or refresh later.",
+      };
     }
 
     async function shareCurrentLocation() {
@@ -1474,13 +2609,16 @@
           state.requestMessage = "";
           setBusy(false);
           renderAll();
-          setPinStatus("Location shared", "success");
+          setPinStatus("Location shared.", "success");
         },
         (error) => {
-          state.exactPinShared = false;
-          state.exactPinLat = null;
-          state.exactPinLng = null;
-          state.exactPinSource = "none";
+          const hadValidPin = hasValidExactPinSelection();
+          if (!hadValidPin) {
+            state.exactPinShared = false;
+            state.exactPinLat = null;
+            state.exactPinLng = null;
+            state.exactPinSource = "none";
+          }
           setBusy(false);
           if (error && error.code === error.PERMISSION_DENIED) {
             state.locationStatus = "denied";
@@ -1517,9 +2655,9 @@
           renderPinSection(request);
         },
         {
-          enableHighAccuracy: false,
-          timeout: 12000,
-          maximumAge: 60000,
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0,
         }
       );
     }
@@ -1543,9 +2681,39 @@
       );
     }
 
+    function confirmMapSelection() {
+      const request = state.request;
+      if (!request || !request.exactPinRequested || state.submitting || state.submitted || isBlocked(request)) {
+        return;
+      }
+
+      if (!selectedMapReady || !selectedMapLatLng || !Number.isFinite(selectedMapLatLng.lat) || !Number.isFinite(selectedMapLatLng.lng)) {
+        setMapStatus("Move the map first.");
+        return;
+      }
+
+      state.exactPinShared = true;
+      state.exactPinLat = selectedMapLatLng.lat;
+      state.exactPinLng = selectedMapLatLng.lng;
+      state.exactPinSource = "mapAdjusted";
+      state.locationStatus = "shared";
+      closeMapModal();
+      setBusy(false);
+      renderAll();
+      setPinStatus("Exact pin chosen on map.", "success");
+    }
+
     submitButton.addEventListener("click", submitRequest);
     shareLocationButton.addEventListener("click", shareCurrentLocation);
+    chooseMapButton.addEventListener("click", openMapModal);
     notHereButton.addEventListener("click", notAtLocation);
+    useSelectedPinButton.addEventListener("click", confirmMapSelection);
+    cancelMapButton.addEventListener("click", closeMapModal);
+    mapModal.addEventListener("click", (event) => {
+      if (event.target === mapModal) {
+        closeMapModal();
+      }
+    });
     copyLinkButton.addEventListener("click", copyCurrentRequestLink);
 
     loadRequest();

@@ -19,6 +19,8 @@ class VanMateExactPinNotificationPayload {
     this.jobId = '',
     this.ownerUid = '',
     this.jobTitle = '',
+    this.serviceName = '',
+    this.customerName = '',
     this.hasExactPin = false,
   });
 
@@ -29,6 +31,8 @@ class VanMateExactPinNotificationPayload {
   final String jobId;
   final String ownerUid;
   final String jobTitle;
+  final String serviceName;
+  final String customerName;
   final bool hasExactPin;
 
   bool get isPinResponseNotification =>
@@ -36,14 +40,31 @@ class VanMateExactPinNotificationPayload {
 
   bool get isCustomerReplyNotification => type == 'customer_reply';
 
+  bool get isQuoteReplyNotification =>
+      type == 'quoteAccepted' || type == 'quoteDeclined';
+
+  bool get isBookingRequestNotification => type == 'booking_request_received';
+
   bool get isOpenableNotification =>
-      isPinResponseNotification || isCustomerReplyNotification;
+      isPinResponseNotification ||
+      isCustomerReplyNotification ||
+      isQuoteReplyNotification ||
+      isBookingRequestNotification;
 
   bool get isExactPinReceived => type == 'exact_pin_received';
 
   String get displayDropName {
     final trimmed = dropName.trim();
     return trimmed.isEmpty ? 'A customer/site' : trimmed;
+  }
+
+  String get exactPinReceivedMessage {
+    final trimmedCustomerName = customerName.trim();
+    if (trimmedCustomerName.isNotEmpty) {
+      return 'Exact pin received for $trimmedCustomerName';
+    }
+
+    return 'Exact pin received';
   }
 
   String get displayJobTitle {
@@ -60,10 +81,41 @@ class VanMateExactPinNotificationPayload {
     return 'this job';
   }
 
+  String _quoteReplyBody(bool accepted) {
+    final trimmedCustomerName = customerName.trim();
+    if (trimmedCustomerName.isNotEmpty) {
+      return accepted
+          ? '$trimmedCustomerName accepted your quote.'
+          : '$trimmedCustomerName declined your quote.';
+    }
+
+    return accepted ? 'Your quote was accepted.' : 'Your quote was declined.';
+  }
+
+  String _bookingRequestBody() {
+    final cleanedServiceName = serviceName.trim();
+    final cleanedCustomerName = customerName.trim();
+    if (cleanedCustomerName.isNotEmpty && cleanedServiceName.isNotEmpty) {
+      return '$cleanedCustomerName sent a $cleanedServiceName request';
+    }
+    if (cleanedCustomerName.isEmpty && cleanedServiceName.isNotEmpty) {
+      return 'New $cleanedServiceName request received';
+    }
+    return 'New booking request received';
+  }
+
   String get snackbarBody {
+    if (isBookingRequestNotification) {
+      return _bookingRequestBody();
+    }
+
+    if (isQuoteReplyNotification) {
+      return _quoteReplyBody(type != 'quoteDeclined');
+    }
+
     if (isCustomerReplyNotification) {
-      if (jobTitle.trim().isNotEmpty && hasExactPin) {
-        return 'Exact pin received for $displayJobTitle';
+      if (hasExactPin) {
+        return exactPinReceivedMessage;
       }
 
       return jobTitle.trim().isNotEmpty
@@ -81,6 +133,12 @@ class VanMateExactPinNotificationPayload {
   }
 
   String get notificationTitle {
+    if (isBookingRequestNotification) {
+      return 'New booking request';
+    }
+    if (isQuoteReplyNotification) {
+      return 'Quote reply';
+    }
     if (isCustomerReplyNotification) {
       return 'Van Mate';
     }
@@ -94,9 +152,17 @@ class VanMateExactPinNotificationPayload {
   }
 
   String get notificationBody {
+    if (isBookingRequestNotification) {
+      return _bookingRequestBody();
+    }
+
+    if (isQuoteReplyNotification) {
+      return _quoteReplyBody(type != 'quoteDeclined');
+    }
+
     if (isCustomerReplyNotification) {
-      if (hasExactPin && jobTitle.trim().isNotEmpty) {
-        return 'Exact pin received for ${jobTitle.trim()}';
+      if (hasExactPin) {
+        return exactPinReceivedMessage;
       }
 
       return jobTitle.trim().isNotEmpty
@@ -125,6 +191,8 @@ class VanMateExactPinNotificationPayload {
     final jobId = _readString(data['jobId']);
     final ownerUid = _readString(data['ownerUid']);
     final jobTitle = _readString(data['jobTitle']);
+    final serviceName = _readString(data['serviceName']);
+    final customerName = _readString(data['customerName']);
     final hasExactPin = _readBool(data['hasExactPin']);
 
     if (type.isEmpty || requestId.isEmpty) {
@@ -139,6 +207,8 @@ class VanMateExactPinNotificationPayload {
       jobId: jobId,
       ownerUid: ownerUid,
       jobTitle: jobTitle,
+      serviceName: serviceName,
+      customerName: customerName,
       hasExactPin: hasExactPin,
     );
   }

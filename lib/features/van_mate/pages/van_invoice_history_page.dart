@@ -1,53 +1,87 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../helpers/app_theme.dart';
+import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_invoice_pdf_helper.dart';
-import '../models/van_invoice_draft.dart';
+import '../helpers/van_text_formatters.dart';
+import '../models/van_invoice_history_entry.dart';
+import '../services/van_invoice_reminder_service.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'van_invoice_preview_page.dart';
+import '../widgets/van_back_business_hub_buttons.dart';
 
-Future<void> openVanInvoiceHistoryPage(BuildContext context) {
+enum VanInvoiceHistoryFilter { all, unpaid, paid }
+
+Future<void> openVanInvoiceHistoryPage(
+  BuildContext context, {
+  VanInvoiceHistoryFilter initialFilter = VanInvoiceHistoryFilter.all,
+}) {
   return Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const VanInvoiceHistoryPage()),
+    MaterialPageRoute<void>(
+      builder: (_) => VanInvoiceHistoryPage(initialFilter: initialFilter),
+    ),
   );
 }
 
 class VanInvoiceHistoryPage extends StatefulWidget {
-  const VanInvoiceHistoryPage({super.key});
+  const VanInvoiceHistoryPage({
+    super.key,
+    this.initialFilter = VanInvoiceHistoryFilter.all,
+  });
+
+  final VanInvoiceHistoryFilter initialFilter;
 
   @override
   State<VanInvoiceHistoryPage> createState() => _VanInvoiceHistoryPageState();
 }
 
 class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
+  final TextEditingController _searchController = TextEditingController();
+
   bool _isHydratingInvoices = false;
+  String _searchQuery = '';
+  VanInvoiceHistoryFilter _activeFilter = VanInvoiceHistoryFilter.all;
 
   @override
   void initState() {
     super.initState();
-    _hydrateInvoices();
+    _activeFilter = widget.initialFilter;
+    DriverReplyMockState.instance.addListener(_handleStateChanged);
+    unawaited(_hydrateInvoices());
   }
 
-  void _showSnack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
+  @override
+  void dispose() {
+    _searchController.dispose();
+    DriverReplyMockState.instance.removeListener(_handleStateChanged);
+    super.dispose();
+  }
+
+  void _handleStateChanged() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   Future<void> _hydrateInvoices() async {
-    _isHydratingInvoices = true;
+    setState(() {
+      _isHydratingInvoices = true;
+    });
 
     try {
       await DriverReplyMockState.instance.loadInvoicesFromCloud();
+      await _runReminderCheck();
     } catch (error) {
       if (kDebugMode) {
-        debugPrint('Past invoices cloud hydrate failed: $error');
+        debugPrint('Invoice cloud hydrate failed: $error');
       }
     } finally {
       if (mounted) {
@@ -58,70 +92,170 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
     }
   }
 
-  List<VanInvoiceDraft> _invoices() {
-    return DriverReplyMockState.instance.savedInvoiceHistory
-        .map((entry) => entry.draft)
-        .toList();
+  Future<void> _runReminderCheck() {
+    return VanInvoiceReminderService.instance.runReminderCheck(
+      invoices: DriverReplyMockState.instance.savedInvoiceHistory,
+      onReminderSent: (jobKey, stageDays, sentAt) async {
+        DriverReplyMockState.instance.markInvoiceReminderSentForJob(
+          jobKey,
+          stageDays: stageDays,
+          sentAt: sentAt,
+        );
+      },
+    );
   }
 
-  Future<void> _openInvoice(BuildContext context, VanInvoiceDraft draft) async {
-    final updated = await openVanInvoicePreviewPage(context, draft);
+  void _showSnack(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  List<VanInvoiceHistoryEntry> get _allInvoices {
+    final invoices = DriverReplyMockState.instance.savedInvoiceHistory.toList(
+      growable: false,
+    )..sort((a, b) => _activityDateFor(b).compareTo(_activityDateFor(a)));
+    return invoices;
+  }
+
+  List<VanInvoiceHistoryEntry> get _visibleInvoices {
+    final query = _searchQuery.trim().toLowerCase();
+    return _allInvoices
+        .where((entry) {
+          final matchesFilter = switch (_activeFilter) {
+            VanInvoiceHistoryFilter.all => true,
+            VanInvoiceHistoryFilter.unpaid => entry.draft.isUnpaid,
+            VanInvoiceHistoryFilter.paid => entry.draft.isPaid,
+          };
+          if (!matchesFilter) {
+            return false;
+          }
+          if (query.isEmpty) {
+            return true;
+          }
+          final haystack = <String>[
+            entry.draft.invoiceNumber,
+            entry.draft.customerName,
+            entry.draft.jobReference,
+            entry.draft.customerPhone,
+            entry.draft.billingAddress,
+          ].join('\n').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  DateTime _activityDateFor(VanInvoiceHistoryEntry entry) {
+    if (entry.draft.isPaid) {
+      return entry.draft.paidAt ?? entry.updatedAt ?? entry.savedAt;
+    }
+    return _invoiceDate(entry) ?? entry.createdAt ?? entry.savedAt;
+  }
+
+  DateTime? _invoiceDate(VanInvoiceHistoryEntry entry) {
+    return parseVanInvoiceReminderDate(entry.draft.invoiceDate) ??
+        entry.createdAt ??
+        entry.savedAt;
+  }
+
+  DateTime? _dueDate(VanInvoiceHistoryEntry entry) {
+    return parseVanInvoiceReminderDate(entry.draft.dueDate);
+  }
+
+  DateTime? _paidDate(VanInvoiceHistoryEntry entry) {
+    if (!entry.draft.isPaid) {
+      return null;
+    }
+    return entry.draft.paidAt ?? entry.updatedAt ?? entry.savedAt;
+  }
+
+  String _displayInvoiceNumber(VanInvoiceHistoryEntry entry) {
+    final number = sanitizeVanText(entry.draft.invoiceNumber).trim();
+    return number.isEmpty ? '--' : number;
+  }
+
+  String _displayCustomerName(VanInvoiceHistoryEntry entry) {
+    final customer = sanitizeVanText(entry.draft.customerName).trim();
+    return customer.isEmpty ? 'Customer not set' : customer;
+  }
+
+  String _displayJobTitle(VanInvoiceHistoryEntry entry) {
+    final job = sanitizeVanText(entry.draft.jobReference).trim();
+    return job.isEmpty ? 'Job not set' : job;
+  }
+
+  String _displayPhone(VanInvoiceHistoryEntry entry) {
+    return sanitizeVanCustomerPhoneNumber(entry.draft.customerPhone);
+  }
+
+  String _displayInvoiceDateLabel(VanInvoiceHistoryEntry entry) {
+    final date = _invoiceDate(entry);
+    return date == null ? '--' : formatDate(date);
+  }
+
+  String _displayDueLabel(VanInvoiceHistoryEntry entry) {
+    final rawDue = sanitizeVanText(entry.draft.dueDate).trim();
+    if (rawDue.isEmpty) {
+      return 'Due on receipt';
+    }
+    final dueDate = _dueDate(entry);
+    return dueDate == null ? rawDue : formatDate(dueDate);
+  }
+
+  String _displayPaidDateLabel(VanInvoiceHistoryEntry entry) {
+    final paidDate = _paidDate(entry);
+    return paidDate == null ? '--' : formatDate(paidDate);
+  }
+
+  Future<void> _openInvoice(VanInvoiceHistoryEntry entry) async {
+    final updated = await openVanInvoicePreviewPage(context, entry.draft);
     if (!mounted || updated == null) {
       return;
     }
-
     setState(() {});
   }
 
-  Future<void> _shareText(BuildContext context, VanInvoiceDraft draft) async {
+  Future<void> _shareInvoice(VanInvoiceHistoryEntry entry) async {
     try {
       await SharePlus.instance.share(
         ShareParams(
-          text: draft.buildInvoiceShareText(),
-          subject: 'Invoice ${draft.invoiceNumber}',
+          text: entry.draft.buildInvoiceShareText(),
+          subject: 'Invoice ${_displayInvoiceNumber(entry)}',
         ),
       );
     } catch (error) {
       if (kDebugMode) {
-        debugPrint('Invoice text share failed: $error');
+        debugPrint('Invoice share failed: $error');
       }
-      if (context.mounted) {
-        _showSnack(context, 'Sharing is not available on this device.');
-      }
+      _showSnack('Sharing is not available on this device.');
     }
   }
 
-  Future<void> _copyText(BuildContext context, VanInvoiceDraft draft) async {
-    await Clipboard.setData(ClipboardData(text: draft.buildInvoiceShareText()));
-    if (context.mounted) {
-      _showSnack(context, 'Invoice text copied.');
-    }
-  }
-
-  Future<void> _exportPdf(BuildContext context, VanInvoiceDraft draft) async {
+  Future<void> _exportPdf(VanInvoiceHistoryEntry entry) async {
     try {
-      final pdfPath = await buildVanInvoicePdfPath(draft);
+      final pdfPath = await buildVanInvoicePdfPath(entry.draft);
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(pdfPath, name: _safePdfAttachmentName(draft))],
-          text: 'Invoice ${draft.invoiceNumber} from Van Mate',
-          subject: 'Invoice ${draft.invoiceNumber}',
+          files: [XFile(pdfPath, name: _safePdfAttachmentName(entry))],
+          text: 'Invoice ${_displayInvoiceNumber(entry)} from Van Mate',
+          subject: 'Invoice ${_displayInvoiceNumber(entry)}',
         ),
       );
     } catch (error) {
       if (kDebugMode) {
         debugPrint('Invoice PDF export failed: $error');
       }
-      if (context.mounted) {
-        _showSnack(context, 'Could not create invoice PDF.');
-      }
+      _showSnack('Could not create invoice PDF.');
     }
   }
 
-  Future<void> _markPaid(BuildContext context, VanInvoiceDraft draft) async {
-    final jobKey = draft.jobKey?.trim();
-    if (jobKey == null || jobKey.isEmpty) {
-      _showSnack(context, 'Save the invoice first.');
+  Future<void> _markPaid(VanInvoiceHistoryEntry entry) async {
+    final jobKey = entry.jobKey.trim();
+    if (jobKey.isEmpty) {
+      _showSnack('Save the invoice first.');
       return;
     }
 
@@ -129,7 +263,6 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Mark invoice as paid?'),
-        content: const Text('This will remove it from outstanding totals.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -149,55 +282,122 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
 
     final updated = DriverReplyMockState.instance.markInvoicePaidForJob(jobKey);
     if (updated == null) {
-      _showSnack(context, 'Could not update invoice status.');
-      return;
-    }
-
-    if (!mounted) {
+      _showSnack('Could not update invoice status.');
       return;
     }
 
     setState(() {});
-    _showSnack(context, 'Invoice marked as paid.');
+    _showSnack('Invoice marked as paid.');
   }
 
-  String _safePdfAttachmentName(VanInvoiceDraft draft) {
-    final invoiceNumber = draft.invoiceNumber.trim();
-    final normalized = invoiceNumber.isEmpty
+  Future<void> _callCustomer(VanInvoiceHistoryEntry entry) async {
+    await launchCustomerPhone(context, entry.draft.customerPhone);
+  }
+
+  Future<void> _textCustomerReminder(VanInvoiceHistoryEntry entry) async {
+    final phone = _displayPhone(entry);
+    if (phone.isEmpty) {
+      _showSnack('No customer phone number is saved.');
+      return;
+    }
+
+    final invoiceNumber = _displayInvoiceNumber(entry);
+    final customerName = _displayCustomerName(entry);
+    final message =
+        'Hi $customerName, invoice $invoiceNumber for ${entry.draft.totalDueText} '
+        'is still awaiting payment. Thank you.';
+    final launched = await textCustomerRequest(
+      phoneNumber: phone,
+      message: message,
+    );
+    if (!launched && mounted) {
+      _showSnack('Could not open your text app.');
+    }
+  }
+
+  VanInvoiceReminderInsight _reminderInsight(VanInvoiceHistoryEntry entry) {
+    return analyzeVanInvoiceReminder(entry);
+  }
+
+  String _safePdfAttachmentName(VanInvoiceHistoryEntry entry) {
+    final invoiceNumber = _displayInvoiceNumber(entry);
+    final normalized = invoiceNumber == '--'
         ? 'VanMate-Invoice-${DateTime.now().millisecondsSinceEpoch}'
         : 'VanMate-Invoice-${invoiceNumber.replaceAll(RegExp(r'[\\/:*?"<>|]+'), '-')}';
     return '${normalized.replaceAll(RegExp(r'\s+'), '-')}.pdf';
   }
 
-  Widget _buildShellCard({required Widget child}) {
+  String _emptyStateTitle() {
+    if (_searchQuery.trim().isNotEmpty) {
+      return 'No invoices found.';
+    }
+    return switch (_activeFilter) {
+      VanInvoiceHistoryFilter.all => 'No invoices yet.',
+      VanInvoiceHistoryFilter.unpaid => 'No unpaid invoices.',
+      VanInvoiceHistoryFilter.paid => 'No paid invoices yet.',
+    };
+  }
+
+  String _emptyStateBody() {
+    if (_searchQuery.trim().isNotEmpty) {
+      return 'Try another customer, job or invoice number.';
+    }
+    return switch (_activeFilter) {
+      VanInvoiceHistoryFilter.all =>
+        'Invoices will appear here when you create one from a completed job.',
+      VanInvoiceHistoryFilter.unpaid => 'Everything is paid up.',
+      VanInvoiceHistoryFilter.paid => '',
+    };
+  }
+
+  Widget _buildShellCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+  }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(18),
+          padding: padding,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.10),
-                Colors.white.withValues(alpha: 0.05),
-              ],
-            ),
+            color: Colors.white.withValues(alpha: 0.08),
             border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 24,
-                offset: const Offset(0, 14),
-              ),
-            ],
           ),
           child: child,
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip({
+    required String label,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.20),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11.8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -228,7 +428,7 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
             label: Text(label),
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
-              side: BorderSide(color: color.withValues(alpha: 0.65)),
+              side: BorderSide(color: color.withValues(alpha: 0.56)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
@@ -238,40 +438,86 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
     return SizedBox(height: 48, child: button);
   }
 
-  Widget _buildStatusChip(String label, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.20),
-        border: Border.all(color: color.withValues(alpha: 0.26)),
+  Widget _buildFilterChip(VanInvoiceHistoryFilter filter, String label) {
+    final selected = _activeFilter == filter;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : Colors.white.withValues(alpha: 0.78),
+        fontWeight: FontWeight.w800,
+        fontSize: 12.8,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.96),
-              fontSize: 11.2,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      side: BorderSide(
+        color: selected
+            ? const Color(0xFF4A7DFF).withValues(alpha: 0.72)
+            : Colors.white.withValues(alpha: 0.22),
       ),
+      selectedColor: const Color(0xFF4A7DFF).withValues(alpha: 0.26),
+      backgroundColor: Colors.white.withValues(alpha: 0.06),
+      onSelected: (_) {
+        setState(() {
+          _activeFilter = filter;
+        });
+      },
     );
   }
 
-  Widget _buildInvoiceCard(BuildContext context, VanInvoiceDraft draft) {
-    final statusLabel = draft.isPaid ? 'Paid' : 'Unpaid';
-    final statusColor = draft.isPaid
+  Widget _buildInvoiceCard(VanInvoiceHistoryEntry entry) {
+    final draft = entry.draft;
+    final phone = _displayPhone(entry);
+    final isPaid = draft.isPaid;
+    final statusLabel = isPaid ? 'Paid' : 'Awaiting payment';
+    final statusColor = isPaid
         ? const Color(0xFF58D0A4)
         : const Color(0xFFFFC56F);
-    final statusIcon = draft.isPaid
-        ? Icons.check_circle
-        : Icons.hourglass_bottom;
+    final statusIcon = isPaid ? Icons.check_circle : Icons.hourglass_bottom;
+    final reminderInsight = _reminderInsight(entry);
+
+    final buttons = <Widget>[
+      _buildActionButton(
+        label: 'View invoice',
+        icon: Icons.receipt_long_outlined,
+        color: const Color(0xFF4A7DFF),
+        filled: true,
+        onTap: () => _openInvoice(entry),
+      ),
+      _buildActionButton(
+        label: 'Share invoice',
+        icon: Icons.share_outlined,
+        color: const Color(0xFF4A7DFF),
+        onTap: () => _shareInvoice(entry),
+      ),
+      _buildActionButton(
+        label: 'Export PDF',
+        icon: Icons.picture_as_pdf_outlined,
+        color: const Color(0xFF58D0A4),
+        onTap: () => _exportPdf(entry),
+      ),
+      if (!isPaid)
+        _buildActionButton(
+          label: 'Mark paid',
+          icon: Icons.payments_outlined,
+          color: const Color(0xFF58D0A4),
+          onTap: () => _markPaid(entry),
+        ),
+      if (phone.isNotEmpty)
+        _buildActionButton(
+          label: 'Call customer',
+          icon: Icons.phone,
+          color: const Color(0xFFFFC56F),
+          onTap: () => _callCustomer(entry),
+        ),
+      if (!isPaid && phone.isNotEmpty)
+        _buildActionButton(
+          label: 'Text customer',
+          icon: Icons.sms_outlined,
+          color: const Color(0xFFB48CFF),
+          onTap: () => _textCustomerReminder(entry),
+        ),
+    ];
 
     return _buildShellCard(
       child: Column(
@@ -285,25 +531,27 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Invoice ${draft.invoiceNumber}',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      'Invoice ${_displayInvoiceNumber(entry)}',
+                      style: const TextStyle(
                         color: Colors.white,
+                        fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
-                      draft.customerName,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        height: 1.35,
+                      _displayCustomerName(entry),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.84),
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      draft.jobReference,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      _displayJobTitle(entry),
+                      style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.68),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -312,8 +560,9 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
               const SizedBox(width: 12),
               Text(
                 draft.totalDueText,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: const TextStyle(
                   color: Colors.white,
+                  fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -324,60 +573,51 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildStatusChip(statusLabel, statusColor, statusIcon),
               _buildStatusChip(
-                'Completed job',
-                const Color(0xFF4A7DFF),
-                Icons.history,
+                label: statusLabel,
+                color: statusColor,
+                icon: statusIcon,
               ),
+              if (!isPaid && reminderInsight.showReminderHint)
+                _buildStatusChip(
+                  label: reminderInsight.reminderHintLabel,
+                  color: reminderInsight.hasReminderSent
+                      ? const Color(0xFF4A7DFF)
+                      : const Color(0xFFFF8D6C),
+                  icon: reminderInsight.hasReminderSent
+                      ? Icons.notifications_active_outlined
+                      : Icons.schedule_outlined,
+                ),
+              if (!isPaid && reminderInsight.hasReminderSent)
+                _buildStatusChip(
+                  label: 'Reminder sent',
+                  color: const Color(0xFF4A7DFF),
+                  icon: Icons.check_circle_outline,
+                ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            draft.invoiceDate,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.72),
+            'Invoice date: ${_displayInvoiceDateLabel(entry)}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.74),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            isPaid
+                ? 'Paid date: ${_displayPaidDateLabel(entry)}'
+                : 'Due: ${_displayDueLabel(entry)}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.74),
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
             builder: (context, constraints) {
               final stacked = constraints.maxWidth < 520;
-              final buttons = <Widget>[
-                _buildActionButton(
-                  label: 'View invoice',
-                  icon: Icons.receipt_long,
-                  color: const Color(0xFF4A7DFF),
-                  filled: true,
-                  onTap: () => _openInvoice(context, draft),
-                ),
-                _buildActionButton(
-                  label: 'Export PDF',
-                  icon: Icons.picture_as_pdf_outlined,
-                  color: const Color(0xFFB48CFF),
-                  onTap: () => _exportPdf(context, draft),
-                ),
-                _buildActionButton(
-                  label: 'Copy text',
-                  icon: Icons.copy_rounded,
-                  color: const Color(0xFF58D0A4),
-                  onTap: () => _copyText(context, draft),
-                ),
-                _buildActionButton(
-                  label: 'Share text',
-                  icon: Icons.share_outlined,
-                  color: const Color(0xFF4A7DFF),
-                  onTap: () => _shareText(context, draft),
-                ),
-                if (!draft.isPaid)
-                  _buildActionButton(
-                    label: 'Mark paid',
-                    icon: Icons.payments_outlined,
-                    color: const Color(0xFF58D0A4),
-                    onTap: () => _markPaid(context, draft),
-                  ),
-              ];
-
               if (stacked) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -390,17 +630,16 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
                 );
               }
 
+              final columns = buttons.length >= 4 ? 2 : buttons.length;
+              final width =
+                  (constraints.maxWidth - ((columns - 1) * 10)) / columns;
               return Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children: buttons
-                    .map(
-                      (button) => SizedBox(
-                        width: (constraints.maxWidth - 10) / 2,
-                        child: button,
-                      ),
-                    )
-                    .toList(),
+                children: [
+                  for (final button in buttons)
+                    SizedBox(width: width, child: button),
+                ],
               );
             },
           ),
@@ -411,128 +650,200 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final invoices = _invoices();
+    final invoices = _visibleInvoices;
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final emptyStateBody = _emptyStateBody();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF09111A),
+      resizeToAvoidBottomInset: false,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Past invoices'),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0E1622), Color(0xFF09111A)],
+        title: const Text('Invoices'),
+        automaticallyImplyLeading: false,
+        leadingWidth: 96,
+        leading: Padding(
+          padding: const EdgeInsetsDirectional.only(start: 8),
+          child: VanBackBusinessHubButtons(
+            onBack: () => Navigator.of(context).pop(),
           ),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 780),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildShellCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Invoice history',
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Saved invoices from completed jobs appear here.',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.74),
-                                  height: 1.45,
-                                ),
-                          ),
-                        ],
+      ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          AppTheme.backgroundImage(),
+          Container(color: Colors.black.withValues(alpha: 0.34)),
+          SafeArea(
+            bottom: false,
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomInset + 24),
+              children: [
+                _buildShellCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Invoices',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Search, view and share saved invoices.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.76),
+                          fontSize: 13.2,
+                          height: 1.45,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildShellCard(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search invoice, customer or job',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: Colors.white.withValues(alpha: 0.72),
+                      ),
+                      suffixIcon: _searchQuery.trim().isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear search',
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                              icon: Icon(
+                                Icons.close,
+                                color: Colors.white.withValues(alpha: 0.72),
+                              ),
+                            ),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.06),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(18)),
+                        borderSide: BorderSide(
+                          color: Color(0xFF4A7DFF),
+                          width: 1.4,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    if (_isHydratingInvoices && invoices.isEmpty)
-                      _buildShellCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Loading invoices...',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Fetching saved invoices from Firestore.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.74),
-                                    height: 1.45,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (invoices.isEmpty)
-                      _buildShellCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'No invoices yet.',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Saved invoices from completed jobs will appear here.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.74),
-                                    height: 1.45,
-                                  ),
-                            ),
-                            const SizedBox(height: 14),
-                            _buildActionButton(
-                              label: 'Back to jobs',
-                              icon: Icons.arrow_back_rounded,
-                              color: const Color(0xFF4A7DFF),
-                              filled: true,
-                              onTap: () => Navigator.of(context).pop(),
-                            ),
-                          ],
-                        ),
-                      )
-                    else ...[
-                      for (var i = 0; i < invoices.length; i++) ...[
-                        _buildInvoiceCard(context, invoices[i]),
-                        if (i < invoices.length - 1) const SizedBox(height: 12),
-                      ],
-                    ],
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                _buildShellCard(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildFilterChip(VanInvoiceHistoryFilter.all, 'All'),
+                      _buildFilterChip(
+                        VanInvoiceHistoryFilter.unpaid,
+                        'Unpaid',
+                      ),
+                      _buildFilterChip(VanInvoiceHistoryFilter.paid, 'Paid'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (_isHydratingInvoices && _allInvoices.isEmpty)
+                  _buildShellCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Loading invoices...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Fetching saved invoices.',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.74),
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (invoices.isEmpty)
+                  _buildShellCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _emptyStateTitle(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (emptyStateBody.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            emptyStateBody,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.74),
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                else
+                  for (var index = 0; index < invoices.length; index++) ...[
+                    _buildInvoiceCard(invoices[index]),
+                    if (index < invoices.length - 1) const SizedBox(height: 12),
+                  ],
+              ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -1,0 +1,2369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Van Mate quote</title>
+  <meta name="description" content="Review and respond to a Van Mate quote." />
+  <meta property="og:title" content="Van Mate quote" />
+  <meta property="og:description" content="Review and respond to a Van Mate quote." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" id="ogUrl" content="" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Van Mate quote" />
+  <meta name="twitter:description" content="Review and respond to a Van Mate quote." />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-0: #07101c;
+      --bg-1: #0c1727;
+      --bg-2: #13233b;
+      --panel: rgba(12, 20, 34, 0.92);
+      --panel-strong: rgba(18, 28, 46, 0.96);
+      --border: rgba(255, 255, 255, 0.10);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #f5f8ff;
+      --muted: rgba(245, 248, 255, 0.72);
+      --accent: #4a7dff;
+      --accent-2: #58d0a4;
+      --warning: #ffbf7e;
+      --error: #ff8f7a;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(74, 125, 255, 0.20), transparent 25%),
+        radial-gradient(circle at top right, rgba(88, 208, 164, 0.12), transparent 24%),
+        linear-gradient(180deg, var(--bg-0), var(--bg-1) 45%, var(--bg-2));
+    }
+
+    .page {
+      width: min(840px, 100%);
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .hero {
+      padding: 8px 8px 12px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(74, 125, 255, 0.22);
+      background: rgba(74, 125, 255, 0.14);
+      color: rgba(255, 255, 255, 0.96);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 48px);
+      line-height: 1.02;
+      letter-spacing: -0.05em;
+    }
+
+    .lede {
+      margin: 10px 0 0;
+      max-width: 58ch;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+      white-space: pre-line;
+    }
+
+    .banner {
+      display: none;
+      padding: 14px 16px;
+      border-radius: 20px;
+      line-height: 1.5;
+      font-size: 14px;
+      font-weight: 750;
+      border: 1px solid rgba(88, 208, 164, 0.24);
+      background: rgba(88, 208, 164, 0.12);
+      color: #ebfff5;
+      margin-bottom: 14px;
+    }
+
+    .banner.show { display: block; }
+
+    .banner.error {
+      border-color: rgba(255, 143, 122, 0.24);
+      background: rgba(255, 143, 122, 0.10);
+      color: #fff3ef;
+    }
+
+    .card {
+      padding: 18px;
+      border-radius: 26px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(16px);
+    }
+
+    .card.strong {
+      background: var(--panel-strong);
+      border-color: var(--border-strong);
+    }
+
+    .stack,
+    .compact {
+      display: grid;
+      gap: 14px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.1px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .status-pill.pending {
+      border-color: rgba(74, 125, 255, 0.26);
+      background: rgba(74, 125, 255, 0.12);
+    }
+
+    .status-pill.success {
+      border-color: rgba(88, 208, 164, 0.26);
+      background: rgba(88, 208, 164, 0.12);
+    }
+
+    .status-pill.warning {
+      border-color: rgba(255, 191, 126, 0.26);
+      background: rgba(255, 191, 126, 0.12);
+    }
+
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+    }
+
+    .section-text {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .summary-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .summary-label {
+      color: rgba(255, 255, 255, 0.54);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .summary-value {
+      color: rgba(255, 255, 255, 0.96);
+      font-size: 14px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 16px;
+      min-height: 50px;
+      padding: 12px 16px;
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(135deg, #3c66ee, #5d8bff);
+      box-shadow: 0 12px 26px rgba(74, 125, 255, 0.20);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    button.success {
+      background: linear-gradient(135deg, #2ebd88, #58d0a4);
+      box-shadow: 0 12px 26px rgba(88, 208, 164, 0.18);
+    }
+
+    button.warning {
+      background: linear-gradient(135deg, #f08a46, #ffb06a);
+      color: #fff;
+      box-shadow: 0 12px 26px rgba(255, 191, 126, 0.16);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .footer {
+      margin-top: 12px;
+      color: rgba(255, 255, 255, 0.50);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .footer.error {
+      color: #fff3ef;
+    }
+
+    .panel {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .panel-title {
+      margin: 0 0 6px;
+      font-size: 13px;
+      font-weight: 850;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    .panel-text {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .field {
+      width: 100%;
+      min-height: 108px;
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: inherit;
+      resize: vertical;
+    }
+
+    .field.single {
+      min-height: 0;
+      resize: none;
+    }
+
+    .field::placeholder {
+      color: rgba(255, 255, 255, 0.46);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .field-label {
+      display: block;
+      color: rgba(245, 248, 255, 0.82);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .hint-list {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: rgba(245, 248, 255, 0.82);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .warning-panel {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 155, 125, 0.10);
+      border: 1px solid rgba(255, 155, 125, 0.22);
+    }
+
+    .warning-title {
+      margin: 0 0 7px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #fff4ee;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding:
+        max(12px, env(safe-area-inset-top))
+        16px
+        max(16px, env(safe-area-inset-bottom));
+      background: rgba(3, 8, 16, 0.72);
+      backdrop-filter: blur(14px);
+      z-index: 30;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal-sheet {
+      width: min(640px, 100%);
+      padding: 22px;
+      border-radius: 26px;
+      background: rgba(14, 22, 38, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.40);
+    }
+
+    .decline-sheet {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 28px);
+      overflow: hidden;
+    }
+
+    .decline-modal-header {
+      padding: 20px 20px 0;
+      flex: 0 0 auto;
+    }
+
+    .decline-modal-body {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 14px 20px 0;
+      scroll-padding-top: 18px;
+    }
+
+    .decline-modal-actions {
+      flex: 0 0 auto;
+      position: sticky;
+      bottom: 0;
+      margin-top: 0;
+      padding:
+        14px
+        20px
+        calc(16px + env(safe-area-inset-bottom));
+      background:
+        linear-gradient(180deg, rgba(14, 22, 38, 0.04), rgba(14, 22, 38, 0.98) 22%);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 28px);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+    }
+
+    .modal-text {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .modal-actions button {
+      flex: 1 1 160px;
+    }
+
+    .reason-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .reason-option {
+      min-height: 38px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.92);
+      font-weight: 800;
+      font-size: 13px;
+      line-height: 1.2;
+      box-shadow: none;
+      text-align: center;
+    }
+
+    .reason-option.selected {
+      border-color: rgba(255, 191, 126, 0.42);
+      background: rgba(255, 191, 126, 0.16);
+    }
+
+    .decline-note {
+      width: 100%;
+      margin-top: 14px;
+      min-height: 96px;
+      resize: vertical;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      padding: 14px;
+      font: inherit;
+      line-height: 1.5;
+      outline: none;
+    }
+
+    .decline-note::placeholder {
+      color: rgba(255, 255, 255, 0.46);
+    }
+
+    .micro-text {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .map-shell {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .map-canvas {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: min(52vh, 360px);
+      min-height: 240px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #0d1524;
+    }
+
+    .map-loading {
+      position: absolute;
+      inset: 12px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 18px;
+      color: rgba(255, 255, 255, 0.92);
+      background: rgba(10, 18, 30, 0.44);
+      backdrop-filter: blur(2px);
+      font-weight: 800;
+      pointer-events: none;
+    }
+
+    .map-loading.hidden { display: none; }
+
+    .fixed-map-pin {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 999999;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      font-size: 42px;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      line-height: 1;
+    }
+
+    .map-hint {
+      margin: 8px 0 0;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 640px) {
+      .page { padding: 12px; }
+      .hero { padding: 10px 6px 8px; }
+      .card { padding: 16px; border-radius: 22px; }
+      .summary-row { grid-template-columns: 1fr; gap: 4px; }
+      .modal-overlay {
+        padding:
+          max(8px, env(safe-area-inset-top))
+          8px
+          max(8px, env(safe-area-inset-bottom));
+      }
+      .modal-sheet {
+        width: 100%;
+        border-radius: 24px;
+      }
+      .decline-sheet {
+        max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
+      }
+      .decline-modal-header {
+        padding: 18px 16px 0;
+      }
+      .decline-modal-body {
+        padding: 12px 16px 0;
+      }
+      .decline-modal-actions {
+        padding:
+          12px
+          16px
+          calc(12px + env(safe-area-inset-bottom));
+      }
+      .reason-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .reason-option {
+        min-height: 36px;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      .decline-note {
+        min-height: 84px;
+        margin-top: 12px;
+        padding: 12px;
+      }
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+      .decline-modal-actions button {
+        flex-basis: calc(50% - 5px);
+      }
+    }
+
+    @media (max-height: 760px) {
+      .decline-sheet {
+        max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 8px);
+      }
+      .decline-modal-header {
+        padding-top: 16px;
+      }
+      .decline-modal-body {
+        padding-top: 10px;
+      }
+    }
+  </style>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-functions-compat.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="eyebrow">Van Mate quote</div>
+      <h1>Review your quote</h1>
+      <p class="lede">Check the quote details below, then choose an option.</p>
+    </section>
+
+    <div id="banner" class="banner"></div>
+
+    <section id="content" class="compact">
+      <article class="card strong">
+        <div id="statusPill" class="status-pill pending">Loading quote...</div>
+        <div style="height: 8px;"></div>
+        <h2 class="section-title hidden" id="title"></h2>
+        <p class="section-text hidden" id="description"></p>
+        <div class="summary-grid" id="summaryGrid"></div>
+      </article>
+
+      <article id="respondCard" class="card">
+        <h2 class="section-title">Respond</h2>
+        <p class="section-text">Use the buttons below to confirm your choice.</p>
+        <div class="actions">
+          <button id="acceptButton" type="button" class="success">Accept quote &amp; proposed time</button>
+          <button id="arrangeTimeButton" type="button" class="secondary">Accept quote, arrange another time</button>
+          <button id="declineButton" type="button" class="warning">Decline quote</button>
+        </div>
+        <p id="respondStatus" class="footer hidden" aria-live="polite"></p>
+        <p class="footer">Van Mate updates the job automatically after your choice.</p>
+      </article>
+
+      <article id="arrangeTimeCard" class="card hidden">
+        <h2 class="section-title">Suggest another time</h2>
+        <p class="section-text">Choose the date and time you prefer before accepting the quote.</p>
+        <div class="field-grid">
+          <label class="field-label">
+            Preferred date
+            <input id="preferredDateInput" class="field single" type="date" />
+          </label>
+          <label class="field-label">
+            Preferred time
+            <input id="preferredTimeInput" class="field single" type="time" />
+          </label>
+        </div>
+        <textarea
+          id="preferredTimingNoteInput"
+          class="field"
+          maxlength="240"
+          placeholder="Optional note for the driver..."
+        ></textarea>
+        <div class="actions" style="margin-top: 14px;">
+          <button id="confirmArrangeTimeButton" type="button" class="success">Accept quote and send time</button>
+          <button id="backToRespondButton" type="button" class="secondary">Back</button>
+        </div>
+        <p id="arrangeTimeStatus" class="footer hidden" aria-live="polite"></p>
+      </article>
+
+      <article id="pinCard" class="card hidden">
+        <h2 class="section-title">Final step</h2>
+        <p id="pinIntro" class="section-text">
+          Please show the driver exactly where to collect or deliver.
+        </p>
+        <div class="panel" style="margin-top: 14px;">
+          <p class="panel-text">
+            This helps avoid wrong entrances, shared postcodes, new builds or hard-to-find addresses.
+          </p>
+        </div>
+        <div class="warning-panel" style="margin-top: 14px;">
+          <div class="warning-title">Only use current location if you are there now</div>
+          <p class="panel-text">
+            If you are not there, choose the spot on the map instead.
+          </p>
+        </div>
+        <div class="actions">
+          <button id="shareCurrentPinButton" type="button">I'm at the exact spot now</button>
+          <button id="choosePinButton" type="button" class="secondary">Choose the spot on a map</button>
+        </div>
+        <div class="panel" style="margin-top: 14px;">
+          <div class="panel-title">Access notes (optional)</div>
+          <textarea
+            id="pinNoteInputInline"
+            class="field"
+            maxlength="240"
+            placeholder="Gate code, parking, entrance, loading bay, stairs, or anything the driver should know..."
+          ></textarea>
+        </div>
+        <div class="actions" style="margin-top: 14px;">
+          <button id="sendExactPinButton" type="button" class="success" disabled>Confirm and send exact location</button>
+        </div>
+        <p id="pinStatus" class="footer hidden" aria-live="polite"></p>
+        <p class="footer">This shares a one-time exact location. It does not track you live.</p>
+      </article>
+    </section>
+  </main>
+
+  <div id="safetyModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="safetyModalTitle">
+      <div class="eyebrow">Van Mate</div>
+      <h2 id="safetyModalTitle" class="modal-title">Are you at the exact spot now?</h2>
+      <p class="modal-text">
+        Only use current location if you are there now. If you are not there, choose the spot on the map instead.
+      </p>
+      <div class="modal-actions">
+        <button id="confirmHereButton" type="button">Yes, I'm here now</button>
+        <button id="chooseMapButton" type="button" class="secondary">Choose the spot on a map</button>
+        <button id="cancelSafetyButton" type="button" class="secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mapModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="mapModalTitle">
+      <div class="eyebrow">Van Mate</div>
+      <h2 id="mapModalTitle" class="modal-title">Choose the exact spot</h2>
+      <p class="modal-text">Move the map until the crosshair is on the exact entrance, bay, gate, pickup point, or drop-off point.</p>
+      <div class="map-shell">
+        <div id="mapContainer" class="map-canvas" aria-label="Map picker"></div>
+        <div id="mapLoading" class="map-loading">Loading map...</div>
+        <div class="fixed-map-pin" aria-hidden="true">+</div>
+        <p class="map-hint" id="mapStatus">Move the map until the crosshair is on the exact spot.</p>
+      </div>
+      <div class="modal-actions">
+        <button id="useSelectedPinButton" type="button">Use this spot</button>
+        <button id="cancelMapButton" type="button" class="secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="declineModal" class="modal-overlay" aria-hidden="true">
+    <div
+      id="declineModalSheet"
+      class="modal-sheet decline-sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="declineModalTitle"
+      tabindex="-1"
+    >
+      <div class="decline-modal-header">
+        <div class="eyebrow">Van Mate</div>
+        <h2 id="declineModalTitle" class="modal-title">Decline quote?</h2>
+        <p class="modal-text">Optional: let the driver know why.</p>
+      </div>
+      <div id="declineModalBody" class="decline-modal-body">
+        <div id="declineReasonGrid" class="reason-grid" role="radiogroup" aria-label="Decline reason">
+        <button type="button" class="reason-option" data-reason-code="too_expensive" data-reason-label="Too expensive">Too expensive</button>
+        <button type="button" class="reason-option" data-reason-code="time_doesnt_work" data-reason-label="Time doesn’t work">Time doesn’t work</button>
+        <button type="button" class="reason-option" data-reason-code="no_longer_needed" data-reason-label="No longer needed">No longer needed</button>
+        <button type="button" class="reason-option" data-reason-code="found_someone_else" data-reason-label="Found someone else">Found someone else</button>
+        <button type="button" class="reason-option" data-reason-code="other" data-reason-label="Other">Other</button>
+        </div>
+        <textarea
+        id="declineNoteInput"
+        class="decline-note"
+        placeholder="Add a note..."
+        maxlength="1000"
+        ></textarea>
+        <p id="declineNoteHelper" class="micro-text"></p>
+      </div>
+      <div class="modal-actions decline-modal-actions">
+        <button id="cancelDeclineButton" type="button" class="secondary">Cancel</button>
+        <button id="sendDeclineButton" type="button" class="warning">Send decline</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD1FUKyO00FC0IYXfZzgPCE2SNooQF4jvg",
+      authDomain: "vanmate-56eac.firebaseapp.com",
+      projectId: "vanmate-56eac",
+      storageBucket: "vanmate-56eac.firebasestorage.app",
+      messagingSenderId: "406913319321",
+      appId: "1:406913319321:web:7b451a037012bd6d9bd308",
+      measurementId: "G-1W5Z7DQTCY"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const functions = firebase.app().functions("us-central1");
+    const acceptQuoteProposedTime = functions.httpsCallable("acceptQuoteProposedTime");
+    const acceptQuoteArrangeTime = functions.httpsCallable("acceptQuoteArrangeTime");
+    const declineQuote = functions.httpsCallable("declineQuote");
+    const submitExactLocation = functions.httpsCallable("submitExactLocation");
+    const params = new URLSearchParams(window.location.search);
+    const quoteCollectionName = "public_quote_responses";
+    const quoteTokenCollectionName = "public_quote_response_tokens";
+    let quoteId = (params.get("id") || "").trim();
+    let quoteToken = (params.get("token") || "").trim();
+    let quoteRef = quoteId ? db.collection(quoteCollectionName).doc(quoteId) : null;
+    const debugMode =
+      window.location.hostname.includes("localhost") ||
+      window.location.hostname.includes("web.app") ||
+      window.location.hostname.includes("firebaseapp.com");
+
+    function normaliseQuoteToken(value) {
+      const cleaned = String(value || "").trim();
+      if (!cleaned) {
+        return "";
+      }
+      if (cleaned.startsWith("[") && cleaned.endsWith("]") && cleaned.length > 2) {
+        return cleaned.slice(1, -1).trim();
+      }
+      return cleaned;
+    }
+
+    function quoteTokenFromPath(pathname) {
+      const segments = String(pathname || "")
+        .split("/")
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+      if (segments.length < 2 || segments[0].toLowerCase() !== "quote") {
+        return "";
+      }
+      return normaliseQuoteToken(decodeURIComponent(segments[1] || ""));
+    }
+
+    if (!quoteToken) {
+      quoteToken = quoteTokenFromPath(window.location.pathname);
+    }
+
+    const state = {
+      quote: null,
+      loading: true,
+      saving: false,
+      pinSaving: false,
+      pinSelecting: false,
+      declineSubmitting: false,
+      declineReasonCode: "",
+      declineReasonLabel: "",
+      declineReasonText: "",
+      declineNoteError: "",
+      selectedDecision: "",
+      saveError: "",
+      arrangeTimeOpen: false,
+      arrangeTimeError: "",
+      pinError: "",
+      selectedExactPin: null,
+    };
+
+    const ukFallbackCenter = { lat: 53.4808, lng: -2.2426 };
+    const mapLoadTimeoutMs = 3500;
+    let mapInstance = null;
+    let selectedMapLatLng = null;
+    let mapInitialCenter = null;
+
+    const banner = document.getElementById("banner");
+    const content = document.getElementById("content");
+    const heroTitle = document.querySelector(".hero h1");
+    const heroLede = document.querySelector(".hero .lede");
+    const statusPill = document.getElementById("statusPill");
+    const title = document.getElementById("title");
+    const description = document.getElementById("description");
+    const summaryGrid = document.getElementById("summaryGrid");
+    const respondCard = document.getElementById("respondCard");
+    const arrangeTimeCard = document.getElementById("arrangeTimeCard");
+    const pinCard = document.getElementById("pinCard");
+    const pinIntro = document.getElementById("pinIntro");
+    const acceptButton = document.getElementById("acceptButton");
+    const arrangeTimeButton = document.getElementById("arrangeTimeButton");
+    const declineButton = document.getElementById("declineButton");
+    const preferredDateInput = document.getElementById("preferredDateInput");
+    const preferredTimeInput = document.getElementById("preferredTimeInput");
+    const preferredTimingNoteInput = document.getElementById("preferredTimingNoteInput");
+    const confirmArrangeTimeButton = document.getElementById("confirmArrangeTimeButton");
+    const backToRespondButton = document.getElementById("backToRespondButton");
+    const shareCurrentPinButton = document.getElementById("shareCurrentPinButton");
+    const choosePinButton = document.getElementById("choosePinButton");
+    const pinNoteInputInline = document.getElementById("pinNoteInputInline");
+    const sendExactPinButton = document.getElementById("sendExactPinButton");
+    const respondStatus = document.getElementById("respondStatus");
+    const arrangeTimeStatus = document.getElementById("arrangeTimeStatus");
+    const pinStatus = document.getElementById("pinStatus");
+    const safetyModal = document.getElementById("safetyModal");
+    const mapModal = document.getElementById("mapModal");
+    const declineModal = document.getElementById("declineModal");
+    const confirmHereButton = document.getElementById("confirmHereButton");
+    const chooseMapButton = document.getElementById("chooseMapButton");
+    const cancelSafetyButton = document.getElementById("cancelSafetyButton");
+    const useSelectedPinButton = document.getElementById("useSelectedPinButton");
+    const cancelMapButton = document.getElementById("cancelMapButton");
+    const declineReasonGrid = document.getElementById("declineReasonGrid");
+    const declineModalSheet = document.getElementById("declineModalSheet");
+    const declineModalBody = document.getElementById("declineModalBody");
+    const declineNoteInput = document.getElementById("declineNoteInput");
+    const declineNoteHelper = document.getElementById("declineNoteHelper");
+    const cancelDeclineButton = document.getElementById("cancelDeclineButton");
+    const sendDeclineButton = document.getElementById("sendDeclineButton");
+    const mapContainer = document.getElementById("mapContainer");
+    const mapLoading = document.getElementById("mapLoading");
+    const mapStatus = document.getElementById("mapStatus");
+    const ogUrl = document.getElementById("ogUrl");
+
+    function setBanner(message, tone = "success") {
+      banner.textContent = message;
+      banner.classList.add("show");
+      banner.classList.toggle("error", tone === "error");
+    }
+
+    function clearBanner() {
+      banner.textContent = "";
+      banner.classList.remove("show", "error");
+    }
+
+    function setInlineStatus(element, message, { isError = false } = {}) {
+      if (!element) {
+        return;
+      }
+      const textValue = String(message || "").trim();
+      element.textContent = textValue;
+      element.classList.toggle("hidden", textValue.length === 0);
+      element.classList.toggle("error", isError);
+    }
+
+    function text(value, fallback = "Not set") {
+      const cleaned = String(value || "").trim();
+      return cleaned || fallback;
+    }
+
+    function asDate(value) {
+      if (!value) {
+        return null;
+      }
+      if (value instanceof Date) {
+        return value;
+      }
+      if (typeof value.toDate === "function") {
+        try {
+          return value.toDate();
+        } catch (_) {
+          return null;
+        }
+      }
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function asBool(value) {
+      if (typeof value === "boolean") {
+        return value;
+      }
+      if (typeof value === "number") {
+        return value !== 0;
+      }
+      const normalized = String(value || "").trim().toLowerCase();
+      return normalized === "true" || normalized === "1" || normalized === "yes";
+    }
+
+    function formatMoney(value) {
+      const numeric = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(numeric)) {
+        return "Quote not set";
+      }
+      return new Intl.NumberFormat("en-GB", {
+        style: "currency",
+        currency: "GBP",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(numeric);
+    }
+
+    function formatDate(dateValue, fallbackLabel) {
+      const parsed = asDate(dateValue);
+      if (parsed) {
+        return new Intl.DateTimeFormat("en-GB", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(parsed);
+      }
+      return text(fallbackLabel, "Not set");
+    }
+
+    function formatDetails(value) {
+      const cleaned = String(value || "").trim();
+      return cleaned || "Not set";
+    }
+
+    function formatDateOnly(value) {
+      const parsed = asDate(value);
+      if (!parsed) {
+        return "";
+      }
+      return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(parsed);
+    }
+
+    function formatProposedAppointmentLabel(dateValue, timeValue) {
+      const dateText = formatDateOnly(dateValue);
+      const timeText = String(timeValue || "").trim();
+      if (!dateText && !timeText) {
+        return "";
+      }
+      if (!dateText) {
+        return timeText;
+      }
+      if (!timeText) {
+        return dateText;
+      }
+      return `${dateText} at ${timeText}`;
+    }
+
+    function parseProposedAppointmentTimestamp(dateValue, timeValue) {
+      const rawDate = String(dateValue || "").trim();
+      const rawTime = String(timeValue || "").trim();
+      if (!rawDate || !rawTime) {
+        console.warn("[QuoteResponseAccept] Missing proposed appointment parts", {
+          quoteId,
+          rawDate,
+          rawTime,
+        });
+        return null;
+      }
+
+      const isoMatch = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const timeMatch = rawTime.match(/^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$/);
+      if (isoMatch && timeMatch) {
+        const [, yearText, monthText, dayText] = isoMatch;
+        const [, hourText, minuteText, meridiemRaw] = timeMatch;
+        let hour = Number(hourText);
+        const minute = Number(minuteText);
+        if (Number.isFinite(hour) && Number.isFinite(minute)) {
+          const meridiem = String(meridiemRaw || "").trim().toLowerCase();
+          if (meridiem === "pm" && hour < 12) {
+            hour += 12;
+          } else if (meridiem === "am" && hour === 12) {
+            hour = 0;
+          }
+          const parsed = new Date(
+            Number(yearText),
+            Number(monthText) - 1,
+            Number(dayText),
+            hour,
+            minute,
+            0,
+            0,
+          );
+          if (!Number.isNaN(parsed.getTime())) {
+            return firebase.firestore.Timestamp.fromDate(parsed);
+          }
+        }
+      }
+
+      const fallback = new Date(`${rawDate} ${rawTime}`);
+      if (!Number.isNaN(fallback.getTime())) {
+        return firebase.firestore.Timestamp.fromDate(fallback);
+      }
+
+      console.error("[QuoteResponseAccept] Could not parse proposed appointment", {
+        quoteId,
+        rawDate,
+        rawTime,
+      });
+      return null;
+    }
+
+    function buildPreferredTimingPayload() {
+      const preferredDate = String(preferredDateInput ? preferredDateInput.value : "").trim();
+      const preferredTime = String(preferredTimeInput ? preferredTimeInput.value : "").trim();
+      const preferredTimingNote = String(
+        preferredTimingNoteInput ? preferredTimingNoteInput.value : "",
+      ).trim();
+      if (!preferredDate || !preferredTime) {
+        return null;
+      }
+      return {
+        preferredDate,
+        preferredTimeWindow: preferredTime,
+        preferredTimingNote,
+        preferredTimingDecision: "suggested_alternative",
+        suggestedDate: preferredDate,
+        suggestedTimeWindow: preferredTime,
+      };
+    }
+
+    function setModalOpen(modal, open) {
+      if (!modal) {
+        return;
+      }
+      modal.classList.toggle("open", open);
+      modal.setAttribute("aria-hidden", open ? "false" : "true");
+      document.body.style.overflow = open ? "hidden" : "";
+    }
+
+    function setDeclineReasonSelection(code, label) {
+      state.declineReasonCode = String(code || "").trim();
+      state.declineReasonLabel = String(label || "").trim();
+      const buttons = declineReasonGrid
+        ? Array.from(declineReasonGrid.querySelectorAll(".reason-option"))
+        : [];
+      buttons.forEach((button) => {
+        const selected =
+          button.getAttribute("data-reason-code") === state.declineReasonCode;
+        button.classList.toggle("selected", selected);
+        button.setAttribute("aria-pressed", selected ? "true" : "false");
+      });
+      updateDeclineSubmitState();
+    }
+
+    function openDeclineModal() {
+      state.declineReasonText = state.declineReasonText || "";
+      state.declineNoteError = "";
+      declineNoteInput.value = state.declineReasonText;
+      setDeclineReasonSelection(state.declineReasonCode, state.declineReasonLabel);
+      setModalOpen(declineModal, true);
+      updateDeclineSubmitState();
+      requestAnimationFrame(() => {
+        if (declineModalBody) {
+          declineModalBody.scrollTop = 0;
+        }
+        if (declineModalSheet) {
+          declineModalSheet.scrollTop = 0;
+          declineModalSheet.focus({ preventScroll: true });
+          declineModalSheet.scrollIntoView({ block: "start", inline: "nearest" });
+        }
+        if (state.declineReasonCode === "other" && declineNoteInput) {
+          declineNoteInput.focus({ preventScroll: false });
+        }
+      });
+    }
+
+    function closeDeclineModal() {
+      state.declineReasonText = declineNoteInput.value || "";
+      state.declineNoteError = "";
+      setModalOpen(declineModal, false);
+      updateDeclineSubmitState();
+    }
+
+    function isDeclineNoteRequired() {
+      return state.declineReasonCode === "other";
+    }
+
+    function canSubmitDecline() {
+      const reasonSelected = String(state.declineReasonCode || "").trim().length > 0;
+      const noteText = String(declineNoteInput ? declineNoteInput.value : "").trim();
+      if (!reasonSelected && noteText.length === 0) {
+        return false;
+      }
+      if (isDeclineNoteRequired() && noteText.length === 0) {
+        return false;
+      }
+      return true;
+    }
+
+    function updateDeclineNoteHelper() {
+      if (!declineNoteHelper) {
+        return;
+      }
+      const noteText = String(declineNoteInput ? declineNoteInput.value : "").trim();
+      let helperText = "";
+      let isError = false;
+      if (isDeclineNoteRequired() && noteText.length === 0) {
+        helperText = "Please add a short reason.";
+        isError = true;
+      } else if (!String(state.declineReasonCode || "").trim() && noteText.length === 0) {
+        helperText = "Choose a reason or add a short note.";
+      } else if (String(state.declineReasonLabel || "").trim() || noteText.length > 0) {
+        helperText = "Optional note for the driver.";
+      }
+      declineNoteHelper.textContent = helperText;
+      declineNoteHelper.style.color = isError ? "var(--error)" : "var(--subtle)";
+      state.declineNoteError = helperText;
+    }
+
+    function updateDeclineSubmitState() {
+      if (sendDeclineButton) {
+        sendDeclineButton.disabled =
+          state.saving || state.declineSubmitting || !canSubmitDecline();
+      }
+      updateDeclineNoteHelper();
+    }
+
+    function buildDeclinePayload() {
+      const declineReasonText = String(declineNoteInput.value || "").trim();
+      state.declineReasonText = declineReasonText;
+      return {
+        declineReasonCode: String(state.declineReasonCode || "").trim(),
+        declineReasonLabel: String(state.declineReasonLabel || "").trim(),
+        declineReasonText,
+        declineNote: declineReasonText,
+        quoteDeclineReasonCode: String(state.declineReasonCode || "").trim(),
+        quoteDeclineReasonLabel: String(state.declineReasonLabel || "").trim(),
+        quoteDeclineReason: String(state.declineReasonLabel || "").trim(),
+        quoteDeclineNote: declineReasonText,
+        quoteDeclinedReasonCode: String(state.declineReasonCode || "").trim(),
+        quoteDeclinedReasonLabel: String(state.declineReasonLabel || "").trim(),
+        quoteDeclinedReason: String(state.declineReasonLabel || "").trim(),
+        quoteDeclinedNote: declineReasonText,
+        lastQuoteDeclineReason: String(state.declineReasonLabel || "").trim(),
+        lastQuoteDeclineNote: declineReasonText,
+        quoteDecline: {
+          reasonCode: String(state.declineReasonCode || "").trim(),
+          reasonLabel: String(state.declineReasonLabel || "").trim(),
+          reason: String(state.declineReasonLabel || "").trim(),
+          note: declineReasonText,
+          reasonText: declineReasonText,
+        },
+      };
+    }
+
+    function isValidLatLng(candidate) {
+      if (!candidate) {
+        return false;
+      }
+      const latitude = Number(candidate.lat);
+      const longitude = Number(candidate.lng);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return false;
+      }
+      if (latitude === 0 && longitude === 0) {
+        return false;
+      }
+      return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+    }
+
+    function isUkCoordinate(candidate) {
+      if (!isValidLatLng(candidate)) {
+        return false;
+      }
+      return candidate.lat >= 49.0 && candidate.lat <= 61.8 && candidate.lng >= -11.0 && candidate.lng <= 3.8;
+    }
+
+    function sanitizeMapCenter(candidate) {
+      return isUkCoordinate(candidate) ? candidate : ukFallbackCenter;
+    }
+
+    function quoteHasExactPin(quote) {
+      return Boolean(
+        quote &&
+        (
+          quote.exactPinReceived ||
+          quote.exactPinShared ||
+          quote.hasExactPin ||
+          (quote.exactPinLatitude != null && quote.exactPinLongitude != null)
+        )
+      );
+    }
+
+    function quoteNeedsExactPin(quote) {
+      return Boolean(
+        quote &&
+        !quoteHasExactPin(quote),
+      );
+    }
+
+    function getSelectedExactPinMessage() {
+      if (!state.selectedExactPin) {
+        return "";
+      }
+
+      return state.selectedExactPin.responseSource === "currentLocationConfirmed"
+        ? "Current location captured. Add any access notes, then send exact location."
+        : "Exact spot selected. Add any access notes, then send exact location.";
+    }
+
+    function normaliseQuote(data) {
+      const quoteStatus = String(data.quoteStatus || "").trim().toLowerCase();
+      const quoteResponse = String(data.quoteResponse || "").trim().toLowerCase();
+      const status = String(data.status || "").trim().toLowerCase();
+      const requestStatus = String(data.requestStatus || "").trim().toLowerCase();
+      const activeQuoteStatuses = new Set(["sent", "opened_for_sending"]);
+      const activePageStatuses = new Set(["quote_sent", "quotesent", "sent", "revised_quote_sent"]);
+      const acceptedStatuses = new Set(["accepted", "quoteaccepted", "quote_accepted"]);
+      const declinedStatuses = new Set(["declined", "quotedeclined", "quote_declined"]);
+
+      const isExplicitlyActive =
+        activeQuoteStatuses.has(quoteStatus) ||
+        activePageStatuses.has(status) ||
+        activePageStatuses.has(requestStatus) ||
+        quoteResponse === "pending";
+
+      let quoteAccepted =
+        data.quoteAccepted === true ||
+        acceptedStatuses.has(quoteStatus) ||
+        quoteResponse === "accepted" ||
+        acceptedStatuses.has(status) ||
+        acceptedStatuses.has(requestStatus);
+      let quoteDeclined =
+        data.quoteDeclined === true ||
+        declinedStatuses.has(quoteStatus) ||
+        quoteResponse === "declined" ||
+        declinedStatuses.has(status) ||
+        declinedStatuses.has(requestStatus);
+
+      if (isExplicitlyActive) {
+        quoteAccepted = false;
+        quoteDeclined = false;
+      }
+
+      const rawExactPinLatitude = data.exactPinLatitude ?? data.exactPinLat;
+      const rawExactPinLongitude = data.exactPinLongitude ?? data.exactPinLng;
+      const exactPinLatitude = rawExactPinLatitude == null ? null : Number(rawExactPinLatitude);
+      const exactPinLongitude = rawExactPinLongitude == null ? null : Number(rawExactPinLongitude);
+      const exactPinShared =
+        asBool(data.exactPinReceived) ||
+        asBool(data.exactPinShared) ||
+        asBool(data.hasExactPin) ||
+        (Number.isFinite(exactPinLatitude) && Number.isFinite(exactPinLongitude));
+      const requiresExactPinAfterQuoteAccepted =
+        asBool(data.requiresExactPinAfterQuoteAccepted) ||
+        asBool(data.exactPinRequiredAfterQuoteAccepted) ||
+        asBool(data.requiresExactPinAfterQuoteAcceptance);
+
+      return {
+        quoteResponseId: text(data.quoteResponseId || quoteId, quoteId),
+        quoteResponseToken: text(data.quoteResponseToken || quoteToken),
+        quoteResponseLink: text(data.quoteResponseLink),
+        quoteResponseStatus: String(data.quoteResponseStatus || "").trim().toLowerCase(),
+        quoteTimingChoice: String(data.quoteTimingChoice || "").trim().toLowerCase(),
+        agreedDateTime: asDate(data.agreedDateTime),
+        ownerUid: text(data.ownerUid),
+        jobId: text(data.jobId),
+        requestId: text(data.requestId),
+        customerName: text(data.customerName || data.publicCustomerName, "Customer"),
+        jobTitle: text(data.jobTitle || data.publicJobTitle || data.jobDescription, "Job"),
+        address: text(
+          data.address || data.publicAddressSummary || data.jobDescription || data.publicJobTitle,
+          "Address not set",
+        ),
+        proposedDate: String(data.proposedDate || "").trim(),
+        proposedStartTime: String(data.proposedStartTime || "").trim(),
+        proposedAppointmentNote: String(data.proposedAppointmentNote || "").trim(),
+        schedulingStatus: String(data.schedulingStatus || "").trim().toLowerCase(),
+        estimatedDurationMinutes:
+          typeof data.estimatedDurationMinutes === "number"
+            ? data.estimatedDurationMinutes
+            : Number(data.estimatedDurationMinutes),
+        scheduledAt: asDate(data.scheduledAt),
+        jobDateLabel: text(data.jobDateLabel),
+        jobTimeLabel: text(data.jobTimeLabel),
+        quoteAmount: typeof data.quoteAmount === "number" ? data.quoteAmount : Number(data.quoteAmount),
+        quoteStatus: quoteStatus || "sent",
+        quoteResponse,
+        status,
+        requestStatus,
+        postcode: text(data.postcode),
+        quoteAccepted,
+        quoteDeclined,
+        quoteRespondedAt: asDate(data.quoteRespondedAt),
+        quoteAcceptedAt: asDate(data.quoteAcceptedAt),
+        quoteDeclinedAt: asDate(data.quoteDeclinedAt),
+        requestExactPin: asBool(data.requestExactPin),
+        requiresExactPinAfterQuoteAccepted,
+        exactPinReceived: asBool(data.exactPinReceived),
+        exactPinShared,
+        hasExactPin: exactPinShared,
+        exactPinLatitude: Number.isFinite(exactPinLatitude) ? exactPinLatitude : null,
+        exactPinLongitude: Number.isFinite(exactPinLongitude) ? exactPinLongitude : null,
+        exactPinSource: String(data.exactPinSource || "").trim(),
+        exactPinShareSource: String(data.exactPinShareSource || "").trim(),
+        exactPinNote: String(data.exactPinNote || data.responseNote || "").trim(),
+        declineReasonCode: String(
+          data.quoteDeclineReasonCode ||
+          data.declineReasonCode ||
+          (data.quoteDecline && (data.quoteDecline.reasonCode || data.quoteDecline.code)) ||
+          ""
+        ).trim(),
+        declineReasonLabel: String(
+          data.quoteDeclineReasonLabel ||
+          data.quoteDeclineReason ||
+          data.declineReasonLabel ||
+          (data.quoteDecline && (data.quoteDecline.reasonLabel || data.quoteDecline.reason)) ||
+          ""
+        ).trim(),
+        declineReasonText: String(
+          data.declineReasonText ||
+          data.quoteDeclineNote ||
+          data.declineNote ||
+          (data.quoteDecline && (data.quoteDecline.reasonText || data.quoteDecline.note)) ||
+          ""
+        ).trim(),
+        declineNote: String(
+          data.quoteDeclineNote ||
+          data.declineNote ||
+          data.declineReasonText ||
+          (data.quoteDecline && (data.quoteDecline.note || data.quoteDecline.reasonText)) ||
+          ""
+        ).trim(),
+        quoteDeclineReasonCode: String(
+          data.quoteDeclineReasonCode ||
+          data.declineReasonCode ||
+          (data.quoteDecline && (data.quoteDecline.reasonCode || data.quoteDecline.code)) ||
+          ""
+        ).trim(),
+        quoteDeclineReasonLabel: String(
+          data.quoteDeclineReasonLabel ||
+          data.quoteDeclineReason ||
+          data.declineReasonLabel ||
+          (data.quoteDecline && (data.quoteDecline.reasonLabel || data.quoteDecline.reason)) ||
+          ""
+        ).trim(),
+        quoteDeclineReason: String(
+          data.quoteDeclineReason ||
+          data.quoteDeclineReasonLabel ||
+          data.declineReasonLabel ||
+          (data.quoteDecline && (data.quoteDecline.reason || data.quoteDecline.reasonLabel)) ||
+          ""
+        ).trim(),
+        quoteDeclineNote: String(
+          data.quoteDeclineNote ||
+          data.declineNote ||
+          data.declineReasonText ||
+          (data.quoteDecline && (data.quoteDecline.note || data.quoteDecline.reasonText)) ||
+          ""
+        ).trim(),
+        lastQuoteDeclineReason: String(
+          data.lastQuoteDeclineReason ||
+          data.quoteDeclineReason ||
+          data.quoteDeclineReasonLabel ||
+          data.declineReasonLabel ||
+          (data.quoteDecline && (data.quoteDecline.reason || data.quoteDecline.reasonLabel)) ||
+          ""
+        ).trim(),
+        lastQuoteDeclineNote: String(
+          data.lastQuoteDeclineNote ||
+          data.quoteDeclineNote ||
+          data.declineNote ||
+          data.declineReasonText ||
+          (data.quoteDecline && (data.quoteDecline.note || data.quoteDecline.reasonText)) ||
+          ""
+        ).trim(),
+      };
+    }
+
+    function stripUndefined(payload) {
+      return Object.fromEntries(
+        Object.entries(payload).filter(([, value]) => value !== undefined),
+      );
+    }
+
+    function renderRow(label, value) {
+      const row = document.createElement("div");
+      row.className = "summary-row";
+      const labelEl = document.createElement("div");
+      labelEl.className = "summary-label";
+      labelEl.textContent = label;
+      const valueEl = document.createElement("div");
+      valueEl.className = "summary-value";
+      valueEl.textContent = value;
+      row.appendChild(labelEl);
+      row.appendChild(valueEl);
+      summaryGrid.appendChild(row);
+    }
+
+    function renderQuote() {
+      const quote = state.quote;
+      if (!quote) {
+        return;
+      }
+
+      document.title = "Van Mate quote";
+      ogUrl.setAttribute("content", window.location.href);
+
+      const accepted = quote.quoteAccepted;
+      const declined = quote.quoteDeclined;
+      const awaitingAgreedTime = quote.schedulingStatus === "awaiting_agreed_time";
+      const needsExactPin = quoteNeedsExactPin(quote);
+      const hasExactPin = quoteHasExactPin(quote);
+      const hasSelectedExactPin = Boolean(state.selectedExactPin);
+      const pending = !accepted && !declined;
+
+      statusPill.className = accepted
+        ? "status-pill success"
+        : (declined ? "status-pill warning" : "status-pill pending");
+      statusPill.textContent = accepted
+        ? (needsExactPin
+            ? "Quote accepted, exact location needed"
+            : (awaitingAgreedTime ? "Quote accepted, time to arrange" : "Quote accepted"))
+        : (declined ? "Quote declined" : "Quote ready");
+
+      if (pending) {
+        title.classList.add("hidden");
+        description.classList.add("hidden");
+        title.textContent = "";
+        description.textContent = "";
+      } else {
+        title.classList.remove("hidden");
+        description.classList.remove("hidden");
+        title.textContent = accepted ? "Quote accepted" : "Quote declined";
+        description.textContent = accepted
+          ? (needsExactPin
+              ? "Please show the driver exactly where to collect or deliver."
+              : (awaitingAgreedTime
+                  ? "The driver will contact you to arrange the time."
+                  : "Your response has been sent to the driver."))
+          : "This quote has been declined.";
+      }
+
+      summaryGrid.innerHTML = "";
+      const proposedAppointment = formatProposedAppointmentLabel(quote.proposedDate, quote.proposedStartTime);
+      renderRow("Customer", quote.customerName);
+      renderRow("Job", quote.jobTitle);
+      renderRow(
+        "Proposed appointment",
+        proposedAppointment || formatDate(quote.scheduledAt, `${quote.jobDateLabel} ${quote.jobTimeLabel}`.trim()),
+      );
+      if (Number.isFinite(quote.estimatedDurationMinutes) && quote.estimatedDurationMinutes > 0) {
+        renderRow("Estimated duration", `${quote.estimatedDurationMinutes} minutes`);
+      }
+      if (quote.proposedAppointmentNote) {
+        renderRow("Appointment note", formatDetails(quote.proposedAppointmentNote));
+      }
+      renderRow("Job location", quote.address);
+      renderRow("Quote amount", formatMoney(quote.quoteAmount));
+      if (hasExactPin) {
+        renderRow(
+          "Exact location",
+          quote.exactPinNote
+            ? `Received\n${quote.exactPinNote}`
+            : "Received",
+        );
+      }
+
+      const actionLocked = state.saving || state.pinSaving || accepted || declined || !pending;
+      const showingArrangeTime = pending && state.arrangeTimeOpen;
+      acceptButton.disabled = actionLocked;
+      arrangeTimeButton.disabled = actionLocked;
+      declineButton.disabled = actionLocked;
+      preferredDateInput.disabled = actionLocked;
+      preferredTimeInput.disabled = actionLocked;
+      preferredTimingNoteInput.disabled = actionLocked;
+      confirmArrangeTimeButton.disabled = actionLocked;
+      backToRespondButton.disabled = state.saving || state.pinSaving;
+      shareCurrentPinButton.disabled =
+        state.pinSaving || state.pinSelecting || !accepted || !needsExactPin;
+      choosePinButton.disabled =
+        state.pinSaving || state.pinSelecting || !accepted || !needsExactPin;
+      pinNoteInputInline.disabled = state.pinSaving || !accepted || !needsExactPin;
+      sendExactPinButton.disabled =
+        state.pinSaving ||
+        state.pinSelecting ||
+        !accepted ||
+        !needsExactPin ||
+        !hasSelectedExactPin;
+      if (sendDeclineButton) {
+        sendDeclineButton.textContent =
+          state.saving && state.selectedDecision === "decline"
+            ? "Sending decline..."
+            : "Send decline";
+      }
+      updateDeclineSubmitState();
+
+      acceptButton.textContent =
+        state.saving && state.selectedDecision === "accept_time"
+          ? "Saving acceptance..."
+          : "Accept quote & proposed time";
+      arrangeTimeButton.textContent =
+        state.saving && state.selectedDecision === "accept_arrange"
+          ? "Saving acceptance..."
+          : "Accept quote, arrange another time";
+      confirmArrangeTimeButton.textContent =
+        state.saving && state.selectedDecision === "accept_arrange"
+          ? "Saving acceptance..."
+          : "Accept quote and send time";
+      declineButton.textContent =
+        state.saving && state.selectedDecision === "decline"
+          ? "Saving response..."
+          : "Decline quote";
+      shareCurrentPinButton.textContent =
+        state.pinSelecting
+          ? "Capturing current location..."
+          : "I'm at the exact spot now";
+      sendExactPinButton.textContent = state.pinSaving
+        ? "Sending exact location..."
+        : "Confirm and send exact location";
+      setInlineStatus(
+        respondStatus,
+        state.saving ? "Saving your response..." : state.saveError,
+        { isError: !state.saving && state.saveError.length > 0 },
+      );
+      setInlineStatus(
+        arrangeTimeStatus,
+        state.saving
+          ? "Saving your response..."
+          : (state.arrangeTimeError || state.saveError),
+        { isError: !state.saving && (state.arrangeTimeError.length > 0 || state.saveError.length > 0) },
+      );
+      setInlineStatus(
+        pinStatus,
+        state.pinSaving
+          ? "Sending exact location..."
+          : (state.pinError || getSelectedExactPinMessage()),
+        { isError: !state.pinSaving && state.pinError.length > 0 },
+      );
+
+      if (accepted || declined) {
+        heroTitle.textContent = accepted ? "Quote accepted" : "Quote declined";
+        if (accepted && needsExactPin) {
+          heroLede.textContent = "Please show the driver exactly where to collect or deliver.";
+          clearBanner();
+          setBanner("Quote accepted. Please show the driver exactly where to collect or deliver.");
+          content.classList.remove("hidden");
+        respondCard.classList.add("hidden");
+        arrangeTimeCard.classList.add("hidden");
+        pinCard.classList.remove("hidden");
+          pinIntro.textContent = awaitingAgreedTime
+            ? "Please show the driver exactly where to collect or deliver while the time is being arranged."
+            : "Please show the driver exactly where to collect or deliver.";
+          return;
+        }
+
+        heroLede.textContent = accepted
+          ? (hasExactPin
+              ? (awaitingAgreedTime
+                  ? "Your exact location has been sent to the driver.\nThe driver will contact you to arrange the time.\n\nYou can close this page now."
+                  : "Your exact location has been sent to the driver.\n\nYou can close this page now.")
+              : "Your response has been sent to the driver.\n\nYou can close this page now.")
+          : "Your response has been sent to the driver.\n\nYou can close this page now.";
+        respondCard.classList.add("hidden");
+        arrangeTimeCard.classList.add("hidden");
+        pinCard.classList.add("hidden");
+        content.classList.add("hidden");
+        setBanner(
+          accepted
+            ? (hasExactPin
+                ? (awaitingAgreedTime
+                    ? "Quote accepted. Exact location sent. Time still to arrange."
+                    : "Quote accepted. Exact location sent.")
+                : (awaitingAgreedTime
+                    ? "Quote accepted. Time still to arrange."
+                    : "Quote accepted."))
+            : "Quote declined.",
+          "success",
+        );
+      } else {
+        heroTitle.textContent = "Review your quote";
+        heroLede.textContent =
+          "Check the quote details below, then choose an option.";
+        clearBanner();
+        respondCard.classList.toggle("hidden", showingArrangeTime);
+        arrangeTimeCard.classList.toggle("hidden", !showingArrangeTime);
+        pinCard.classList.add("hidden");
+        content.classList.remove("hidden");
+        setBanner(
+          "Need a different time? Accept the quote and arrange another time with the driver.",
+          "success",
+        );
+      }
+    }
+
+    async function resolveQuoteReference() {
+      if (quoteRef) {
+        return quoteRef;
+      }
+      if (!quoteToken) {
+        return null;
+      }
+
+      const tokenRef = db.collection(quoteTokenCollectionName).doc(quoteToken);
+      const tokenSnapshot = await tokenRef.get();
+      if (!tokenSnapshot.exists) {
+        return null;
+      }
+
+      const tokenData = tokenSnapshot.data() || {};
+      const resolvedQuoteId = text(
+        tokenData.quoteResponseId || tokenData.quoteId || "",
+        "",
+      );
+      if (!resolvedQuoteId) {
+        return null;
+      }
+
+      quoteId = resolvedQuoteId;
+      quoteRef = db.collection(quoteCollectionName).doc(quoteId);
+      return quoteRef;
+    }
+
+    function setBusy(isBusy) {
+      state.saving = isBusy;
+      renderQuote();
+    }
+
+    function setPinBusy(isBusy) {
+      state.pinSaving = isBusy;
+      renderQuote();
+    }
+
+    function setPinSelecting(isSelecting) {
+      state.pinSelecting = isSelecting;
+      renderQuote();
+    }
+
+    async function loadQuote() {
+      try {
+        const resolvedQuoteRef = await resolveQuoteReference();
+        if (!resolvedQuoteRef) {
+          statusPill.className = "status-pill warning";
+          statusPill.textContent = "Missing quote link";
+          title.textContent = "Missing quote link";
+          description.textContent = "Open the full Van Mate quote link again so the quote can be identified.";
+          setBanner("Missing quote link. Please reopen the quote from the original message.", "error");
+          acceptButton.disabled = true;
+          arrangeTimeButton.disabled = true;
+          declineButton.disabled = true;
+          return;
+        }
+
+        const snapshot = await resolvedQuoteRef.get();
+        if (!snapshot.exists) {
+          state.quote = null;
+          state.loading = false;
+          statusPill.className = "status-pill warning";
+          statusPill.textContent = "Quote not found";
+          title.textContent = "Quote not found";
+          description.textContent = "This quote link does not point to an active quote.";
+          setBanner("We could not find this quote.", "error");
+          acceptButton.disabled = true;
+          arrangeTimeButton.disabled = true;
+          declineButton.disabled = true;
+          return;
+        }
+
+        state.loading = false;
+        state.quote = normaliseQuote(snapshot.data() || {});
+        console.info("[QuoteResponseLoad]", {
+          quoteId,
+          requestId: state.quote.requestId || "",
+          requiresExactPinAfterQuoteAccepted: state.quote.requiresExactPinAfterQuoteAccepted,
+          requestExactPin: state.quote.requestExactPin,
+          exactPinAlreadyExists: quoteHasExactPin(state.quote),
+          quoteAccepted: state.quote.quoteAccepted,
+          schedulingStatus: state.quote.schedulingStatus || "",
+        });
+        clearBanner();
+        renderQuote();
+      } catch (error) {
+        console.error("Could not load quote", error);
+        state.loading = false;
+        statusPill.className = "status-pill warning";
+        statusPill.textContent = "Quote unavailable";
+        title.textContent = "Quote unavailable";
+        description.textContent = "We could not load this quote just now.";
+        setBanner("We could not load this quote just now.", "error");
+        acceptButton.disabled = true;
+        arrangeTimeButton.disabled = true;
+        declineButton.disabled = true;
+      }
+    }
+
+    async function submitDecision(decision, declinePayload = {}) {
+      if (!state.quote || state.saving || state.pinSaving) {
+        console.warn("[QuoteResponseAcceptBlocked]", {
+          quoteId,
+          decision,
+          hasQuote: Boolean(state.quote),
+          saving: state.saving,
+          pinSaving: state.pinSaving,
+        });
+        return;
+      }
+
+      const acceptsQuoteAndTime = decision === "accept_time";
+      const acceptsQuoteArrangeTime = decision === "accept_arrange";
+      const isAccept = acceptsQuoteAndTime || acceptsQuoteArrangeTime;
+      const preferredTimingPayload = acceptsQuoteArrangeTime
+        ? buildPreferredTimingPayload()
+        : null;
+      if (acceptsQuoteArrangeTime && !preferredTimingPayload) {
+        state.arrangeTimeOpen = true;
+        state.arrangeTimeError = "Choose a preferred date and time before accepting.";
+        renderQuote();
+        if (preferredDateInput && !preferredDateInput.value) {
+          preferredDateInput.focus();
+        } else if (preferredTimeInput) {
+          preferredTimeInput.focus();
+        }
+        return;
+      }
+      state.selectedDecision = decision;
+      state.saveError = "";
+      state.arrangeTimeError = "";
+      state.declineSubmitting = decision === "decline";
+      setBusy(true);
+      clearBanner();
+
+      try {
+        const resolvedQuoteRef = await resolveQuoteReference();
+        if (!resolvedQuoteRef) {
+          throw new Error("Quote reference could not be resolved.");
+        }
+        const proposedAppointmentValid =
+          !acceptsQuoteAndTime ||
+          Boolean(
+            parseProposedAppointmentTimestamp(
+              state.quote.proposedDate,
+              state.quote.proposedStartTime,
+            ),
+          );
+        if (!proposedAppointmentValid) {
+          throw new Error("The proposed appointment time could not be read. Please reopen the quote and try again.");
+        }
+        const shouldShowPinStep = isAccept && quoteNeedsExactPin(state.quote);
+        const docPath = resolvedQuoteRef.path;
+        const requestPayload = {
+          quoteResponseId: state.quote.quoteResponseId || quoteId,
+          quoteResponseToken: state.quote.quoteResponseToken || quoteToken || "",
+        };
+        if (preferredTimingPayload) {
+          Object.assign(requestPayload, preferredTimingPayload);
+        }
+        console.info("[QuoteResponseAccept]", {
+          functionName: acceptsQuoteAndTime
+            ? "acceptQuoteProposedTime"
+            : (acceptsQuoteArrangeTime ? "acceptQuoteArrangeTime" : "declineQuote"),
+          quoteId: state.quote.quoteResponseId || quoteId,
+          requestId: state.quote.requestId || "",
+          docPath,
+          decision,
+          accepted: isAccept,
+          proposedDate: state.quote.proposedDate || "",
+          proposedStartTime: state.quote.proposedStartTime || "",
+          payloadKeys: Object.keys(requestPayload),
+          payload: requestPayload,
+          requiresExactPinAfterQuoteAccepted: state.quote.requiresExactPinAfterQuoteAccepted,
+          requestExactPin: state.quote.requestExactPin,
+          exactPinAlreadyExists: quoteHasExactPin(state.quote),
+          showingPinStep: shouldShowPinStep,
+        });
+        if (acceptsQuoteAndTime) {
+          await acceptQuoteProposedTime(requestPayload);
+        } else if (acceptsQuoteArrangeTime) {
+          await acceptQuoteArrangeTime(requestPayload);
+        } else {
+          Object.assign(requestPayload, declinePayload);
+          state.declineReasonCode = String(
+            declinePayload.declineReasonCode || state.declineReasonCode || "",
+          ).trim();
+          state.declineReasonLabel = String(
+            declinePayload.declineReasonLabel || state.declineReasonLabel || "",
+          ).trim();
+          state.declineReasonText = String(
+            declinePayload.declineReasonText || state.declineReasonText || "",
+          ).trim();
+          state.quoteDeclineReasonCode = state.declineReasonCode;
+          state.quoteDeclineReasonLabel = state.declineReasonLabel;
+          state.quoteDeclineReason = state.declineReasonLabel;
+          state.quoteDeclineNote = state.declineReasonText;
+          await declineQuote(requestPayload);
+        }
+        console.info("[QuoteResponseAcceptSaved]", {
+          quoteId,
+          requestId: state.quote.requestId || "",
+          decision,
+          showingPinStep: shouldShowPinStep,
+        });
+
+        state.quote = normaliseQuote({
+          ...state.quote,
+          quoteAccepted: isAccept,
+          quoteDeclined: !isAccept,
+          quoteResponseStatus: isAccept ? "accepted" : "declined",
+          quoteTimingChoice: acceptsQuoteAndTime ? "accepted_proposed_time" : (acceptsQuoteArrangeTime ? "arrange_another_time" : "declined"),
+          quoteStatus: isAccept ? "accepted" : "declined",
+          quoteResponse: isAccept ? "accepted" : "declined",
+          status: isAccept ? "accepted" : "declined",
+          requestStatus: isAccept ? "accepted" : "declined",
+          acceptedProposedTime: acceptsQuoteAndTime,
+          proposedTimeAccepted: acceptsQuoteAndTime,
+          agreedDate: acceptsQuoteAndTime ? (state.quote.proposedDate || "") : "",
+          agreedTime: acceptsQuoteAndTime ? (state.quote.proposedStartTime || "") : "",
+          acceptedProposedDate: acceptsQuoteAndTime ? (state.quote.proposedDate || "") : "",
+          acceptedProposedStartTime: acceptsQuoteAndTime ? (state.quote.proposedStartTime || "") : "",
+          preferredDate: acceptsQuoteArrangeTime ? preferredTimingPayload.preferredDate : "",
+          preferredTimeWindow: acceptsQuoteArrangeTime ? preferredTimingPayload.preferredTimeWindow : "",
+          preferredTimingNote: acceptsQuoteArrangeTime ? preferredTimingPayload.preferredTimingNote : "",
+          preferredTimingDecision: acceptsQuoteArrangeTime ? "suggested_alternative" : "",
+          suggestedDate: acceptsQuoteArrangeTime ? preferredTimingPayload.suggestedDate : "",
+          suggestedTimeWindow: acceptsQuoteArrangeTime ? preferredTimingPayload.suggestedTimeWindow : "",
+          agreedDurationMinutes:
+            isAccept && Number.isFinite(state.quote.estimatedDurationMinutes)
+              ? state.quote.estimatedDurationMinutes
+              : null,
+          schedulingStatus: acceptsQuoteAndTime ? "accepted_time" : (acceptsQuoteArrangeTime ? "awaiting_agreed_time" : ""),
+          agreedDateTime:
+            acceptsQuoteAndTime &&
+            state.quote.proposedDate &&
+            state.quote.proposedStartTime
+              ? new Date(`${state.quote.proposedDate} ${state.quote.proposedStartTime}`)
+              : null,
+          declineReasonCode: !isAccept ? state.declineReasonCode : "",
+          declineReasonLabel: !isAccept ? state.declineReasonLabel : "",
+          declineReasonText: !isAccept ? state.declineReasonText : "",
+          quoteDeclineReasonCode: !isAccept ? state.declineReasonCode : "",
+          quoteDeclineReasonLabel: !isAccept ? state.declineReasonLabel : "",
+          quoteDeclineReason: !isAccept ? state.declineReasonLabel : "",
+          quoteDeclineNote: !isAccept ? state.declineReasonText : "",
+        });
+        state.arrangeTimeOpen = false;
+        state.declineSubmitting = false;
+        setBusy(false);
+        renderQuote();
+      } catch (error) {
+        console.error("[QuoteResponseAcceptFailed]", {
+          quoteId,
+          requestId: state.quote && state.quote.requestId ? state.quote.requestId : "",
+          decision,
+          error,
+        });
+        state.saveError = error && error.message
+          ? error.message
+          : "Could not update the quote. Please try again.";
+        setBanner("Sorry, we couldn’t save your response. Please try again or contact the driver.", "error");
+        state.declineSubmitting = false;
+        setBusy(false);
+      }
+    }
+
+    async function maybeUseCurrentLocationForMapStart() {
+      if (!navigator.permissions || !navigator.geolocation) {
+        return null;
+      }
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: "geolocation" });
+        if (permissionStatus.state !== "granted") {
+          return null;
+        }
+        return await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => resolve({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            }),
+            () => resolve(null),
+            {
+              enableHighAccuracy: true,
+              timeout: 6000,
+              maximumAge: 600000,
+            },
+          );
+        });
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function resolveMapStartCenter() {
+      if (isValidLatLng(state.selectedExactPin)) {
+        return sanitizeMapCenter(state.selectedExactPin);
+      }
+
+      const quote = state.quote;
+      if (quoteHasExactPin(quote)) {
+        return sanitizeMapCenter({
+          lat: quote.exactPinLatitude,
+          lng: quote.exactPinLongitude,
+        });
+      }
+
+      const currentLocation = await maybeUseCurrentLocationForMapStart();
+      if (isUkCoordinate(currentLocation)) {
+        return currentLocation;
+      }
+
+      return ukFallbackCenter;
+    }
+
+    function setMapStatus(textValue) {
+      mapStatus.textContent = textValue;
+    }
+
+    function setMapLoading(isLoading) {
+      mapLoading.classList.toggle("hidden", !isLoading);
+    }
+
+    function setMapSelection(latLng, { panTo = false } = {}) {
+      selectedMapLatLng = latLng;
+      if (mapInstance && panTo) {
+        mapInstance.panTo([latLng.lat, latLng.lng], { animate: true });
+      }
+      setMapStatus("Spot selected. Tap Use this spot when you're ready.");
+      useSelectedPinButton.disabled = false;
+    }
+
+    function syncMapCenterSelection() {
+      if (!mapInstance) {
+        return;
+      }
+      const center = mapInstance.getCenter();
+      if (!center) {
+        return;
+      }
+      if (
+        !selectedMapLatLng &&
+        mapInitialCenter &&
+        Math.abs(center.lat - mapInitialCenter.lat) < 0.000001 &&
+        Math.abs(center.lng - mapInitialCenter.lng) < 0.000001
+      ) {
+        return;
+      }
+      setMapSelection({ lat: center.lat, lng: center.lng }, { panTo: false });
+    }
+
+    function initializeMap(center) {
+      if (!mapContainer || typeof L === "undefined") {
+        setMapStatus("Map library failed to load.");
+        setMapLoading(false);
+        return;
+      }
+
+      const target = sanitizeMapCenter(center);
+      mapInitialCenter = { lat: target.lat, lng: target.lng };
+      if (mapInstance) {
+        mapInstance.setView([target.lat, target.lng], mapInstance.getZoom() || 14);
+        setTimeout(() => mapInstance.invalidateSize(), 0);
+        setMapStatus("Move the map until the crosshair is on the exact spot.");
+        setMapLoading(false);
+        return;
+      }
+
+      mapInstance = L.map(mapContainer, {
+        zoomControl: false,
+        attributionControl: false,
+      }).setView([target.lat, target.lng], 14);
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(mapInstance);
+
+      mapInstance.on("moveend", syncMapCenterSelection);
+      mapInstance.on("zoomend", syncMapCenterSelection);
+      mapInstance.on("click", (event) => {
+        mapInstance.panTo(event.latlng, { animate: true });
+      });
+
+      setMapStatus("Move the map until the crosshair is on the exact spot.");
+      setMapLoading(false);
+      setTimeout(() => mapInstance.invalidateSize(), 0);
+    }
+
+    async function openMapModal() {
+      selectedMapLatLng = isValidLatLng(state.selectedExactPin)
+        ? { lat: state.selectedExactPin.lat, lng: state.selectedExactPin.lng }
+        : null;
+      useSelectedPinButton.disabled = !selectedMapLatLng;
+      console.info("[QuoteResponseMapOpen]", {
+        quoteId,
+        requestId: state.quote && state.quote.requestId ? state.quote.requestId : "",
+      });
+      setModalOpen(mapModal, true);
+      setMapStatus("Loading map...");
+      setMapLoading(true);
+      const startCenter = await Promise.race([
+        resolveMapStartCenter(),
+        new Promise((resolve) => setTimeout(() => resolve(ukFallbackCenter), mapLoadTimeoutMs)),
+      ]);
+      if (!mapModal.classList.contains("open")) {
+        return;
+      }
+      initializeMap(startCenter);
+      if (selectedMapLatLng) {
+        setMapSelection(selectedMapLatLng, { panTo: true });
+      }
+    }
+
+    function setSelectedExactPin({ latitude, longitude, accuracy, responseSource }) {
+      state.pinError = "";
+      state.selectedExactPin = {
+        lat: latitude,
+        lng: longitude,
+        accuracy: typeof accuracy === "number" ? accuracy : null,
+        responseSource,
+      };
+      console.info("[QuoteResponseExactPinSelected]", {
+        quoteId,
+        requestId: state.quote && state.quote.requestId ? state.quote.requestId : "",
+        responseSource,
+        latitude,
+        longitude,
+        accuracy: typeof accuracy === "number" ? accuracy : null,
+      });
+      renderQuote();
+    }
+
+    async function submitExactPin() {
+      if (!state.quote || state.pinSaving) {
+        console.warn("[QuoteResponseExactPinBlocked]", {
+          quoteId,
+          hasQuote: Boolean(state.quote),
+          pinSaving: state.pinSaving,
+        });
+        return;
+      }
+
+      if (!state.selectedExactPin || !isValidLatLng(state.selectedExactPin)) {
+        state.pinError = "Choose the exact spot first, then send it to the driver.";
+        renderQuote();
+        return;
+      }
+
+      const note = (pinNoteInputInline.value || "").trim();
+      state.pinError = "";
+      setPinBusy(true);
+      clearBanner();
+
+      try {
+        const resolvedQuoteRef = await resolveQuoteReference();
+        if (!resolvedQuoteRef) {
+          throw new Error("Quote reference could not be resolved.");
+        }
+        const docPath = resolvedQuoteRef.path;
+        const payload = {
+          quoteResponseId: state.quote.quoteResponseId || quoteId,
+          quoteResponseToken: state.quote.quoteResponseToken || quoteToken || "",
+          latitude: state.selectedExactPin.lat,
+          longitude: state.selectedExactPin.lng,
+          accuracy: state.selectedExactPin.accuracy,
+          responseSource: state.selectedExactPin.responseSource,
+          note,
+        };
+        console.info("[QuoteResponseExactPinSaveAttempt]", {
+          functionName: "submitExactLocation",
+          quoteId: state.quote.quoteResponseId || quoteId,
+          requestId: state.quote.requestId || "",
+          docPath,
+          payloadKeys: Object.keys(payload),
+          payload: {
+            ...payload,
+          },
+        });
+        await submitExactLocation(payload);
+        console.info("[QuoteResponseExactPinSaved]", {
+          quoteId,
+          requestId: state.quote.requestId || "",
+          responseSource: state.selectedExactPin.responseSource,
+          latitude: state.selectedExactPin.lat,
+          longitude: state.selectedExactPin.lng,
+        });
+        state.quote = normaliseQuote({
+          ...state.quote,
+          quoteAccepted: true,
+          quoteDeclined: false,
+          exactPinReceived: true,
+          hasExactPin: true,
+          exactPinShared: true,
+          exactPinLatitude: state.selectedExactPin.lat,
+          exactPinLongitude: state.selectedExactPin.lng,
+          exactPinLat: state.selectedExactPin.lat,
+          exactPinLng: state.selectedExactPin.lng,
+          exactPinSource: state.selectedExactPin.responseSource,
+          exactPinShareSource: state.selectedExactPin.responseSource,
+          exactPinNote: note,
+        });
+        state.selectedExactPin = null;
+        setPinBusy(false);
+        renderQuote();
+      } catch (error) {
+        console.error("[QuoteResponseExactPinFailed]", {
+          quoteId,
+          requestId: state.quote && state.quote.requestId ? state.quote.requestId : "",
+          responseSource: state.selectedExactPin
+            ? state.selectedExactPin.responseSource
+            : "",
+          error,
+        });
+        state.pinError = error && error.message
+          ? error.message
+          : "Could not save the exact location. Please try again.";
+        setBanner("Sorry, we couldn’t save your response. Please try again or contact the driver.", "error");
+        setPinBusy(false);
+      }
+    }
+
+    function shareMyLocation() {
+      if (!navigator.geolocation) {
+        setBanner("Location is not available here. Choose the spot on the map instead.", "error");
+        return;
+      }
+
+      state.pinError = "";
+      setPinSelecting(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setPinSelecting(false);
+          setSelectedExactPin({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            responseSource: "currentLocationConfirmed",
+          });
+          setBanner("Current location captured. Add any access notes, then send exact location.");
+        },
+        (error) => {
+          setPinSelecting(false);
+          setPinBusy(false);
+          if (error && error.code === error.PERMISSION_DENIED) {
+            setBanner("Location permission was denied. Choose the spot on the map instead.", "error");
+            return;
+          }
+          if (error && error.code === error.TIMEOUT) {
+            setBanner("Location timed out. Try again or choose the spot on the map.", "error");
+            return;
+          }
+          setBanner("Location is not available right now. Choose the spot on the map instead.", "error");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0,
+        },
+      );
+    }
+
+    function attachActionHandlers() {
+      const requiredElements = [
+        ["acceptButton", acceptButton],
+        ["arrangeTimeButton", arrangeTimeButton],
+        ["declineButton", declineButton],
+        ["shareCurrentPinButton", shareCurrentPinButton],
+        ["choosePinButton", choosePinButton],
+        ["confirmHereButton", confirmHereButton],
+        ["chooseMapButton", chooseMapButton],
+        ["cancelSafetyButton", cancelSafetyButton],
+        ["cancelMapButton", cancelMapButton],
+        ["useSelectedPinButton", useSelectedPinButton],
+        ["sendExactPinButton", sendExactPinButton],
+      ];
+      const missing = requiredElements
+        .filter(([, element]) => !element)
+        .map(([name]) => name);
+      if (missing.length > 0) {
+        console.error("[QuoteResponseInitMissingElements]", { missing });
+        setBanner("This quote page is missing some controls. Please reload the link.", "error");
+        return;
+      }
+
+      console.info("[QuoteResponseHandlersAttached]", {
+        quoteId,
+        quoteToken,
+      });
+
+      acceptButton.addEventListener("click", () => {
+        console.info("[QuoteResponseClick]", { action: "accept_time", quoteId, quoteToken });
+        state.arrangeTimeOpen = false;
+        state.arrangeTimeError = "";
+        submitDecision("accept_time");
+      });
+      arrangeTimeButton.addEventListener("click", () => {
+        console.info("[QuoteResponseClick]", { action: "accept_arrange", quoteId, quoteToken });
+        state.arrangeTimeOpen = true;
+        state.arrangeTimeError = "";
+        renderQuote();
+        if (preferredDateInput) {
+          preferredDateInput.focus();
+        }
+      });
+      confirmArrangeTimeButton.addEventListener("click", () => {
+        console.info("[QuoteResponseClick]", { action: "accept_arrange_confirm", quoteId, quoteToken });
+        submitDecision("accept_arrange");
+      });
+      backToRespondButton.addEventListener("click", () => {
+        state.arrangeTimeOpen = false;
+        state.arrangeTimeError = "";
+        renderQuote();
+      });
+      preferredDateInput.addEventListener("input", () => {
+        state.arrangeTimeError = "";
+        renderQuote();
+      });
+      preferredTimeInput.addEventListener("input", () => {
+        state.arrangeTimeError = "";
+        renderQuote();
+      });
+      declineButton.addEventListener("click", () => {
+        console.info("[QuoteResponseClick]", { action: "decline_open", quoteId, quoteToken });
+        openDeclineModal();
+      });
+      shareCurrentPinButton.addEventListener("click", () => setModalOpen(safetyModal, true));
+      choosePinButton.addEventListener("click", openMapModal);
+      confirmHereButton.addEventListener("click", () => {
+        setModalOpen(safetyModal, false);
+        shareMyLocation();
+      });
+      chooseMapButton.addEventListener("click", () => {
+        setModalOpen(safetyModal, false);
+        openMapModal();
+      });
+      cancelSafetyButton.addEventListener("click", () => setModalOpen(safetyModal, false));
+      cancelMapButton.addEventListener("click", () => setModalOpen(mapModal, false));
+      cancelDeclineButton.addEventListener("click", () => {
+        closeDeclineModal();
+        setModalOpen(declineModal, false);
+      });
+      declineNoteInput.addEventListener("input", () => {
+        state.declineReasonText = declineNoteInput.value || "";
+        updateDeclineSubmitState();
+      });
+      sendDeclineButton.addEventListener("click", () => {
+        if (state.saving || state.declineSubmitting) {
+          return;
+        }
+        const declinePayload = buildDeclinePayload();
+        if (!canSubmitDecline()) {
+          updateDeclineSubmitState();
+          declineNoteInput.focus();
+          return;
+        }
+        setModalOpen(declineModal, false);
+        console.info("[QuoteResponseClick]", {
+          action: "decline_send",
+          quoteId,
+          quoteToken,
+          declineReasonCode: declinePayload.declineReasonCode,
+          declineReasonLabel: declinePayload.declineReasonLabel,
+          hasDeclineReasonText: declinePayload.declineReasonText.length > 0,
+        });
+        submitDecision("decline", declinePayload);
+      });
+      if (declineReasonGrid) {
+        declineReasonGrid.querySelectorAll(".reason-option").forEach((button) => {
+          button.addEventListener("click", () => {
+            const reasonCode = button.getAttribute("data-reason-code") || "";
+            setDeclineReasonSelection(
+              reasonCode,
+              button.getAttribute("data-reason-label") || button.textContent || "",
+            );
+            if (reasonCode.trim() === "other") {
+              declineNoteInput.focus();
+            }
+          });
+        });
+      }
+      useSelectedPinButton.addEventListener("click", async () => {
+        if (!selectedMapLatLng) {
+          setBanner("Move the map until the crosshair is on the exact spot first.", "error");
+          return;
+        }
+        console.info("[QuoteResponseUsePin]", {
+          quoteId,
+          requestId: state.quote && state.quote.requestId ? state.quote.requestId : "",
+          selectedLat: selectedMapLatLng.lat,
+          selectedLng: selectedMapLatLng.lng,
+        });
+        setModalOpen(mapModal, false);
+        setSelectedExactPin({
+          latitude: selectedMapLatLng.lat,
+          longitude: selectedMapLatLng.lng,
+          accuracy: null,
+          responseSource: "chosenOnMap",
+        });
+        setBanner("Exact spot selected. Add any access notes, then send exact location.");
+      });
+      sendExactPinButton.addEventListener("click", () => {
+        submitExactPin();
+      });
+    }
+
+    attachActionHandlers();
+
+    loadQuote();
+  </script>
+</body>
+</html>

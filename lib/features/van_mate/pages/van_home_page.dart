@@ -2,17 +2,72 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-class VanHomePage extends StatelessWidget {
+import '../services/van_first_use_help_service.dart';
+import '../widgets/van_first_use_help_dialog.dart';
+
+class VanHomePage extends StatefulWidget {
   final bool isLoading;
   final String? loadError;
   final Future<void> Function() onRetry;
+  final VoidCallback onOpenCalendar;
+  final VoidCallback onOpenBusinessHub;
 
   const VanHomePage({
     super.key,
     required this.isLoading,
     required this.loadError,
     required this.onRetry,
+    required this.onOpenCalendar,
+    required this.onOpenBusinessHub,
   });
+
+  @override
+  State<VanHomePage> createState() => _VanHomePageState();
+}
+
+class _VanHomePageState extends State<VanHomePage> {
+  bool _checkedIntro = false;
+  bool _introVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybeShowHomeIntro());
+    });
+  }
+
+  Future<void> _maybeShowHomeIntro() async {
+    if (_checkedIntro || _introVisible || !mounted) {
+      return;
+    }
+    _checkedIntro = true;
+
+    final helpService = VanMateFirstUseHelpService.instance;
+    await helpService.ensureLoaded();
+    if (!mounted ||
+        await helpService.hasSeen(VanMateFirstUseHelpKeys.seenHomeIntro)) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    _introVisible = true;
+    try {
+      await showVanMateFirstUseHelpDialog(
+        context,
+        storageKey: VanMateFirstUseHelpKeys.seenHomeIntro,
+        title: 'Welcome to Van Mate 👋',
+        body:
+            'Use Calendar to plan and manage your jobs.\n\n'
+            'Use Business Hub to handle the business side: booking link, requests, quotes, invoices, payments and customer history.\n\n'
+            'Keep it simple: get the job, do the job, invoice the job.',
+      );
+    } finally {
+      _introVisible = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +83,14 @@ class VanHomePage extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _HeroCard(isLoading: isLoading),
-                if (loadError != null) ...[
+                _HeroCard(
+                  isLoading: widget.isLoading,
+                  onOpenCalendar: widget.onOpenCalendar,
+                  onOpenBusinessHub: widget.onOpenBusinessHub,
+                ),
+                if (widget.loadError != null) ...[
                   const SizedBox(height: 12),
-                  _ErrorCard(message: loadError!, onRetry: onRetry),
+                  _ErrorCard(message: widget.loadError!, onRetry: widget.onRetry),
                 ],
               ],
             ),
@@ -44,8 +103,14 @@ class VanHomePage extends StatelessWidget {
 
 class _HeroCard extends StatelessWidget {
   final bool isLoading;
+  final VoidCallback onOpenCalendar;
+  final VoidCallback onOpenBusinessHub;
 
-  const _HeroCard({required this.isLoading});
+  const _HeroCard({
+    required this.isLoading,
+    required this.onOpenCalendar,
+    required this.onOpenBusinessHub,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -86,9 +151,129 @@ class _HeroCard extends StatelessWidget {
               ] else ...[
                 const _VanHeroImage(compact: false),
               ],
+              const SizedBox(height: 14),
+              _HeroShortcuts(
+                onOpenCalendar: onOpenCalendar,
+                onOpenBusinessHub: onOpenBusinessHub,
+              ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _HeroShortcuts extends StatelessWidget {
+  final VoidCallback onOpenCalendar;
+  final VoidCallback onOpenBusinessHub;
+
+  const _HeroShortcuts({
+    required this.onOpenCalendar,
+    required this.onOpenBusinessHub,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _HeroShortcutButton(
+            label: 'Calendar',
+            icon: Icons.calendar_month_rounded,
+            accent: const Color(0xFF5F95FF),
+            onTap: onOpenCalendar,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _HeroShortcutButton(
+            label: 'Business Hub',
+            icon: Icons.business_center_rounded,
+            accent: const Color(0xFF58D0A4),
+            onTap: onOpenBusinessHub,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroShortcutButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _HeroShortcutButton({
+    required this.label,
+    required this.icon,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          height: 64,
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.09),
+                Colors.white.withValues(alpha: 0.04),
+              ],
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.12),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: accent.withValues(alpha: 0.16),
+                  border: Border.all(color: accent.withValues(alpha: 0.26)),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: Colors.white, size: 15),
+              ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

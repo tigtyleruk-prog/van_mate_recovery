@@ -18,6 +18,7 @@ import '../models/van_route.dart';
 import '../models/van_route_template.dart';
 import '../models/van_route_stop.dart';
 import '../services/premium_route_summary_service.dart';
+import '../services/van_invoice_reminder_service.dart';
 import '../services/van_push_notification_service.dart';
 import '../services/van_premium_service.dart';
 import '../services/van_first_use_help_service.dart';
@@ -26,7 +27,10 @@ import '../services/van_navigation_service.dart';
 import '../services/van_route_preview_service.dart';
 import '../services/van_storage_service.dart';
 import 'van_scan_drop_page.dart';
+import 'driver_customer_reply_mock_page.dart';
+import 'job_detail_page.dart';
 import '../../../pages/profile_page.dart';
+import 'business_hub_page.dart';
 import 'van_add_drop_page.dart';
 import '../widgets/van_current_job_sheet.dart';
 import '../widgets/van_first_use_help_dialog.dart';
@@ -38,6 +42,9 @@ import 'van_home_page.dart';
 import 'van_places_page.dart';
 import 'van_map_page.dart';
 import 'jobs_calendar_page.dart';
+import 'van_incoming_requests_page.dart';
+import 'van_invoice_history_page.dart';
+import 'van_invoice_preview_page.dart';
 
 part 'route_page.dart';
 part 'today_page.dart';
@@ -58,7 +65,8 @@ class VanFirebasePage extends StatefulWidget {
   State<VanFirebasePage> createState() => _VanFirebasePageState();
 }
 
-class _VanFirebasePageState extends State<VanFirebasePage> {
+class _VanFirebasePageState extends State<VanFirebasePage>
+    with WidgetsBindingObserver {
   final VanStorageService _storage = VanStorageService();
   final TextEditingController _placesSearchController = TextEditingController();
   final TextEditingController _routeNameController = TextEditingController();
@@ -88,6 +96,7 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
   bool _routePreviewSummaryLoading = false;
   int _routePreviewSummaryRequestId = 0;
   String _todayRoutePreviewDebugSignature = '';
+  DateTime? _lastExitBackPressAt;
   final List<_VanHelpPopupRequest> _helpPopupQueue = <_VanHelpPopupRequest>[];
   final Set<String> _queuedHelpPopupKeys = <String>{};
   bool _isProcessingHelpPopupQueue = false;
@@ -115,6 +124,7 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _routeNameController.addListener(_handleRouteNameChanged);
     VanMatePremiumService.instance.addListener(_handlePremiumChanged);
     _setRouteNameText(_defaultRouteName);
@@ -126,19 +136,31 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
       VanMatePushNotificationService.instance.registerOpenHandler(
         _handleNotificationOpen,
       );
+      VanInvoiceReminderService.instance.registerOpenHandler(
+        _handleInvoiceReminderOpen,
+      );
     });
     unawaited(_initialize());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     VanMatePushNotificationService.instance.clearOpenHandler();
+    VanInvoiceReminderService.instance.clearOpenHandler();
     VanMatePremiumService.instance.removeListener(_handlePremiumChanged);
     _placesSubscription?.cancel();
     _routeSubscription?.cancel();
     _placesSearchController.dispose();
     _routeNameController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_handleAppResumed());
+    }
   }
 
   void _handleRouteNameChanged() {
@@ -176,20 +198,209 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
   }
 
   void _handleNotificationOpen(VanMateExactPinNotificationPayload payload) {
+    unawaited(_openNotificationPayload(payload));
+  }
+
+  Future<void> _handleInvoiceReminderOpen(
+    VanInvoiceReminderOpenTarget target,
+  ) async {
+    await _openInvoiceReminderTarget(target);
+  }
+
+  Future<void> _handleAppResumed() async {
+    await _refreshDriverJobsFromCloud(reason: 'resume');
     if (!mounted) {
+      return;
+    }
+    await VanInvoiceReminderService.instance.runReminderCheck(
+      invoices: DriverReplyMockState.instance.savedInvoiceHistory,
+      onReminderSent: (jobKey, stageDays, sentAt) async {
+        DriverReplyMockState.instance.markInvoiceReminderSentForJob(
+          jobKey,
+          stageDays: stageDays,
+          sentAt: sentAt,
+        );
+      },
+    );
+  }
+
+  Future<void> _openInvoiceReminderTarget(
+    VanInvoiceReminderOpenTarget target,
+  ) async {
+    final jobKey = target.jobKey.trim();
+    if (jobKey.isNotEmpty) {
+      final draft = DriverReplyMockState.instance.invoiceForJob(jobKey);
+      if (draft != null) {
+        await openVanInvoicePreviewPage(context, draft);
+        return;
+      }
+    }
+
+    await openVanInvoiceHistoryPage(
+      context,
+      initialFilter: target.openUnpaidFilter
+          ? VanInvoiceHistoryFilter.unpaid
+          : VanInvoiceHistoryFilter.all,
+    );
+  }
+
+  Future<void> _openNotificationPayload(
+    VanMateExactPinNotificationPayload payload,
+  ) async {
+    if (payload.isBookingRequestNotification) {
+      await _refreshDriverJobsFromCloud(reason: 'notification_tap');
+      if (!mounted) {
+        return;
+      }
+
+      final requestId = payload.requestId.trim();
+      var jobId = payload.jobId.trim();
+      if (jobId.isEmpty && requestId.isNotEmpty) {
+        final refreshedRequest = await DriverReplyMockState.instance
+            .refreshRequestFromCloud(requestId);
+        if (!mounted) {
+          return;
+        }
+        jobId = refreshedRequest?.jobId.trim().isNotEmpty == true
+            ? refreshedRequest!.jobId.trim()
+            : DriverReplyMockState.instance
+                      .jobByRequestId(requestId)
+                      ?.jobId
+                      .trim() ??
+                  '';
+      }
+
+      final freshJob = jobId.isNotEmpty
+          ? DriverReplyMockState.instance.jobById(jobId)
+          : null;
+      if (freshJob != null) {
+        await openDriverJobDetailMockPage(
+          context,
+          reply: freshJob,
+          completed: freshJob.isCompletedJob,
+        );
+        return;
+      }
+
+      await openVanIncomingRequestsPage(context);
+      return;
+    }
+
+    if (payload.isQuoteReplyNotification) {
+      await _refreshDriverJobsFromCloud(reason: 'notification_tap');
+      if (!mounted) {
+        return;
+      }
+
+      final requestId = payload.requestId.trim();
+      var jobId = payload.jobId.trim();
+      if (jobId.isEmpty && requestId.isNotEmpty) {
+        jobId =
+            DriverReplyMockState.instance
+                .jobByRequestId(requestId)
+                ?.jobId
+                .trim() ??
+            '';
+      }
+
+      final freshJob = jobId.isNotEmpty
+          ? DriverReplyMockState.instance.jobById(jobId)
+          : null;
+      if (freshJob != null) {
+        await openDriverJobDetailMockPage(
+          context,
+          reply: freshJob,
+          completed: freshJob.isCompletedJob,
+        );
+        return;
+      }
+
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const JobsCalendarPage()));
       return;
     }
 
     if (payload.isCustomerReplyNotification) {
-      Navigator.of(
+      final requestId = payload.requestId.trim();
+      if (requestId.isNotEmpty) {
+        final refreshedRequest = await DriverReplyMockState.instance
+            .refreshRequestFromCloud(requestId);
+        if (!mounted) {
+          return;
+        }
+        var jobId = payload.jobId.trim();
+        if (jobId.isEmpty) {
+          jobId = refreshedRequest?.jobId.trim().isNotEmpty == true
+              ? refreshedRequest!.jobId.trim()
+              : DriverReplyMockState.instance
+                        .jobByRequestId(requestId)
+                        ?.jobId
+                        .trim() ??
+                    '';
+        }
+        final freshJob = jobId.isNotEmpty
+            ? DriverReplyMockState.instance.jobById(jobId)
+            : null;
+        if (freshJob != null) {
+          await openDriverJobDetailMockPage(
+            context,
+            reply: freshJob,
+            completed: freshJob.isCompletedJob,
+          );
+          return;
+        }
+      } else {
+        await _refreshDriverJobsFromCloud(reason: 'notification_tap');
+        if (!mounted) {
+          return;
+        }
+        final jobId = payload.jobId.trim();
+        final freshJob = jobId.isNotEmpty
+            ? DriverReplyMockState.instance.jobById(jobId)
+            : null;
+        if (freshJob != null) {
+          await openDriverJobDetailMockPage(
+            context,
+            reply: freshJob,
+            completed: freshJob.isCompletedJob,
+          );
+          return;
+        }
+      }
+      await Navigator.of(
         context,
       ).push(MaterialPageRoute(builder: (_) => const JobsCalendarPage()));
+      return;
+    }
+
+    await _refreshDriverJobsFromCloud(reason: 'notification_tap');
+    if (!mounted) {
       return;
     }
 
     setState(() {
       _selectedTab = VanTab.places;
     });
+  }
+
+  Future<void> _refreshDriverJobsFromCloud({required String reason}) async {
+    try {
+      debugPrint('[VanFirebase][Jobs] refresh start reason=$reason');
+      await DriverReplyMockState.instance.refreshJobsFromCloud(
+        forceServer: true,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+      debugPrint('[VanFirebase][Jobs] refresh complete reason=$reason');
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[VanFirebase][Jobs] refresh failed reason=$reason error=$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   void _logTodayRoutePreviewState({
@@ -2641,56 +2852,66 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          AppTheme.backgroundImage(),
-          Container(color: Colors.black.withValues(alpha: 0.34)),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-                  child: _buildHeader(),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: VanMateBottomNav(
-                    items: _mainTabs
-                        .map(
-                          (tab) => VanMateBottomNavItem(label: _tabLabel(tab)),
-                        )
-                        .toList(growable: false),
-                    selectedIndex: _mainTabs.contains(_selectedTab)
-                        ? _mainTabs.indexOf(_selectedTab)
-                        : null,
-                    onSelected: (index) {
-                      _switchTab(_mainTabs[index]);
-                    },
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        unawaited(_handleShellBackPressed());
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppTheme.backgroundImage(),
+            Container(color: Colors.black.withValues(alpha: 0.34)),
+            SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                    child: _buildHeader(),
                   ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                    child: _VanGlassPanel(
-                      padding: EdgeInsets.zero,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        child: _buildTabBody(bottomInset),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: VanMateBottomNav(
+                      items: _mainTabs
+                          .map(
+                            (tab) =>
+                                VanMateBottomNavItem(label: _tabLabel(tab)),
+                          )
+                          .toList(growable: false),
+                      selectedIndex: _mainTabs.contains(_selectedTab)
+                          ? _mainTabs.indexOf(_selectedTab)
+                          : null,
+                      onSelected: (index) {
+                        _switchTab(_mainTabs[index]);
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      child: _VanGlassPanel(
+                        padding: EdgeInsets.zero,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: _buildTabBody(bottomInset),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2701,62 +2922,56 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
       children: [
         SizedBox(
           height: 40,
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _VanHeaderIconButton(
-                  icon: Icons.calendar_month,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const JobsCalendarPage(),
+              const SizedBox(width: 96),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _switchTab(VanTab.home),
+                  behavior: HitTestBehavior.opaque,
+                  child: const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'Van Mate',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          height: 1.0,
+                          letterSpacing: -0.4,
+                        ),
                       ),
-                    );
-                  },
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _switchTab(VanTab.home),
-                behavior: HitTestBehavior.opaque,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 74),
-                  child: Text(
-                    'Van Mate',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.0,
-                      letterSpacing: -0.4,
                     ),
                   ),
                 ),
               ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _VanHeaderIconButton(
-                      icon: Icons.help_outline_rounded,
-                      onTap: () => showVanMateGuideDialog(context),
-                    ),
-                    const SizedBox(width: 10),
-                    _VanHeaderIconButton(
-                      icon: Icons.person_outline_rounded,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ProfilePage(),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _VanHeaderIconButton(
+                    icon: Icons.help_outline_rounded,
+                    onTap: () => showVanMateGuideDialog(context),
+                  ),
+                  const SizedBox(width: 10),
+                  _VanHeaderIconButton(
+                    icon: Icons.person_outline_rounded,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          settings: const RouteSettings(
+                            name: ProfilePage.routeName,
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                          builder: (_) => const ProfilePage(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -2799,6 +3014,14 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
             _isInitializing && _savedPlaces.isEmpty && _activeRoute == null,
         loadError: _loadError,
         onRetry: _initialize,
+        onOpenCalendar: () {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const JobsCalendarPage()));
+        },
+        onOpenBusinessHub: () {
+          unawaited(openVanBusinessHubPage(context));
+        },
       );
     }
 
@@ -2886,6 +3109,40 @@ class _VanFirebasePageState extends State<VanFirebasePage> {
         _mapTabRoutePreviewEnabled = false;
       }
     });
+  }
+
+  bool get _isOnOverviewHomeShellTab => _selectedTab == VanTab.home;
+
+  Future<void> _handleShellBackPressed() async {
+    if (!_isOnOverviewHomeShellTab) {
+      _switchTab(VanTab.home);
+      return;
+    }
+
+    final now = DateTime.now();
+    final lastPressedAt = _lastExitBackPressAt;
+    final shouldExit =
+        lastPressedAt != null &&
+        now.difference(lastPressedAt) <= const Duration(seconds: 2);
+
+    if (shouldExit) {
+      await SystemNavigator.pop();
+      return;
+    }
+
+    _lastExitBackPressAt = now;
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit'),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
   }
 
   Future<void> _openRouteInGoogleMapsFromToday() async {

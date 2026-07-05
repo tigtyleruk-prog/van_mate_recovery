@@ -90,6 +90,7 @@ class VanPinRequest {
       normalizedResponseSource == 'currentLocation';
 
   bool get isResponseMapChosen =>
+      normalizedResponseSource == 'mapAdjusted' ||
       normalizedResponseSource == 'chosenOnMap' ||
       normalizedResponseSource == 'mapChosen';
 
@@ -100,6 +101,7 @@ class VanPinRequest {
         return 'Customer confirmed they were at the pickup/drop-off point.';
       case 'chosenOnMap':
       case 'mapChosen':
+      case 'mapAdjusted':
       case 'mapSelection':
         return 'Customer selected the pickup/drop-off point on a map.';
       default:
@@ -114,6 +116,7 @@ class VanPinRequest {
         return 'This pin was shared after the customer confirmed they were on site.';
       case 'chosenOnMap':
       case 'mapChosen':
+      case 'mapAdjusted':
       case 'mapSelection':
         return 'This pin was chosen from the map flow.';
       default:

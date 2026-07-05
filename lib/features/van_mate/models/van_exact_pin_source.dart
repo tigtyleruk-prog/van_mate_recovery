@@ -5,7 +5,7 @@ String? vanExactPinSourceToStorage(VanExactPinSource? source) {
     case VanExactPinSource.currentLocation:
       return 'currentLocationConfirmed';
     case VanExactPinSource.mapSelection:
-      return 'chosenOnMap';
+      return 'mapAdjusted';
     case null:
       return null;
   }
@@ -17,6 +17,7 @@ VanExactPinSource? vanExactPinSourceFromStorage(String? value) {
     case 'currentLocationConfirmed':
       return VanExactPinSource.currentLocation;
     case 'mapSelection':
+    case 'mapAdjusted':
     case 'chosenOnMap':
       return VanExactPinSource.mapSelection;
   }

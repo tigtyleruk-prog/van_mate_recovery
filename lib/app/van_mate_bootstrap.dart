@@ -7,6 +7,7 @@ import '../firebase_options.dart';
 import '../features/van_mate/pages/driver_customer_reply_mock_page.dart';
 import '../features/van_mate/services/van_firebase_auth_service.dart';
 import '../features/van_mate/services/van_firebase_debug_logging.dart';
+import '../features/van_mate/services/van_invoice_reminder_service.dart';
 import '../features/van_mate/services/van_user_cloud_service.dart';
 import '../features/van_mate/services/van_premium_service.dart';
 import '../features/van_mate/services/van_push_notification_service.dart';
@@ -33,7 +34,7 @@ Future<void> runVanMateApp() async {
     try {
       await DriverReplyMockState.instance.loadFromStorage();
     } catch (error) {
-      debugPrint('Van Mate mock state load failed: $error');
+      debugPrint('Trade Mate mock state load failed: $error');
     }
     try {
       logVanFirebaseHydration(stage: 'started', target: 'cloud auth/bootstrap');
@@ -59,22 +60,33 @@ Future<void> runVanMateApp() async {
         target: 'cloud auth/bootstrap',
         extra: error.toString(),
       );
-      debugPrint('Van Mate auth bootstrap failed: $error');
+      debugPrint('Trade Mate auth bootstrap failed: $error');
     }
     try {
       await DriverReplyMockState.instance.hydrateFromCloud();
     } catch (error) {
-      debugPrint('Van Mate cloud hydrate failed: $error');
+      debugPrint('Trade Mate cloud hydrate failed: $error');
     }
     await VanMatePremiumService.instance.ensureLoaded();
     await VanMatePushNotificationService.instance.initialize(
       scaffoldMessengerKey: _rootScaffoldMessengerKey,
     );
+    await VanInvoiceReminderService.instance.initialize();
+    await VanInvoiceReminderService.instance.runReminderCheck(
+      invoices: DriverReplyMockState.instance.savedInvoiceHistory,
+      onReminderSent: (jobKey, stageDays, sentAt) async {
+        DriverReplyMockState.instance.markInvoiceReminderSentForJob(
+          jobKey,
+          stageDays: stageDays,
+          sentAt: sentAt,
+        );
+      },
+    );
   } catch (_) {
     runApp(
       const VanMateStartupErrorApp(
         message:
-            'Van Mate could not start Firebase. Check the app configuration and relaunch.',
+            'Trade Mate could not start Firebase. Check the app configuration and relaunch.',
       ),
     );
     return;
@@ -107,7 +119,7 @@ class VanMateStartupErrorApp extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Van Mate Startup Failed',
+                    'Trade Mate Startup Failed',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),

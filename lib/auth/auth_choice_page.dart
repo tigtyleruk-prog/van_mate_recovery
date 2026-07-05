@@ -1,12 +1,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../app/van_mate_app_shell.dart';
+import '../pages/profile_page.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
 import 'register_page.dart';
 
 class AuthChoicePage extends StatefulWidget {
-  const AuthChoicePage({super.key});
+  final bool returnToProfile;
+
+  const AuthChoicePage({super.key, this.returnToProfile = false});
 
   @override
   State<AuthChoicePage> createState() => _AuthChoicePageState();
@@ -29,9 +33,13 @@ class _AuthChoicePageState extends State<AuthChoicePage> {
     try {
       await VanMateAuthService.instance.signInAnonymously();
 
+      await VanMateAuthService.instance.waitForCurrentUserReady();
+
       if (!mounted) {
         return;
       }
+
+      _goToSignedInDestination();
     } on FirebaseAuthException catch (error) {
       if (!mounted) {
         return;
@@ -63,6 +71,23 @@ class _AuthChoicePageState extends State<AuthChoicePage> {
         });
       }
     }
+  }
+
+  void _goToSignedInDestination() {
+    if (widget.returnToProfile) {
+      Navigator.of(
+        context,
+      ).popUntil((route) => route.settings.name == ProfilePage.routeName);
+      return;
+    }
+
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/van-mate-shell'),
+        builder: (_) => const VanMateAppShell(),
+      ),
+      (route) => false,
+    );
   }
 
   @override
@@ -136,7 +161,7 @@ class _AuthChoicePageState extends State<AuthChoicePage> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Van Mate',
+                    'Trade Mate',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w700,
@@ -144,7 +169,7 @@ class _AuthChoicePageState extends State<AuthChoicePage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sign in to keep your van data in sync, or continue as a guest for now.',
+                    'Sign in to keep your trade data in sync, or continue as a guest for now.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -157,7 +182,9 @@ class _AuthChoicePageState extends State<AuthChoicePage> {
                         : () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const RegisterPage(),
+                                builder: (_) => RegisterPage(
+                                  returnToProfile: widget.returnToProfile,
+                                ),
                               ),
                             );
                           },
@@ -170,7 +197,9 @@ class _AuthChoicePageState extends State<AuthChoicePage> {
                         : () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const LoginPage(),
+                                builder: (_) => LoginPage(
+                                  returnToProfile: widget.returnToProfile,
+                                ),
                               ),
                             );
                           },

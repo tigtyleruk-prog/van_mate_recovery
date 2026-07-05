@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/van_business_profile.dart';
 import 'van_firestore_payload_builder.dart';
@@ -92,6 +93,11 @@ class VanBusinessProfileCloudService {
       uid: normalizedOwnerUid,
       source: source,
     );
+    debugPrint(
+      '[BusinessProfileCloud] write start '
+      'path=users/$normalizedOwnerUid/van_business_profile/profile '
+      'logoPath=${profile.logoPath} logoUrl=${profile.logoUrl}',
+    );
     try {
       await VanUserCloudService.instance.ensureUserDocument(
         uid: normalizedOwnerUid,
@@ -99,13 +105,23 @@ class VanBusinessProfileCloudService {
         source: source,
       );
       await _profile(normalizedOwnerUid).set(payload, SetOptions(merge: true));
+      debugPrint(
+        '[BusinessProfileCloud] write success '
+        'path=users/$normalizedOwnerUid/van_business_profile/profile',
+      );
       logVanFirebaseWriteSuccess(
         collectionPath: 'users/$normalizedOwnerUid/van_business_profile',
         docId: 'profile',
         uid: normalizedOwnerUid,
         source: source,
       );
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[BusinessProfileCloud] write failure '
+        'path=users/$normalizedOwnerUid/van_business_profile/profile '
+        'error=$error',
+      );
+      debugPrint('[BusinessProfileCloud] write stack=$stackTrace');
       logVanFirebaseWriteFailure(
         collectionPath: 'users/$normalizedOwnerUid/van_business_profile',
         docId: 'profile',
@@ -117,9 +133,7 @@ class VanBusinessProfileCloudService {
     }
   }
 
-  Future<void> clearProfile({
-    required String ownerUid,
-  }) async {
+  Future<void> clearProfile({required String ownerUid}) async {
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty) {
       logVanFirebaseSkip(

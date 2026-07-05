@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 
 class VanMateAuthService {
@@ -31,6 +33,41 @@ class VanMateAuthService {
 
   Future<void> sendPasswordResetEmail(String email) {
     return _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  Future<User?> waitForCurrentUserReady({
+    Duration timeout = const Duration(seconds: 5),
+    bool requireNonAnonymous = false,
+  }) async {
+    var user = _auth.currentUser;
+
+    final hasReadyUser =
+        user != null && (!requireNonAnonymous || user.isAnonymous == false);
+    if (!hasReadyUser) {
+      try {
+        user = await _auth
+            .authStateChanges()
+            .firstWhere(
+              (candidate) =>
+                  candidate != null &&
+                  (!requireNonAnonymous || candidate.isAnonymous == false),
+            )
+            .timeout(timeout);
+      } on TimeoutException {
+        user = _auth.currentUser;
+      }
+    }
+
+    if (user != null) {
+      try {
+        await user.reload();
+      } catch (_) {
+        // If reload fails, keep the authenticated user we already have.
+      }
+      user = _auth.currentUser ?? user;
+    }
+
+    return user;
   }
 
   Future<User?> updateDisplayName(String displayName) async {

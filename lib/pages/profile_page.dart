@@ -13,6 +13,8 @@ import '../features/van_mate/services/van_premium_service.dart';
 import '../services/auth_service.dart';
 
 class ProfilePage extends StatefulWidget {
+  static const String routeName = '/profile';
+
   const ProfilePage({super.key});
 
   @override
@@ -633,9 +635,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _openAuthChoice(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const AuthChoicePage()));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/profile-auth-choice'),
+        builder: (_) => const AuthChoicePage(returnToProfile: true),
+      ),
+    );
   }
 
   Future<void> _signOut() async {
@@ -650,9 +655,10 @@ class _ProfilePageState extends State<ProfilePage> {
         return;
       }
 
-      Navigator.of(context, rootNavigator: true).popUntil((route) {
-        return route.isFirst;
-      });
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const AuthChoicePage()),
+        (route) => false,
+      );
     } finally {
       if (mounted) {
         setState(() {

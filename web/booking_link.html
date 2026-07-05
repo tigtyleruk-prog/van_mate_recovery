@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Booking Request</title>
+  <meta name="description" content="Choose a service and tell us what you need. We'll get back to you with a quote." />
+  <meta property="og:title" content="Booking Request" />
+  <meta property="og:description" content="Choose a service and tell us what you need. We'll get back to you with a quote." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Booking Request" />
+  <meta name="twitter:description" content="Choose a service and tell us what you need. We'll get back to you with a quote." />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-0: #08111d;
+      --bg-1: #0c1727;
+      --bg-2: #14243d;
+      --panel: rgba(12, 20, 34, 0.9);
+      --panel-strong: rgba(18, 28, 46, 0.94);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #f5f8ff;
+      --muted: rgba(245, 248, 255, 0.72);
+      --subtle: rgba(245, 248, 255, 0.58);
+      --accent: #4a7dff;
+      --accent-2: #58d0a4;
+      --danger: #ff8f7a;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(74, 125, 255, 0.22), transparent 24%),
+        radial-gradient(circle at top right, rgba(88, 208, 164, 0.14), transparent 24%),
+        linear-gradient(180deg, var(--bg-0), var(--bg-1) 45%, var(--bg-2));
+    }
+
+    .page {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      padding: 16px 16px 28px;
+    }
+
+    .card {
+      margin-top: 12px;
+      padding: 18px;
+      border-radius: 26px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(16px);
+    }
+
+    .card.strong {
+      background: var(--panel-strong);
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    h1, h2, p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(30px, 4.4vw, 42px);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    h2 {
+      font-size: 17px;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+
+    .lede, .body-text, .helper {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .hero-title {
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    .field,
+    .select,
+    .file-input {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: inherit;
+    }
+
+    .field,
+    .select {
+      padding: 13px 14px;
+    }
+
+    .file-input {
+      padding: 10px 12px;
+    }
+
+    textarea.field {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .section {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .question {
+      padding: 14px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .question-title {
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 850;
+      line-height: 1.4;
+    }
+
+    .helper {
+      font-size: 12px;
+    }
+
+    .choice-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .choice-btn {
+      min-height: 46px;
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .choice-btn.active {
+      background: rgba(74, 125, 255, 0.18);
+      border-color: rgba(74, 125, 255, 0.42);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button.primary,
+    button.secondary {
+      min-height: 48px;
+      border-radius: 16px;
+      padding: 12px 16px;
+      border: 0;
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    button.primary {
+      color: #fff;
+      background: linear-gradient(135deg, #3c66ee, #5d8bff);
+      box-shadow: 0 12px 26px rgba(74, 125, 255, 0.2);
+    }
+
+    button.secondary {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    button:disabled {
+      opacity: 0.56;
+      cursor: not-allowed;
+    }
+
+    .full {
+      width: 100%;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(74, 125, 255, 0.14);
+      border: 1px solid rgba(74, 125, 255, 0.26);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .banner {
+      display: none;
+      margin-top: 12px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      line-height: 1.45;
+      font-weight: 700;
+      background: rgba(255, 143, 122, 0.12);
+      border: 1px solid rgba(255, 143, 122, 0.22);
+      color: #fff1ed;
+    }
+
+    .banner.show {
+      display: block;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .file-list {
+      margin-top: 8px;
+      color: var(--subtle);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .photo-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .photo-item {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      aspect-ratio: 1 / 1;
+    }
+
+    .photo-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .photo-remove {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      min-width: 28px;
+      min-height: 28px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(8, 17, 29, 0.75);
+      color: #fff;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 10, 20, 0.56);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 14px;
+      z-index: 40;
+    }
+
+    .sheet-backdrop.hidden {
+      display: none;
+    }
+
+    .sheet-card {
+      width: min(560px, 100%);
+      border-radius: 20px;
+      padding: 12px;
+      background: #13233a;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 18px 38px rgba(5, 8, 18, 0.42);
+      display: grid;
+      gap: 8px;
+    }
+
+    .sheet-action {
+      min-height: 48px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .sheet-action.cancel {
+      color: rgba(255, 255, 255, 0.82);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .toggle-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #58d0a4;
+    }
+
+    .footer {
+      margin: 16px 0 6px;
+      text-align: center;
+      color: var(--subtle);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        padding: 12px 12px 22px;
+      }
+
+      .card {
+        padding: 16px;
+        border-radius: 22px;
+      }
+
+      .choice-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-functions-compat.js"></script>
+</head>
+<body>
+  <main class="page">
+    <section class="card strong">
+      <div id="customHeadingPill" class="pill hidden"></div>
+      <div style="height: 10px;"></div>
+      <div class="row" style="margin-bottom: 10px;">
+        <div class="logo" id="logoShell">
+          <span style="font-size: 22px;">&#127970;</span>
+        </div>
+        <div id="businessName" class="hero-title">Business</div>
+      </div>
+      <h1 id="pageTitle">Book a service</h1>
+      <p id="pageIntro" class="lede">Choose a service and tell us what you need. We'll get back to you with a quote.</p>
+    </section>
+
+    <div id="banner" class="banner"></div>
+
+    <section id="formCard" class="card hidden">
+      <div class="section">
+        <div>
+          <h2>Service</h2>
+          <div id="singleServiceCard" class="question hidden"></div>
+          <select id="serviceSelect" class="select hidden"></select>
+          <p id="serviceDescription" class="helper"></p>
+        </div>
+      </div>
+
+      <div id="serviceFields" class="hidden">
+        <div class="section">
+          <div>
+            <h2>Contact details</h2>
+            <input id="customerName" name="customer_name" class="field" type="text" placeholder="Full name" autocomplete="name" autocapitalize="words" />
+            <div style="height: 10px;"></div>
+            <input id="phoneNumber" name="customer_phone" class="field" type="tel" placeholder="Phone number" autocomplete="tel" inputmode="tel" autocorrect="off" spellcheck="false" />
+            <div style="height: 10px;"></div>
+            <input id="customerEmail" name="customer_email" class="field" type="email" placeholder="Email (optional)" autocomplete="email" autocapitalize="off" />
+          </div>
+        </div>
+
+        <div id="addressSection" class="section hidden">
+          <div>
+            <h2>Address or postcode</h2>
+            <textarea id="address" class="field" placeholder="Address" autocomplete="off"></textarea>
+            <div style="height: 10px;"></div>
+            <input id="postcode" class="field" type="text" placeholder="Postcode" autocomplete="off" inputmode="text" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+          </div>
+        </div>
+
+        <div id="photosSection" class="section hidden">
+          <div>
+            <h2>Photos</h2>
+            <p class="body-text">Add photos if they help explain the job, items, access, parking, or anything awkward.</p>
+            <div style="height: 10px;"></div>
+            <input id="photoInput" class="file-input hidden" type="file" multiple accept="image/*" />
+            <input id="cameraInput" class="file-input hidden" type="file" accept="image/*" capture="environment" />
+            <div class="actions">
+              <button id="takePhotoButton" type="button" class="secondary">Take photo</button>
+              <button id="choosePhotosButton" type="button" class="secondary">Choose photos</button>
+            </div>
+            <div id="photoList" class="file-list"></div>
+            <div id="photoGrid" class="photo-grid"></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div>
+            <h2>Preferred time (optional)</h2>
+            <input id="preferredDate" class="field" type="date" />
+            <div style="height: 10px;"></div>
+            <select id="preferredTimeWindow" class="select">
+              <option value="morning">Morning</option>
+              <option value="afternoon">Afternoon</option>
+              <option value="evening">Evening</option>
+              <option value="anytime" selected>Anytime / Flexible</option>
+            </select>
+            <label class="toggle-row" for="preferredIsFlexible">
+              <input id="preferredIsFlexible" type="checkbox" />
+              <span>Timing is flexible</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="questionsSection" class="section"></div>
+
+        <div class="section">
+          <div>
+            <h2>Anything else we should know?</h2>
+            <textarea
+              id="preferredTimingNote"
+              class="field"
+              placeholder="Access notes, parking information, gate codes, timing preferences or anything else that may help..."
+              autocomplete="off"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="submitButton" type="button" class="primary full">Submit request</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="successCard" class="card strong hidden">
+      <h1 style="font-size: clamp(28px, 4.2vw, 40px);">Request sent</h1>
+      <div style="height: 12px;"></div>
+      <p class="body-text">Thank you. We've received your request and will get back to you with a quote as soon as possible.</p>
+      <div id="successRequestId" class="helper" style="margin-top: 12px;"></div>
+    </section>
+
+    <p class="footer">Powered by Van Mate</p>
+  </main>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD1FUKyO00FC0IYXfZzgPCE2SNooQF4jvg",
+      authDomain: "vanmate-56eac.firebaseapp.com",
+      projectId: "vanmate-56eac",
+      storageBucket: "vanmate-56eac.firebasestorage.app",
+      messagingSenderId: "406913319321",
+      appId: "1:406913319321:web:7b451a037012bd6d9bd308",
+      measurementId: "G-1W5Z7DQTCY"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const functions = firebase.app().functions("us-central1");
+    const submitBookingLinkRequest = functions.httpsCallable("submitBookingLinkRequest");
+    const params = new URLSearchParams(window.location.search);
+    const ownerUid = String(params.get("owner") || "").trim();
+
+    const pageTitle = document.getElementById("pageTitle");
+    const pageIntro = document.getElementById("pageIntro");
+    const customHeadingPill = document.getElementById("customHeadingPill");
+    const banner = document.getElementById("banner");
+    const formCard = document.getElementById("formCard");
+    const businessName = document.getElementById("businessName");
+    const logoShell = document.getElementById("logoShell");
+    const singleServiceCard = document.getElementById("singleServiceCard");
+    const serviceSelect = document.getElementById("serviceSelect");
+    const serviceDescription = document.getElementById("serviceDescription");
+    const serviceFields = document.getElementById("serviceFields");
+    const customerName = document.getElementById("customerName");
+    const phoneNumber = document.getElementById("phoneNumber");
+    const customerEmail = document.getElementById("customerEmail");
+    const addressSection = document.getElementById("addressSection");
+    const address = document.getElementById("address");
+    const postcode = document.getElementById("postcode");
+    const photosSection = document.getElementById("photosSection");
+    const takePhotoButton = document.getElementById("takePhotoButton");
+    const choosePhotosButton = document.getElementById("choosePhotosButton");
+    const photoInput = document.getElementById("photoInput");
+    const cameraInput = document.getElementById("cameraInput");
+    const photoList = document.getElementById("photoList");
+    const photoGrid = document.getElementById("photoGrid");
+    const preferredDate = document.getElementById("preferredDate");
+    const preferredTimeWindow = document.getElementById("preferredTimeWindow");
+    const preferredIsFlexible = document.getElementById("preferredIsFlexible");
+    const preferredTimingNote = document.getElementById("preferredTimingNote");
+    const questionsSection = document.getElementById("questionsSection");
+    const submitButton = document.getElementById("submitButton");
+    const successCard = document.getElementById("successCard");
+    const successRequestId = document.getElementById("successRequestId");
+
+    const state = {
+      config: null,
+      selectedServiceId: "",
+      submitting: false,
+      submitted: false,
+      answers: {},
+      selectedPhotos: [],
+    };
+    const PHOTO_LIMIT = 5;
+    const DEPRECATED_DUPLICATE_PRESET_IDS = new Set([
+      "prefill_photos_items",
+      "prefill_photos_access",
+      "prefill_photos_parking",
+      "prefill_photos_awkward_items",
+      "prefill_customer_contact_name",
+      "prefill_customer_contact_phone",
+      "prefill_customer_contact_email",
+    ]);
+
+    function showBanner(message) {
+      banner.textContent = message;
+      banner.classList.add("show");
+    }
+
+    function clearBanner() {
+      banner.textContent = "";
+      banner.classList.remove("show");
+    }
+
+    function focusAndScrollTo(target) {
+      if (!target) {
+        return;
+      }
+      try {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (_) {}
+      if (typeof target.focus === "function") {
+        setTimeout(() => {
+          try {
+            target.focus({ preventScroll: true });
+          } catch (_) {
+            try {
+              target.focus();
+            } catch (_) {}
+          }
+        }, 120);
+      }
+    }
+
+    function firstInteractiveChild(container) {
+      if (!container) {
+        return null;
+      }
+      return container.querySelector("input, textarea, select, button");
+    }
+
+    function failValidation({ message, field, reason, serviceId }) {
+      console.warn("[BookingLink] validation failed", {
+        reason,
+        serviceId: readText(serviceId),
+        message,
+      });
+      showBanner(message);
+      focusAndScrollTo(field);
+      return false;
+    }
+
+    function readText(value) {
+      return String(value || "").trim();
+    }
+
+    function normalizePostcode(value) {
+      const upper = String(value || "").toUpperCase();
+      return upper.replace(/[^A-Z0-9 ]/g, "").trim();
+    }
+
+    function effectiveBusinessName(value) {
+      const cleaned = readText(value);
+      if (!cleaned) {
+        return "";
+      }
+      if (cleaned.toLowerCase() === "van mate driver") {
+        return "";
+      }
+      return cleaned;
+    }
+
+    function isHttpUrl(value) {
+      return /^https?:\/\//i.test(readText(value));
+    }
+
+    function selectedService() {
+      if (!state.config) {
+        return null;
+      }
+      return (state.config.services || []).find((item) => readText(item.id) === state.selectedServiceId) || null;
+    }
+
+    function linkedQuestionsForService(service) {
+      if (!service || !Array.isArray(service.linkedQuestions)) {
+        return [];
+      }
+      return service.linkedQuestions.filter((question) => {
+        const id = readText(question && question.id);
+        if (!id || DEPRECATED_DUPLICATE_PRESET_IDS.has(id)) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    function renderLogoPlaceholder() {
+      logoShell.innerHTML = '<span style="font-size: 22px;">&#127970;</span>';
+    }
+
+    function renderLogo(logoValue, businessTitle) {
+      if (!isHttpUrl(logoValue)) {
+        renderLogoPlaceholder();
+        return;
+      }
+      const img = document.createElement("img");
+      img.src = logoValue;
+      img.alt = `${businessTitle} logo`;
+      img.loading = "lazy";
+      img.addEventListener("error", renderLogoPlaceholder, { once: true });
+      logoShell.innerHTML = "";
+      logoShell.appendChild(img);
+    }
+
+    function setMetaTag(attribute, key, value) {
+      const text = readText(value);
+      if (!text) {
+        return;
+      }
+      let tag = document.head.querySelector(`meta[${attribute}="${key}"]`);
+      if (!tag) {
+        tag = document.createElement("meta");
+        tag.setAttribute(attribute, key);
+        document.head.appendChild(tag);
+      }
+      tag.setAttribute("content", text);
+    }
+
+    function updatePageMetadata(mainTitle, intro) {
+      const titleText = readText(mainTitle);
+      const introText =
+        readText(intro) ||
+        "Choose a service and tell us what you need. We'll get back to you with a quote.";
+      const brandedTitle =
+        titleText && titleText.toLowerCase() !== "booking request"
+          ? `${titleText} Booking Link`
+          : "Booking Request";
+      document.title = brandedTitle;
+      setMetaTag("name", "description", introText);
+      setMetaTag("property", "og:title", brandedTitle);
+      setMetaTag("property", "og:description", introText);
+      setMetaTag("name", "twitter:title", brandedTitle);
+      setMetaTag("name", "twitter:description", introText);
+    }
+
+    function renderSelectedPhotos() {
+      const photos = state.selectedPhotos || [];
+      if (photos.length === 0) {
+        photoList.textContent = "No photos added.";
+        photoGrid.innerHTML = "";
+        return;
+      }
+      photoList.textContent = `${photos.length} photo${photos.length === 1 ? "" : "s"} selected (max ${PHOTO_LIMIT}).`;
+      photoGrid.innerHTML = "";
+      photos.forEach((photo, index) => {
+        const item = document.createElement("div");
+        item.className = "photo-item";
+        const image = document.createElement("img");
+        image.src = photo.previewUrl;
+        image.alt = photo.fileName;
+        item.appendChild(image);
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "photo-remove";
+        remove.textContent = "x";
+        remove.addEventListener("click", () => {
+          removePhotoAt(index);
+        });
+        item.appendChild(remove);
+        photoGrid.appendChild(item);
+      });
+    }
+
+    function removePhotoAt(index) {
+      const current = state.selectedPhotos[index];
+      if (current && current.previewUrl) {
+        URL.revokeObjectURL(current.previewUrl);
+      }
+      state.selectedPhotos = state.selectedPhotos.filter((_, i) => i !== index);
+      renderSelectedPhotos();
+    }
+
+    function resizeImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const image = new Image();
+          image.onload = () => {
+            const maxDimension = 1600;
+            let { width, height } = image;
+            if (width > maxDimension || height > maxDimension) {
+              const ratio = Math.min(maxDimension / width, maxDimension / height);
+              width = Math.max(1, Math.round(width * ratio));
+              height = Math.max(1, Math.round(height * ratio));
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext("2d");
+            if (!context) {
+              reject(new Error("Could not process image."));
+              return;
+            }
+            context.drawImage(image, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.78);
+            const dataBase64 = dataUrl.split(",")[1] || "";
+            if (!dataBase64) {
+              reject(new Error("Could not process image."));
+              return;
+            }
+            resolve({
+              fileName: readText(file.name) || `photo_${Date.now()}.jpg`,
+              contentType: "image/jpeg",
+              dataBase64,
+              previewUrl: URL.createObjectURL(file),
+            });
+          };
+          image.onerror = () => reject(new Error("Could not read image."));
+          image.src = String(reader.result || "");
+        };
+        reader.onerror = () => reject(new Error("Could not read file."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handlePhotoInputChange(event) {
+      const inputElement = event && event.target ? event.target : photoInput;
+      const incomingFiles = Array.from((inputElement && inputElement.files) || []);
+      if (incomingFiles.length === 0) {
+        return;
+      }
+      const remainingSlots = PHOTO_LIMIT - state.selectedPhotos.length;
+      if (remainingSlots <= 0) {
+        showBanner(`You can add up to ${PHOTO_LIMIT} photos.`);
+        if (inputElement) {
+          inputElement.value = "";
+        }
+        return;
+      }
+      const acceptedFiles = incomingFiles.slice(0, remainingSlots);
+      try {
+        const processed = [];
+        for (const file of acceptedFiles) {
+          if (!String(file.type || "").startsWith("image/")) {
+            continue;
+          }
+          processed.push(await resizeImageFile(file));
+        }
+        state.selectedPhotos = [...state.selectedPhotos, ...processed];
+        renderSelectedPhotos();
+      } catch (error) {
+        showBanner("Could not process one or more photos. Please try again.");
+      } finally {
+        if (inputElement) {
+          inputElement.value = "";
+        }
+      }
+    }
+
+    function renderQuestion(question) {
+      const card = document.createElement("div");
+      card.className = "question";
+      card.dataset.questionId = readText(question.id);
+      card.dataset.answerType = readText(question.answerType);
+
+      const title = document.createElement("div");
+      title.className = "question-title";
+      title.textContent = question.questionText;
+      card.appendChild(title);
+
+      const helper = readText(question.helperText);
+      const answerType = readText(question.answerType);
+      const currentValue = readText(state.answers[question.id]);
+
+      if (answerType === "yes_no") {
+        const row = document.createElement("div");
+        row.className = "choice-row";
+        ["Yes", "No"].forEach((label) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `choice-btn${currentValue === label ? " active" : ""}`;
+          button.textContent = label;
+          button.addEventListener("click", () => {
+            state.answers[question.id] = label;
+            renderServiceFields();
+          });
+          row.appendChild(button);
+        });
+        card.appendChild(row);
+      } else if (answerType === "multiple_choice") {
+        const select = document.createElement("select");
+        select.className = "select";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Select answer";
+        select.appendChild(placeholder);
+        (question.choiceOptions || []).forEach((choice) => {
+          const option = document.createElement("option");
+          option.value = choice;
+          option.textContent = choice;
+          option.selected = currentValue === choice;
+          select.appendChild(option);
+        });
+        select.addEventListener("change", () => {
+          state.answers[question.id] = readText(select.value);
+        });
+        card.appendChild(select);
+      } else {
+        const input =
+          answerType === "long_text"
+            ? document.createElement("textarea")
+            : document.createElement("input");
+        input.className = "field";
+        input.value = currentValue;
+        if (input.tagName === "INPUT") {
+          input.type =
+            answerType === "date"
+              ? "date"
+              : answerType === "time"
+              ? "time"
+              : "text";
+        }
+        input.placeholder =
+          answerType === "photo_requested" ? "Add a short description" : "Type your answer";
+        input.autocomplete = "off";
+        input.autocorrect = "off";
+        input.spellcheck = false;
+        input.addEventListener("input", () => {
+          state.answers[question.id] = readText(input.value);
+        });
+        card.appendChild(input);
+      }
+
+      if (helper) {
+        const helperText = document.createElement("div");
+        helperText.className = "helper";
+        helperText.style.marginTop = "8px";
+        helperText.textContent = helper;
+        card.appendChild(helperText);
+      }
+
+      return card;
+    }
+
+    function renderServiceFields() {
+      const service = selectedService();
+      serviceFields.classList.toggle("hidden", !service);
+      questionsSection.innerHTML = "";
+
+      if (!service) {
+        addressSection.classList.add("hidden");
+        photosSection.classList.add("hidden");
+        serviceDescription.textContent = "";
+        state.selectedPhotos.forEach((photo) => {
+          if (photo.previewUrl) {
+            URL.revokeObjectURL(photo.previewUrl);
+          }
+        });
+        state.selectedPhotos = [];
+        renderSelectedPhotos();
+        return;
+      }
+
+      serviceDescription.textContent = readText(service.description);
+      addressSection.classList.toggle("hidden", !service.requireAddress);
+      photosSection.classList.toggle("hidden", !service.requestPhotos);
+      const linkedQuestions = linkedQuestionsForService(service);
+      console.log("[BookingLink] linked questions loaded", {
+        serviceId: readText(service.id),
+        serviceName: readText(service.name),
+        linkedQuestionsCount: linkedQuestions.length,
+        linkedQuestionIds: linkedQuestions.map((question) => readText(question.id)).filter(Boolean),
+      });
+      if (!service.requestPhotos && state.selectedPhotos.length > 0) {
+        state.selectedPhotos.forEach((photo) => {
+          if (photo.previewUrl) {
+            URL.revokeObjectURL(photo.previewUrl);
+          }
+        });
+        state.selectedPhotos = [];
+      }
+      renderSelectedPhotos();
+
+      linkedQuestions.forEach((question) => {
+        questionsSection.appendChild(renderQuestion(question));
+      });
+    }
+
+    function renderConfig() {
+      const config = state.config;
+      if (!config) {
+        return;
+      }
+
+      const businessTitle = effectiveBusinessName(config.businessName);
+      const mainTitle = businessTitle || "Booking Request";
+      const customHeading = readText(config.title);
+      const showCustomHeading =
+        customHeading &&
+        customHeading.toLowerCase() !== mainTitle.toLowerCase();
+      const introText =
+        readText(config.introText) ||
+        "Choose a service and tell us what you need. We'll get back to you with a quote.";
+      pageTitle.textContent = showCustomHeading ? customHeading : "Book a service";
+      pageIntro.classList.remove("hidden");
+      pageIntro.textContent = introText;
+      businessName.textContent = mainTitle;
+      updatePageMetadata(mainTitle, introText);
+
+      customHeadingPill.textContent = "";
+      customHeadingPill.classList.add("hidden");
+
+      const logoUrl = readText(config.logoUrl);
+      const logoPath = readText(config.logoPath);
+      renderLogo(logoUrl || logoPath, mainTitle);
+
+      const services = Array.isArray(config.services) ? config.services : [];
+      if (services.length === 1) {
+        state.selectedServiceId = readText(services[0].id);
+        singleServiceCard.textContent = readText(services[0].name);
+        singleServiceCard.classList.remove("hidden");
+        serviceSelect.classList.add("hidden");
+      } else {
+        singleServiceCard.classList.add("hidden");
+        serviceSelect.classList.remove("hidden");
+        serviceSelect.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Choose a service";
+        serviceSelect.appendChild(placeholder);
+        services.forEach((service) => {
+          const option = document.createElement("option");
+          option.value = readText(service.id);
+          option.textContent = readText(service.name);
+          serviceSelect.appendChild(option);
+        });
+        serviceSelect.value = state.selectedServiceId;
+      }
+
+      renderServiceFields();
+      formCard.classList.remove("hidden");
+    }
+
+    function showSubmittedHeader() {
+      const brandedName = readText(businessName.textContent) || "Booking Link";
+      pageTitle.textContent = brandedName;
+      pageIntro.classList.add("hidden");
+      customHeadingPill.textContent = "";
+      customHeadingPill.classList.add("hidden");
+    }
+
+    function validateSubmission() {
+      clearBanner();
+      const service = selectedService();
+      if (!service) {
+        return failValidation({
+          message: "Please choose a service.",
+          field: serviceSelect.classList.contains("hidden") ? singleServiceCard : serviceSelect,
+          reason: "missing_service",
+          serviceId: "",
+        });
+      }
+      if (!readText(customerName.value)) {
+        return failValidation({
+          message: "Please enter your full name.",
+          field: customerName,
+          reason: "missing_name",
+          serviceId: service.id,
+        });
+      }
+      if (!readText(phoneNumber.value)) {
+        return failValidation({
+          message: "Please enter your phone number.",
+          field: phoneNumber,
+          reason: "missing_phone",
+          serviceId: service.id,
+        });
+      }
+      if (service.requireAddress && !readText(address.value) && !normalizePostcode(postcode.value)) {
+        return failValidation({
+          message: "Please add an address or postcode for this service.",
+          field: address,
+          reason: "missing_address_or_postcode",
+          serviceId: service.id,
+        });
+      }
+      const linkedQuestions = linkedQuestionsForService(service);
+      for (const question of linkedQuestions) {
+        const questionId = readText(question.id);
+        const questionText = readText(question.questionText);
+        const answer = readText(state.answers[questionId]);
+        if (!answer) {
+          const card = questionsSection.querySelector(`.question[data-question-id="${questionId}"]`);
+          return failValidation({
+            message: questionText
+              ? `Please answer: ${questionText}`
+              : "Please answer the required question.",
+            field: firstInteractiveChild(card) || card || questionsSection,
+            reason: "missing_linked_question_answer",
+            serviceId: service.id,
+          });
+        }
+      }
+      console.log("[BookingLink] validation passed", {
+        serviceId: readText(service.id),
+        serviceName: readText(service.name),
+        linkedQuestionsCount: linkedQuestions.length,
+      });
+      return true;
+    }
+
+    async function submitRequest() {
+      if (state.submitting) {
+        console.warn("[BookingLink] submit blocked", { reason: "already_submitting" });
+        return;
+      }
+      if (state.submitted) {
+        console.warn("[BookingLink] submit blocked", { reason: "already_submitted" });
+        return;
+      }
+      if (!validateSubmission()) {
+        console.warn("[BookingLink] submit blocked", { reason: "validation_failed" });
+        return;
+      }
+      const service = selectedService();
+      if (!service) {
+        console.warn("[BookingLink] submit blocked", { reason: "missing_service_after_validation" });
+        return;
+      }
+
+      const collectedAnswers = linkedQuestionsForService(service)
+        .map((question, index) => ({
+          questionId: readText(question.id),
+          questionText: readText(question.questionText),
+          type: readText(question.answerType),
+          answerType: readText(question.answerType),
+          category: readText(question.category),
+          answer: readText(state.answers[question.id]),
+          answerValue: readText(state.answers[question.id]),
+          order: index,
+        }))
+        .filter((item) => item.questionId && item.questionText && item.answerValue);
+      collectedAnswers.forEach((item, index) => {
+        console.log("[BookingLink] answer collected", {
+          index,
+          questionId: item.questionId,
+          questionText: item.questionText,
+          type: item.type || item.answerType,
+          category: item.category,
+          order: item.order,
+          answer: item.answerValue,
+        });
+      });
+
+      console.log("[BookingLink] submit tapped", {
+        ownerUid,
+        serviceId: readText(service.id),
+        serviceName: readText(service.name),
+        customerName: readText(customerName.value),
+        phoneNumber: readText(phoneNumber.value),
+        answersCollected: collectedAnswers.length,
+        selectedPhotoCount: (state.selectedPhotos || []).length,
+      });
+
+      state.submitting = true;
+      submitButton.disabled = true;
+      submitButton.textContent = "Sending request...";
+      submitButton.setAttribute("aria-busy", "true");
+
+      try {
+        console.log("[BookingLink] callable request start", {
+          functionName: "submitBookingLinkRequest",
+          serviceId: readText(service.id),
+          answersCount: collectedAnswers.length,
+          selectedPhotoCount: (state.selectedPhotos || []).length,
+          preferredDate: readText(preferredDate.value) || null,
+          preferredTimeWindow: readText(preferredTimeWindow.value),
+          preferredIsFlexible: Boolean(preferredIsFlexible.checked),
+          additionalNotes: readText(preferredTimingNote.value),
+        });
+        const response = await submitBookingLinkRequest({
+          ownerUid,
+          serviceId: readText(service.id),
+          serviceName: readText(service.name),
+          customerName: readText(customerName.value),
+          phoneNumber: readText(phoneNumber.value),
+          customerEmail: readText(customerEmail.value),
+          address: readText(address.value),
+          postcode: normalizePostcode(postcode.value),
+          preferredDate: readText(preferredDate.value) || null,
+          preferredDateAt: readText(preferredDate.value) || null,
+          preferredTimeWindow: readText(preferredTimeWindow.value),
+          preferredWindow: readText(preferredTimeWindow.value),
+          preferredIsFlexible: Boolean(preferredIsFlexible.checked),
+          timingFlexible: Boolean(preferredIsFlexible.checked),
+          preferredTimingNote: "",
+          timingNote: "",
+          additionalNotes: readText(preferredTimingNote.value),
+          photoFileNames: (state.selectedPhotos || []).map((photo) => readText(photo.fileName)).filter(Boolean),
+          photos: (state.selectedPhotos || []).map((photo) => ({
+            fileName: readText(photo.fileName),
+            contentType: readText(photo.contentType),
+            dataBase64: readText(photo.dataBase64),
+          })),
+          answers: collectedAnswers,
+        });
+
+        console.log("[BookingLink] submit success", {
+          requestId: response && response.data ? response.data.requestId : "",
+          photoUploadFailed: response && response.data ? Boolean(response.data.photoUploadFailed) : false,
+          photosUploadedCount: response && response.data ? Number(response.data.photosUploadedCount || 0) : 0,
+          requestedPhotoCount: response && response.data ? Number(response.data.requestedPhotoCount || 0) : 0,
+        });
+        state.submitting = false;
+        state.submitted = true;
+        formCard.classList.add("hidden");
+        showSubmittedHeader();
+        successCard.classList.remove("hidden");
+        if (response && response.data && response.data.photoUploadFailed) {
+          showBanner("Some photos could not be uploaded. Your request was sent without those photos.");
+        }
+        successRequestId.textContent = response && response.data && response.data.requestId
+          ? `Request ID: ${response.data.requestId}`
+          : "";
+      } catch (error) {
+        const errorCode = readText(error && error.code);
+        const errorMessage = readText(error && error.message);
+        const errorDetails = readText(error && error.details);
+        const mergedError = errorDetails || errorMessage || "Could not submit request. Please try again.";
+        console.error("[BookingLink] callable request failure", {
+          code: errorCode,
+          message: errorMessage,
+          details: errorDetails,
+          error,
+        });
+        state.submitting = false;
+        submitButton.disabled = false;
+        submitButton.textContent = "Submit request";
+        submitButton.removeAttribute("aria-busy");
+        if (mergedError.toLowerCase().includes("photo")) {
+          showBanner("Could not upload photos, please remove photos and try again.");
+        } else {
+          showBanner(mergedError);
+        }
+        focusAndScrollTo(submitButton);
+        return;
+      }
+      submitButton.removeAttribute("aria-busy");
+    }
+
+    async function loadBookingLink() {
+      if (!ownerUid) {
+        showBanner("This Booking Link is missing the owner.");
+        pageTitle.textContent = "Booking Link unavailable";
+        return;
+      }
+
+      try {
+        const snapshot = await db.collection("public_booking_links").doc(ownerUid).get();
+        if (!snapshot.exists) {
+          showBanner("This Booking Link could not be found.");
+          pageTitle.textContent = "Booking Link unavailable";
+          return;
+        }
+        const config = snapshot.data() || {};
+        if (config.isActive === false) {
+          showBanner("This Booking Link is currently inactive.");
+          const fallbackTitle =
+            effectiveBusinessName(config.businessName) || "Booking Request";
+          pageTitle.textContent = fallbackTitle;
+          updatePageMetadata(fallbackTitle, "");
+          return;
+        }
+        const services = Array.isArray(config.services) ? config.services.filter((item) => readText(item.id) && readText(item.name)) : [];
+        if (services.length === 0) {
+          showBanner("This Booking Link does not have any active services yet.");
+          const fallbackTitle =
+            effectiveBusinessName(config.businessName) || "Booking Request";
+          pageTitle.textContent = fallbackTitle;
+          updatePageMetadata(fallbackTitle, "");
+          return;
+        }
+        state.config = { ...config, services };
+        renderConfig();
+      } catch (error) {
+        showBanner("Could not load this Booking Link right now.");
+        pageTitle.textContent = "Booking Link unavailable";
+      }
+    }
+
+    serviceSelect.addEventListener("change", () => {
+      state.selectedServiceId = readText(serviceSelect.value);
+      renderServiceFields();
+    });
+    postcode.addEventListener("input", () => {
+      const normalized = normalizePostcode(postcode.value);
+      if (postcode.value !== normalized) {
+        postcode.value = normalized;
+      }
+    });
+    takePhotoButton.addEventListener("click", () => {
+      if (state.selectedPhotos.length >= PHOTO_LIMIT) {
+        showBanner(`You can add up to ${PHOTO_LIMIT} photos.`);
+        return;
+      }
+      cameraInput.click();
+    });
+    choosePhotosButton.addEventListener("click", () => {
+      if (state.selectedPhotos.length >= PHOTO_LIMIT) {
+        showBanner(`You can add up to ${PHOTO_LIMIT} photos.`);
+        return;
+      }
+      photoInput.click();
+    });
+    photoInput.addEventListener("change", handlePhotoInputChange);
+    cameraInput.addEventListener("change", handlePhotoInputChange);
+    submitButton.addEventListener("click", submitRequest);
+
+    loadBookingLink();
+  </script>
+</body>
+</html>

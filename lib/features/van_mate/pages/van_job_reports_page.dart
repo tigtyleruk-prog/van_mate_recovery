@@ -1,17 +1,20 @@
-import 'dart:ui';
-
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../helpers/app_theme.dart';
+import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_job_report_pdf_helper.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_business_profile.dart';
+import '../models/van_invoice_history_entry.dart';
 import '../models/van_job_report.dart';
-import '../pages/driver_customer_reply_mock_page.dart';
 import '../services/van_business_profile_storage.dart';
+import '../widgets/van_back_business_hub_buttons.dart';
+import 'driver_customer_reply_mock_page.dart';
 
 Future<void> openVanJobReportsPage(BuildContext context) {
   return Navigator.of(
@@ -26,33 +29,50 @@ class VanJobReportsPage extends StatefulWidget {
   State<VanJobReportsPage> createState() => _VanJobReportsPageState();
 }
 
-class _VanJobReportsPageState extends State<VanJobReportsPage> {
+class _VanJobReportsPageState extends State<VanJobReportsPage>
+    with WidgetsBindingObserver {
   final VanBusinessProfileStorage _storage = VanBusinessProfileStorage.instance;
-  final ScrollController _scrollController = ScrollController();
-  final GlobalKey _previewKey = GlobalKey();
-  VanBusinessProfile? _businessProfile;
-  VanJobReportRange _range = VanJobReportRange.today;
+
+  VanBusinessProfile _businessProfile = const VanBusinessProfile.defaults();
   bool _loading = true;
   bool _exporting = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadProfile());
+    WidgetsBinding.instance.addObserver(this);
+    DriverReplyMockState.instance.addListener(_handleStateChanged);
+    unawaited(_loadData());
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    DriverReplyMockState.instance.removeListener(_handleStateChanged);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  Future<void> _loadProfile() async {
-    final profile = await _storage.load();
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_loadData());
+    }
+  }
+
+  void _handleStateChanged() {
     if (!mounted) {
       return;
     }
+    setState(() {});
+  }
 
+  Future<void> _loadData() async {
+    final profile = await _storage.loadCanonicalProfile();
+    await DriverReplyMockState.instance.loadInvoicesFromCloud();
+    await DriverReplyMockState.instance.refreshJobsFromCloud(forceServer: true);
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _businessProfile = profile;
       _loading = false;
@@ -60,139 +80,329 @@ class _VanJobReportsPageState extends State<VanJobReportsPage> {
   }
 
   void _showSnack(String message) {
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
-  DateTime _startOfDay(DateTime date) =>
-      DateTime(date.year, date.month, date.day);
+  List<VanInvoiceHistoryEntry> get _allInvoices =>
+      DriverReplyMockState.instance.savedInvoiceHistory.toList(growable: false);
 
-  DateTime _startOfWeek(DateTime date) {
-    final start = _startOfDay(date).subtract(Duration(days: date.weekday - 1));
-    return start;
+  List<DriverCustomerReplyMockData> get _completedJobs =>
+      DriverReplyMockState.instance.completedJobs.toList(growable: false);
+
+  DateTime? _parseInvoiceDate(String value) {
+    final text = sanitizeVanText(value).trim();
+    if (text.isEmpty) {
+      return null;
+    }
+
+    final direct = DateTime.tryParse(text);
+    if (direct != null) {
+      return direct;
+    }
+
+    final slash = RegExp(
+      r'^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$',
+    ).firstMatch(text);
+    if (slash != null) {
+      final day = int.tryParse(slash.group(1) ?? '');
+      final month = int.tryParse(slash.group(2) ?? '');
+      final parsedYear = int.tryParse(slash.group(3) ?? '');
+      if (day == null || month == null || parsedYear == null) {
+        return null;
+      }
+      final year = parsedYear < 100 ? 2000 + parsedYear : parsedYear;
+      final built = DateTime(year, month, day);
+      if (built.year == year && built.month == month && built.day == day) {
+        return built;
+      }
+    }
+
+    final words = RegExp(
+      r'^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$',
+    ).firstMatch(text);
+    if (words != null) {
+      final day = int.tryParse(words.group(1) ?? '');
+      final month = _monthNumber(words.group(2) ?? '');
+      final year = int.tryParse(words.group(3) ?? '');
+      if (day == null || month == null || year == null) {
+        return null;
+      }
+      final built = DateTime(year, month, day);
+      if (built.year == year && built.month == month && built.day == day) {
+        return built;
+      }
+    }
+
+    return null;
   }
 
-  DateTime? _completedAtForReport(DriverCustomerReplyMockData reply) {
-    return reply.completedAt ??
-        reply.scheduledAtOrParsed ??
-        reply.updatedAt ??
-        reply.createdAt;
+  int? _monthNumber(String raw) {
+    const months = <String, int>{
+      'jan': 1,
+      'january': 1,
+      'feb': 2,
+      'february': 2,
+      'mar': 3,
+      'march': 3,
+      'apr': 4,
+      'april': 4,
+      'may': 5,
+      'jun': 6,
+      'june': 6,
+      'jul': 7,
+      'july': 7,
+      'aug': 8,
+      'august': 8,
+      'sep': 9,
+      'sept': 9,
+      'september': 9,
+      'oct': 10,
+      'october': 10,
+      'nov': 11,
+      'november': 11,
+      'dec': 12,
+      'december': 12,
+    };
+    return months[raw.trim().toLowerCase()];
   }
 
-  DateTime? _scheduledAtForReport(DriverCustomerReplyMockData reply) {
-    return reply.scheduledAtOrParsed;
+  DateTime? _invoiceDateFor(VanInvoiceHistoryEntry entry) {
+    return _parseInvoiceDate(entry.draft.invoiceDate) ??
+        entry.createdAt ??
+        entry.savedAt;
   }
 
-  VanJobReportData _buildReportData() {
-    final profile = _businessProfile ?? const VanBusinessProfile.defaults();
+  DateTime? _dueDateFor(VanInvoiceHistoryEntry entry) {
+    return _parseInvoiceDate(entry.draft.dueDate);
+  }
+
+  DateTime _paidDateFor(VanInvoiceHistoryEntry entry) {
+    return entry.draft.paidAt ?? entry.updatedAt ?? entry.savedAt;
+  }
+
+  DateTime _completedDateFor(DriverCustomerReplyMockData job) {
+    return job.completedAt ??
+        job.updatedAt ??
+        job.scheduledAtOrParsed ??
+        job.createdAt ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  bool _isThisMonth(DateTime date) {
     final now = DateTime.now();
-    final rangeStart = _range == VanJobReportRange.today
-        ? _startOfDay(now)
-        : _startOfWeek(now);
-    final rangeEndExclusive = rangeStart.add(
-      Duration(days: _range == VanJobReportRange.today ? 1 : 7),
+    return date.year == now.year && date.month == now.month;
+  }
+
+  bool _isThisYear(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year;
+  }
+
+  double _sumInvoices(Iterable<VanInvoiceHistoryEntry> invoices) {
+    return invoices.fold<double>(0, (sum, entry) => sum + entry.draft.totalDue);
+  }
+
+  List<VanInvoiceHistoryEntry> _paidInvoicesForMonth() {
+    return _allInvoices
+        .where((entry) {
+          if (!entry.draft.isPaid) {
+            return false;
+          }
+          return _isThisMonth(_paidDateFor(entry));
+        })
+        .toList(growable: false);
+  }
+
+  List<VanInvoiceHistoryEntry> _paidInvoicesForYear() {
+    return _allInvoices
+        .where((entry) {
+          if (!entry.draft.isPaid) {
+            return false;
+          }
+          return _isThisYear(_paidDateFor(entry));
+        })
+        .toList(growable: false);
+  }
+
+  List<VanInvoiceHistoryEntry> _unpaidInvoicesForMonth() {
+    return _allInvoices
+        .where((entry) {
+          if (entry.draft.isPaid) {
+            return false;
+          }
+          final invoiceDate = _invoiceDateFor(entry);
+          return invoiceDate != null && _isThisMonth(invoiceDate);
+        })
+        .toList(growable: false);
+  }
+
+  List<VanInvoiceHistoryEntry> _unpaidInvoicesForYear() {
+    return _allInvoices
+        .where((entry) {
+          if (entry.draft.isPaid) {
+            return false;
+          }
+          final invoiceDate = _invoiceDateFor(entry);
+          return invoiceDate != null && _isThisYear(invoiceDate);
+        })
+        .toList(growable: false);
+  }
+
+  List<VanInvoiceHistoryEntry> get _allPaidInvoices =>
+      _allInvoices.where((entry) => entry.draft.isPaid).toList(growable: false);
+
+  List<VanInvoiceHistoryEntry> get _allUnpaidInvoices => _allInvoices
+      .where((entry) => entry.draft.isUnpaid)
+      .toList(growable: false);
+
+  String _jobStatusLabel(DriverCustomerReplyMockData job) {
+    final invoice = DriverReplyMockState.instance.invoiceForJob(
+      job.invoiceHistoryKey,
     );
+    if (invoice == null) {
+      return 'Completed';
+    }
+    return invoice.isPaid ? 'Paid' : 'Invoiced';
+  }
 
-    final entries = <VanJobReportEntry>[];
-    for (final reply in DriverReplyMockState.instance.jobs) {
-      if (reply.status != 'completed') {
-        continue;
-      }
+  String _jobInvoiceReference(DriverCustomerReplyMockData job) {
+    final invoice = DriverReplyMockState.instance.invoiceForJob(
+      job.invoiceHistoryKey,
+    );
+    final invoiceNumber = invoice?.invoiceNumber.trim() ?? '';
+    return invoiceNumber.isEmpty ? '-' : invoiceNumber;
+  }
 
-      final invoice = DriverReplyMockState.instance.invoiceForJob(
-        reply.invoiceHistoryKey,
-      );
-      final completedAt = _completedAtForReport(reply);
-      if (completedAt == null) {
-        continue;
-      }
+  String _jobAddress(DriverCustomerReplyMockData job) {
+    final address = job.address.trim();
+    final postcode = job.postcode.trim();
+    if (address.isEmpty && postcode.isEmpty) {
+      return '-';
+    }
+    if (address.isEmpty) {
+      return postcode;
+    }
+    if (postcode.isEmpty ||
+        address.toLowerCase().contains(postcode.toLowerCase())) {
+      return address;
+    }
+    return '$address, $postcode';
+  }
 
-      final scheduledAt = _scheduledAtForReport(reply);
-      if (completedAt.isBefore(rangeStart) ||
-          !completedAt.isBefore(rangeEndExclusive)) {
-        continue;
-      }
+  String _invoiceDueLabel(VanInvoiceHistoryEntry entry) {
+    final raw = sanitizeVanText(entry.draft.dueDate).trim();
+    if (raw.isEmpty) {
+      return 'Due on receipt';
+    }
+    final dueDate = _dueDateFor(entry);
+    return dueDate == null ? raw : formatDate(dueDate);
+  }
 
-      entries.add(
-        VanJobReportEntry(
-          customerName: reply.customerName,
-          jobTitle: reply.jobTitle,
-          jobDateLabel: reply.jobDateLabel,
-          completedAt: completedAt,
-          scheduledAt: scheduledAt,
-          address: reply.address,
-          phone: reply.phoneNumber,
-          exactPinSaved: reply.exactPinShared,
-          quoteAmount: reply.quoteAmount,
-          invoiceNumber: invoice?.invoiceNumber,
-          invoiceTotal: invoice?.totalDue,
-          mileageCharge: invoice?.mileageCharge ?? 0,
-          paymentStatus: invoice?.paymentStatus ?? 'unpaid',
-          estimatedMiles: invoice != null
-              ? double.tryParse(invoice.estimatedMiles.trim())
-              : 18.4,
-          notes: summarizeVanNotes(
-            invoice?.invoiceNotes.isNotEmpty == true
-                ? invoice!.invoiceNotes
-                : reply.additionalNotes,
+  Widget _buildShellCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          width: double.infinity,
+          padding: padding,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            color: Colors.white.withValues(alpha: 0.08),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
           ),
+          child: child,
         ),
-      );
-    }
-
-    return VanJobReportData(
-      businessProfile: profile,
-      range: _range,
-      generatedAt: now,
-      rangeStart: rangeStart,
-      rangeEndExclusive: rangeEndExclusive,
-      entries: entries,
+      ),
     );
   }
 
-  Future<void> _scrollToPreview() async {
-    final context = _previewKey.currentContext;
-    if (context == null) {
-      return;
-    }
-
-    await Scrollable.ensureVisible(
-      context,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOut,
-      alignment: 0.08,
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 
-  Future<void> _shareReportText(VanJobReportData report) async {
-    if (!report.hasEntries) {
-      _showSnack('No completed jobs yet.');
-      return;
-    }
-
-    try {
-      await SharePlus.instance.share(
-        ShareParams(
-          text: report.buildShareText(),
-          subject: 'Job report ${report.rangeLabel}',
-        ),
-      );
-    } catch (error) {
-      if (kDebugMode) {
-        debugPrint('Job report text share failed: $error');
-      }
-      if (mounted) {
-        _showSnack('Sharing is not available on this device.');
-      }
-    }
+  Widget _buildExportCard({
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    String? helperText,
+  }) {
+    return _buildShellCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.76),
+              fontSize: 13.2,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (helperText != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              helperText,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.62),
+                fontSize: 12.2,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: _exporting ? null : onTap,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: Text(_exporting ? 'Exporting...' : 'Export PDF'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4A7DFF),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Future<void> _exportReportPdf(VanJobReportData report) async {
-    if (!report.hasEntries || _exporting) {
-      if (!report.hasEntries) {
-        _showSnack('No completed jobs yet.');
-      }
+  Future<void> _exportReport(VanReportDocument document) async {
+    if (_exporting) {
       return;
     }
 
@@ -201,21 +411,19 @@ class _VanJobReportsPageState extends State<VanJobReportsPage> {
     });
 
     try {
-      final pdfPath = await buildVanJobReportPdfPath(report);
+      final pdfPath = await buildVanJobReportPdfPath(document);
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(pdfPath, name: _safeAttachmentName(report))],
-          text: 'Van Mate job report',
-          subject: 'Job report ${report.rangeLabel}',
+          files: [XFile(pdfPath)],
+          text: document.reportTitle,
+          subject: document.reportTitle,
         ),
       );
     } catch (error) {
       if (kDebugMode) {
-        debugPrint('Job report PDF export failed: $error');
+        debugPrint('Report PDF export failed: $error');
       }
-      if (mounted) {
-        _showSnack('Could not create report PDF.');
-      }
+      _showSnack('Could not create report PDF.');
     } finally {
       if (mounted) {
         setState(() {
@@ -225,619 +433,540 @@ class _VanJobReportsPageState extends State<VanJobReportsPage> {
     }
   }
 
-  String _safeAttachmentName(VanJobReportData report) {
-    final prefix = report.range == VanJobReportRange.today
-        ? formatVanDateForFile(report.rangeStart)
-        : 'Week-${formatVanDateForFile(report.rangeStart)}';
-    return 'VanMate-Job-Report-$prefix.pdf';
-  }
+  VanReportDocument _monthlyIncomeDocument() {
+    final paid = _paidInvoicesForMonth();
+    final unpaid = _unpaidInvoicesForMonth();
+    final completedJobs = _completedJobs
+        .where((job) => _isThisMonth(_completedDateFor(job)))
+        .toList(growable: false);
+    final now = DateTime.now();
 
-  Widget _buildShellCard({Key? key, required Widget child}) {
-    return KeyedSubtree(
-      key: key,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: 0.10),
-                  Colors.white.withValues(alpha: 0.05),
-                ],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.22),
-                  blurRadius: 24,
-                  offset: const Offset(0, 14),
-                ),
+    return VanReportDocument(
+      businessProfile: _businessProfile,
+      reportTitle: 'Monthly income report',
+      dateRangeLabel: '${_monthName(now.month)} ${now.year}',
+      generatedAt: now,
+      summaryLines: [
+        VanReportSummaryLine(
+          label: 'Paid invoice total',
+          value: formatCurrency(_sumInvoices(paid)),
+        ),
+        VanReportSummaryLine(
+          label: 'Unpaid invoice total',
+          value: formatCurrency(_sumInvoices(unpaid)),
+        ),
+        VanReportSummaryLine(
+          label: 'Completed jobs',
+          value: completedJobs.length.toString(),
+        ),
+      ],
+      sections: [
+        VanReportTableSection(
+          title: 'Paid invoices',
+          headers: const ['Invoice', 'Customer', 'Job', 'Amount', 'Paid date'],
+          rows: [
+            for (final entry in paid)
+              [
+                entry.draft.invoiceNumber.trim().isEmpty
+                    ? '--'
+                    : entry.draft.invoiceNumber.trim(),
+                entry.draft.customerName.trim().isEmpty
+                    ? 'Customer'
+                    : entry.draft.customerName.trim(),
+                entry.draft.jobReference.trim().isEmpty
+                    ? 'Job'
+                    : entry.draft.jobReference.trim(),
+                entry.draft.totalDueText,
+                formatDate(_paidDateFor(entry)),
               ],
-            ),
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required VoidCallback? onTap,
-    bool filled = false,
-  }) {
-    final button = filled
-        ? FilledButton.icon(
-            onPressed: onTap,
-            icon: Icon(icon),
-            label: Text(label),
-            style: FilledButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-          )
-        : OutlinedButton.icon(
-            onPressed: onTap,
-            icon: Icon(icon),
-            label: Text(label),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: BorderSide(color: color.withValues(alpha: 0.65)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-          );
-
-    return SizedBox(height: 48, child: button);
-  }
-
-  Widget _buildFilterChip(String label, VanJobReportRange range) {
-    final selected = _range == range;
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) {
-        setState(() {
-          _range = range;
-        });
-      },
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : Colors.white.withValues(alpha: 0.85),
-        fontWeight: FontWeight.w800,
-      ),
-      selectedColor: const Color(0xFF4A7DFF).withValues(alpha: 0.30),
-      backgroundColor: Colors.white.withValues(alpha: 0.08),
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-    );
-  }
-
-  Widget _buildComingSoonChip() {
-    return Chip(
-      label: Text(
-        'Custom later',
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.70),
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      backgroundColor: Colors.white.withValues(alpha: 0.04),
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-    );
-  }
-
-  Widget _buildSummaryCard(VanJobReportData report) {
-    return _buildShellCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Job reports',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Export completed jobs, quotes and invoices for the office.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.74),
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildFilterChip('Today', VanJobReportRange.today),
-              _buildFilterChip('This week', VanJobReportRange.thisWeek),
-              _buildComingSoonChip(),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildInfoChip(
-                'Completed ${report.completedJobsCount}',
-                Colors.white,
-              ),
-              _buildInfoChip(
-                'Quotes ${report.quotesSentCount}',
-                const Color(0xFF58D0A4),
-              ),
-              _buildInfoChip(
-                'Invoices ${report.invoicesCreatedCount}',
-                const Color(0xFF4A7DFF),
-              ),
-              _buildInfoChip(
-                'Quoted ${report.totalQuotedText}',
-                const Color(0xFFB48CFF),
-              ),
-              _buildInfoChip(
-                'Invoiced ${report.totalInvoicedText}',
-                const Color(0xFF4A7DFF),
-              ),
-              _buildInfoChip(
-                'Paid ${report.totalPaidText}',
-                const Color(0xFF58D0A4),
-              ),
-              _buildInfoChip(
-                'Outstanding ${report.totalOutstandingText}',
-                const Color(0xFFFFC56F),
-              ),
-              _buildInfoChip(
-                'Miles ${report.totalMilesText}',
-                const Color(0xFF58D0A4),
-              ),
-              _buildInfoChip(
-                'Mileage charges ${report.totalMileageChargesText}',
-                const Color(0xFFB48CFF),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Completed job value ${report.totalCompletedJobValueText}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.68),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoChip(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.20),
-        border: Border.all(color: color.withValues(alpha: 0.24)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.96),
-          fontSize: 11.2,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReportPreview(VanJobReportData report) {
-    if (!report.hasEntries) {
-      return _buildShellCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'No completed jobs yet.',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Completed jobs will appear in reports after they are marked completed.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.74),
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 14),
-            _buildActionButton(
-              label: 'Back to jobs',
-              icon: Icons.arrow_back_rounded,
-              color: const Color(0xFF4A7DFF),
-              filled: true,
-              onTap: () => Navigator.of(context).pop(),
-            ),
           ],
         ),
-      );
-    }
-
-    return _buildShellCard(
-      key: _previewKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            report.previewTitle,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            report.previewSubtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.74),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Completed jobs: ${report.completedJobsCount}',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Quotes sent: ${report.quotesSentCount}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Invoices created: ${report.invoicesCreatedCount}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Total quoted: ${report.totalQuotedText}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Total invoiced: ${report.totalInvoicedText}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Paid: ${report.totalPaidText}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Outstanding: ${report.totalOutstandingText}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Total miles: ${report.totalMilesText}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Mileage charges included: ${report.totalMileageChargesText}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Completed job value: ${report.totalCompletedJobValueText}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          const SizedBox(height: 14),
-          for (var i = 0; i < report.entries.length; i++) ...[
-            _buildJobPreviewCard(report.entries[i], index: i + 1),
-            if (i < report.entries.length - 1) const SizedBox(height: 10),
+        VanReportTableSection(
+          title: 'Unpaid invoices',
+          headers: const ['Invoice', 'Customer', 'Job', 'Amount', 'Due'],
+          rows: [
+            for (final entry in unpaid)
+              [
+                entry.draft.invoiceNumber.trim().isEmpty
+                    ? '--'
+                    : entry.draft.invoiceNumber.trim(),
+                entry.draft.customerName.trim().isEmpty
+                    ? 'Customer'
+                    : entry.draft.customerName.trim(),
+                entry.draft.jobReference.trim().isEmpty
+                    ? 'Job'
+                    : entry.draft.jobReference.trim(),
+                entry.draft.totalDueText,
+                _invoiceDueLabel(entry),
+              ],
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildJobPreviewCard(VanJobReportEntry entry, {required int index}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Colors.black.withValues(alpha: 0.14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$index. ${sanitizeVanText(entry.customerName).trim()} - ${sanitizeVanText(entry.jobTitle).trim()}',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            entry.completionLabel,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.74),
-            ),
-          ),
-          if (entry.scheduledLabel != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              entry.scheduledLabel!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.68),
-              ),
-            ),
-          ],
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _buildSmallChip(
-                entry.hasQuote
-                    ? 'Quote ${formatVanCurrency(entry.quoteAmount ?? 0)}'
-                    : 'Quote none',
-                const Color(0xFF58D0A4),
-              ),
-              _buildSmallChip(entry.invoiceLabel, const Color(0xFF4A7DFF)),
-              _buildSmallChip(
-                entry.exactPinSaved ? 'Pin saved' : 'Pin not saved',
-                const Color(0xFFB48CFF),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            entry.address,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          if (entry.phone != null && entry.phone!.trim().isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              entry.phone!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.76),
-              ),
-            ),
-          ],
-          const SizedBox(height: 8),
-          Text(
-            entry.quoteLabel,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            entry.invoiceLabel,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          Text(
-            'Miles: ${entry.estimatedMiles == null ? '-' : formatVanMileage(entry.estimatedMiles ?? 0)}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          if (entry.hasMileageCharge)
-            Text(
-              'Mileage charge included: ${formatVanCurrency(entry.mileageCharge ?? 0)}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white.withValues(alpha: 0.80),
-              ),
-            ),
-          Text(
-            'Exact pin: ${entry.exactPinSaved ? 'saved' : 'not saved'}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.80),
-            ),
-          ),
-          if ((entry.notes ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Notes: ${entry.notes}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.74),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSmallChip(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.18),
-        border: Border.all(color: color.withValues(alpha: 0.20)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.95),
-          fontSize: 10.4,
-          fontWeight: FontWeight.w800,
         ),
-      ),
+      ],
     );
+  }
+
+  VanReportDocument _yearlyIncomeDocument() {
+    final paid = _paidInvoicesForYear();
+    final unpaid = _unpaidInvoicesForYear();
+    final completedJobs = _completedJobs
+        .where((job) => _isThisYear(_completedDateFor(job)))
+        .toList(growable: false);
+    final now = DateTime.now();
+
+    return VanReportDocument(
+      businessProfile: _businessProfile,
+      reportTitle: 'Yearly income report',
+      dateRangeLabel: now.year.toString(),
+      generatedAt: now,
+      summaryLines: [
+        VanReportSummaryLine(
+          label: 'Paid invoice total',
+          value: formatCurrency(_sumInvoices(paid)),
+        ),
+        VanReportSummaryLine(
+          label: 'Unpaid invoice total',
+          value: formatCurrency(_sumInvoices(unpaid)),
+        ),
+        VanReportSummaryLine(
+          label: 'Completed jobs',
+          value: completedJobs.length.toString(),
+        ),
+      ],
+      sections: [
+        VanReportTableSection(
+          title: 'Paid invoices',
+          headers: const ['Invoice', 'Customer', 'Job', 'Amount', 'Paid date'],
+          rows: [
+            for (final entry in paid)
+              [
+                entry.draft.invoiceNumber.trim().isEmpty
+                    ? '--'
+                    : entry.draft.invoiceNumber.trim(),
+                entry.draft.customerName.trim().isEmpty
+                    ? 'Customer'
+                    : entry.draft.customerName.trim(),
+                entry.draft.jobReference.trim().isEmpty
+                    ? 'Job'
+                    : entry.draft.jobReference.trim(),
+                entry.draft.totalDueText,
+                formatDate(_paidDateFor(entry)),
+              ],
+          ],
+        ),
+        VanReportTableSection(
+          title: 'Unpaid invoices',
+          headers: const ['Invoice', 'Customer', 'Job', 'Amount', 'Due'],
+          rows: [
+            for (final entry in unpaid)
+              [
+                entry.draft.invoiceNumber.trim().isEmpty
+                    ? '--'
+                    : entry.draft.invoiceNumber.trim(),
+                entry.draft.customerName.trim().isEmpty
+                    ? 'Customer'
+                    : entry.draft.customerName.trim(),
+                entry.draft.jobReference.trim().isEmpty
+                    ? 'Job'
+                    : entry.draft.jobReference.trim(),
+                entry.draft.totalDueText,
+                _invoiceDueLabel(entry),
+              ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  VanReportDocument _paidInvoicesDocument() {
+    final paid = _allPaidInvoices;
+    return VanReportDocument(
+      businessProfile: _businessProfile,
+      reportTitle: 'Paid invoices report',
+      dateRangeLabel: 'All paid invoices',
+      generatedAt: DateTime.now(),
+      summaryLines: [
+        VanReportSummaryLine(
+          label: 'Paid invoice total',
+          value: formatCurrency(_sumInvoices(paid)),
+        ),
+        VanReportSummaryLine(
+          label: 'Paid invoice count',
+          value: paid.length.toString(),
+        ),
+      ],
+      sections: [
+        VanReportTableSection(
+          title: 'Paid invoices',
+          headers: const [
+            'Invoice',
+            'Customer',
+            'Job',
+            'Amount',
+            'Invoice date',
+            'Paid date',
+          ],
+          rows: [
+            for (final entry in paid)
+              [
+                entry.draft.invoiceNumber.trim().isEmpty
+                    ? '--'
+                    : entry.draft.invoiceNumber.trim(),
+                entry.draft.customerName.trim().isEmpty
+                    ? 'Customer'
+                    : entry.draft.customerName.trim(),
+                entry.draft.jobReference.trim().isEmpty
+                    ? 'Job'
+                    : entry.draft.jobReference.trim(),
+                entry.draft.totalDueText,
+                _invoiceDateFor(entry) == null
+                    ? '--'
+                    : formatDate(_invoiceDateFor(entry)!),
+                formatDate(_paidDateFor(entry)),
+              ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  VanReportDocument _unpaidInvoicesDocument() {
+    final unpaid = _allUnpaidInvoices;
+    return VanReportDocument(
+      businessProfile: _businessProfile,
+      reportTitle: 'Unpaid invoices report',
+      dateRangeLabel: 'Current unpaid invoices',
+      generatedAt: DateTime.now(),
+      summaryLines: [
+        VanReportSummaryLine(
+          label: 'Unpaid invoice total',
+          value: formatCurrency(_sumInvoices(unpaid)),
+        ),
+        VanReportSummaryLine(
+          label: 'Unpaid invoice count',
+          value: unpaid.length.toString(),
+        ),
+      ],
+      sections: [
+        VanReportTableSection(
+          title: 'Unpaid invoices',
+          headers: const [
+            'Invoice',
+            'Customer',
+            'Job',
+            'Amount',
+            'Invoice date',
+            'Due date',
+            'Phone',
+          ],
+          rows: [
+            for (final entry in unpaid)
+              [
+                entry.draft.invoiceNumber.trim().isEmpty
+                    ? '--'
+                    : entry.draft.invoiceNumber.trim(),
+                entry.draft.customerName.trim().isEmpty
+                    ? 'Customer'
+                    : entry.draft.customerName.trim(),
+                entry.draft.jobReference.trim().isEmpty
+                    ? 'Job'
+                    : entry.draft.jobReference.trim(),
+                entry.draft.totalDueText,
+                _invoiceDateFor(entry) == null
+                    ? '--'
+                    : formatDate(_invoiceDateFor(entry)!),
+                _invoiceDueLabel(entry),
+                sanitizeVanCustomerPhoneNumber(
+                      entry.draft.customerPhone,
+                    ).isEmpty
+                    ? '-'
+                    : sanitizeVanCustomerPhoneNumber(entry.draft.customerPhone),
+              ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  VanReportDocument _completedJobsDocument() {
+    final jobs = _completedJobs;
+    return VanReportDocument(
+      businessProfile: _businessProfile,
+      reportTitle: 'Completed jobs report',
+      dateRangeLabel: 'Completed job archive',
+      generatedAt: DateTime.now(),
+      summaryLines: [
+        VanReportSummaryLine(
+          label: 'Completed jobs',
+          value: jobs.length.toString(),
+        ),
+        VanReportSummaryLine(
+          label: 'Linked invoices',
+          value: jobs
+              .where(
+                (job) =>
+                    DriverReplyMockState.instance.invoiceForJob(
+                      job.invoiceHistoryKey,
+                    ) !=
+                    null,
+              )
+              .length
+              .toString(),
+        ),
+      ],
+      sections: [
+        VanReportTableSection(
+          title: 'Completed jobs',
+          headers: const [
+            'Customer',
+            'Job',
+            'Completed',
+            'Address',
+            'Phone',
+            'Invoice',
+            'Status',
+          ],
+          rows: [
+            for (final job in jobs)
+              [
+                job.customerName.trim().isEmpty
+                    ? 'Customer'
+                    : job.customerName.trim(),
+                job.jobTitle.trim().isEmpty ? 'Job' : job.jobTitle.trim(),
+                formatDate(_completedDateFor(job)),
+                _jobAddress(job),
+                sanitizeVanCustomerPhoneNumber(job.phoneNumber).isEmpty
+                    ? '-'
+                    : sanitizeVanCustomerPhoneNumber(job.phoneNumber),
+                _jobInvoiceReference(job),
+                _jobStatusLabel(job),
+              ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _monthName(int month) {
+    const months = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return months[month - 1];
   }
 
   @override
   Widget build(BuildContext context) {
-    final report = _buildReportData();
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final hasAnyData = _allInvoices.isNotEmpty || _completedJobs.isNotEmpty;
+    final paid = _allPaidInvoices;
+    final unpaid = _allUnpaidInvoices;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF09111A),
+      resizeToAvoidBottomInset: false,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Job reports'),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0E1622), Color(0xFF09111A)],
+        title: const Text('Reports & Export'),
+        automaticallyImplyLeading: false,
+        leadingWidth: 96,
+        leading: Padding(
+          padding: const EdgeInsetsDirectional.only(start: 8),
+          child: VanBackBusinessHubButtons(
+            onBack: () => Navigator.of(context).pop(),
           ),
         ),
-        child: SafeArea(
-          child: _loading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                )
-              : SingleChildScrollView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 820),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSummaryCard(report),
-                          const SizedBox(height: 12),
-                          _buildReportPreview(report),
-                          const SizedBox(height: 12),
-                          _buildShellCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Actions',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                      ),
+      ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          AppTheme.backgroundImage(),
+          Container(color: Colors.black.withValues(alpha: 0.34)),
+          SafeArea(
+            bottom: false,
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )
+                : ListView(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, bottomInset + 24),
+                    children: [
+                      _buildShellCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Reports & Export',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Export paperwork for yourself or your bookkeeper.',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.76),
+                                fontSize: 13.2,
+                                height: 1.45,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (!hasAnyData)
+                        _buildShellCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'No report data yet.',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
                                 ),
-                                const SizedBox(height: 12),
-                                LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final stacked = constraints.maxWidth < 520;
-                                    final buttons = <Widget>[
-                                      _buildActionButton(
-                                        label: 'Preview report',
-                                        icon: Icons.preview_outlined,
-                                        color: const Color(0xFF4A7DFF),
-                                        filled: true,
-                                        onTap: report.hasEntries
-                                            ? _scrollToPreview
-                                            : null,
-                                      ),
-                                      _buildActionButton(
-                                        label: _exporting
-                                            ? 'Exporting...'
-                                            : 'Export report PDF',
-                                        icon: Icons.picture_as_pdf_outlined,
-                                        color: const Color(0xFFB48CFF),
-                                        onTap: report.hasEntries && !_exporting
-                                            ? () => _exportReportPdf(report)
-                                            : null,
-                                      ),
-                                      _buildActionButton(
-                                        label: 'Share report text',
-                                        icon: Icons.share_outlined,
-                                        color: const Color(0xFF58D0A4),
-                                        onTap: report.hasEntries
-                                            ? () => _shareReportText(report)
-                                            : null,
-                                      ),
-                                      _buildActionButton(
-                                        label: 'Back to jobs',
-                                        icon: Icons.arrow_back_rounded,
-                                        color: const Color(0xFF4A7DFF),
-                                        onTap: () =>
-                                            Navigator.of(context).pop(),
-                                      ),
-                                    ];
-
-                                    if (stacked) {
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          for (
-                                            var i = 0;
-                                            i < buttons.length;
-                                            i++
-                                          ) ...[
-                                            buttons[i],
-                                            if (i < buttons.length - 1)
-                                              const SizedBox(height: 10),
-                                          ],
-                                        ],
-                                      );
-                                    }
-
-                                    return Wrap(
-                                      spacing: 10,
-                                      runSpacing: 10,
-                                      children: buttons
-                                          .map(
-                                            (button) => SizedBox(
-                                              width:
-                                                  (constraints.maxWidth - 10) /
-                                                  2,
-                                              child: button,
-                                            ),
-                                          )
-                                          .toList(),
-                                    );
-                                  },
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Invoices and completed jobs will appear here once you start using Business Hub.',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.74),
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else ...[
+                        _buildSectionTitle('Income reports'),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final columns = constraints.maxWidth >= 760 ? 2 : 1;
+                            final cardWidth =
+                                (constraints.maxWidth - ((columns - 1) * 12)) /
+                                columns;
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                SizedBox(
+                                  width: cardWidth,
+                                  child: _buildExportCard(
+                                    title: 'Monthly income PDF',
+                                    subtitle:
+                                        'Paid and unpaid invoice summary for this month.',
+                                    onTap: () => unawaited(
+                                      _exportReport(_monthlyIncomeDocument()),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: cardWidth,
+                                  child: _buildExportCard(
+                                    title: 'Yearly income PDF',
+                                    subtitle: 'Year-to-date invoice summary.',
+                                    onTap: () => unawaited(
+                                      _exportReport(_yearlyIncomeDocument()),
+                                    ),
+                                  ),
                                 ),
                               ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _buildSectionTitle('Invoice reports'),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final columns = constraints.maxWidth >= 760 ? 2 : 1;
+                            final cardWidth =
+                                (constraints.maxWidth - ((columns - 1) * 12)) /
+                                columns;
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                SizedBox(
+                                  width: cardWidth,
+                                  child: _buildExportCard(
+                                    title: 'Paid invoices PDF',
+                                    subtitle: 'Invoices marked as paid.',
+                                    helperText: paid.isEmpty
+                                        ? 'No paid invoices found.'
+                                        : null,
+                                    onTap: () => unawaited(
+                                      _exportReport(_paidInvoicesDocument()),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: cardWidth,
+                                  child: _buildExportCard(
+                                    title: 'Unpaid invoices PDF',
+                                    subtitle:
+                                        'Invoices still awaiting payment.',
+                                    helperText: unpaid.isEmpty
+                                        ? 'No unpaid invoices for this period.'
+                                        : null,
+                                    onTap: () => unawaited(
+                                      _exportReport(_unpaidInvoicesDocument()),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _buildSectionTitle('Job reports'),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final columns = constraints.maxWidth >= 760 ? 2 : 1;
+                            final cardWidth =
+                                (constraints.maxWidth - ((columns - 1) * 12)) /
+                                columns;
+                            return Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                SizedBox(
+                                  width: cardWidth,
+                                  child: _buildExportCard(
+                                    title: 'Customer History PDF',
+                                    subtitle:
+                                        'Completed customer jobs with invoice reference and status.',
+                                    helperText: _completedJobs.isEmpty
+                                        ? 'No completed jobs found.'
+                                        : null,
+                                    onTap: () => unawaited(
+                                      _exportReport(_completedJobsDocument()),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ],
                   ),
-                ),
-        ),
+          ),
+        ],
       ),
     );
   }

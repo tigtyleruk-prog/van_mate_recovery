@@ -1,11 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../app/van_mate_app_shell.dart';
+import '../pages/profile_page.dart';
 import '../services/auth_service.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final bool returnToProfile;
+
+  const LoginPage({super.key, this.returnToProfile = false});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -70,6 +74,10 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
 
+      await VanMateAuthService.instance.waitForCurrentUserReady(
+        requireNonAnonymous: true,
+      );
+
       if (!mounted) {
         return;
       }
@@ -83,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       );
-      Navigator.of(context).maybePop();
+      _goToSignedInDestination();
     } on FirebaseAuthException catch (error) {
       if (!mounted) {
         return;
@@ -109,10 +117,29 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void _goToSignedInDestination() {
+    if (widget.returnToProfile) {
+      Navigator.of(
+        context,
+      ).popUntil((route) => route.settings.name == ProfilePage.routeName);
+      return;
+    }
+
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/van-mate-shell'),
+        builder: (_) => const VanMateAppShell(),
+      ),
+      (route) => false,
+    );
+  }
+
   void _goToRegister() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const RegisterPage()));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RegisterPage(returnToProfile: widget.returnToProfile),
+      ),
+    );
   }
 
   Future<void> _forgotPassword() async {
@@ -220,7 +247,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Log in to sync your Van Mate data across devices.',
+                        'Log in to sync your Trade Mate data across devices.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,

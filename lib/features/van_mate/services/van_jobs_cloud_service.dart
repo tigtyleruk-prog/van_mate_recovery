@@ -25,6 +25,7 @@ class VanJobsCloudService {
 
   Future<List<DriverCustomerReplyMockData>> loadJobs({
     required String ownerUid,
+    Source source = Source.serverAndCache,
   }) async {
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty) {
@@ -33,10 +34,12 @@ class VanJobsCloudService {
 
     if (kDebugMode) {
       debugPrint(
-        '[VanJobsCloud] load start uid=$normalizedOwnerUid path=users/$normalizedOwnerUid/van_jobs',
+        '[VanJobsCloud] load start uid=$normalizedOwnerUid path=users/$normalizedOwnerUid/van_jobs source=$source',
       );
     }
-    final snapshot = await _jobs(normalizedOwnerUid).get();
+    final snapshot = await _jobs(
+      normalizedOwnerUid,
+    ).get(GetOptions(source: source));
     if (kDebugMode) {
       final fetchedIds = snapshot.docs.map((doc) => doc.id).join(', ');
       debugPrint(
@@ -53,6 +56,16 @@ class VanJobsCloudService {
       }
       try {
         final job = DriverCustomerReplyMockData.fromJson(normalized);
+        if (kDebugMode) {
+          final slot = job.bookedCalendarSlot;
+          final start = slot?.start;
+          final end = start?.add(
+            Duration(minutes: slot?.durationMinutes ?? 60),
+          );
+          debugPrint(
+            '[VanJobsCloud][doc] path=users/$normalizedOwnerUid/van_jobs docId=${doc.id} jobId=${job.jobId} requestId=${job.requestId ?? '(none)'} status=${job.status} requestStatus=${job.requestStatus} scheduledDate=${job.scheduledDate} scheduledTime=${job.scheduledStartTime} startDateTime=${start?.toIso8601String() ?? '(none)'} endDateTime=${end?.toIso8601String() ?? '(none)'} durationMinutes=${slot?.durationMinutes ?? job.estimatedDurationMinutes ?? 60} customerName=${job.customerName.trim().isEmpty ? 'Booked job' : job.customerName.trim()} jobTitle=${job.jobTitle.trim().isEmpty ? 'Booked job' : job.jobTitle.trim()} deleted=${job.deleted} archived=${job.archived}',
+          );
+        }
         if (job.isHiddenFromNormalLists) {
           hiddenCount += 1;
           if (kDebugMode) {
@@ -61,7 +74,9 @@ class VanJobsCloudService {
             );
           }
         }
-        jobs.add(job);
+        if (!job.isHiddenFromNormalLists) {
+          jobs.add(job);
+        }
       } catch (error) {
         debugPrint('[VanJobsCloud] skip job ${doc.id}: $error');
       }
@@ -110,6 +125,8 @@ class VanJobsCloudService {
       createdAt: job.createdAt ?? job.draftSavedAt ?? DateTime.now(),
       updatedAt: job.updatedAt ?? DateTime.now(),
       data: job.toJson(),
+      deleted: job.deleted,
+      archived: job.archived,
     );
     final collectionPath = 'users/$normalizedOwnerUid/van_jobs';
     logVanFirebaseWriteStart(
@@ -124,9 +141,73 @@ class VanJobsCloudService {
         authType: 'anonymous',
         source: source,
       );
+      if (kDebugMode) {
+        final slot = job.bookedCalendarSlot;
+        final start = slot?.start;
+        final end = start?.add(Duration(minutes: slot?.durationMinutes ?? 60));
+        debugPrint(
+          '[VanJobsCloud][saveJob] path=users/$normalizedOwnerUid/van_jobs/$normalizedJobId status=${job.status} scheduledDate=${job.scheduledDate} scheduledTime=${job.scheduledStartTime} startDateTime=${start?.toIso8601String() ?? '(none)'} endDateTime=${end?.toIso8601String() ?? '(none)'} durationMinutes=${slot?.durationMinutes ?? job.estimatedDurationMinutes ?? 60} customerName=${job.customerName.trim().isEmpty ? 'Booked job' : job.customerName.trim()} jobTitle=${job.jobTitle.trim().isEmpty ? 'Booked job' : job.jobTitle.trim()}',
+        );
+      }
       await _jobs(
         normalizedOwnerUid,
       ).doc(normalizedJobId).set(payload, SetOptions(merge: true));
+      logVanFirebaseWriteSuccess(
+        collectionPath: collectionPath,
+        docId: normalizedJobId,
+        uid: normalizedOwnerUid,
+        source: source,
+      );
+    } catch (error) {
+      logVanFirebaseWriteFailure(
+        collectionPath: collectionPath,
+        docId: normalizedJobId,
+        uid: normalizedOwnerUid,
+        error: error,
+        source: source,
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> mergeJobFields({
+    required String ownerUid,
+    required String jobId,
+    required Map<String, dynamic> fields,
+    String source = 'van_mate.jobs',
+  }) async {
+    final normalizedOwnerUid = ownerUid.trim();
+    final normalizedJobId = jobId.trim();
+    if (normalizedOwnerUid.isEmpty || normalizedJobId.isEmpty) {
+      logVanFirebaseSkip(
+        reason: 'job field merge skipped',
+        extra: 'source=$source uid=$normalizedOwnerUid docId=$normalizedJobId',
+      );
+      return;
+    }
+
+    final collectionPath = 'users/$normalizedOwnerUid/van_jobs';
+    logVanFirebaseWriteStart(
+      collectionPath: collectionPath,
+      docId: normalizedJobId,
+      uid: normalizedOwnerUid,
+      source: source,
+    );
+    try {
+      await VanUserCloudService.instance.ensureUserDocument(
+        uid: normalizedOwnerUid,
+        authType: 'anonymous',
+        source: source,
+      );
+      await _jobs(normalizedOwnerUid)
+          .doc(normalizedJobId)
+          .set(
+            sanitizeVanFirestoreMap(<String, dynamic>{
+              ...fields,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }),
+            SetOptions(merge: true),
+          );
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: normalizedJobId,
@@ -176,6 +257,8 @@ class VanJobsCloudService {
         createdAt: job.createdAt ?? job.draftSavedAt ?? DateTime.now(),
         updatedAt: job.updatedAt ?? DateTime.now(),
         data: job.toJson(),
+        deleted: job.deleted,
+        archived: job.archived,
       );
       logVanFirebaseWriteStart(
         collectionPath: collectionPath,
@@ -205,6 +288,22 @@ class VanJobsCloudService {
         authType: 'anonymous',
         source: source,
       );
+      if (kDebugMode) {
+        for (final job in jobs) {
+          final normalizedJobId = job.jobId.trim();
+          if (normalizedJobId.isEmpty) {
+            continue;
+          }
+          final slot = job.bookedCalendarSlot;
+          final start = slot?.start;
+          final end = start?.add(
+            Duration(minutes: slot?.durationMinutes ?? 60),
+          );
+          debugPrint(
+            '[VanJobsCloud][saveJobs] path=users/$normalizedOwnerUid/van_jobs/$normalizedJobId status=${job.status} scheduledDate=${job.scheduledDate} scheduledTime=${job.scheduledStartTime} startDateTime=${start?.toIso8601String() ?? '(none)'} endDateTime=${end?.toIso8601String() ?? '(none)'} durationMinutes=${slot?.durationMinutes ?? job.estimatedDurationMinutes ?? 60} customerName=${job.customerName.trim().isEmpty ? 'Booked job' : job.customerName.trim()} jobTitle=${job.jobTitle.trim().isEmpty ? 'Booked job' : job.jobTitle.trim()}',
+          );
+        }
+      }
       await batch.commit();
       for (final docId in docIds) {
         logVanFirebaseWriteSuccess(
@@ -231,6 +330,8 @@ class VanJobsCloudService {
   Future<void> deleteJob({
     required String ownerUid,
     required String jobId,
+    String source = 'van_mate.jobs',
+    bool testCleanup = false,
   }) async {
     final normalizedOwnerUid = ownerUid.trim();
     final normalizedJobId = jobId.trim();
@@ -238,7 +339,52 @@ class VanJobsCloudService {
       return;
     }
 
-    await _jobs(normalizedOwnerUid).doc(normalizedJobId).delete();
+    final collectionPath = 'users/$normalizedOwnerUid/van_jobs';
+    logVanFirebaseWriteStart(
+      collectionPath: collectionPath,
+      docId: normalizedJobId,
+      uid: normalizedOwnerUid,
+      source: source,
+    );
+    try {
+      final payload = sanitizeVanFirestoreMap(<String, dynamic>{
+        'deleted': true,
+        'archived': true,
+        'deletedByDriver': true,
+        'testCleanup': testCleanup,
+        'status': 'deleted',
+        'requestStatus': 'deleted',
+        'quoteStatus': 'deleted',
+        'quoteResponseStatus': 'deleted',
+        'schedulingStatus': 'cancelled',
+        'calendarStatus': 'cancelled',
+        'deletedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (kDebugMode) {
+        debugPrint(
+          '[VanJobsCloud][softDeleteJob] path=users/$normalizedOwnerUid/van_jobs/$normalizedJobId fields=${payload.keys.join(', ')}',
+        );
+      }
+      await _jobs(
+        normalizedOwnerUid,
+      ).doc(normalizedJobId).set(payload, SetOptions(merge: true));
+      logVanFirebaseWriteSuccess(
+        collectionPath: collectionPath,
+        docId: normalizedJobId,
+        uid: normalizedOwnerUid,
+        source: source,
+      );
+    } catch (error) {
+      logVanFirebaseWriteFailure(
+        collectionPath: collectionPath,
+        docId: normalizedJobId,
+        uid: normalizedOwnerUid,
+        error: error,
+        source: source,
+      );
+      rethrow;
+    }
   }
 
   Future<String?> ensureCurrentOwnerUid({String source = 'van_mate'}) async {

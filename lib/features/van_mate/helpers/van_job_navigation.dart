@@ -26,7 +26,7 @@ Future<void> openVanJobNavigation(
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('No exact pin or address is available yet.'),
+        content: Text('No address or exact pin saved yet.'),
         behavior: SnackBarBehavior.floating,
       ),
     );

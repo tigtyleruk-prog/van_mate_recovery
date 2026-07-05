@@ -16,7 +16,7 @@ class VanMateApp extends StatelessWidget {
       child: MaterialApp(
         scaffoldMessengerKey: scaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
-        title: 'Van Mate',
+        title: 'Trade Mate',
         theme: VanMateTheme.light(),
         darkTheme: VanMateTheme.dark(),
         themeMode: ThemeMode.system,

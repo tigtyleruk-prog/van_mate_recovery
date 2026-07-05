@@ -1,17 +1,23 @@
-// ignore_for_file: unused_field
+// ignore_for_file: unused_field, unused_element
 
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../helpers/app_theme.dart';
+import '../helpers/van_completed_job_status_pills.dart';
+import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_job_navigation.dart';
+import '../helpers/van_job_request_state.dart';
+import '../helpers/van_text_formatters.dart';
 import 'create_invoice_page.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'create_job_request_flow.dart';
 import 'job_detail_page.dart';
 import 'van_invoice_preview_page.dart';
+import '../widgets/van_back_business_hub_buttons.dart';
 
 class JobsCalendarSchedulePage extends StatefulWidget {
   const JobsCalendarSchedulePage({super.key});
@@ -21,71 +27,167 @@ class JobsCalendarSchedulePage extends StatefulWidget {
       _JobsCalendarSchedulePageState();
 }
 
-class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
+class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
+    with WidgetsBindingObserver {
+  static const int _defaultScheduleStartHour = 6;
+  static const int _defaultScheduleEndHour = 22;
+  static const int _fullScheduleStartHour = 0;
+  static const int _fullScheduleEndHour = 23;
+
   late DateTime _selectedDate = DateUtils.dateOnly(DateTime.now());
+  late DateTime _focusedMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    1,
+  );
+  int _pageBuildCount = 0;
+  int _driverStateChangeCount = 0;
+  int _calendarMapBuildCount = 0;
 
-  List<_ScheduleDayData> get _realDays => _buildRealDays();
-
-  _ScheduleDayData get _selectedRealDay {
-    final days = _realDays;
-    if (days.isEmpty) {
-      return _ScheduleDayData(
-        label: 'Today',
-        dateLabel: _formatScheduleDate(DateTime.now()),
-        jobCount: 0,
-        accent: const Color(0xFF9AA3B2),
-        state: _ScheduleDayState.empty,
-        jobs: const <_ScheduleJobData>[],
-        date: DateUtils.dateOnly(DateTime.now()),
-      );
-    }
-
-    for (final day in days) {
-      if (DateUtils.isSameDay(day.date, _selectedDate)) {
-        return day;
-      }
-    }
-
-    return days.first;
-  }
-
-  List<_ScheduleDayData> _buildRealDays() {
-    final jobsByDate = <DateTime, List<DriverCustomerReplyMockData>>{};
-    for (final job in DriverReplyMockState.instance.jobs) {
-      final scheduledAt = job.scheduledAtOrParsed;
-      if (scheduledAt == null || job.status == 'draft' || job.isCancelled) {
-        continue;
-      }
-      final day = DateUtils.dateOnly(scheduledAt);
-      jobsByDate
-          .putIfAbsent(day, () => <DriverCustomerReplyMockData>[])
-          .add(job);
-    }
-
-    final today = DateUtils.dateOnly(DateTime.now());
-    return List<_ScheduleDayData>.generate(7, (index) {
-      final date = today.add(Duration(days: index));
-      final jobs = jobsByDate[date] ?? const <DriverCustomerReplyMockData>[];
-      final state = DateUtils.isSameDay(date, today)
-          ? _ScheduleDayState.today
-          : _scheduleStateForJobs(jobs);
-      return _ScheduleDayData(
-        label: _scheduleDayLabel(date),
-        dateLabel: _formatScheduleDate(date),
-        jobCount: jobs.length,
-        accent: _scheduleAccentForState(state),
-        state: state,
-        jobs: jobs.map(_buildScheduleJobData).toList(growable: false),
-        date: date,
+  @override
+  void initState() {
+    super.initState();
+    debugPrint('[CalendarSchedulePage] initState');
+    WidgetsBinding.instance.addObserver(this);
+    DriverReplyMockState.instance.addListener(_handleDriverStateChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('[CalendarSchedulePage] postFrame refresh start');
+      unawaited(
+        DriverReplyMockState.instance.refreshJobsFromCloud(
+          forceServer: true,
+          debugOrigin: 'calendar_schedule_page.initState',
+        ),
       );
     });
   }
 
-  _ScheduleJobData _buildScheduleJobData(DriverCustomerReplyMockData job) {
+  @override
+  void dispose() {
+    debugPrint('[CalendarSchedulePage] dispose');
+    DriverReplyMockState.instance.removeListener(_handleDriverStateChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('[CalendarSchedulePage] lifecycle state=$state');
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        DriverReplyMockState.instance.refreshJobsFromCloud(
+          forceServer: true,
+          debugOrigin: 'calendar_schedule_page.resumed',
+        ),
+      );
+    }
+  }
+
+  void _handleDriverStateChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    _driverStateChangeCount += 1;
+    debugPrint(
+      '[CalendarSchedulePage] driverStateChanged count=$_driverStateChangeCount '
+      'mounted=$mounted selectedDate=${_selectedDate.toIso8601String()} '
+      'watchers=${DriverReplyMockState.instance.activeRequestWatchCount} '
+      'requests=${DriverReplyMockState.instance.jobRequestCount} '
+      'isHydrating=${DriverReplyMockState.instance.isHydratingCloudForDebug}',
+    );
+    final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? false;
+    setState(() {});
+    final notice = DriverReplyMockState.instance
+        .takeRecentRequestRefreshNotice();
+    if (notice != null && notice.isNotEmpty && isCurrentRoute) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(notice), behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
+  List<_ScheduleDayData> get _realDays => _buildRealDays();
+
+  List<_ScheduleDayData> _buildRealDays() {
+    final jobsByDate = _calendarJobsByDate();
+    final today = DateUtils.dateOnly(DateTime.now());
+    final dates = <DateTime>{...jobsByDate.keys, today}.toList()
+      ..sort((a, b) {
+        final aIsToday = DateUtils.isSameDay(a, today);
+        final bIsToday = DateUtils.isSameDay(b, today);
+        if (aIsToday && !bIsToday) {
+          return -1;
+        }
+        if (!aIsToday && bIsToday) {
+          return 1;
+        }
+
+        final aIsFuture = a.isAfter(today);
+        final bIsFuture = b.isAfter(today);
+        if (aIsFuture != bIsFuture) {
+          return aIsFuture ? -1 : 1;
+        }
+
+        if (aIsFuture && bIsFuture) {
+          return a.compareTo(b);
+        }
+
+        return b.compareTo(a);
+      });
+
+    return dates
+        .map((date) {
+          final jobs =
+              jobsByDate[date] ?? const <DriverCustomerReplyMockData>[];
+          final state = DateUtils.isSameDay(date, today)
+              ? _ScheduleDayState.today
+              : _scheduleStateForJobs(jobs);
+          return _ScheduleDayData(
+            label: _scheduleDayLabel(date),
+            dateLabel: _formatScheduleDate(date),
+            jobCount: jobs.length,
+            accent: _scheduleAccentForState(state),
+            state: state,
+            jobs: jobs.map(_buildScheduleJobData).toList(growable: false),
+            date: date,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  _ScheduleJobData _buildScheduleJobData(
+    DriverCustomerReplyMockData job, {
+    bool closeSheetOnDeleted = false,
+  }) {
+    final debugSource = DriverReplyMockState.instance.debugSourceForJob(
+      job.jobId,
+    );
     final status = _scheduleJobStatusForJob(job);
     final savedInvoice = DriverReplyMockState.instance.invoiceForJob(
       job.invoiceHistoryKey,
     );
+    final locationLabel = buildVanJobLocationSummary(
+      address: job.address,
+      postcode: job.postcode,
+      locationPending: job.locationPending,
+      requiresExactPinAfterQuoteAccepted:
+          job.requiresExactPinAfterQuoteAccepted,
+      hasExactPin: job.exactPinSaved,
+    );
+    final exactPinLabel = job.exactPinShared
+        ? 'Exact pin shared'
+        : job.requiresAnyExactPin
+        ? 'Exact pin missing'
+        : 'Exact pin not requested';
+    final statusPills = buildVanCompletedJobStatusPills(job);
+    final request = DriverReplyMockState.instance.requestForJob(job.jobId);
+    final actionState = deriveVanJobActionState(job, request: request);
+    final shouldSetAgreedTime = actionState.canSetAgreedTime;
+    final shouldAddToCalendar =
+        actionState.canAddToCalendar && _canAddAcceptedQuoteToCalendar(job);
+    final showAcceptedQuoteAction =
+        actionState.isQuoteAccepted &&
+        (shouldSetAgreedTime || shouldAddToCalendar);
 
     final actions = job.isCompleted
         ? <_ScheduleActionData>[
@@ -93,15 +195,9 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
               label: 'View job',
               enabled: true,
               icon: Icons.open_in_new_rounded,
-              onTap: () => _openJobFor(job),
+              onTap: () =>
+                  _openJobFor(job, closeSheetOnDeleted: closeSheetOnDeleted),
             ),
-            if (job.quoteAmount != null)
-              _ScheduleActionData(
-                label: 'View quote',
-                enabled: true,
-                icon: Icons.request_quote_outlined,
-                onTap: () => _createQuoteFor(job),
-              ),
             _ScheduleActionData(
               label: savedInvoice == null ? 'Create invoice' : 'View invoice',
               enabled: true,
@@ -117,45 +213,94 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
                 icon: Icons.question_answer,
                 onTap: () => _openReplyFor(job),
               ),
+            if (job.hasQuote)
+              _ScheduleActionData(
+                label: 'View quote',
+                enabled: true,
+                icon: Icons.request_quote_outlined,
+                onTap: () => _createQuoteFor(job),
+              )
+            else if (!job.hasCustomerRequestAttached)
+              _ScheduleActionData(
+                label: 'Create quote',
+                enabled: true,
+                icon: Icons.request_quote_outlined,
+                onTap: () => _createQuoteFor(job),
+              ),
           ]
         : <_ScheduleActionData>[
             _ScheduleActionData(
               label: 'Open Job',
               enabled: true,
               icon: Icons.open_in_new_rounded,
-              onTap: () => _openJobFor(job),
+              onTap: () =>
+                  _openJobFor(job, closeSheetOnDeleted: closeSheetOnDeleted),
             ),
-            _ScheduleActionData(
-              label: 'Navigate',
-              enabled: true,
-              icon: Icons.navigation,
-              onTap: () => _navigateFor(job),
-            ),
-            _ScheduleActionData(
-              label: 'View reply',
-              enabled: _hasCustomerReply(job),
-              icon: Icons.question_answer,
-              onTap: () => _openReplyFor(job),
-            ),
-            _ScheduleActionData(
-              label: job.isQuoteSent || job.isConfirmed || job.isCompleted
-                  ? 'View quote'
-                  : 'Create quote (job info)',
-              enabled: !job.isCompleted,
-              icon: Icons.request_quote_outlined,
-              onTap: () => _createQuoteFor(job),
-            ),
+            if (actionState.canNavigate)
+              _ScheduleActionData(
+                label: 'Navigate',
+                enabled: true,
+                icon: Icons.navigation,
+                onTap: () => _navigateFor(job),
+              ),
+            if (actionState.canCallCustomer)
+              _ScheduleActionData(
+                label: 'Call customer',
+                enabled: true,
+                icon: Icons.phone,
+                onTap: () => _callCustomerFor(job),
+              ),
+            if (actionState.canTextCustomer)
+              _ScheduleActionData(
+                label: 'Text customer',
+                enabled: true,
+                icon: Icons.sms_outlined,
+                onTap: () => _textCustomerFor(job),
+              ),
+            if (actionState.canCreateQuote)
+              _ScheduleActionData(
+                label: 'Create quote',
+                enabled: true,
+                icon: Icons.request_quote_outlined,
+                onTap: () => _createQuoteFor(job),
+              )
+            else if (actionState.canViewQuote)
+              _ScheduleActionData(
+                label: 'View quote',
+                enabled: true,
+                icon: Icons.request_quote_outlined,
+                onTap: () => _createQuoteFor(job),
+              ),
+            if (showAcceptedQuoteAction)
+              _ScheduleActionData(
+                label: shouldSetAgreedTime
+                    ? 'Set agreed time'
+                    : 'Add to calendar',
+                enabled: true,
+                icon: shouldSetAgreedTime
+                    ? Icons.schedule_outlined
+                    : Icons.check_circle,
+                onTap: () => _openJobFor(job),
+              ),
           ];
 
     return _ScheduleJobData(
       title: job.customerName,
+      subtitle: job.jobTitle.trim().isNotEmpty
+          ? job.jobTitle.trim()
+          : 'Job details',
+      locationLabel: locationLabel,
+      exactPinLabel: exactPinLabel,
       timeLabel: _jobTimeTextForSchedule(job),
       statusLabel: job.statusLabel,
       status: status,
       accent: _scheduleAccentForStatus(status),
       body: _scheduleBodyText(job),
+      statusPills: statusPills,
       actions: actions,
       job: job,
+      debugSource: debugSource,
+      debugDocId: job.jobId,
     );
   }
 
@@ -203,6 +348,8 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
         return const Color(0xFFFFC38C);
       case _ScheduleJobStatus.awaitingReply:
         return const Color(0xFFB48CFF);
+      case _ScheduleJobStatus.quoteAccepted:
+        return const Color(0xFF58D0A4);
       case _ScheduleJobStatus.awaitingPin:
         return const Color(0xFFFFC38C);
       case _ScheduleJobStatus.ready:
@@ -216,6 +363,9 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
     if (job.isCompleted) {
       return _ScheduleJobStatus.completed;
     }
+    if (job.isQuoteAccepted && !job.isConfirmed) {
+      return _ScheduleJobStatus.quoteAccepted;
+    }
     if (job.isConfirmed) {
       return _ScheduleJobStatus.ready;
     }
@@ -227,7 +377,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
           ? _ScheduleJobStatus.ready
           : _ScheduleJobStatus.awaitingPin;
     }
-    if (job.requestExactPin && !job.exactPinShared) {
+    if (job.requiresAnyExactPin && !job.exactPinShared) {
       return _ScheduleJobStatus.awaitingPin;
     }
     return _ScheduleJobStatus.pending;
@@ -238,12 +388,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
     if (DateUtils.isSameDay(date, today)) {
       return 'Today';
     }
-    if (DateUtils.isSameDay(date, today.add(const Duration(days: 1)))) {
-      return 'Tomorrow';
-    }
-
-    const labels = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return labels[date.weekday - 1];
+    return _formatScheduleDate(date);
   }
 
   String _formatScheduleDate(DateTime date) {
@@ -278,26 +423,54 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
   }
 
   String _scheduleBodyText(DriverCustomerReplyMockData job) {
-    final pieces = <String>[
-      job.address.trim(),
-      job.postcode.trim(),
-    ].where((value) => value.isNotEmpty).toList(growable: false);
-    final location = pieces.isEmpty
-        ? 'No address added yet.'
-        : pieces.join(' • ');
+    final statusText = job.isCompleted
+        ? 'Job completed.'
+        : job.isQuoteDeclined
+        ? 'Quote declined. Review, resend, or delete when ready.'
+        : job.isQuoteAccepted && !job.isConfirmed
+        ? (shouldPromptSetAgreedTimeForJob(
+                job,
+                request: DriverReplyMockState.instance.requestForJob(job.jobId),
+              )
+              ? 'Quote accepted. A time still needs arranging before it can be added to your calendar.'
+              : _isAwaitingRequiredExactPin(job)
+              ? 'Quote accepted. The exact pickup or drop-off pin still needs to be shared before it can be added to your calendar.'
+              : 'Quote accepted. Add it to your calendar when you\'re ready.')
+        : job.isConfirmed
+        ? 'Confirmed and ready to go.'
+        : job.isQuoteSent
+        ? 'Quote sent. Waiting for customer reply.'
+        : job.isReplyReceived
+        ? 'Customer reply received.'
+        : 'Awaiting customer reply.';
     final pinText = job.exactPinShared
-        ? 'Exact pin saved.'
-        : 'Exact pin missing.';
-    return '$location\n$pinText';
+        ? 'Exact pin shared.'
+        : job.requiresAnyExactPin
+        ? 'Exact pin still missing.'
+        : 'No exact pin requested.';
+    return '$statusText\n$pinText';
   }
 
   bool _hasCustomerReply(DriverCustomerReplyMockData job) {
-    return job.isReplyReceived ||
-        job.replyReceivedAt != null ||
-        job.exactPinShared ||
-        job.checklistResponses.isNotEmpty ||
-        job.customQuestionResponses.isNotEmpty ||
-        job.additionalNotes.trim().isNotEmpty;
+    final request = DriverReplyMockState.instance.requestForJob(job.jobId);
+    return job.hasCustomerReply || request?.hasCustomerReply == true;
+  }
+
+  bool _canCallCustomer(DriverCustomerReplyMockData job) {
+    return sanitizeVanCustomerPhoneNumber(job.phoneNumber).isNotEmpty;
+  }
+
+  bool _isAwaitingRequiredExactPin(DriverCustomerReplyMockData job) {
+    return job.isQuoteAccepted && job.requiresAnyExactPin && !job.exactPinSaved;
+  }
+
+  bool _canAddAcceptedQuoteToCalendar(DriverCustomerReplyMockData job) {
+    final request = DriverReplyMockState.instance.requestForJob(job.jobId);
+    if (!shouldPromptAddToCalendarForJob(job, request: request) ||
+        _isAwaitingRequiredExactPin(job)) {
+      return false;
+    }
+    return effectiveAgreedSchedulingTimeForJob(job, request: request) != null;
   }
 
   late final List<_ScheduleDayData> _days = <_ScheduleDayData>[
@@ -416,7 +589,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
           statusLabel: 'Completed',
           status: _ScheduleJobStatus.completed,
           accent: Color(0xFF58D0A4),
-          body: 'Finished and ready to archive later.',
+          body: 'Finished and ready to review later.',
           actions: <_ScheduleActionData>[
             _ScheduleActionData(label: 'View Notes', enabled: true),
           ],
@@ -557,10 +730,19 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
         DriverReplyMockState.instance.activeJob ?? driverCustomerReplySample;
     switch (label) {
       case 'View reply':
-        unawaited(openDriverCustomerReplyMockPage(context, jobId: job.jobId));
+        unawaited(
+          openDriverCustomerReplyMockPage(
+            context,
+            jobId:
+                DriverReplyMockState.instance
+                    .realReplyForJob(job.jobId)
+                    ?.jobId ??
+                job.jobId,
+          ),
+        );
         return;
       case 'Create quote':
-        unawaited(openDriverQuoteMockPage(context, job));
+        unawaited(openVanQuoteWorkflowForJob(context, job));
         return;
       case 'Navigate':
         _showComingSoon(context, 'Navigation mock');
@@ -575,17 +757,142 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
   }
 
   Future<void> _openReplyFor(DriverCustomerReplyMockData job) async {
-    await openDriverCustomerReplyMockPage(context, jobId: job.jobId);
+    final realReply = DriverReplyMockState.instance.realReplyForJob(job.jobId);
+    await openDriverCustomerReplyMockPage(
+      context,
+      jobId: realReply?.jobId ?? job.jobId,
+    );
     if (mounted) {
       setState(() {});
     }
   }
 
   Future<void> _createQuoteFor(DriverCustomerReplyMockData job) async {
-    await openDriverQuoteMockPage(context, job);
+    await openVanQuoteWorkflowForJob(context, job);
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Future<void> _markReadyFor(DriverCustomerReplyMockData job) async {
+    if (!_canAddAcceptedQuoteToCalendar(job)) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isAwaitingRequiredExactPin(job)
+                ? 'Wait for the exact pickup or drop-off pin before adding this job to the calendar.'
+                : 'Set an exact agreed time before adding this job to the calendar.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final scheduledAt = effectiveAgreedSchedulingTimeForJob(
+      job,
+      request: DriverReplyMockState.instance.requestForJob(job.jobId),
+    );
+    if (scheduledAt == null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Set an exact agreed time before adding this job to the calendar.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final pastScheduleMessage = validateVanMateScheduledAt(scheduledAt);
+    if (pastScheduleMessage != null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(pastScheduleMessage),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    debugPrintSynchronously(
+      'CONFIRM_SCHEDULE_TAPPED path=jobs_calendar_schedule.actions jobId=${job.jobId} '
+      'source=${DriverReplyMockState.instance.debugSourceForJob(job.jobId)}',
+    );
+    final bool persisted;
+    try {
+      persisted = await DriverReplyMockState.instance.persistScheduledJob(
+        jobId: job.jobId,
+        scheduledAt: scheduledAt,
+        estimatedDurationMinutes: job.estimatedDurationMinutes ?? 60,
+        schedulingStatus: job.schedulingStatus.trim().isNotEmpty
+            ? job.schedulingStatus
+            : 'accepted_time',
+      );
+    } on VanScheduleOverlapException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    } on VanPastScheduleException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (!persisted) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not save this job to Calendar. Please try again.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    try {
+      await DriverReplyMockState.instance.refreshJobsFromCloud(
+        forceServer: true,
+        debugOrigin: 'calendar_schedule_page.confirm_schedule',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('[CONFIRM_SCHEDULE_REFRESH_ERROR] error=$error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Job added to calendar.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _createInvoiceFor(DriverCustomerReplyMockData job) async {
@@ -617,31 +924,1188 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
     setState(() {});
   }
 
-  Future<void> _openJobFor(DriverCustomerReplyMockData job) async {
-    final finished = await openDriverJobDetailMockPage(
+  Future<VanJobActionResult?> _openJobFor(
+    DriverCustomerReplyMockData job, {
+    bool closeSheetOnDeleted = false,
+  }) async {
+    final result = await openDriverJobDetailMockPage(
       context,
-      reply: job,
+      reply: DriverReplyMockState.instance.realReplyForJob(job.jobId) ?? job,
       completed: job.isCompleted,
+      openedFromCalendar: true,
     );
     if (mounted) {
       setState(() {});
     }
-    if (finished == true && mounted) {
+    if (!mounted) {
+      return result;
+    }
+
+    if (result == VanJobActionResult.deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Job deleted.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      if (closeSheetOnDeleted) {
+        Navigator.of(context).maybePop();
+      }
+    } else if (result == VanJobActionResult.completed) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Job marked completed.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
+    } else if (result == VanJobActionResult.updated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Job updated.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
+    return result;
   }
 
   Future<void> _navigateFor(DriverCustomerReplyMockData job) async {
     await openVanJobNavigation(context, job);
   }
 
+  Future<void> _callCustomerFor(DriverCustomerReplyMockData job) async {
+    await launchCustomerPhone(context, job.phoneNumber);
+  }
+
+  Future<void> _textCustomerFor(DriverCustomerReplyMockData job) async {
+    final launched = await textCustomerRequest(
+      phoneNumber: job.phoneNumber,
+      message:
+          'Hi ${job.customerName.trim().isNotEmpty ? job.customerName.trim() : 'there'}, just following up about your ${job.jobTitle.trim().isNotEmpty ? job.jobTitle.trim().toLowerCase() : 'job request'}.',
+    );
+    if (!mounted || launched) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Could not open text message.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Map<DateTime, List<DriverCustomerReplyMockData>> _calendarJobsByDate() {
+    _calendarMapBuildCount += 1;
+    final jobsByDate = DriverReplyMockState.instance.bookedJobsByDate();
+    debugPrint(
+      '[CalendarSchedulePage] calendarJobsByDate build=$_calendarMapBuildCount '
+      'days=${jobsByDate.length} watchers=${DriverReplyMockState.instance.activeRequestWatchCount} '
+      'requests=${DriverReplyMockState.instance.jobRequestCount} '
+      'isHydrating=${DriverReplyMockState.instance.isHydratingCloudForDebug}',
+    );
+    return jobsByDate;
+  }
+
+  DateTime _jobSortDate(DriverCustomerReplyMockData job) {
+    return job.scheduledAtOrParsed ??
+        job.updatedAt ??
+        job.completedAt ??
+        job.quoteSentAt ??
+        job.quoteSavedAt ??
+        job.replyReceivedAt ??
+        job.requestSentAt ??
+        job.draftSavedAt ??
+        job.createdAt ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  List<DriverCustomerReplyMockData> _calendarJobsForDate(
+    DateTime date, {
+    Map<DateTime, List<DriverCustomerReplyMockData>>? jobsByDate,
+  }) {
+    final jobs =
+        (jobsByDate ?? _calendarJobsByDate())[DateUtils.dateOnly(date)] ??
+        const <DriverCustomerReplyMockData>[];
+    return jobs.toList(growable: false);
+  }
+
+  List<_ScheduleJobData> _selectedDayScheduleJobs() {
+    final jobs = _calendarJobsForDate(_selectedDate).toList(growable: true);
+    jobs.sort((a, b) {
+      final aCompleted = a.isCompleted;
+      final bCompleted = b.isCompleted;
+      if (aCompleted != bCompleted) {
+        return aCompleted ? 1 : -1;
+      }
+      return _jobSortDate(b).compareTo(_jobSortDate(a));
+    });
+    return jobs.map(_buildScheduleJobData).toList(growable: false);
+  }
+
+  DateTime _monthStart(DateTime date) {
+    return DateTime(date.year, date.month, 1);
+  }
+
+  List<DateTime> _monthGridDates(DateTime month) {
+    final monthStart = _monthStart(month);
+    final gridStart = monthStart.subtract(
+      Duration(days: monthStart.weekday - DateTime.monday),
+    );
+    return List<DateTime>.generate(42, (index) {
+      return DateUtils.dateOnly(gridStart.add(Duration(days: index)));
+    });
+  }
+
+  String _monthTitle(DateTime date) {
+    const months = <String>[
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[date.month - 1]} ${date.year}';
+  }
+
+  String _calendarSelectedTitle(DateTime date) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final selected = DateUtils.dateOnly(date);
+    if (DateUtils.isSameDay(selected, today)) {
+      return 'Today';
+    }
+    return _formatScheduleDate(selected);
+  }
+
+  String _calendarSelectedSubtitle(DateTime date) {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final selected = DateUtils.dateOnly(date);
+    if (DateUtils.isSameDay(selected, today)) {
+      return _formatScheduleDate(selected);
+    }
+    return '';
+  }
+
+  List<int> _dayScheduleHoursForEntries(
+    List<_DayScheduleEntry> entries, {
+    bool showAllOvernightHours = false,
+  }) {
+    final minHour = entries.isEmpty
+        ? _defaultScheduleStartHour
+        : entries
+              .map((entry) => entry.displayStartHour)
+              .reduce((value, element) => value < element ? value : element);
+    final maxHour = entries.isEmpty
+        ? _defaultScheduleEndHour
+        : entries
+              .map((entry) => entry.displayEndHour)
+              .reduce((value, element) => value > element ? value : element);
+
+    final startHour = showAllOvernightHours
+        ? _fullScheduleStartHour
+        : (minHour < _defaultScheduleStartHour
+              ? minHour
+              : _defaultScheduleStartHour);
+    final endHour = showAllOvernightHours
+        ? _fullScheduleEndHour
+        : (maxHour > _defaultScheduleEndHour
+              ? maxHour
+              : _defaultScheduleEndHour);
+
+    return List<int>.generate(
+      (endHour - startHour) + 1,
+      (index) => startHour + index,
+    );
+  }
+
+  List<_DayScheduleEntry> _dayScheduleEntriesForJobs(
+    List<DriverCustomerReplyMockData> jobs, {
+    required DateTime selectedDate,
+  }) {
+    final entries = jobs
+        .map((job) => _buildDayScheduleEntry(job, selectedDate: selectedDate))
+        .whereType<_DayScheduleEntry>()
+        .toList(growable: true);
+    entries.sort((a, b) => a.start.compareTo(b.start));
+    return entries;
+  }
+
+  List<_DayScheduleEntry> _dayScheduleEntriesForDate(
+    DateTime date, {
+    Map<DateTime, List<DriverCustomerReplyMockData>>? jobsByDate,
+  }) {
+    final jobs = _calendarJobsForDate(date, jobsByDate: jobsByDate);
+    return _dayScheduleEntriesForJobs(
+      jobs,
+      selectedDate: DateUtils.dateOnly(date),
+    );
+  }
+
+  _DayScheduleEntry? _buildDayScheduleEntry(
+    DriverCustomerReplyMockData job, {
+    required DateTime selectedDate,
+  }) {
+    try {
+      final slot = job.bookedCalendarSlot;
+      final scheduledAt =
+          slot?.start ??
+          job.scheduledAtOrParsed ??
+          _fallbackTimelineDateTime(job, selectedDate);
+      final durationMinutes = _sanitizedTimelineDurationMinutes(
+        slot?.durationMinutes ?? job.estimatedDurationMinutes ?? 60,
+      );
+      final status = _scheduleJobStatusForJob(job);
+      final startHour = _safeTimelineHour(scheduledAt.hour);
+      final startMinute = _safeTimelineMinute(scheduledAt.minute);
+      final endHour = _timelineEndHour(
+        start: scheduledAt,
+        durationMinutes: durationMinutes,
+      );
+      final heightFactor = _sanitizedTimelineHeightFactor(
+        _durationHeightFactor(durationMinutes),
+      );
+      final computedCardHeight = _timelineCardHeight(heightFactor);
+      final topOffsetFraction = _timelineTopOffsetFraction(startMinute);
+      _logTimelineEntryComputed(
+        selectedDate: selectedDate,
+        hourSlot: startHour,
+        job: job,
+        scheduledAt: scheduledAt,
+        durationMinutes: durationMinutes,
+        topOffsetFraction: topOffsetFraction,
+        computedCardHeight: computedCardHeight,
+        fallbackPlacement: slot == null,
+      );
+      return _DayScheduleEntry(
+        job: job,
+        start: scheduledAt,
+        durationMinutes: durationMinutes,
+        startLabel: _timelineStartLabel(job, scheduledAt),
+        durationLabel: _formatDurationLabel(
+          durationMinutes,
+          start: scheduledAt,
+        ),
+        statusLabel: _timelineStatusLabel(job),
+        status: status,
+        accent: _scheduleAccentForStatus(status),
+        customerName: _safeTimelineCustomerName(job),
+        jobTitle: _safeTimelineJobTitle(job),
+        heightFactor: heightFactor,
+        displayStartHour: startHour,
+        displayEndHour: endHour,
+        startMinute: startMinute,
+        topOffsetFraction: topOffsetFraction,
+        computedCardHeight: computedCardHeight,
+        usedFallbackPlacement: slot == null,
+      );
+    } catch (_) {
+      final fallbackAt =
+          job.bookedCalendarSlot?.start ??
+          job.scheduledAtOrParsed ??
+          _fallbackTimelineDateTime(job, selectedDate);
+      final fallbackStatus = _scheduleJobStatusForJob(job);
+      final fallbackHour = _safeTimelineHour(fallbackAt.hour);
+      final fallbackMinute = _safeTimelineMinute(fallbackAt.minute);
+      final fallbackHeightFactor = _sanitizedTimelineHeightFactor(1.0);
+      final fallbackCardHeight = _timelineCardHeight(fallbackHeightFactor);
+      final fallbackTopOffset = _timelineTopOffsetFraction(fallbackMinute);
+      _logTimelineEntryComputed(
+        selectedDate: selectedDate,
+        hourSlot: fallbackHour,
+        job: job,
+        scheduledAt: fallbackAt,
+        durationMinutes: 60,
+        topOffsetFraction: fallbackTopOffset,
+        computedCardHeight: fallbackCardHeight,
+        fallbackPlacement: true,
+      );
+      return _DayScheduleEntry(
+        job: job,
+        start: fallbackAt,
+        durationMinutes: 60,
+        startLabel: _timelineFallbackDateTimeLabel(job, fallbackAt),
+        durationLabel: _formatDurationLabel(60, start: fallbackAt),
+        statusLabel: 'Scheduled',
+        status: fallbackStatus,
+        accent: _scheduleAccentForStatus(fallbackStatus),
+        customerName: _safeTimelineCustomerName(job),
+        jobTitle: _safeTimelineJobTitle(job),
+        heightFactor: fallbackHeightFactor,
+        displayStartHour: fallbackHour,
+        displayEndHour: fallbackHour,
+        startMinute: fallbackMinute,
+        topOffsetFraction: fallbackTopOffset,
+        computedCardHeight: fallbackCardHeight,
+        usedFallbackPlacement: true,
+      );
+    }
+  }
+
+  String _formatDurationLabel(int? minutes, {required DateTime start}) {
+    if (minutes == null || minutes <= 0) {
+      return '';
+    }
+    final end = start.add(Duration(minutes: minutes));
+    final crossesMidnight = !DateUtils.isSameDay(start, end);
+    if (crossesMidnight) {
+      return '${_formatTimelineTime(start)} - ${_formatTimelineTime(end)} overnight';
+    }
+    if (minutes % 60 == 0) {
+      return '${minutes ~/ 60}h';
+    }
+    return '${minutes}m';
+  }
+
+  double _durationHeightFactor(int? minutes) {
+    if (minutes == null || minutes <= 0) {
+      return 1.0;
+    }
+    return (minutes / 60).clamp(1.0, 3.0);
+  }
+
+  double _sanitizedTimelineHeightFactor(double value) {
+    if (!value.isFinite || value <= 0) {
+      return 1.0;
+    }
+    return value.clamp(1.0, 3.0).toDouble();
+  }
+
+  double _timelineCardHeight(double heightFactor) {
+    final height = 68.0 * _sanitizedTimelineHeightFactor(heightFactor);
+    if (!height.isFinite || height <= 0) {
+      return 68.0;
+    }
+    return height.clamp(68.0, 204.0).toDouble();
+  }
+
+  int? _sanitizedTimelineDurationMinutes(int? minutes) {
+    if (minutes == null) {
+      return null;
+    }
+    if (minutes <= 0) {
+      return null;
+    }
+    return minutes.clamp(15, 24 * 60).toInt();
+  }
+
+  int _safeTimelineHour(int hour) {
+    return hour.clamp(_fullScheduleStartHour, _fullScheduleEndHour).toInt();
+  }
+
+  DateTime _fallbackTimelineDateTime(
+    DriverCustomerReplyMockData job,
+    DateTime selectedDate,
+  ) {
+    final parsedTime = _tryParseTimelineTime(job.scheduledStartTime);
+    final baseDate = DateUtils.dateOnly(selectedDate);
+    if (parsedTime == null) {
+      return baseDate.add(const Duration(hours: 9));
+    }
+    return DateTime(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
+      parsedTime.hour,
+      parsedTime.minute,
+    );
+  }
+
+  TimeOfDay? _tryParseTimelineTime(String value) {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(value.trim());
+    if (match == null) {
+      return null;
+    }
+    final hour = int.tryParse(match.group(1) ?? '');
+    final minute = int.tryParse(match.group(2) ?? '');
+    if (hour == null || minute == null) {
+      return null;
+    }
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  int _safeTimelineMinute(int minute) {
+    return minute.clamp(0, 59).toInt();
+  }
+
+  double _timelineTopOffsetFraction(int minute) {
+    final safeMinute = _safeTimelineMinute(minute);
+    final fraction = safeMinute / 60.0;
+    if (!fraction.isFinite || fraction < 0) {
+      return 0.0;
+    }
+    return fraction.clamp(0.0, 0.98).toDouble();
+  }
+
+  int _timelineEndHour({
+    required DateTime start,
+    required int? durationMinutes,
+  }) {
+    if (durationMinutes == null) {
+      return _safeTimelineHour(start.hour);
+    }
+    final end = start.add(Duration(minutes: durationMinutes));
+    if (!DateUtils.isSameDay(start, end)) {
+      return _fullScheduleEndHour;
+    }
+    if (end.minute == 0 && end.hour > start.hour) {
+      return _safeTimelineHour(end.hour - 1);
+    }
+    return _safeTimelineHour(end.hour);
+  }
+
+  String _safeTimelineCustomerName(DriverCustomerReplyMockData job) {
+    final customerName = job.customerName.trim();
+    if (customerName.isNotEmpty) {
+      return customerName;
+    }
+    final jobTitle = job.jobTitle.trim();
+    if (jobTitle.isNotEmpty) {
+      return jobTitle;
+    }
+    return 'Booked job';
+  }
+
+  String _safeTimelineJobTitle(DriverCustomerReplyMockData job) {
+    final jobTitle = job.jobTitle.trim();
+    if (jobTitle.isNotEmpty) {
+      return jobTitle;
+    }
+    final customerName = job.customerName.trim();
+    if (customerName.isNotEmpty) {
+      return customerName;
+    }
+    return 'Booked job';
+  }
+
+  String _timelineStartLabel(
+    DriverCustomerReplyMockData job,
+    DateTime scheduledAt,
+  ) {
+    final text = _jobTimeTextForSchedule(job).trim();
+    if (text.isNotEmpty && text != 'Time not set') {
+      return text;
+    }
+    return _formatTimelineTime(scheduledAt);
+  }
+
+  String _timelineFallbackDateTimeLabel(
+    DriverCustomerReplyMockData job,
+    DateTime scheduledAt,
+  ) {
+    final dateLabel = job.jobDateLabel.trim().isNotEmpty
+        ? job.jobDateLabel.trim()
+        : _formatScheduleDate(DateUtils.dateOnly(scheduledAt));
+    final timeLabel = job.jobTimeLabel.trim().isNotEmpty
+        ? job.jobTimeLabel.trim()
+        : _formatTimelineTime(scheduledAt);
+    return '$dateLabel $timeLabel'.trim();
+  }
+
+  String _formatTimelineTime(DateTime dateTime) {
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  String _timelineStatusLabel(DriverCustomerReplyMockData job) {
+    if (job.isCompleted) {
+      return 'Completed';
+    }
+    if (job.isConfirmed) {
+      return 'Confirmed';
+    }
+    return 'Scheduled';
+  }
+
+  String _hourSlotLabel(int hour) {
+    return '${hour.toString().padLeft(2, '0')}:00';
+  }
+
+  void _logTimelineEntryComputed({
+    required DateTime selectedDate,
+    required int hourSlot,
+    required DriverCustomerReplyMockData job,
+    required DateTime scheduledAt,
+    required int? durationMinutes,
+    required double topOffsetFraction,
+    required double computedCardHeight,
+    required bool fallbackPlacement,
+  }) {
+    assert(() {
+      debugPrint(
+        '[TimelineEntryComputed] selectedDate=${DateUtils.dateOnly(selectedDate).toIso8601String()} '
+        'hourSlot=${_hourSlotLabel(hourSlot)} '
+        'jobDocId=${job.jobId} '
+        'scheduledStartTime=${job.scheduledStartTime} '
+        'scheduledAt=${scheduledAt.toIso8601String()} '
+        'duration=${durationMinutes ?? '(none)'} '
+        'topFraction=${topOffsetFraction.toStringAsFixed(3)} '
+        'height=${computedCardHeight.toStringAsFixed(1)} '
+        'fallbackPlacement=$fallbackPlacement',
+      );
+      return true;
+    }());
+  }
+
+  void _logTimelineSlotRender({
+    required DateTime selectedDate,
+    required int hourSlot,
+    required List<_DayScheduleEntry> entries,
+  }) {
+    assert(() {
+      debugPrint(
+        '[TimelineSlotRender] selectedDate=${DateUtils.dateOnly(selectedDate).toIso8601String()} '
+        'hourSlot=${_hourSlotLabel(hourSlot)} '
+        'entries=${entries.length}',
+      );
+      return true;
+    }());
+  }
+
+  void _logTimelineCardRender({
+    required DateTime selectedDate,
+    required int hourSlot,
+    required _DayScheduleEntry entry,
+  }) {
+    assert(() {
+      debugPrint(
+        '[TimelineCardRender] selectedDate=${DateUtils.dateOnly(selectedDate).toIso8601String()} '
+        'hourSlot=${_hourSlotLabel(hourSlot)} '
+        'jobDocId=${entry.job.jobId} '
+        'scheduledStartTime=${entry.job.scheduledStartTime} '
+        'duration=${entry.durationMinutes ?? '(none)'} '
+        'topFraction=${entry.topOffsetFraction.toStringAsFixed(3)} '
+        'height=${entry.computedCardHeight.toStringAsFixed(1)} '
+        'fallbackPlacement=${entry.usedFallbackPlacement}',
+      );
+      return true;
+    }());
+  }
+
+  List<_DaySheetJobCardData> _buildSafeDaySheetCards(
+    List<DriverCustomerReplyMockData> jobs, {
+    required DateTime selectedDate,
+  }) {
+    final cards = jobs
+        .map((job) => _buildSafeDaySheetCard(job, selectedDate: selectedDate))
+        .toList(growable: false);
+    cards.sort((a, b) {
+      final hourCompare = a.displayHour.compareTo(b.displayHour);
+      if (hourCompare != 0) {
+        return hourCompare;
+      }
+      final minuteCompare = a.displayMinute.compareTo(b.displayMinute);
+      if (minuteCompare != 0) {
+        return minuteCompare;
+      }
+      return a.job.jobId.compareTo(b.job.jobId);
+    });
+    return cards;
+  }
+
+  _DaySheetJobCardData _buildSafeDaySheetCard(
+    DriverCustomerReplyMockData job, {
+    required DateTime selectedDate,
+  }) {
+    try {
+      final selectedDay = DateUtils.dateOnly(selectedDate);
+      final slot = job.bookedCalendarSlot;
+      final resolvedStart = slot?.start ?? job.scheduledAtOrParsed;
+      final fallbackStart = _fallbackTimelineDateTime(job, selectedDay);
+      final displayStart = resolvedStart ?? fallbackStart;
+      final hasParsedTime =
+          resolvedStart != null ||
+          _tryParseTimelineTime(job.scheduledStartTime) != null;
+      final displayHour = _safeTimelineHour(displayStart.hour);
+      final displayMinute = _safeTimelineMinute(displayStart.minute);
+      final rawDurationMinutes = _sanitizedTimelineDurationMinutes(
+        job.estimatedDurationMinutes,
+      );
+      final placementDurationMinutes =
+          _sanitizedTimelineDurationMinutes(
+            slot?.durationMinutes ?? job.estimatedDurationMinutes,
+          ) ??
+          60;
+      final timeLabel = hasParsedTime
+          ? _formatTimelineTime(displayStart)
+          : 'Time not set';
+      final title = _safeDaySheetTitle(job);
+      final customer = _safeDaySheetCustomer(job);
+      final address = _safeDaySheetAddress(job);
+      final status = _scheduleJobStatusForJob(job);
+      final occupiedUntilLabel = _daySheetOccupiedUntilLabelForRange(
+        displayStart,
+        placementDurationMinutes,
+      );
+      final statusPills = buildVanCompletedJobStatusPills(job);
+      final card = _DaySheetJobCardData(
+        job: job,
+        displayStart: displayStart,
+        displayHour: displayHour,
+        displayMinute: displayMinute,
+        timeLabel: timeLabel,
+        title: title,
+        customer: customer,
+        durationLabel: rawDurationMinutes == null
+            ? ''
+            : _formatDurationLabel(rawDurationMinutes, start: displayStart),
+        addressLabel: address,
+        statusLabel: _timelineStatusLabel(job),
+        status: status,
+        accent: _scheduleAccentForStatus(status),
+        statusPills: statusPills,
+        placementDurationMinutes: placementDurationMinutes,
+        occupiedUntilLabel: occupiedUntilLabel,
+        usedFallbackTime: !hasParsedTime,
+      );
+      _logDaySheetCardPrepared(selectedDate: selectedDay, card: card);
+      return card;
+    } catch (error, stackTrace) {
+      final selectedDay = DateUtils.dateOnly(selectedDate);
+      final fallbackStart = selectedDay.add(
+        const Duration(hours: _defaultScheduleStartHour),
+      );
+      debugPrint(
+        '[DaySheetCardParseError] selectedDate=${selectedDay.toIso8601String()} '
+        'jobDocId=${job.jobId} error=$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      final status = _scheduleJobStatusForJob(job);
+      final occupiedUntilLabel = _daySheetOccupiedUntilLabelForRange(
+        fallbackStart,
+        60,
+      );
+      final fallbackCard = _DaySheetJobCardData(
+        job: job,
+        displayStart: fallbackStart,
+        displayHour: _defaultScheduleStartHour,
+        displayMinute: 0,
+        timeLabel: 'Time not set',
+        title: _safeDaySheetTitle(job),
+        customer: _safeDaySheetCustomer(job),
+        durationLabel: '',
+        addressLabel: _safeDaySheetAddress(job),
+        statusLabel: _timelineStatusLabel(job),
+        status: status,
+        accent: _scheduleAccentForStatus(status),
+        statusPills: buildVanCompletedJobStatusPills(job),
+        placementDurationMinutes: 60,
+        occupiedUntilLabel: occupiedUntilLabel,
+        usedFallbackTime: true,
+      );
+      _logDaySheetCardPrepared(selectedDate: selectedDay, card: fallbackCard);
+      return fallbackCard;
+    }
+  }
+
+  List<int> _daySheetHourSlotsForCards(
+    List<_DaySheetJobCardData> cards, {
+    bool showAllOvernightHours = false,
+  }) {
+    final minHour = cards.isEmpty
+        ? _defaultScheduleStartHour
+        : cards
+              .map((card) => card.displayHour)
+              .reduce((value, element) => value < element ? value : element);
+    final maxHour = cards.isEmpty
+        ? _defaultScheduleEndHour
+        : cards
+              .map(_daySheetCardEndDisplayHour)
+              .reduce((value, element) => value > element ? value : element);
+    final startHour = showAllOvernightHours
+        ? _fullScheduleStartHour
+        : (minHour < _defaultScheduleStartHour
+              ? minHour
+              : _defaultScheduleStartHour);
+    final endHour = showAllOvernightHours
+        ? _fullScheduleEndHour
+        : (maxHour > _defaultScheduleEndHour
+              ? maxHour
+              : _defaultScheduleEndHour);
+    return List<int>.generate(
+      (endHour - startHour) + 1,
+      (index) => startHour + index,
+    );
+  }
+
+  int _daySheetCardEndDisplayHour(_DaySheetJobCardData card) {
+    return _timelineEndHour(
+      start: card.displayStart,
+      durationMinutes: card.placementDurationMinutes,
+    );
+  }
+
+  bool _daySheetCardOccupiesHour(_DaySheetJobCardData card, int hourSlot) {
+    final endHour = _daySheetCardEndDisplayHour(card);
+    return hourSlot >= card.displayHour && hourSlot <= endHour;
+  }
+
+  String _daySheetOccupiedUntilLabel(_DaySheetJobCardData card) {
+    return _daySheetOccupiedUntilLabelForRange(
+      card.displayStart,
+      card.placementDurationMinutes,
+    );
+  }
+
+  String _daySheetOccupiedUntilLabelForRange(
+    DateTime start,
+    int durationMinutes,
+  ) {
+    final end = start.add(Duration(minutes: durationMinutes));
+    if (!DateUtils.isSameDay(start, end)) {
+      return 'Occupied overnight';
+    }
+    return 'Occupied until ${_formatTimelineTime(end)}';
+  }
+
+  String _safeDaySheetTitle(DriverCustomerReplyMockData job) {
+    final title = job.jobTitle.trim();
+    return title.isNotEmpty ? title : 'Job';
+  }
+
+  String _safeDaySheetCustomer(DriverCustomerReplyMockData job) {
+    final customer = job.customerName.trim();
+    return customer.isNotEmpty ? customer : 'Customer';
+  }
+
+  String _safeDaySheetAddress(DriverCustomerReplyMockData job) {
+    final parts = <String>[
+      job.address.trim(),
+      job.postcode.trim(),
+    ].where((value) => value.isNotEmpty).toList(growable: false);
+    return parts.join(' - ');
+  }
+
+  void _logDaySheetCardPrepared({
+    required DateTime selectedDate,
+    required _DaySheetJobCardData card,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint(
+      '[DaySheetCardPrepared] selectedDate=${selectedDate.toIso8601String()} '
+      'hourSlot=${_hourSlotLabel(card.displayHour)} '
+      'jobDocId=${card.job.jobId} '
+      'scheduledStartTime=${card.job.scheduledStartTime} '
+      'duration=${card.job.estimatedDurationMinutes ?? '(missing)'} '
+      'position=in-hour '
+      'height=auto '
+      'timeLabel=${card.timeLabel} '
+      'fallbackTime=${card.usedFallbackTime}',
+    );
+  }
+
+  void _logDaySheetHourRender({
+    required DateTime selectedDate,
+    required int hourSlot,
+    required List<_DaySheetJobCardData> cards,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint(
+      '[DaySheetHourRender] selectedDate=${selectedDate.toIso8601String()} '
+      'hourSlot=${_hourSlotLabel(hourSlot)} '
+      'entries=${cards.length}',
+    );
+  }
+
+  void _logDaySheetCardRender({
+    required DateTime selectedDate,
+    required int hourSlot,
+    required _DaySheetJobCardData card,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint(
+      '[DaySheetCardRender] selectedDate=${selectedDate.toIso8601String()} '
+      'hourSlot=${_hourSlotLabel(hourSlot)} '
+      'jobDocId=${card.job.jobId} '
+      'scheduledStartTime=${card.job.scheduledStartTime} '
+      'duration=${card.job.estimatedDurationMinutes ?? '(missing)'} '
+      'position=in-hour '
+      'height=auto '
+      'timeLabel=${card.timeLabel} '
+      'fallbackTime=${card.usedFallbackTime}',
+    );
+  }
+
+  void _setCalendarMonth(DateTime month) {
+    setState(() {
+      _focusedMonth = _monthStart(month);
+    });
+  }
+
+  void _selectCalendarDate(DateTime date) {
+    setState(() {
+      _selectedDate = DateUtils.dateOnly(date);
+      _focusedMonth = _monthStart(date);
+    });
+  }
+
+  Future<void> _openDateJobsSheet(
+    DateTime date, {
+    List<DriverCustomerReplyMockData>? bookedJobs,
+  }) async {
+    final selectedDate = DateUtils.dateOnly(date);
+    final selectedDayJobs = (bookedJobs ?? _calendarJobsForDate(selectedDate))
+        .toList(growable: false);
+    debugPrint(
+      '[CalendarDaySheet] open selectedDate=${selectedDate.toIso8601String()} '
+      'jobs=${selectedDayJobs.length} watchers=${DriverReplyMockState.instance.activeRequestWatchCount} '
+      'requests=${DriverReplyMockState.instance.jobRequestCount} '
+      'isHydrating=${DriverReplyMockState.instance.isHydratingCloudForDebug}',
+    );
+    final dayCards = _buildSafeDaySheetCards(
+      selectedDayJobs,
+      selectedDate: selectedDate,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        var modalBuildCount = 0;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.78,
+              minChildSize: 0.42,
+              maxChildSize: 0.94,
+              builder: (context, scrollController) {
+                debugPrint(
+                  '[CalendarDaySheet] draggableSheetBuild selectedDate=${selectedDate.toIso8601String()} '
+                  'watchers=${DriverReplyMockState.instance.activeRequestWatchCount} '
+                  'requests=${DriverReplyMockState.instance.jobRequestCount} '
+                  'isHydrating=${DriverReplyMockState.instance.isHydratingCloudForDebug}',
+                );
+                var showAllOvernightHours = false;
+                return StatefulBuilder(
+                  builder: (context, setSheetState) {
+                    modalBuildCount += 1;
+                    final slotHours = _daySheetHourSlotsForCards(
+                      dayCards,
+                      showAllOvernightHours: showAllOvernightHours,
+                    );
+                    debugPrint(
+                      '[CalendarDaySheet] statefulBuild count=$modalBuildCount '
+                      'selectedDate=${selectedDate.toIso8601String()} '
+                      'slotHours=${slotHours.length} jobs=${selectedDayJobs.length} '
+                      'watchers=${DriverReplyMockState.instance.activeRequestWatchCount} '
+                      'requests=${DriverReplyMockState.instance.jobRequestCount} '
+                      'isHydrating=${DriverReplyMockState.instance.isHydratingCloudForDebug}',
+                    );
+
+                    return _GlassPanel(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Jobs for ${_calendarSelectedTitle(selectedDate)}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
+                                    if (_calendarSelectedSubtitle(
+                                      selectedDate,
+                                    ).trim().isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _calendarSelectedSubtitle(selectedDate),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.66,
+                                              ),
+                                            ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () =>
+                                    Navigator.of(sheetContext).pop(),
+                                icon: const Icon(Icons.close_rounded),
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: selectedDayJobs.isEmpty
+                                ? const _ScheduleEmptyJobsCard()
+                                : ListView.separated(
+                                    controller: scrollController,
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    itemCount: slotHours.length,
+                                    separatorBuilder: (context, _) =>
+                                        const SizedBox(height: 10),
+                                    itemBuilder: (context, index) {
+                                      final hour = slotHours[index];
+                                      final slotCards = dayCards
+                                          .where(
+                                            (card) => card.displayHour == hour,
+                                          )
+                                          .toList(growable: false);
+                                      final occupiedCards = dayCards
+                                          .where(
+                                            (card) =>
+                                                card.displayHour != hour &&
+                                                _daySheetCardOccupiesHour(
+                                                  card,
+                                                  hour,
+                                                ),
+                                          )
+                                          .toList(growable: false);
+                                      _logDaySheetHourRender(
+                                        selectedDate: selectedDate,
+                                        hourSlot: hour,
+                                        cards: <_DaySheetJobCardData>[
+                                          ...slotCards,
+                                          ...occupiedCards,
+                                        ],
+                                      );
+                                      for (final card in slotCards) {
+                                        _logDaySheetCardRender(
+                                          selectedDate: selectedDate,
+                                          hourSlot: hour,
+                                          card: card,
+                                        );
+                                      }
+                                      return _DaySheetHourRow(
+                                        hourLabel: _hourSlotLabel(hour),
+                                        cards: slotCards,
+                                        occupiedCards: occupiedCards,
+                                        onOpenJob: (job) async {
+                                          await _openJobFor(
+                                            job,
+                                            closeSheetOnDeleted: true,
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                          ),
+                          if (!showAllOvernightHours) ...[
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.center,
+                              child: TextButton(
+                                onPressed: () {
+                                  setSheetState(() {
+                                    showAllOvernightHours = true;
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.white.withValues(
+                                    alpha: 0.84,
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                child: const Text('Show overnight hours'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+    debugPrint(
+      '[CalendarDaySheet] closed selectedDate=${selectedDate.toIso8601String()}',
+    );
+  }
+
+  void _moveCalendarMonth(int offset) {
+    setState(() {
+      _focusedMonth = DateTime(
+        _focusedMonth.year,
+        _focusedMonth.month + offset,
+        1,
+      );
+      _selectedDate = DateUtils.dateOnly(
+        DateTime(_focusedMonth.year, _focusedMonth.month, 1),
+      );
+    });
+  }
+
+  Widget _buildCalendarMonthPanel(BuildContext context) {
+    final month = _monthStart(_focusedMonth);
+    final days = _monthGridDates(month);
+    final calendarJobsByDate = _calendarJobsByDate();
+
+    return _GlassPanel(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _monthTitle(month),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => _moveCalendarMonth(-1),
+                    icon: const Icon(Icons.chevron_left_rounded),
+                    color: Colors.white,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      final today = DateUtils.dateOnly(DateTime.now());
+                      _setCalendarMonth(today);
+                      _selectCalendarDate(today);
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text('Today'),
+                  ),
+                  IconButton(
+                    onPressed: () => _moveCalendarMonth(1),
+                    icon: const Icon(Icons.chevron_right_rounded),
+                    color: Colors.white,
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: const [
+                  Expanded(child: _CalendarWeekdayLabel(label: 'Mon')),
+                  Expanded(child: _CalendarWeekdayLabel(label: 'Tue')),
+                  Expanded(child: _CalendarWeekdayLabel(label: 'Wed')),
+                  Expanded(child: _CalendarWeekdayLabel(label: 'Thu')),
+                  Expanded(child: _CalendarWeekdayLabel(label: 'Fri')),
+                  Expanded(child: _CalendarWeekdayLabel(label: 'Sat')),
+                  Expanded(child: _CalendarWeekdayLabel(label: 'Sun')),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, gridConstraints) {
+                    final rowHeight =
+                        ((gridConstraints.maxHeight - (4.0 * 5)) / 6)
+                            .clamp(0.0, double.infinity)
+                            .toDouble();
+
+                    return GridView.builder(
+                      shrinkWrap: false,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: days.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 7,
+                        mainAxisSpacing: 4,
+                        crossAxisSpacing: 4,
+                        mainAxisExtent: rowHeight,
+                      ),
+                      itemBuilder: (context, index) {
+                        final day = days[index];
+                        final jobs =
+                            calendarJobsByDate[day] ??
+                            const <DriverCustomerReplyMockData>[];
+                        final inMonth =
+                            day.month == month.month && day.year == month.year;
+                        final selected = DateUtils.isSameDay(
+                          day,
+                          _selectedDate,
+                        );
+                        final today = DateUtils.isSameDay(day, DateTime.now());
+                        final state = jobs.isEmpty
+                            ? _ScheduleDayState.empty
+                            : _scheduleStateForJobs(jobs);
+                        final accent = today
+                            ? const Color(0xFF4A7DFF)
+                            : _scheduleAccentForState(state);
+
+                        return _CalendarMonthDayCell(
+                          dayNumber: day.day.toString(),
+                          jobCount: jobs.length,
+                          selected: selected,
+                          today: today,
+                          inMonth: inMonth,
+                          accent: accent,
+                          onTap: () {
+                            _selectCalendarDate(day);
+                            unawaited(
+                              _openDateJobsSheet(day, bookedJobs: jobs),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    _pageBuildCount += 1;
+    debugPrint(
+      '[CalendarSchedulePage] build count=$_pageBuildCount '
+      'selectedDate=${_selectedDate.toIso8601String()} '
+      'watchers=${DriverReplyMockState.instance.activeRequestWatchCount} '
+      'requests=${DriverReplyMockState.instance.jobRequestCount} '
+      'isHydrating=${DriverReplyMockState.instance.isHydratingCloudForDebug}',
+    );
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -652,129 +2116,32 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage> {
           AppTheme.backgroundImage(),
           Container(color: Colors.black.withValues(alpha: 0.34)),
           SafeArea(
-            child: Stack(
-              children: [
-                SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 128),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _ScheduleBackButton(
-                            onTap: () => Navigator.of(context).pop(),
-                          ),
-                          const SizedBox(height: 18),
-                          Text(
-                            'Schedule',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              height: 1.0,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Upcoming jobs and customer requests.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.76),
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          _GlassPanel(
-                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _ScheduleSectionHeader(
-                                  icon: Icons.calendar_month,
-                                  title: 'This week',
-                                  subtitle:
-                                      'Tap a day to update the work list.',
-                                ),
-                                const SizedBox(height: 14),
-                                SizedBox(
-                                  height: 160,
-                                  child: ListView.separated(
-                                    scrollDirection: Axis.horizontal,
-                                    physics: const BouncingScrollPhysics(),
-                                    itemCount: _realDays.length,
-                                    separatorBuilder: (context, index) =>
-                                        const SizedBox(width: 10),
-                                    itemBuilder: (context, index) {
-                                      final day = _realDays[index];
-                                      final selected =
-                                          day.date != null &&
-                                          DateUtils.isSameDay(
-                                            day.date!,
-                                            _selectedDate,
-                                          );
-                                      return _ScheduleDayCard(
-                                        day: day,
-                                        selected: selected,
-                                        onTap: () {
-                                          setState(() {
-                                            _selectedDate =
-                                                day.date ?? _selectedDate;
-                                          });
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          _GlassPanel(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
-                              switchInCurve: Curves.easeOutCubic,
-                              switchOutCurve: Curves.easeInCubic,
-                              child: _SelectedDayJobsPanel(
-                                key: ValueKey<String>(_selectedRealDay.label),
-                                day: _selectedRealDay,
-                                onActionTap: _handleActionTap,
-                              ),
-                            ),
-                          ),
-                        ],
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 760),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ScheduleBackButton(
+                        onTap: () => Navigator.of(context).pop(),
                       ),
-                    ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: FilledButton.icon(
-                          onPressed: () => _openCreateJobRequestSheet(context),
-                          icon: const Icon(Icons.add_task),
-                          label: const Text('Create Job Request'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF4A7DFF),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 14.4,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Calendar',
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          height: 1.0,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Expanded(child: _buildCalendarMonthPanel(context)),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -790,27 +2157,7 @@ class _ScheduleBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-          ),
-          child: const Icon(
-            Icons.arrow_back_rounded,
-            size: 19,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
+    return VanBackBusinessHubButtons(onBack: onTap);
   }
 }
 
@@ -908,6 +2255,118 @@ class _ScheduleSectionHeader extends StatelessWidget {
   }
 }
 
+class _CalendarWeekdayLabel extends StatelessWidget {
+  const _CalendarWeekdayLabel({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.62),
+          fontSize: 10.4,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarMonthDayCell extends StatelessWidget {
+  const _CalendarMonthDayCell({
+    required this.dayNumber,
+    required this.jobCount,
+    required this.selected,
+    required this.today,
+    required this.inMonth,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final String dayNumber;
+  final int jobCount;
+  final bool selected;
+  final bool today;
+  final bool inMonth;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlight = selected || today;
+    final background = highlight
+        ? accent.withValues(alpha: 0.16)
+        : Colors.black.withValues(alpha: inMonth ? 0.10 : 0.06);
+    final borderColor = highlight
+        ? accent.withValues(alpha: 0.40)
+        : Colors.white.withValues(alpha: inMonth ? 0.12 : 0.07);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: background,
+            border: Border.all(color: borderColor),
+          ),
+          padding: const EdgeInsets.fromLTRB(8, 7, 8, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                dayNumber,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: inMonth ? 1 : 0.62),
+                  fontSize: 13.2,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              if (jobCount > 0)
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: accent.withValues(alpha: 0.18),
+                      border: Border.all(color: accent.withValues(alpha: 0.26)),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        jobCount > 3 ? '3+' : '$jobCount',
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.96),
+                          fontSize: 8.4,
+                          fontWeight: FontWeight.w900,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ScheduleDayCard extends StatelessWidget {
   const _ScheduleDayCard({
     required this.day,
@@ -992,14 +2451,16 @@ class _ScheduleDayCard extends StatelessWidget {
                     ),
                 ],
               ),
-              Text(
-                day.dateLabel,
-                style: TextStyle(
-                  fontSize: 11.6,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: muted ? 0.52 : 0.74),
+              if (isToday) ...[
+                Text(
+                  day.dateLabel,
+                  style: TextStyle(
+                    fontSize: 11.6,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withValues(alpha: muted ? 0.52 : 0.74),
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 2),
               Text(
                 '${day.jobCount} Jobs',
@@ -1025,51 +2486,6 @@ class _ScheduleDayCard extends StatelessWidget {
   }
 }
 
-class _SelectedDayJobsPanel extends StatelessWidget {
-  const _SelectedDayJobsPanel({
-    super.key,
-    required this.day,
-    required this.onActionTap,
-  });
-
-  final _ScheduleDayData day;
-  final ValueChanged<String> onActionTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _ScheduleSectionHeader(
-            icon: Icons.list_alt_rounded,
-            title: day.label,
-            subtitle: day.jobs.isEmpty
-                ? 'No jobs booked for this day.'
-                : '${day.jobCount} jobs scheduled for this day.',
-          ),
-          const SizedBox(height: 14),
-          if (day.jobs.isEmpty)
-            const _ScheduleEmptyJobsCard()
-          else
-            Column(
-              children: [
-                for (var index = 0; index < day.jobs.length; index++) ...[
-                  _ScheduleJobCard(
-                    job: day.jobs[index],
-                    onActionTap: onActionTap,
-                  ),
-                  if (index < day.jobs.length - 1) const SizedBox(height: 12),
-                ],
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ScheduleEmptyJobsCard extends StatelessWidget {
   const _ScheduleEmptyJobsCard();
 
@@ -1089,7 +2505,7 @@ class _ScheduleEmptyJobsCard extends StatelessWidget {
           const Icon(Icons.inbox_outlined, color: Colors.white70, size: 28),
           const SizedBox(height: 10),
           Text(
-            'No jobs booked for this day.',
+            'No jobs for this day.',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
@@ -1097,10 +2513,512 @@ class _ScheduleEmptyJobsCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Open a different day or add a new request when you are ready.',
+            'Select another date to review its jobs.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.72),
               height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayScheduleHourRow extends StatelessWidget {
+  const _DayScheduleHourRow({
+    required this.hourLabel,
+    required this.entries,
+    required this.onOpenJob,
+  });
+
+  final String hourLabel;
+  final List<_DayScheduleEntry> entries;
+  final ValueChanged<DriverCustomerReplyMockData> onOpenJob;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 56,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              hourLabel,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.68),
+                fontSize: 12.2,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 72),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.black.withValues(alpha: 0.12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: entries.isEmpty
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Free',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.32),
+                        fontSize: 12.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                : Column(
+                    children: [
+                      for (var index = 0; index < entries.length; index++) ...[
+                        _DayScheduleJobCard(
+                          entry: entries[index],
+                          onTap: () => onOpenJob(entries[index].job),
+                        ),
+                        if (index < entries.length - 1)
+                          const SizedBox(height: 8),
+                      ],
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DayScheduleJobCard extends StatelessWidget {
+  const _DayScheduleJobCard({required this.entry, required this.onTap});
+
+  final _DayScheduleEntry entry;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cardHeight = entry.computedCardHeight;
+    final showsMinutePlacementLabel =
+        entry.startMinute != 0 || entry.usedFallbackPlacement;
+    final placementLabel = '${entry.startLabel} • ${entry.jobTitle}';
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
+          child: Container(
+            constraints: BoxConstraints(minHeight: cardHeight),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  entry.accent.withValues(alpha: 0.20),
+                  Colors.white.withValues(alpha: 0.05),
+                ],
+              ),
+              border: Border.all(color: entry.accent.withValues(alpha: 0.30)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: entry.accent,
+                  ),
+                  child: const SizedBox(width: 4),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.customerName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  showsMinutePlacementLabel
+                                      ? placementLabel
+                                      : entry.jobTitle,
+                                  maxLines: showsMinutePlacementLabel ? 3 : 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.78,
+                                        ),
+                                        height: 1.3,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _ScheduleMiniChip(
+                            label: entry.statusLabel,
+                            accent: entry.accent,
+                            highlight: true,
+                            compact: true,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (!showsMinutePlacementLabel)
+                            _DayScheduleMetaChip(
+                              icon: Icons.schedule_rounded,
+                              label: entry.startLabel,
+                            ),
+                          if (entry.durationLabel.isNotEmpty)
+                            _DayScheduleMetaChip(
+                              icon: Icons.timelapse_outlined,
+                              label: entry.durationLabel,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayScheduleMetaChip extends StatelessWidget {
+  const _DayScheduleMetaChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.white.withValues(alpha: 0.09),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.84)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.88),
+              fontSize: 11.4,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DaySheetHourRow extends StatelessWidget {
+  const _DaySheetHourRow({
+    required this.hourLabel,
+    required this.cards,
+    required this.occupiedCards,
+    required this.onOpenJob,
+  });
+
+  final String hourLabel;
+  final List<_DaySheetJobCardData> cards;
+  final List<_DaySheetJobCardData> occupiedCards;
+  final ValueChanged<DriverCustomerReplyMockData> onOpenJob;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 56,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              hourLabel,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.68),
+                fontSize: 12.2,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 72),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.black.withValues(alpha: 0.12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: cards.isEmpty && occupiedCards.isEmpty
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Free',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.32),
+                        fontSize: 12.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                : Column(
+                    children: [
+                      for (var index = 0; index < cards.length; index++) ...[
+                        _DaySheetJobCard(
+                          card: cards[index],
+                          onTap: () => onOpenJob(cards[index].job),
+                        ),
+                        if (index < cards.length - 1) const SizedBox(height: 8),
+                      ],
+                      if (cards.isNotEmpty && occupiedCards.isNotEmpty)
+                        const SizedBox(height: 8),
+                      for (
+                        var index = 0;
+                        index < occupiedCards.length;
+                        index++
+                      ) ...[
+                        _DaySheetOccupiedCard(card: occupiedCards[index]),
+                        if (index < occupiedCards.length - 1)
+                          const SizedBox(height: 6),
+                      ],
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DaySheetJobCard extends StatelessWidget {
+  const _DaySheetJobCard({required this.card, required this.onTap});
+
+  final _DaySheetJobCardData card;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 76),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  card.accent.withValues(alpha: 0.20),
+                  Colors.white.withValues(alpha: 0.05),
+                ],
+              ),
+              border: Border.all(color: card.accent.withValues(alpha: 0.30)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 2),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: card.accent,
+                    ),
+                    child: const SizedBox(width: 4, height: 52),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        card.customer,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        card.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.84),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          _DayScheduleMetaChip(
+                            icon: Icons.schedule_rounded,
+                            label: card.timeLabel,
+                          ),
+                          if (card.durationLabel.isNotEmpty)
+                            _DayScheduleMetaChip(
+                              icon: Icons.timelapse_outlined,
+                              label: card.durationLabel,
+                            ),
+                          if (card.statusPills.isEmpty)
+                            _ScheduleMiniChip(
+                              label: card.statusLabel,
+                              accent: card.accent,
+                              highlight: true,
+                              compact: true,
+                            )
+                          else
+                            for (final pill in card.statusPills)
+                              _ScheduleMiniChip(
+                                label: pill.label,
+                                accent: pill.color,
+                                highlight: pill.filled || pill.label == 'Paid',
+                                compact: true,
+                              ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DaySheetOccupiedCard extends StatelessWidget {
+  const _DaySheetOccupiedCard({required this.card});
+
+  final _DaySheetJobCardData card;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle =
+        card.title.trim().isEmpty ||
+            card.title.trim().toLowerCase() ==
+                card.customer.trim().toLowerCase()
+        ? card.customer
+        : '${card.customer} • ${card.title}';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.045),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.block_rounded,
+            size: 15,
+            color: Colors.white.withValues(alpha: 0.52),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Occupied',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.70),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.56),
+                    height: 1.22,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (card.statusPills.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final pill in card.statusPills)
+                        _ScheduleMiniChip(
+                          label: pill.label,
+                          accent: pill.color,
+                          highlight: pill.filled || pill.label == 'Paid',
+                          compact: true,
+                        ),
+                    ],
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -1162,13 +3080,42 @@ class _ScheduleJobCard extends StatelessWidget {
                                 ),
                           ),
                         ),
-                        _ScheduleMiniChip(
-                          label: _jobStatusLabel(job.status),
-                          accent: job.accent,
-                          highlight: true,
-                        ),
+                        if (job.statusPills.isEmpty)
+                          _ScheduleMiniChip(
+                            label: _jobStatusLabel(job.status),
+                            accent: job.accent,
+                            highlight: true,
+                          ),
                       ],
                     ),
+                    if (job.statusPills.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final pill in job.statusPills)
+                            _ScheduleMiniChip(
+                              label: pill.label,
+                              accent: pill.color,
+                              highlight: pill.filled || pill.label == 'Paid',
+                              compact: true,
+                            ),
+                        ],
+                      ),
+                    ],
+                    if (job.subtitle.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        job.subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -1188,34 +3135,74 @@ class _ScheduleJobCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: Colors.white.withValues(alpha: 0.08),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
+                    if (job.locationLabel.trim().isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.place_outlined,
+                            size: 15,
+                            color: Colors.white.withValues(alpha: 0.68),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              job.locationLabel,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.70),
+                                    height: 1.35,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (job.statusPills.isEmpty) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: Colors.white.withValues(alpha: 0.08),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Text(
+                            job.statusLabel,
+                            maxLines: 2,
+                            softWrap: true,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.84),
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                         ),
-                        child: Text(
-                          job.statusLabel,
-                          maxLines: 2,
-                          softWrap: true,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.84),
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
                       ),
-                    ),
+                      if (job.exactPinLabel.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _ScheduleMiniChip(
+                          label: job.exactPinLabel,
+                          accent: job.exactPinLabel == 'Exact pin shared'
+                              ? const Color(0xFF58D0A4)
+                              : const Color(0xFFFFC38C),
+                          highlight: job.exactPinLabel == 'Exact pin shared',
+                          compact: true,
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),
@@ -1227,6 +3214,15 @@ class _ScheduleJobCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.74),
               height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'source: ${job.debugSource.trim().isEmpty ? 'mock' : job.debugSource}  docId: ${job.debugDocId.trim().isEmpty ? '(none)' : job.debugDocId}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.50),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 12),
@@ -1438,23 +3434,113 @@ class _ScheduleDayData {
 class _ScheduleJobData {
   const _ScheduleJobData({
     required this.title,
+    this.subtitle = '',
+    this.locationLabel = '',
+    this.exactPinLabel = '',
     required this.timeLabel,
     required this.statusLabel,
     required this.status,
     required this.accent,
     required this.body,
+    this.statusPills = const <VanCompletedJobStatusPillData>[],
     required this.actions,
     this.job,
+    this.debugSource = '',
+    this.debugDocId = '',
   });
 
   final String title;
+  final String subtitle;
+  final String locationLabel;
+  final String exactPinLabel;
   final String timeLabel;
   final String statusLabel;
   final _ScheduleJobStatus status;
   final Color accent;
   final String body;
+  final List<VanCompletedJobStatusPillData> statusPills;
   final List<_ScheduleActionData> actions;
   final DriverCustomerReplyMockData? job;
+  final String debugSource;
+  final String debugDocId;
+}
+
+class _DayScheduleEntry {
+  const _DayScheduleEntry({
+    required this.job,
+    required this.start,
+    required this.durationMinutes,
+    required this.startLabel,
+    required this.durationLabel,
+    required this.statusLabel,
+    required this.status,
+    required this.accent,
+    required this.customerName,
+    required this.jobTitle,
+    required this.heightFactor,
+    required this.displayStartHour,
+    required this.displayEndHour,
+    required this.startMinute,
+    required this.topOffsetFraction,
+    required this.computedCardHeight,
+    required this.usedFallbackPlacement,
+  });
+
+  final DriverCustomerReplyMockData job;
+  final DateTime start;
+  final int? durationMinutes;
+  final String startLabel;
+  final String durationLabel;
+  final String statusLabel;
+  final _ScheduleJobStatus status;
+  final Color accent;
+  final String customerName;
+  final String jobTitle;
+  final double heightFactor;
+  final int displayStartHour;
+  final int displayEndHour;
+  final int startMinute;
+  final double topOffsetFraction;
+  final double computedCardHeight;
+  final bool usedFallbackPlacement;
+}
+
+class _DaySheetJobCardData {
+  const _DaySheetJobCardData({
+    required this.job,
+    required this.displayStart,
+    required this.displayHour,
+    required this.displayMinute,
+    required this.timeLabel,
+    required this.title,
+    required this.customer,
+    required this.durationLabel,
+    required this.addressLabel,
+    required this.statusLabel,
+    required this.status,
+    required this.accent,
+    this.statusPills = const <VanCompletedJobStatusPillData>[],
+    required this.placementDurationMinutes,
+    required this.occupiedUntilLabel,
+    required this.usedFallbackTime,
+  });
+
+  final DriverCustomerReplyMockData job;
+  final DateTime displayStart;
+  final int displayHour;
+  final int displayMinute;
+  final String timeLabel;
+  final String title;
+  final String customer;
+  final String durationLabel;
+  final String addressLabel;
+  final String statusLabel;
+  final _ScheduleJobStatus status;
+  final Color accent;
+  final List<VanCompletedJobStatusPillData> statusPills;
+  final int placementDurationMinutes;
+  final String occupiedUntilLabel;
+  final bool usedFallbackTime;
 }
 
 class _ScheduleActionData {
@@ -1476,6 +3562,7 @@ enum _ScheduleDayState { today, pending, ready, completed, empty, mixed }
 enum _ScheduleJobStatus {
   pending,
   awaitingReply,
+  quoteAccepted,
   awaitingPin,
   ready,
   completed,
@@ -1504,6 +3591,8 @@ String _jobStatusLabel(_ScheduleJobStatus status) {
       return 'Pending';
     case _ScheduleJobStatus.awaitingReply:
       return 'Awaiting reply';
+    case _ScheduleJobStatus.quoteAccepted:
+      return 'Quote accepted';
     case _ScheduleJobStatus.awaitingPin:
       return 'Awaiting pin';
     case _ScheduleJobStatus.ready:
@@ -1519,6 +3608,8 @@ IconData _statusIcon(_ScheduleJobStatus status) {
       return Icons.pending_actions;
     case _ScheduleJobStatus.awaitingReply:
       return Icons.mark_email_unread_rounded;
+    case _ScheduleJobStatus.quoteAccepted:
+      return Icons.request_quote_outlined;
     case _ScheduleJobStatus.awaitingPin:
       return Icons.location_searching_rounded;
     case _ScheduleJobStatus.ready:

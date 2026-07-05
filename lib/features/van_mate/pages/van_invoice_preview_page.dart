@@ -12,6 +12,7 @@ import '../helpers/van_invoice_pdf_helper.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_invoice_draft.dart';
 import 'driver_customer_reply_mock_page.dart';
+import '../widgets/van_back_business_hub_buttons.dart';
 
 Future<VanInvoiceDraft?> openVanInvoicePreviewPage(
   BuildContext context,
@@ -52,6 +53,29 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
   String _moneyText(num amount) => formatCurrency(amount);
 
   String _invoiceShareText() => _draft.buildInvoiceShareText();
+
+  bool _validateDueDateBeforeInvoiceAction() {
+    if (_draft.dueDate.trim().isNotEmpty) {
+      return true;
+    }
+    _showSnack(
+      context,
+      'Add a due date or choose Due on receipt before saving the invoice.',
+    );
+    return false;
+  }
+
+  DriverCustomerReplyMockData? get _linkedJob {
+    final linkedJobId = _draft.linkedJobId?.trim() ?? '';
+    final jobKey = _draft.jobKey?.trim() ?? '';
+    if (linkedJobId.isNotEmpty) {
+      return DriverReplyMockState.instance.jobById(linkedJobId);
+    }
+    if (jobKey.isNotEmpty) {
+      return DriverReplyMockState.instance.jobById(jobKey);
+    }
+    return null;
+  }
 
   String _safeAttachmentFileName() {
     final invoiceNumber = _draft.invoiceNumber.trim();
@@ -163,7 +187,10 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
                     height: 48,
                     child: ColoredBox(
                       color: const Color(0xFF0E1522).withValues(alpha: 0.04),
-                      child: buildVanBusinessLogoPreview(draft.logoPath),
+                      child: buildVanBusinessLogoPreview(
+                        draft.logoPath,
+                        logoUrl: draft.logoUrl,
+                      ),
                     ),
                   ),
                 ),
@@ -201,7 +228,7 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Due: ${draft.dueDate}',
+              'Due: ${draft.dueDateLabel}',
               style: TextStyle(
                 color: const Color(0xFF0E1522).withValues(alpha: 0.68),
                 fontWeight: FontWeight.w700,
@@ -289,12 +316,22 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
             ),
             const SizedBox(height: 6),
             Text(
-              draft.jobDescription,
+              draft.visibleJobDescription,
               style: TextStyle(
                 color: const Color(0xFF0E1522).withValues(alpha: 0.82),
                 fontWeight: FontWeight.w600,
               ),
             ),
+            if (_linkedJob?.completedAt != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Completed: ${formatDate(_linkedJob!.completedAt!)}',
+                style: TextStyle(
+                  color: const Color(0xFF0E1522).withValues(alpha: 0.74),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
@@ -396,30 +433,30 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
             ),
             const SizedBox(height: 6),
             Text(
-              draft.paymentInstructions,
+              draft.paymentInstructionsLabel,
               style: TextStyle(
                 color: const Color(0xFF0E1522).withValues(alpha: 0.88),
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 14),
-            Text(
-              'Notes',
-              style: TextStyle(
-                color: const Color(0xFF0E1522).withValues(alpha: 0.66),
-                fontWeight: FontWeight.w800,
+            if (draft.hasVisibleInvoiceNotes) ...[
+              const SizedBox(height: 14),
+              Text(
+                'Notes',
+                style: TextStyle(
+                  color: const Color(0xFF0E1522).withValues(alpha: 0.66),
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              draft.invoiceNotes.isEmpty
-                  ? 'No invoice notes added.'
-                  : draft.invoiceNotes,
-              style: TextStyle(
-                color: const Color(0xFF0E1522).withValues(alpha: 0.88),
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 6),
+              Text(
+                draft.visibleInvoiceNotes,
+                style: TextStyle(
+                  color: const Color(0xFF0E1522).withValues(alpha: 0.88),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -482,7 +519,11 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
       return;
     }
 
-    final updated = DriverReplyMockState.instance.markInvoicePaidForJob(jobKey);
+    final resolvedDraft =
+        DriverReplyMockState.instance.invoiceForJob(jobKey) ?? draft;
+    final updated = DriverReplyMockState.instance.markInvoicePaidForDraft(
+      resolvedDraft,
+    );
     if (updated == null) {
       _showSnack(context, 'Could not update invoice status.');
       return;
@@ -500,6 +541,9 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
 
   Future<void> _exportPdf() async {
     if (_isExportingPdf) {
+      return;
+    }
+    if (!_validateDueDateBeforeInvoiceAction()) {
       return;
     }
 
@@ -555,6 +599,9 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
             color: const Color(0xFF4A7DFF),
             filled: true,
             onTap: () async {
+              if (!_validateDueDateBeforeInvoiceAction()) {
+                return;
+              }
               final invoiceText = _invoiceShareText();
               try {
                 await SharePlus.instance.share(
@@ -590,6 +637,9 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
             icon: Icons.copy_rounded,
             color: const Color(0xFF58D0A4),
             onTap: () async {
+              if (!_validateDueDateBeforeInvoiceAction()) {
+                return;
+              }
               await Clipboard.setData(ClipboardData(text: _invoiceShareText()));
               if (context.mounted) {
                 _showSnack(context, 'Invoice text copied.');
@@ -648,8 +698,12 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
           foregroundColor: Colors.white,
           elevation: 0,
           title: const Text('Invoice preview'),
-          leading: BackButton(
-            onPressed: () => Navigator.of(context).pop(_draft),
+          leadingWidth: 96,
+          leading: Padding(
+            padding: const EdgeInsetsDirectional.only(start: 8),
+            child: VanBackBusinessHubButtons(
+              onBack: () => Navigator.of(context).pop(_draft),
+            ),
           ),
         ),
         body: Container(
@@ -671,7 +725,7 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Read-only invoice preview',
+                          'Invoice preview',
                           style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(
                                 color: Colors.white,
@@ -680,7 +734,7 @@ class _VanInvoicePreviewPageState extends State<VanInvoicePreviewPage> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Use this page to review, share and export the draft.',
+                          'Review, share or export this invoice.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.72),

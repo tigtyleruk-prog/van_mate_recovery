@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class VanMateFirstUseHelpKeys {
+  static const String seenHomeIntro = 'van_home_intro_seen';
   static const String seenEmergencyPinHelp = 'van_help_emergency_pin_seen';
   static const String seenUnmatchedLocationsHelp =
       'van_help_unmatched_location_seen';
@@ -13,6 +14,7 @@ class VanMateFirstUseHelpKeys {
 
   static const Map<String, List<String>> _legacyKeyAliases =
       <String, List<String>>{
+        seenHomeIntro: <String>['hasSeenHomeIntro', 'seenHomeIntro'],
         seenEmergencyPinHelp: <String>['seenEmergencyPinHelp'],
         seenUnmatchedLocationsHelp: <String>['seenUnmatchedLocationsHelp'],
         seenRequestExactPinHelp: <String>['seenRequestExactPinHelp'],

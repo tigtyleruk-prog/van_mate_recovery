@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -12,22 +12,65 @@ import 'package:share_plus/share_plus.dart';
 // ignore_for_file: use_build_context_synchronously
 
 import '../helpers/app_theme.dart';
+import '../helpers/van_customer_request_questions.dart';
+import '../helpers/van_customer_request_actions.dart';
+import '../helpers/van_job_request_state.dart';
+import '../helpers/van_text_formatters.dart';
+import '../models/van_custom_job_question.dart';
 import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
+import '../pages/van_custom_job_questions_page.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
 import '../models/van_exact_pin_source.dart';
 import '../services/van_job_request_cloud_service.dart';
+import '../services/van_business_profile_storage.dart';
+import '../services/van_default_new_job_questions_storage.dart';
+import '../services/van_custom_job_questions_storage.dart';
+import '../services/van_premium_service.dart';
+import '../widgets/van_duration_picker_sheet.dart';
 import '../widgets/van_form_field_styles.dart';
 import '../widgets/van_exact_pin_flow.dart';
+import '../widgets/van_premium_gate_sheet.dart';
+
+const bool kVanMateDeveloperToolsEnabled = false;
+
+String? validateVanJobRequestDraftForSend(VanJobRequestDraft draft) {
+  final hasContactMethod =
+      draft.phoneNumber.trim().isNotEmpty ||
+      draft.customerEmail.trim().isNotEmpty;
+  final hasCustomerReference =
+      draft.customerName.trim().isNotEmpty || hasContactMethod;
+  final hasJobReference = draft.jobTitle.trim().isNotEmpty;
+
+  if (!hasCustomerReference || !hasContactMethod || !hasJobReference) {
+    return 'Please add the customer and job details first.';
+  }
+
+  if (!draft.requiresExactPinAfterQuoteAccepted && !draft.hasLocationDetails) {
+    return 'Add an address or switch on exact pin request.';
+  }
+
+  return null;
+}
 
 class CreateJobRequestPage extends StatefulWidget {
-  const CreateJobRequestPage({super.key});
+  const CreateJobRequestPage({
+    super.key,
+    this.initialCustomQuestions = const <String>[],
+  });
+
+  final List<String> initialCustomQuestions;
 
   @override
   State<CreateJobRequestPage> createState() => _CreateJobRequestPageState();
 }
 
 class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
+  final VanMatePremiumService _premiumService = VanMatePremiumService.instance;
+  final VanCustomJobQuestionsStorage _customJobQuestionsStorage =
+      VanCustomJobQuestionsStorage.instance;
+  final VanDefaultNewJobQuestionsStorage _defaultQuestionStorage =
+      VanDefaultNewJobQuestionsStorage.instance;
   final String _jobId = 'job_${DateTime.now().microsecondsSinceEpoch}';
   final TextEditingController _customerNameController = TextEditingController(
     text: '',
@@ -52,49 +95,32 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _jobDateController = TextEditingController();
   final TextEditingController _jobTimeController = TextEditingController();
-
-  final List<_JobChecklistOption>
-  _checklistOptions = const <_JobChecklistOption>[
-    _JobChecklistOption(label: 'Parking available?', icon: Icons.local_parking),
-    _JobChecklistOption(
-      label: 'Any access restrictions?',
-      icon: Icons.lock_outline,
-    ),
-    _JobChecklistOption(label: 'Stairs or lift?', icon: Icons.stairs_outlined),
-    _JobChecklistOption(
-      label: 'Help loading/unloading?',
-      icon: Icons.support_agent_outlined,
-    ),
-    _JobChecklistOption(
-      label: 'Large or heavy items?',
-      icon: Icons.inventory_2_outlined,
-    ),
-    _JobChecklistOption(
-      label: 'Fragile items?',
-      icon: Icons.warning_amber_outlined,
-    ),
-    _JobChecklistOption(
-      label: 'Photos needed?',
-      icon: Icons.photo_camera_outlined,
-    ),
-  ];
-
-  late final Map<String, bool> _checklistSelections = <String, bool>{
-    for (final option in _checklistOptions) option.label: true,
-  };
+  final TextEditingController _durationController = TextEditingController();
 
   late DateTime _jobDate = DateUtils.dateOnly(DateTime.now());
   late TimeOfDay _jobTime = TimeOfDay.fromDateTime(DateTime.now());
-  bool _requestExactPin = true;
-  final List<String> _customQuestions = <String>[
-    'Any gate codes or access instructions?',
-  ];
+  int? _estimatedDurationMinutes = 60;
+  bool _requestPhotos = false;
+  bool _requestExactPin = false;
+  bool _premiumLoaded = false;
+  Map<String, VanCustomJobQuestion> _questionLookup =
+      const <String, VanCustomJobQuestion>{};
+  final Set<String> _selectedQuestionIds = <String>{};
+  final List<String> _manualQuestions = <String>[];
+  bool _defaultQuestionsLoaded = false;
 
   @override
   void initState() {
     super.initState();
     DriverReplyMockState.instance.resetTransientWorkflowState();
+    for (final question in widget.initialCustomQuestions) {
+      final cleaned = sanitizeVanText(question).trim();
+      if (cleaned.isNotEmpty && !_manualQuestions.contains(cleaned)) {
+        _manualQuestions.add(cleaned);
+      }
+    }
     _syncDateTimeControllers();
+    unawaited(_loadPremiumAndQuestions());
   }
 
   @override
@@ -109,12 +135,88 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     _notesController.dispose();
     _jobDateController.dispose();
     _jobTimeController.dispose();
+    _durationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPremiumAndQuestions() async {
+    await _premiumService.ensureLoaded();
+    List<VanCustomJobQuestion> customQuestions = const <VanCustomJobQuestion>[];
+    List<String> defaultQuestionTexts = const <String>[];
+    try {
+      customQuestions =
+          await _customJobQuestionsStorage.loadFromCloud() ??
+          await _customJobQuestionsStorage.loadAll();
+      await _defaultQuestionStorage.loadFromCloud();
+      defaultQuestionTexts = await _defaultQuestionStorage.loadSavedQuestions();
+    } catch (_) {
+      customQuestions = await _customJobQuestionsStorage.loadAll();
+      defaultQuestionTexts = await _defaultQuestionStorage.loadSavedQuestions();
+    }
+    final questionLookup = buildVanCustomerRequestQuestionLookup(
+      customQuestions,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _premiumLoaded = true;
+      _questionLookup = questionLookup;
+      if (!_premiumService.isPremium) {
+        _requestPhotos = false;
+      }
+    });
+    _applyDefaultQuestionSet(defaultQuestionTexts);
+  }
+
+  void _applyDefaultQuestionSet(List<String> defaultQuestionTexts) {
+    if (_defaultQuestionsLoaded) {
+      return;
+    }
+
+    final resolved = resolveVanQuestionTextsForSelection(
+      defaultQuestionTexts,
+      _questionLookup,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedQuestionIds.addAll(resolved.selectedQuestionIds);
+      for (final question in resolved.manualQuestions) {
+        if (!_manualQuestions.contains(question)) {
+          _manualQuestions.add(question);
+        }
+      }
+      _defaultQuestionsLoaded = true;
+    });
+  }
+
+  Future<void> _toggleRequestPhotos(bool value) async {
+    if (!_premiumLoaded) {
+      return;
+    }
+    if (!_premiumService.isPremium) {
+      await requireVanMatePremium(
+        context,
+        featureName: 'Customer request photos',
+        headline: 'Customer request photos are Premium',
+        message:
+            'Ask customers to attach photos before you quote. Premium unlocks photo requests on New Job links.',
+        ctaLabel: 'Open Premium screen',
+      );
+      return;
+    }
+    setState(() {
+      _requestPhotos = value;
+    });
   }
 
   void _syncDateTimeControllers() {
     _jobDateController.text = _formatJobDate(_jobDate);
     _jobTimeController.text = _formatJobTime(_jobTime);
+    _durationController.text = _durationLabel(_estimatedDurationMinutes);
   }
 
   String _formatJobDate(DateTime date) {
@@ -141,30 +243,76 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     return '$hour:$minute';
   }
 
+  String _formatScheduledDate(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
+  }
+
+  String _durationLabel(int? minutes) {
+    if (minutes == null || minutes <= 0) {
+      return 'Not set';
+    }
+    switch (minutes) {
+      case 30:
+        return '30m';
+      case 60:
+        return '1h';
+      case 120:
+        return '2h';
+      case 240:
+        return 'Half day';
+      default:
+        return '${minutes}m';
+    }
+  }
+
   VanJobRequestDraft _buildDraft() {
+    final scheduledAt = DateTime(
+      _jobDate.year,
+      _jobDate.month,
+      _jobDate.day,
+      _jobTime.hour,
+      _jobTime.minute,
+    );
+    final answers = buildVanRequestAnswersFromSelection(
+      selectedQuestionIds: _selectedQuestionIds.toList(growable: false),
+      manualQuestions: _manualQuestions,
+      questionLookup: _questionLookup,
+    );
+    final resolvedJobTitle = _jobTitleController.text.trim();
+    final trimmedAddress = _addressController.text.trim();
+    final trimmedPostcode = _postcodeController.text.trim();
+    final locationPending =
+        _requestExactPin && trimmedAddress.isEmpty && trimmedPostcode.isEmpty;
     return VanJobRequestDraft(
       jobId: _jobId,
       customerName: _customerNameController.text.trim(),
       phoneNumber: _phoneNumberController.text.trim(),
       customerEmail: _customerEmailController.text.trim(),
-      jobTitle: _jobTitleController.text.trim(),
-      scheduledAt: DateTime(
-        _jobDate.year,
-        _jobDate.month,
-        _jobDate.day,
-        _jobTime.hour,
-        _jobTime.minute,
-      ),
+      jobTitle: resolvedJobTitle,
+      scheduledAt: scheduledAt,
       jobDateLabel: _formatJobDate(_jobDate),
       jobTimeLabel: _formatJobTime(_jobTime),
-      address: _addressController.text.trim(),
-      postcode: _postcodeController.text.trim(),
-      requestExactPin: _requestExactPin,
-      checklistItems: _checklistOptions
-          .where((option) => _checklistSelections[option.label] == true)
-          .map((option) => option.label)
-          .toList(growable: false),
-      customQuestions: List<String>.unmodifiable(_customQuestions),
+      scheduledDate: _formatScheduledDate(_jobDate),
+      scheduledStartTime: _formatJobTime(_jobTime),
+      estimatedDurationMinutes: _estimatedDurationMinutes,
+      calendarStatus: 'unscheduled',
+      address: trimmedAddress,
+      postcode: trimmedPostcode,
+      requestExactPin: false,
+      requestPhotos: _requestPhotos && _premiumService.isPremium,
+      requiresExactPinAfterQuoteAccepted: _requestExactPin,
+      locationPending: locationPending,
+      selectedServiceId: '',
+      selectedServiceName: '',
+      selectedQuestionIds: List<String>.unmodifiable(
+        _selectedQuestionIds.toList(growable: false),
+      ),
+      answers: answers,
+      checklistItems: buildVanLegacyChecklistItemsFromAnswers(answers),
+      customQuestions: buildVanLegacyCustomQuestionsFromAnswers(answers),
       notesMessage: _notesController.text.trim(),
     );
   }
@@ -173,7 +321,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _jobDate,
-      firstDate: DateTime(DateTime.now().year - 1),
+      firstDate: DateUtils.dateOnly(DateTime.now()),
       lastDate: DateTime(DateTime.now().year + 2),
       builder: (context, child) {
         return Theme(
@@ -232,86 +380,121 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     }
 
     setState(() {
-      if (!_customQuestions.contains(value)) {
-        _customQuestions.add(value);
+      if (!_manualQuestions.contains(value)) {
+        _manualQuestions.add(value);
       }
       _customQuestionController.clear();
+    });
+  }
+
+  Future<void> _openQuestionSetup() async {
+    await openVanCustomJobQuestionsPage(context);
+    if (!mounted) {
+      return;
+    }
+
+    final customQuestions = await _customJobQuestionsStorage.loadAll();
+    final defaultQuestionTexts = await _defaultQuestionStorage
+        .loadSavedQuestions();
+    final questionLookup = buildVanCustomerRequestQuestionLookup(
+      customQuestions,
+    );
+    final resolved = resolveVanQuestionTextsForSelection(
+      defaultQuestionTexts,
+      questionLookup,
+    );
+    setState(() {
+      _questionLookup = questionLookup;
+      _selectedQuestionIds
+        ..clear()
+        ..addAll(resolved.selectedQuestionIds);
+      _manualQuestions
+        ..clear()
+        ..addAll(resolved.manualQuestions);
     });
   }
 
   Future<void> _openPreview() async {
     FocusScope.of(context).unfocus();
     final draft = _buildDraft();
-    final job = DriverReplyMockState.instance.upsertDraftJob(draft);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
-            CustomerRequestPreviewPage(draft: draft, jobId: job.jobId),
+            CustomerRequestPreviewPage(draft: draft, jobId: draft.jobId),
       ),
     );
   }
 
   bool _validateMainFields() {
     final draft = _buildDraft();
-    final hasAddress =
-        draft.address.trim().isNotEmpty || draft.postcode.trim().isNotEmpty;
-    final hasRequired =
-        draft.customerName.trim().isNotEmpty &&
-        draft.jobTitle.trim().isNotEmpty &&
-        draft.jobDateLabel.trim().isNotEmpty &&
-        draft.jobTimeLabel.trim().isNotEmpty &&
-        hasAddress;
+    final validationMessage = validateVanJobRequestDraftForSend(draft);
 
-    if (hasRequired) {
+    if (validationMessage == null) {
       return true;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Please add the main job details first.'),
+      SnackBar(
+        content: Text(validationMessage),
         behavior: SnackBarBehavior.floating,
       ),
     );
     return false;
   }
 
-  void _saveDraft() {
-    if (!_validateMainFields()) {
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-    DriverReplyMockState.instance.saveDraftJob(_buildDraft());
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Job draft saved.'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  DateTime _selectedScheduledAt() {
+    return DateTime(
+      _jobDate.year,
+      _jobDate.month,
+      _jobDate.day,
+      _jobTime.hour,
+      _jobTime.minute,
     );
+  }
+
+  String? _scheduledAtValidationMessage() {
+    return validateVanMateScheduledAt(_selectedScheduledAt());
+  }
+
+  bool _validateScheduledAt() {
+    final message = _scheduledAtValidationMessage();
+    if (message == null) {
+      return true;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+    return false;
   }
 
   Future<void> _sendRequest() async {
     if (!_validateMainFields()) {
       return;
     }
+    if (!_validateScheduledAt()) {
+      return;
+    }
 
     FocusScope.of(context).unfocus();
-    final job = await DriverReplyMockState.instance.sendJobRequest(
-      _buildDraft(),
-    );
+    final DriverCustomerReplyMockData job;
+    try {
+      job = await DriverReplyMockState.instance.sendJobRequest(_buildDraft());
+    } on VanPastScheduleException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (!mounted) {
       return;
     }
     await _showRequestLinkSheet(job);
-    if (!mounted) {
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Job request ready.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   Future<void> _showRequestLinkSheet(DriverCustomerReplyMockData job) async {
@@ -322,13 +505,31 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
       requestId: requestId,
       requestLink: job.requestLink,
     );
-    final shareMessage = buildVanJobRequestShareMessage(
-      requestLink: requestLink,
+    final customerName = job.customerName.trim();
+    final businessName = await _requestMessageBusinessName();
+    final visibleRequestLabel = customerName.isNotEmpty
+        ? 'Request link for $customerName'
+        : 'Customer request link ready';
+    final shareMessage = buildRequestShareMessage(
+      link: requestLink,
+      customerName: customerName,
+      jobTitle: job.jobTitle,
+      businessName: businessName,
+      address: job.address,
+      exactPinRequestedAfterQuoteAccepted: _requestExactPin,
+    );
+    final emailBody = buildRequestEmailBody(
+      link: requestLink,
       jobTitle: job.jobTitle,
       address: job.address,
+      exactPinRequestedAfterQuoteAccepted: _requestExactPin,
     );
+    final customerPhone = sanitizeVanCustomerPhoneNumber(job.phoneNumber);
+    final customerEmail = job.customerEmail.trim();
+    final hasCustomerPhone = customerPhone.isNotEmpty;
+    final hasCustomerEmail = customerEmail.isNotEmpty;
+    debugPrint('[VanJobRequestShare]\n$shareMessage');
     final navigator = Navigator.of(context);
-
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -372,7 +573,9 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Share this link with the customer so they can send back job details, access info and an exact pin.',
+                        _requestExactPin
+                            ? 'Share this link so the customer can send their job details.\n\nIf they accept the quote, they will then be asked for the exact pin.'
+                            : 'Share this link so the customer can send their job details.',
                         style: Theme.of(sheetContext).textTheme.bodyMedium
                             ?.copyWith(
                               color: Colors.white.withValues(alpha: 0.74),
@@ -380,12 +583,12 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                             ),
                       ),
                       const SizedBox(height: 12),
-                      SelectableText(
-                        requestLink,
-                        style: Theme.of(sheetContext).textTheme.bodyMedium
+                      Text(
+                        visibleRequestLabel,
+                        style: Theme.of(sheetContext).textTheme.titleMedium
                             ?.copyWith(
-                              color: const Color(0xFF8AB4FF),
-                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
                             ),
                       ),
                       const SizedBox(height: 14),
@@ -393,58 +596,302 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          FilledButton.icon(
-                            onPressed: () async {
-                              try {
-                                await Clipboard.setData(
-                                  ClipboardData(text: requestLink),
+                          if (hasCustomerEmail)
+                            FilledButton.icon(
+                              onPressed: () async {
+                                final launched = await emailCustomerRequest(
+                                  email: customerEmail,
+                                  subject: 'Trade Mate job request',
+                                  message: emailBody,
                                 );
-                                if (sheetContext.mounted) {
-                                  ScaffoldMessenger.of(
-                                    sheetContext,
-                                  ).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Link copied'),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                }
-                              } catch (_) {
-                                if (sheetContext.mounted) {
-                                  ScaffoldMessenger.of(
-                                    sheetContext,
-                                  ).showSnackBar(
+                                if (launched) {
+                                  if (sheetContext.mounted) {
+                                    Navigator.of(sheetContext).pop();
+                                  }
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  Navigator.of(context).maybePop();
+                                  ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
-                                        'Copy failed - long press the address bar or open in Chrome/Safari.',
+                                        'Email opened. Send it from your mail app.',
                                       ),
                                       behavior: SnackBarBehavior.floating,
                                     ),
                                   );
+                                  return;
                                 }
-                              }
-                            },
-                            icon: const Icon(Icons.copy),
-                            label: const Text('Copy link'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF4A7DFF),
-                              foregroundColor: Colors.white,
+
+                                final shared = await shareRequestMessage(
+                                  shareMessage,
+                                );
+                                if (shared.status ==
+                                    ShareResultStatus.unavailable) {
+                                  final copied = await copyRequestMessage(
+                                    shareMessage,
+                                  );
+                                  if (sheetContext.mounted && copied) {
+                                    Navigator.of(sheetContext).pop();
+                                    if (mounted) {
+                                      Navigator.of(context).maybePop();
+                                    }
+                                    ScaffoldMessenger.of(
+                                      sheetContext,
+                                    ).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Could not open email. Message copied instead.',
+                                        ),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+
+                                if (sheetContext.mounted) {
+                                  Navigator.of(sheetContext).pop();
+                                }
+                                if (!mounted) {
+                                  return;
+                                }
+                                Navigator.of(context).maybePop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Email unavailable. Share sheet opened instead.',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.email_outlined),
+                              label: const Text('Email customer'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF4A7DFF),
+                                foregroundColor: Colors.white,
+                              ),
                             ),
-                          ),
-                          FilledButton.icon(
-                            onPressed: () async {
-                              await SharePlus.instance.share(
-                                ShareParams(text: shareMessage),
-                              );
-                            },
-                            icon: const Icon(Icons.share),
-                            label: const Text('Share link'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF58D0A4),
-                              foregroundColor: Colors.white,
+                          if (hasCustomerPhone)
+                            FilledButton.icon(
+                              onPressed: () async {
+                                final launched = await textCustomerRequest(
+                                  phoneNumber: customerPhone,
+                                  message: shareMessage,
+                                );
+                                if (!launched) {
+                                  if (sheetContext.mounted) {
+                                    ScaffoldMessenger.of(
+                                      sheetContext,
+                                    ).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Could not open text message. Use Share link instead.',
+                                        ),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+
+                                if (sheetContext.mounted) {
+                                  Navigator.of(sheetContext).pop();
+                                }
+                                if (!mounted) {
+                                  return;
+                                }
+                                Navigator.of(context).maybePop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Text message opened. Send it from your SMS app.',
+                                    ),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.sms_outlined),
+                              label: const Text('Text customer'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF58D0A4),
+                                foregroundColor: Colors.white,
+                              ),
                             ),
-                          ),
-                          if (kDebugMode)
+                          hasCustomerPhone
+                              ? OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final result = await shareRequestMessage(
+                                      shareMessage,
+                                    );
+                                    if (result.status ==
+                                        ShareResultStatus.unavailable) {
+                                      if (sheetContext.mounted) {
+                                        ScaffoldMessenger.of(
+                                          sheetContext,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Could not open sharing. Use Copy link instead.',
+                                            ),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                      return;
+                                    }
+
+                                    if (sheetContext.mounted) {
+                                      Navigator.of(sheetContext).pop();
+                                    }
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    Navigator.of(context).maybePop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Customer request sent - awaiting reply.',
+                                        ),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.share),
+                                  label: const Text('Share link'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.16,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : FilledButton.icon(
+                                  onPressed: () async {
+                                    final result = await shareRequestMessage(
+                                      shareMessage,
+                                    );
+                                    if (result.status ==
+                                        ShareResultStatus.unavailable) {
+                                      if (sheetContext.mounted) {
+                                        ScaffoldMessenger.of(
+                                          sheetContext,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Could not open sharing. Use Copy link instead.',
+                                            ),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                      return;
+                                    }
+
+                                    if (sheetContext.mounted) {
+                                      Navigator.of(sheetContext).pop();
+                                    }
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    Navigator.of(context).maybePop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Customer request sent - awaiting reply.',
+                                        ),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.share),
+                                  label: const Text('Share link'),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF58D0A4),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                          hasCustomerPhone
+                              ? OutlinedButton.icon(
+                                  onPressed: () async {
+                                    try {
+                                      await copyRequestLink(requestLink);
+                                      if (sheetContext.mounted) {
+                                        ScaffoldMessenger.of(
+                                          sheetContext,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Link copied'),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    } catch (_) {
+                                      if (sheetContext.mounted) {
+                                        ScaffoldMessenger.of(
+                                          sheetContext,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Copy failed - long press the address bar or open in Chrome/Safari.',
+                                            ),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: const Icon(Icons.copy),
+                                  label: const Text('Copy link'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.16,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : FilledButton.icon(
+                                  onPressed: () async {
+                                    try {
+                                      await copyRequestLink(requestLink);
+                                      if (sheetContext.mounted) {
+                                        ScaffoldMessenger.of(
+                                          sheetContext,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Link copied'),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    } catch (_) {
+                                      if (sheetContext.mounted) {
+                                        ScaffoldMessenger.of(
+                                          sheetContext,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Copy failed - long press the address bar or open in Chrome/Safari.',
+                                            ),
+                                            behavior: SnackBarBehavior.floating,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  icon: const Icon(Icons.copy),
+                                  label: const Text('Copy link'),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4A7DFF),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                          if (kDebugMode && kVanMateDeveloperToolsEnabled)
                             OutlinedButton.icon(
                               onPressed: () {
                                 Navigator.of(sheetContext).pop();
@@ -482,6 +929,32 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     );
   }
 
+  Future<String> _requestMessageBusinessName() async {
+    try {
+      final profile = await VanBusinessProfileStorage.instance
+          .loadCanonicalProfile();
+      return sanitizeVanText(profile.businessName).trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _pickEstimatedDuration() async {
+    final selected = await showVanDurationPickerSheet(
+      context: context,
+      initialMinutes: _estimatedDurationMinutes ?? 0,
+      durationLabel: _durationLabel,
+      title: 'Choose duration',
+    );
+    if (!mounted || selected == null || selected <= 0) {
+      return;
+    }
+    setState(() {
+      _estimatedDurationMinutes = selected;
+      _durationController.text = _durationLabel(_estimatedDurationMinutes);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -516,7 +989,9 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Send a checklist and exact pin request to your customer.',
+                        _requestExactPin
+                            ? 'Send a customer request powered by your shared service questions, then collect the exact pin after quote acceptance.'
+                            : 'Send a customer request now and collect the exact pin after quote acceptance.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.76),
                           height: 1.45,
@@ -565,13 +1040,13 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                   ),
                                   _JobRequestInputField(
                                     controller: _jobTitleController,
-                                    icon: Icons.checklist,
+                                    icon: Icons.work_outline,
                                     label: 'Job title / reference',
                                     hintText: 'Add job title or reference',
                                   ),
                                   _JobRequestInputField(
                                     controller: _jobDateController,
-                                    icon: Icons.schedule,
+                                    icon: Icons.event_outlined,
                                     label: 'Job date',
                                     hintText: 'Choose job date',
                                     readOnly: true,
@@ -584,6 +1059,20 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                     hintText: 'Choose job time',
                                     readOnly: true,
                                     onTap: _pickJobTime,
+                                  ),
+                                  _JobRequestInputField(
+                                    controller: _durationController,
+                                    icon: Icons.timelapse_outlined,
+                                    label: 'Estimated duration',
+                                    hintText: 'Choose duration',
+                                    readOnly: true,
+                                    onTap: _pickEstimatedDuration,
+                                  ),
+                                  _JobRequestInputField(
+                                    controller: _postcodeController,
+                                    icon: Icons.local_post_office_outlined,
+                                    label: 'Postcode',
+                                    hintText: 'Add postcode if needed',
                                   ),
                                 ];
 
@@ -614,34 +1103,15 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                 );
                               },
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _JobRequestGlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _JobRequestSectionHeader(
-                              icon: Icons.location_on,
-                              title: 'Location',
-                            ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 12),
                             _JobRequestInputField(
                               controller: _addressController,
-                              icon: Icons.location_on,
+                              icon: Icons.location_on_outlined,
                               label: 'Address',
-                              hintText: 'Enter address or postcode',
+                              hintText: 'Enter address or postcode area',
                               maxLines: 2,
                             ),
                             const SizedBox(height: 12),
-                            _JobRequestInputField(
-                              controller: _postcodeController,
-                              icon: Icons.local_post_office,
-                              label: 'Postcode',
-                              hintText: 'Enter postcode if separate',
-                            ),
-                            const SizedBox(height: 8),
                             SwitchListTile.adaptive(
                               contentPadding: EdgeInsets.zero,
                               value: _requestExactPin,
@@ -651,194 +1121,118 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                 });
                               },
                               title: const Text(
-                                'Request exact pin from customer',
+                                'Request exact pin after quote accepted',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
                               subtitle: Text(
-                                'Customer can send the exact entrance, bay or collection point.',
+                                'Customer can confirm the exact entrance, bay or drop-off point later.',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.72),
                                   height: 1.35,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _JobRequestGlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _JobRequestSectionHeader(
-                              icon: Icons.notes,
-                              title: 'Notes / message',
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              value: _requestPhotos,
+                              onChanged: _toggleRequestPhotos,
+                              title: const Text(
+                                'Request customer photos',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              subtitle: Text(
+                                _premiumService.isPremium
+                                    ? 'Ask the customer to attach useful photos before you quote.'
+                                    : 'Premium feature. Lets customers attach photos with their request.',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.72),
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: _openQuestionSetup,
+                              icon: const Icon(Icons.tune),
+                              label: Text(
+                                'Question setup (${_selectedQuestionIds.length + _manualQuestions.length})',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                ),
+                                minimumSize: const Size.fromHeight(50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                            ),
+                            if (_manualQuestions.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final question in _manualQuestions)
+                                      Chip(
+                                        label: Text(question),
+                                        backgroundColor: Colors.white
+                                            .withValues(alpha: 0.10),
+                                        side: BorderSide(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.10,
+                                          ),
+                                        ),
+                                        labelStyle: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            _JobRequestInputField(
+                              controller: _customQuestionController,
+                              icon: Icons.question_answer_outlined,
+                              label: 'Add a one-off question',
+                              hintText: 'Anything else you want to ask?',
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                onPressed: _addCustomQuestion,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Add custom question'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4A7DFF),
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size.fromHeight(50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             _JobRequestInputField(
                               controller: _notesController,
                               icon: Icons.notes,
                               label: 'Driver notes or message',
-                              hintText: 'Add any notes for the customer',
+                              hintText: 'Add anything the customer should know',
                               maxLines: 4,
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _JobRequestGlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _JobRequestSectionHeader(
-                              icon: Icons.checklist,
-                              title: 'Checklist',
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'What do you need to ask?',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.92),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            for (
-                              var index = 0;
-                              index < _checklistOptions.length;
-                              index++
-                            ) ...[
-                              _JobRequestChecklistTile(
-                                label: _checklistOptions[index].label,
-                                icon: _checklistOptions[index].icon,
-                                value:
-                                    _checklistSelections[_checklistOptions[index]
-                                        .label] ==
-                                    true,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _checklistSelections[_checklistOptions[index]
-                                            .label] =
-                                        value;
-                                  });
-                                },
-                              ),
-                              if (index < _checklistOptions.length - 1)
-                                const SizedBox(height: 6),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _JobRequestGlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _JobRequestSectionHeader(
-                              icon: Icons.question_answer,
-                              title: 'Custom questions',
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Add anything else you need to ask before the job starts.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.72),
-                                height: 1.45,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final stacked = constraints.maxWidth < 420;
-                                final addButton = FilledButton.icon(
-                                  onPressed: _addCustomQuestion,
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Add Question'),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF4A7DFF),
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size.fromHeight(52),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                );
-
-                                final input = _JobRequestInputField(
-                                  controller: _customQuestionController,
-                                  icon: Icons.question_answer,
-                                  label: 'Add custom question',
-                                  hintText: 'Type a custom question',
-                                );
-
-                                if (stacked) {
-                                  return Column(
-                                    children: [
-                                      input,
-                                      const SizedBox(height: 10),
-                                      addButton,
-                                    ],
-                                  );
-                                }
-
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(child: input),
-                                    const SizedBox(width: 12),
-                                    SizedBox(width: 156, child: addButton),
-                                  ],
-                                );
-                              },
-                            ),
-                            if (_customQuestions.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: _customQuestions
-                                    .map(
-                                      (question) => InputChip(
-                                        label: Text(
-                                          question,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11.8,
-                                            height: 1.15,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        onDeleted: () {
-                                          setState(() {
-                                            _customQuestions.remove(question);
-                                          });
-                                        },
-                                        deleteIconColor: Colors.white70,
-                                        backgroundColor: Colors.white
-                                            .withValues(alpha: 0.08),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 5,
-                                        ),
-                                        labelPadding: EdgeInsets.zero,
-                                        visualDensity: VisualDensity.compact,
-                                        materialTapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        side: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.12,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(growable: false),
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -863,7 +1257,9 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                 ),
                               ),
                               child: Text(
-                                'Hi, please fill in this quick job checklist and share the exact location pin so I have the correct details before the job.',
+                                _requestExactPin
+                                    ? 'Hi, please fill in this quick job request so I can prepare your quote. If you accept the quote later, I\'ll ask for the exact pickup/drop-off pin.'
+                                    : 'Hi, please fill in this quick job request so I can prepare your quote.',
                                 style: theme.textTheme.bodyLarge?.copyWith(
                                   color: Colors.white,
                                   height: 1.5,
@@ -888,36 +1284,24 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                         builder: (context, constraints) {
                           final stacked = constraints.maxWidth < 480;
                           final actions = <Widget>[
-                            FilledButton.icon(
-                              onPressed: _openPreview,
-                              icon: const Icon(Icons.preview),
-                              label: const Text('Preview Request'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF4A7DFF),
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(54),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
+                            if (kDebugMode && kVanMateDeveloperToolsEnabled)
+                              FilledButton.icon(
+                                onPressed: _openPreview,
+                                icon: const Icon(Icons.preview),
+                                label: const Text('Open test form'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4A7DFF),
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size.fromHeight(54),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
                                 ),
                               ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: _saveDraft,
-                              icon: const Icon(Icons.save),
-                              label: const Text('Save Draft'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.16),
-                                ),
-                                minimumSize: const Size.fromHeight(54),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                            ),
                             FilledButton.icon(
-                              onPressed: _sendRequest,
+                              onPressed: _scheduledAtValidationMessage() == null
+                                  ? _sendRequest
+                                  : null,
                               icon: const Icon(Icons.send),
                               label: const Text('Send Request'),
                               style: FilledButton.styleFrom(
@@ -943,13 +1327,17 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                             );
                           }
 
-                          return Row(
+                          return Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
                             children: [
-                              Expanded(child: actions[0]),
-                              const SizedBox(width: 10),
-                              Expanded(child: actions[1]),
-                              const SizedBox(width: 10),
-                              Expanded(child: actions[2]),
+                              for (final action in actions)
+                                SizedBox(
+                                  width: constraints.maxWidth < 760
+                                      ? constraints.maxWidth
+                                      : (constraints.maxWidth - 20) / 3,
+                                  child: action,
+                                ),
                             ],
                           );
                         },
@@ -994,6 +1382,10 @@ class CustomerRequestPreviewPage extends StatefulWidget {
         jobTimeLabel: '',
         address: '',
         requestExactPin: false,
+        requestPhotos: false,
+        requiresExactPinAfterQuoteAccepted: false,
+        selectedQuestionIds: const <String>[],
+        answers: const <VanJobRequestAnswer>[],
         checklistItems: const <String>[],
         customQuestions: const <String>[],
         notesMessage: '',
@@ -1006,6 +1398,99 @@ class CustomerRequestPreviewPage extends StatefulWidget {
   @override
   State<CustomerRequestPreviewPage> createState() =>
       _CustomerRequestPreviewPageState();
+}
+
+bool isVanCustomerCurrentLocationExactPinCaptured({
+  required bool exactPinShared,
+  required VanExactPinSource? source,
+}) {
+  return exactPinShared && source == VanExactPinSource.currentLocation;
+}
+
+bool hasVanCustomerExactPinSelection({
+  required bool exactPinShared,
+  required VanExactPinSource? source,
+  required double? latitude,
+  required double? longitude,
+}) {
+  return exactPinShared &&
+      source != null &&
+      latitude != null &&
+      longitude != null;
+}
+
+bool isVanCustomerExactPinSelectionLocked({
+  bool isCapturingCurrentLocation = false,
+  required bool isSubmittingExactPin,
+  required bool exactPinSubmitted,
+}) {
+  return isCapturingCurrentLocation ||
+      isSubmittingExactPin ||
+      exactPinSubmitted;
+}
+
+bool canVanCustomerSubmitExactPin({
+  required bool requestUnavailable,
+  required bool hasValidExactPinSelection,
+  required bool isCapturingCurrentLocation,
+  required bool isSubmittingExactPin,
+  required bool exactPinSubmitted,
+}) {
+  return !requestUnavailable &&
+      hasValidExactPinSelection &&
+      !isCapturingCurrentLocation &&
+      !isSubmittingExactPin &&
+      !exactPinSubmitted;
+}
+
+String vanCustomerCurrentLocationExactPinButtonLabel({
+  required bool exactPinShared,
+  required VanExactPinSource? source,
+}) {
+  return isVanCustomerCurrentLocationExactPinCaptured(
+        exactPinShared: exactPinShared,
+        source: source,
+      )
+      ? 'Current location captured \u2713'
+      : 'I\'m at the exact spot now';
+}
+
+String vanCustomerRetakeCurrentLocationExactPinButtonLabel() {
+  return 'Retake current location';
+}
+
+String? vanCustomerExactPinHelperText({
+  required bool exactPinShared,
+  required VanExactPinSource? source,
+  required bool exactPinSubmitted,
+}) {
+  if (exactPinSubmitted) {
+    return 'Exact location sent. No further changes are needed.';
+  }
+  if (isVanCustomerCurrentLocationExactPinCaptured(
+    exactPinShared: exactPinShared,
+    source: source,
+  )) {
+    return 'Current location captured. Add any access notes, then send exact location.';
+  }
+  return null;
+}
+
+String vanCustomerExactPinMapButtonLabel({required bool exactPinShared}) {
+  return 'Choose the spot on a map';
+}
+
+String vanCustomerExactPinConfirmButtonLabel({
+  required bool isSubmittingExactPin,
+  required bool exactPinSubmitted,
+}) {
+  if (exactPinSubmitted) {
+    return 'Exact location sent \u2713';
+  }
+  if (isSubmittingExactPin) {
+    return 'Sending exact location...';
+  }
+  return 'Confirm and send exact location';
 }
 
 class _CustomerRequestPreviewPageState
@@ -1028,8 +1513,12 @@ class _CustomerRequestPreviewPageState
   final ScrollController _scrollController = ScrollController();
 
   bool _exactPinShared = false;
+  bool _exactPinSkipped = false;
   VanExactPinSource? _exactPinShareSource;
-  bool _photoPlaceholderAdded = false;
+  double? _exactPinLatitude;
+  double? _exactPinLongitude;
+  bool _isCapturingCurrentLocation = false;
+  bool _isSubmittingExactPin = false;
   bool _submissionComplete = false;
   DriverCustomerReplyMockData? _savedReply;
   VanJobRequestRecord? _loadedRequest;
@@ -1038,6 +1527,68 @@ class _CustomerRequestPreviewPageState
 
   VanJobRequestDraft get _draft => _loadedRequest?.toDraft() ?? widget.draft;
   String get _resolvedJobId => _loadedRequest?.jobId ?? widget.jobId;
+
+  String _introName() {
+    final loadedName = _draft.customerName.trim();
+    if (loadedName.isNotEmpty) {
+      return loadedName;
+    }
+
+    return 'Your driver';
+  }
+
+  String _summaryJobTitle() {
+    final title = _draft.jobTitle.trim();
+    if (title.isNotEmpty) {
+      return title;
+    }
+
+    final notes = _draft.notesMessage.trim();
+    if (notes.isNotEmpty) {
+      return notes;
+    }
+
+    return 'Job details';
+  }
+
+  String? _summaryJobDescription() {
+    final notes = _draft.notesMessage.trim();
+    return notes.isEmpty ? null : notes;
+  }
+
+  String _summaryCustomerName() {
+    final customer = _draft.customerName.trim();
+    return customer.isEmpty ? 'Not added yet' : customer;
+  }
+
+  String _summaryAddress() {
+    return buildVanJobLocationSummary(
+      address: _draft.address,
+      postcode: _draft.postcode,
+      locationPending: _draft.locationPending,
+      requiresExactPinAfterQuoteAccepted:
+          _draft.requiresExactPinAfterQuoteAccepted,
+      hasExactPin: _exactPinShared,
+      emptyFallback: 'Not added yet',
+    );
+  }
+
+  String _summaryDateTime() {
+    final date = _draft.jobDateLabel.trim().isNotEmpty
+        ? _draft.jobDateLabel.trim()
+        : formatDate(_draft.scheduledAt);
+    final time = _draft.jobTimeLabel.trim();
+    if (date.isNotEmpty && time.isNotEmpty) {
+      return '$date at $time';
+    }
+    if (date.isNotEmpty) {
+      return date;
+    }
+    if (time.isNotEmpty) {
+      return time;
+    }
+    return 'To be confirmed';
+  }
 
   @override
   void initState() {
@@ -1090,7 +1641,10 @@ class _CustomerRequestPreviewPageState
     }
 
     _exactPinShared = resolved.exactPinShared;
+    _exactPinSkipped = false;
     _exactPinShareSource = resolved.exactPinShareSource;
+    _exactPinLatitude = resolved.exactPinLatitude;
+    _exactPinLongitude = resolved.exactPinLongitude;
     _submissionComplete =
         resolved.status == 'replyReceived' ||
         resolved.status == 'quoteSent' ||
@@ -1125,6 +1679,7 @@ class _CustomerRequestPreviewPageState
       address: record.publicAddressSummary,
       phoneNumber: record.publicPhoneNumber,
       customerEmail: record.publicCustomerEmail,
+      postcode: record.customerPostcode,
       requestExactPin: record.exactPinRequested,
       checklistItems: record.checklistItems,
       customQuestions: record.customQuestions,
@@ -1165,7 +1720,16 @@ class _CustomerRequestPreviewPageState
       requestUpdatedAt: record.updatedAt,
       requestSubmittedAt: record.customerSubmittedAt,
       requestExpiresAt: record.expiresAt,
-      requestLink: buildVanJobRequestLink(record.requestId),
+      requestLink: buildVanJobRequestLink(
+        record.requestId,
+        shortCode: record.shortCode,
+      ),
+      scheduledDate: record.scheduledDate,
+      scheduledStartTime: record.scheduledStartTime,
+      estimatedDurationMinutes: record.estimatedDurationMinutes,
+      calendarStatus: record.calendarStatus,
+      locationPending: record.locationPending,
+      exactPinSource: record.exactPinSource,
     );
   }
 
@@ -1238,22 +1802,14 @@ class _CustomerRequestPreviewPageState
   }
 
   Future<void> _shareExactPin() async {
-    _dismissKeyboard();
-    final choice = await _showExactPinConfirmationSheet();
-    if (!mounted || choice == null) {
+    if (_isCapturingCurrentLocation ||
+        _submissionComplete ||
+        _isSubmittingExactPin) {
       return;
     }
 
-    switch (choice) {
-      case _ExactPinChoice.yesHereNow:
-        await _shareExactPinFromCurrentLocation();
-        break;
-      case _ExactPinChoice.chooseOnMap:
-        await _showExactPinMapPickerSheet();
-        break;
-      case _ExactPinChoice.cancel:
-        break;
-    }
+    _dismissKeyboard();
+    await _shareExactPinFromCurrentLocation();
   }
 
   void _dismissKeyboard() {
@@ -1261,63 +1817,90 @@ class _CustomerRequestPreviewPageState
   }
 
   Future<void> _shareExactPinFromCurrentLocation() async {
-    final currentPosition = await _tryGetCurrentLocation();
-    if (!mounted) {
+    if (_isCapturingCurrentLocation ||
+        _submissionComplete ||
+        _isSubmittingExactPin) {
       return;
     }
 
-    _setExactPinShared(
-      VanExactPinSource.currentLocation,
-      selectedPin: currentPosition == null
-          ? null
-          : LatLng(currentPosition.latitude, currentPosition.longitude),
-    );
+    setState(() {
+      _isCapturingCurrentLocation = true;
+    });
+
+    try {
+      final currentPosition = await _tryGetCurrentLocation();
+      if (!mounted) {
+        return;
+      }
+
+      if (currentPosition == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not capture your current location yet.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      _setExactPinShared(
+        VanExactPinSource.currentLocation,
+        selectedPin: LatLng(
+          currentPosition.latitude,
+          currentPosition.longitude,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCapturingCurrentLocation = false;
+        });
+      }
+    }
   }
 
-  void _setExactPinShared(VanExactPinSource source, {LatLng? selectedPin}) {
+  void _setExactPinShared(
+    VanExactPinSource source, {
+    required LatLng selectedPin,
+  }) {
+    if (_submissionComplete || _isSubmittingExactPin) {
+      return;
+    }
+
     setState(() {
       _exactPinShared = true;
+      _exactPinSkipped = false;
       _exactPinShareSource = source;
+      _exactPinLatitude = selectedPin.latitude;
+      _exactPinLongitude = selectedPin.longitude;
     });
-    DriverReplyMockState.instance.setExactPinDetails(
-      source: source,
-      note: _pinNoteController.text.trim(),
-      latitude: selectedPin?.latitude,
-      longitude: selectedPin?.longitude,
-      jobId: _resolvedJobId,
-    );
+    final message = source == VanExactPinSource.currentLocation
+        ? 'Current location captured. Add any access notes, then send exact location.'
+        : 'Map location selected. Add any access notes, then send exact location.';
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Exact pin shared.'),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
-  Future<_ExactPinChoice?> _showExactPinConfirmationSheet() {
-    return showModalBottomSheet<_ExactPinChoice>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        return _ExactPinSheet(
-          title: 'Are you at the exact pickup/drop-off point now?',
-          message:
-              'Only share your current location if you are standing at the place the driver needs to go - for example the entrance, loading bay, driveway, gate or collection point.',
-          primaryLabel: 'Yes, I\'m here now',
-          secondaryLabel: 'No, choose it on a map',
-          onPrimary: () =>
-              Navigator.of(sheetContext).pop(_ExactPinChoice.yesHereNow),
-          onSecondary: () =>
-              Navigator.of(sheetContext).pop(_ExactPinChoice.chooseOnMap),
-          onCancel: () =>
-              Navigator.of(sheetContext).pop(_ExactPinChoice.cancel),
-        );
-      },
-    );
+  void _skipExactPin() {
+    if (_submissionComplete || _isSubmittingExactPin) {
+      return;
+    }
+
+    setState(() {
+      _exactPinShared = false;
+      _exactPinSkipped = true;
+      _exactPinShareSource = null;
+      _exactPinLatitude = null;
+      _exactPinLongitude = null;
+    });
   }
 
   Future<void> _showExactPinMapPickerSheet() async {
+    if (_submissionComplete || _isSubmittingExactPin) {
+      return;
+    }
+
     final initialCameraPosition = await _resolveExactPinPickerCameraPosition();
     if (!mounted) {
       return;
@@ -1350,32 +1933,26 @@ class _CustomerRequestPreviewPageState
   }
 
   String _exactPinStatusText() {
-    if (!_exactPinShared) {
-      return 'Exact pin has not been shared yet.';
+    if (_exactPinShared) {
+      final source = _exactPinShareSource;
+      if (source == null) {
+        return 'Exact location shared.';
+      }
+      return source.customerStatusLabel;
     }
 
-    final source = _exactPinShareSource;
-    if (source == null) {
-      return 'Exact pin shared';
+    if (_exactPinSkipped) {
+      return 'Pin skipped for now.';
     }
 
-    return source.customerStatusLabel;
-  }
-
-  String _exactPinHelperText() {
-    if (!_exactPinShared) {
-      return 'Only share your current location if you are standing at the place the driver needs to go.';
-    }
-
-    final source = _exactPinShareSource;
-    if (source == null) {
-      return 'This is the location the driver will use for navigation.';
-    }
-
-    return source.customerHelperText;
+    return 'No exact location shared yet.';
   }
 
   String _exactPinSummaryText() {
+    if (!_draft.requestExactPin) {
+      return '';
+    }
+
     if (!_exactPinShared) {
       return 'Exact pin: not shared.';
     }
@@ -1557,10 +2134,9 @@ class _CustomerRequestPreviewPageState
   }
 
   Future<void> _submitDetails() async {
-    _dismissKeyboard();
-    final reply = _buildReplyFromPreview();
-    final checklistAnswers = _answeredChecklistCount();
-    final customAnswers = _answeredCustomQuestionCount();
+    if (_isSubmittingExactPin || _submissionComplete) {
+      return;
+    }
 
     final request = _loadedRequest;
     if (request != null &&
@@ -1576,7 +2152,43 @@ class _CustomerRequestPreviewPageState
       return;
     }
 
+    _dismissKeyboard();
+    if (_draft.requestExactPin &&
+        !hasVanCustomerExactPinSelection(
+          exactPinShared: _exactPinShared,
+          source: _exactPinShareSource,
+          latitude: _exactPinLatitude,
+          longitude: _exactPinLongitude,
+        )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select your exact location before sending it.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmittingExactPin = true;
+    });
+
+    final reply = _buildReplyFromPreview();
+    final checklistAnswers = _answeredChecklistCount();
+    final customAnswers = _answeredCustomQuestionCount();
+    final checklistKeys = reply.checklistResponses
+        .map((response) => response.question.trim())
+        .where((question) => question.isNotEmpty)
+        .join(', ');
+    final customKeys = reply.customQuestionResponses
+        .map((response) => response.question.trim())
+        .where((question) => question.isNotEmpty)
+        .join(', ');
+
     if (_loadedRequest != null) {
+      debugPrint(
+        '[VanJobRequestSubmit] requestId=${_loadedRequest!.requestId} ownerUid=${_loadedRequest!.ownerUid} jobId=$_resolvedJobId checklistResponses keys=${checklistKeys.isEmpty ? '(none)' : checklistKeys} customQuestionResponses keys=${customKeys.isEmpty ? '(none)' : customKeys} exactPinShared=${reply.exactPinShared}',
+      );
       try {
         await VanJobRequestCloudService.instance.submitCustomerReply(
           requestId: _loadedRequest!.requestId,
@@ -1606,175 +2218,217 @@ class _CustomerRequestPreviewPageState
           exactPinLat: reply.exactPinLatitude,
           exactPinLng: reply.exactPinLongitude,
         );
+        debugPrint(
+          '[VanJobRequestSubmit] request doc sync success requestId=${_loadedRequest!.requestId} ownerUid=${_loadedRequest!.ownerUid} jobId=$_resolvedJobId',
+        );
       } catch (error) {
-        debugPrint('[VanJobRequestCloud] submit reply failed: $error');
+        debugPrint(
+          '[VanJobRequestSubmit] request doc sync failed requestId=${_loadedRequest!.requestId} ownerUid=${_loadedRequest!.ownerUid} jobId=$_resolvedJobId error=$error',
+        );
       }
     }
 
-    DriverReplyMockState.instance.saveCustomerReplyForJob(
-      _resolvedJobId,
-      reply,
-    );
-    if (mounted) {
-      setState(() {
-        _submissionComplete = true;
-        _savedReply = reply;
-      });
-    }
+    try {
+      await DriverReplyMockState.instance.saveCustomerReplyForJob(
+        _resolvedJobId,
+        reply,
+      );
+      if (mounted) {
+        setState(() {
+          _submissionComplete = true;
+          _savedReply = reply;
+        });
+      }
 
-    if (!mounted) {
-      return;
-    }
-    final scaffoldContext = context;
-    await showModalBottomSheet<void>(
-      context: scaffoldContext,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.11),
-                        Colors.white.withValues(alpha: 0.05),
+      if (!mounted) {
+        return;
+      }
+      final scaffoldContext = context;
+      await showModalBottomSheet<void>(
+        context: scaffoldContext,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.11),
+                          Colors.white.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.14),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.22),
+                          blurRadius: 24,
+                          offset: const Offset(0, 14),
+                        ),
                       ],
                     ),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.22),
-                        blurRadius: 24,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(15),
-                                color: const Color(
-                                  0xFF58D0A4,
-                                ).withValues(alpha: 0.18),
-                                border: Border.all(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(15),
                                   color: const Color(
                                     0xFF58D0A4,
-                                  ).withValues(alpha: 0.30),
+                                  ).withValues(alpha: 0.18),
+                                  border: Border.all(
+                                    color: const Color(
+                                      0xFF58D0A4,
+                                    ).withValues(alpha: 0.30),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.check_circle_outline,
+                                  color: Colors.white,
+                                  size: 19,
                                 ),
                               ),
-                              child: const Icon(
-                                Icons.check_circle_outline,
-                                color: Colors.white,
-                                size: 19,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Details submitted',
-                                    style: Theme.of(sheetContext)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Your job information has been sent back to the driver.',
-                                    style: Theme.of(sheetContext)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.76,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Request Sent',
+                                      style: Theme.of(sheetContext)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
                                           ),
-                                          height: 1.45,
-                                        ),
-                                  ),
-                                ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Thank you for your interest. We\'ve received your request and will get back to you with a quote as soon as possible.',
+                                      style: Theme.of(sheetContext)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.76,
+                                            ),
+                                            height: 1.45,
+                                          ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        _SummaryLine(
-                          label: 'Exact pin',
-                          value: _exactPinSummaryStatusLabel(),
-                          accent: _exactPinShared
-                              ? const Color(0xFF58D0A4)
-                              : const Color(0xFFFFC38C),
-                          stacked: true,
-                        ),
-                        const SizedBox(height: 10),
-                        _SummaryLine(
-                          label: 'Checklist',
-                          value: '$checklistAnswers answered',
-                          accent: const Color(0xFF4A7DFF),
-                          labelMaxLines: 2,
-                        ),
-                        const SizedBox(height: 10),
-                        _SummaryLine(
-                          label: 'Custom questions',
-                          value: '$customAnswers answered',
-                          accent: const Color(0xFFB48CFF),
-                          labelMaxLines: 2,
-                        ),
-                        const SizedBox(height: 18),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: FilledButton(
-                            onPressed: () => Navigator.of(sheetContext).pop(),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF58D0A4),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Text('Done'),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 18),
+                          if (_draft.requestExactPin) ...[
+                            _SummaryLine(
+                              label: 'Exact pin',
+                              value: _exactPinSummaryStatusLabel(),
+                              accent: _exactPinShared
+                                  ? const Color(0xFF58D0A4)
+                                  : const Color(0xFFFFC38C),
+                              stacked: true,
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          _SummaryLine(
+                            label: 'Checklist',
+                            value: '$checklistAnswers answered',
+                            accent: const Color(0xFF4A7DFF),
+                            labelMaxLines: 2,
+                          ),
+                          const SizedBox(height: 10),
+                          _SummaryLine(
+                            label: 'Custom questions',
+                            value: '$customAnswers answered',
+                            accent: const Color(0xFFB48CFF),
+                            labelMaxLines: 2,
+                          ),
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: FilledButton(
+                              onPressed: () => Navigator.of(sheetContext).pop(),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF58D0A4),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Text('Done'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[VanJobRequestSubmit] submit failed requestId=${_loadedRequest?.requestId ?? _resolvedJobId} jobId=$_resolvedJobId error=$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not send details. Please try again.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmittingExactPin = false;
+        });
+      }
+    }
   }
 
   DriverCustomerReplyMockData _buildReplyFromPreview() {
-    final storedJob = DriverReplyMockState.instance.jobById(_resolvedJobId);
+    final exactPinRequested = _draft.requestExactPin;
+    final hasExactPinSelection =
+        exactPinRequested &&
+        hasVanCustomerExactPinSelection(
+          exactPinShared: _exactPinShared,
+          source: _exactPinShareSource,
+          latitude: _exactPinLatitude,
+          longitude: _exactPinLongitude,
+        );
+    final exactPinLatitude = hasExactPinSelection ? _exactPinLatitude : null;
+    final exactPinLongitude = hasExactPinSelection ? _exactPinLongitude : null;
+    final exactPinNote = exactPinRequested
+        ? _pinNoteController.text.trim()
+        : '';
     final checklistResponses = <DriverChecklistResponse>[
       for (final entry in _checklistNoteControllers.entries)
         DriverChecklistResponse(
@@ -1805,18 +2459,21 @@ class _CustomerRequestPreviewPageState
       requestExactPin: _draft.requestExactPin,
       checklistItems: _draft.checklistItems,
       customQuestions: _draft.customQuestions,
+      scheduledDate: _draft.scheduledDate,
+      scheduledStartTime: _draft.scheduledStartTime,
+      estimatedDurationMinutes: _draft.estimatedDurationMinutes,
+      calendarStatus: _draft.calendarStatus,
+      exactPinSource: _draft.exactPinSource,
       notesMessage: _draft.notesMessage,
       status: 'replyReceived',
       createdAt: _savedReply?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
       replyReceivedAt: DateTime.now(),
-      exactPinShared: _exactPinShared,
-      exactPinShareSource: _exactPinShareSource,
-      exactPinNote: _pinNoteController.text.trim(),
-      exactPinLatitude:
-          storedJob?.exactPinLatitude ?? _savedReply?.exactPinLatitude,
-      exactPinLongitude:
-          storedJob?.exactPinLongitude ?? _savedReply?.exactPinLongitude,
+      exactPinShared: hasExactPinSelection,
+      exactPinShareSource: hasExactPinSelection ? _exactPinShareSource : null,
+      exactPinNote: exactPinNote,
+      exactPinLatitude: exactPinLatitude,
+      exactPinLongitude: exactPinLongitude,
       checklistResponses: checklistResponses,
       customQuestionResponses: customResponses,
       additionalNotes: _additionalNotesController.text.trim(),
@@ -1824,185 +2481,25 @@ class _CustomerRequestPreviewPageState
   }
 
   Widget _buildRequestedChecklistCard(BuildContext context, String item) {
-    switch (item) {
-      case _parkingQuestion:
-        return _ChecklistAnswerCard(
-          icon: Icons.local_parking,
-          title: item,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectionWrap(
-                selectedValue: _choiceFor(item),
-                options: const ['Yes', 'No', 'Not sure'],
-                onSelected: (value) => _setChoice(item, value),
-              ),
-              const SizedBox(height: 10),
-              _ChecklistNoteField(
-                controller: _noteControllerFor(item),
-                hintText: 'Where should the driver park?',
-              ),
-            ],
+    return _ChecklistAnswerCard(
+      icon: Icons.checklist,
+      title: item,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SelectionWrap(
+            selectedValue: _choiceFor(item),
+            options: const ['Yes', 'No', 'Not sure'],
+            onSelected: (value) => _setChoice(item, value),
           ),
-        );
-      case _accessQuestion:
-        return _ChecklistAnswerCard(
-          icon: Icons.lock_outline,
-          title: item,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectionWrap(
-                selectedValue: _choiceFor(item),
-                options: const ['Yes', 'No', 'Not sure'],
-                onSelected: (value) => _setChoice(item, value),
-              ),
-              const SizedBox(height: 10),
-              _ChecklistNoteField(
-                controller: _noteControllerFor(item),
-                hintText:
-                    'Gate code, height limit, barrier, loading bay, security...',
-              ),
-            ],
+          const SizedBox(height: 10),
+          _ChecklistNoteField(
+            controller: _noteControllerFor(item),
+            hintText: 'Optional note',
           ),
-        );
-      case _stairsQuestion:
-        return _ChecklistAnswerCard(
-          icon: Icons.stairs_outlined,
-          title: item,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectionWrap(
-                selectedValue: _choiceFor(item),
-                options: const ['Stairs', 'Lift', 'Ground floor', 'Not sure'],
-                onSelected: (value) => _setChoice(item, value),
-              ),
-              const SizedBox(height: 10),
-              _ChecklistNoteField(
-                controller: _noteControllerFor(item),
-                hintText: 'Floor number, lift size, awkward access...',
-              ),
-            ],
-          ),
-        );
-      case _loadingQuestion:
-        return _ChecklistAnswerCard(
-          icon: Icons.support_agent_outlined,
-          title: item,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectionWrap(
-                selectedValue: _choiceFor(item),
-                options: const ['Yes', 'No', 'Maybe'],
-                onSelected: (value) => _setChoice(item, value),
-              ),
-              const SizedBox(height: 10),
-              _ChecklistNoteField(
-                controller: _noteControllerFor(item),
-                hintText: 'Who can help, where to meet, anything heavy...',
-              ),
-            ],
-          ),
-        );
-      case _heavyQuestion:
-        return _ChecklistAnswerCard(
-          icon: Icons.inventory_2_outlined,
-          title: item,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectionWrap(
-                selectedValue: _choiceFor(item),
-                options: const ['Yes', 'No', 'Not sure'],
-                onSelected: (value) => _setChoice(item, value),
-              ),
-              const SizedBox(height: 10),
-              _ChecklistNoteField(
-                controller: _noteControllerFor(item),
-                hintText: 'What item is heavy or awkward?',
-              ),
-            ],
-          ),
-        );
-      case _fragileQuestion:
-        return _ChecklistAnswerCard(
-          icon: Icons.warning_amber_outlined,
-          title: item,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectionWrap(
-                selectedValue: _choiceFor(item),
-                options: const ['Yes', 'No', 'Not sure'],
-                onSelected: (value) => _setChoice(item, value),
-              ),
-              const SizedBox(height: 10),
-              _ChecklistNoteField(
-                controller: _noteControllerFor(item),
-                hintText: 'What is fragile?',
-              ),
-            ],
-          ),
-        );
-      case _photosQuestion:
-        return _ChecklistAnswerCard(
-          icon: Icons.photo_camera_outlined,
-          title: item,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectionWrap(
-                selectedValue: _photoPlaceholderAdded ? 'Add photo' : null,
-                options: const ['Add photo', 'Skip for now'],
-                onSelected: (value) {
-                  setState(() {
-                    _photoPlaceholderAdded = value == 'Add photo';
-                    _choiceAnswers[item] = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 10),
-              _ChecklistNoteField(
-                controller: _noteControllerFor(item),
-                hintText:
-                    'Add any photo details or explain what needs showing.',
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _photoPlaceholderAdded
-                    ? 'Mock photo placeholder selected'
-                    : 'UI only, no real upload yet.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.70),
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        );
-      default:
-        return _ChecklistAnswerCard(
-          icon: Icons.checklist,
-          title: item,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SelectionWrap(
-                selectedValue: _choiceFor(item),
-                options: const ['Yes', 'No', 'Not sure'],
-                onSelected: (value) => _setChoice(item, value),
-              ),
-              const SizedBox(height: 10),
-              _ChecklistNoteField(
-                controller: _noteControllerFor(item),
-                hintText: 'Add any extra details',
-              ),
-            ],
-          ),
-        );
-    }
+        ],
+      ),
+    );
   }
 
   Widget _buildCustomQuestionAnswer(String question) {
@@ -2017,8 +2514,8 @@ class _CustomerRequestPreviewPageState
       child: _JobRequestInputField(
         controller: controller,
         icon: Icons.edit_note,
-        label: 'Customer answer',
-        hintText: 'Type your answer...',
+        label: 'Your answer',
+        hintText: 'Type your answer',
         maxLines: 3,
       ),
     );
@@ -2052,7 +2549,7 @@ class _CustomerRequestPreviewPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Details submitted',
+                          'Details sent',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: Colors.white,
@@ -2061,7 +2558,7 @@ class _CustomerRequestPreviewPageState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'The driver will see this customer reply in the mock workflow.',
+                          'The driver now has your reply.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.74),
@@ -2069,15 +2566,16 @@ class _CustomerRequestPreviewPageState
                               ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          _exactPinSummaryText(),
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.82),
-                                height: 1.45,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
+                        if (_exactPinSummaryText().isNotEmpty)
+                          Text(
+                            _exactPinSummaryText(),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.82),
+                                  height: 1.45,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
                       ],
                     ),
                   ),
@@ -2171,6 +2669,8 @@ class _CustomerRequestPreviewPageState
 
     final theme = Theme.of(context);
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom;
+    final introName = _introName();
+    final summaryDescription = _summaryJobDescription();
 
     final items = _draft.checklistItems;
     final requestUnavailable =
@@ -2178,6 +2678,25 @@ class _CustomerRequestPreviewPageState
         (_loadedRequest!.isExpired ||
             _loadedRequest!.status == 'cancelled' ||
             _loadedRequest!.isSubmitted);
+    final showExactPinSection = _draft.requestExactPin;
+    final hasValidExactPinSelection = hasVanCustomerExactPinSelection(
+      exactPinShared: _exactPinShared,
+      source: _exactPinShareSource,
+      latitude: _exactPinLatitude,
+      longitude: _exactPinLongitude,
+    );
+    final exactPinSelectionLocked = isVanCustomerExactPinSelectionLocked(
+      isCapturingCurrentLocation: _isCapturingCurrentLocation,
+      isSubmittingExactPin: _isSubmittingExactPin,
+      exactPinSubmitted: _submissionComplete,
+    );
+    final canSubmitExactPin = canVanCustomerSubmitExactPin(
+      requestUnavailable: requestUnavailable,
+      hasValidExactPinSelection: hasValidExactPinSelection,
+      isCapturingCurrentLocation: _isCapturingCurrentLocation,
+      isSubmittingExactPin: _isSubmittingExactPin,
+      exactPinSubmitted: _submissionComplete,
+    );
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -2201,7 +2720,7 @@ class _CustomerRequestPreviewPageState
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Customer Job Request',
+                        'Fill in job details',
                         style: theme.textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -2210,7 +2729,7 @@ class _CustomerRequestPreviewPageState
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Please complete the details below.',
+                        '$introName needs a few details before the job.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.76),
                           height: 1.45,
@@ -2219,28 +2738,16 @@ class _CustomerRequestPreviewPageState
                       const SizedBox(height: 16),
                       if (requestUnavailable) ...[
                         _JobRequestGlassCard(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.warning_amber_rounded,
-                                color: Color(0xFFFFC38C),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _loadedRequest!.isExpired
-                                      ? 'This request has expired. Please ask the driver for a new link.'
-                                      : _loadedRequest!.status == 'cancelled'
-                                      ? 'This request has been cancelled. Please ask the driver for a new link.'
-                                      : 'This request has already been submitted.',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.76),
-                                    height: 1.45,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            _loadedRequest!.isExpired
+                                ? 'This request is no longer active. Please ask the driver for a new link.'
+                                : _loadedRequest!.status == 'cancelled'
+                                ? 'This request was cancelled. Please ask the driver for a new link.'
+                                : 'Your details for this request have already been sent.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.76),
+                              height: 1.45,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -2251,58 +2758,61 @@ class _CustomerRequestPreviewPageState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _PreviewInfoRow(
-                              icon: Icons.checklist,
-                              label: 'Job title',
-                              value: _draft.jobTitle.isEmpty
-                                  ? 'No title yet'
-                                  : _draft.jobTitle,
+                            const _JobRequestSectionHeader(
+                              icon: Icons.work_outline,
+                              title: 'Job summary',
                             ),
                             const SizedBox(height: 12),
+                            Text(
+                              _summaryJobTitle(),
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                height: 1.1,
+                              ),
+                            ),
+                            if (summaryDescription != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                summaryDescription,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.74),
+                                  height: 1.45,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 14),
                             _PreviewInfoRow(
                               icon: Icons.person,
-                              label: 'Customer name',
-                              value: _draft.customerName.isEmpty
-                                  ? 'No customer name yet'
-                                  : _draft.customerName,
-                            ),
-                            const SizedBox(height: 12),
-                            _PreviewInfoRow(
-                              icon: Icons.phone,
-                              label: 'Phone number',
-                              value: _draft.phoneNumber.isEmpty
-                                  ? 'No phone number yet'
-                                  : _draft.phoneNumber,
+                              label: 'Customer',
+                              value: _summaryCustomerName(),
                             ),
                             const SizedBox(height: 12),
                             _PreviewInfoRow(
                               icon: Icons.location_on,
-                              label: 'Requested pin',
-                              value: _draft.requestExactPin
-                                  ? 'Exact pin requested'
-                                  : 'Exact pin not requested',
+                              label: 'Address',
+                              value: _summaryAddress(),
+                            ),
+                            const SizedBox(height: 12),
+                            _PreviewInfoRow(
+                              icon: Icons.calendar_today,
+                              label: 'Date and time',
+                              value: _summaryDateTime(),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _JobRequestGlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _JobRequestSectionHeader(
-                              icon: Icons.checklist,
-                              title: 'Requested checklist items',
-                            ),
-                            const SizedBox(height: 12),
-                            if (items.isEmpty)
-                              Text(
-                                'No checklist items selected yet.',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.72),
-                                ),
-                              )
-                            else
+                      if (items.isNotEmpty) ...[
+                        _JobRequestGlassCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _JobRequestSectionHeader(
+                                icon: Icons.checklist,
+                                title: 'Questions',
+                              ),
+                              const SizedBox(height: 12),
                               Column(
                                 children: [
                                   for (
@@ -2319,10 +2829,11 @@ class _CustomerRequestPreviewPageState
                                   ],
                                 ],
                               ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 12),
+                      ],
                       if (_draft.customQuestions.isNotEmpty)
                         _JobRequestGlassCard(
                           child: Column(
@@ -2360,211 +2871,361 @@ class _CustomerRequestPreviewPageState
                           children: [
                             const _JobRequestSectionHeader(
                               icon: Icons.notes,
-                              title: 'Additional notes for the driver',
+                              title: 'Anything else?',
                             ),
                             const SizedBox(height: 12),
                             _JobRequestInputField(
                               controller: _additionalNotesController,
                               icon: Icons.edit_note,
-                              label: 'Additional notes for the driver',
-                              hintText:
-                                  'Gate code, where to park, who to ask for, best entrance, anything awkward...',
+                              label: 'Anything else?',
+                              hintText: 'Optional note',
                               maxLines: 4,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Job date: ${_draft.jobDateLabel} | Job time: ${_draft.jobTimeLabel}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.72),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Address: ${_draft.address.isEmpty ? "Not added yet" : _draft.address}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.72),
-                              ),
                             ),
                           ],
                         ),
                       ),
+                      if (showExactPinSection) ...[
+                        const SizedBox(height: 12),
+                        _JobRequestGlassCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _JobRequestSectionHeader(
+                                icon: Icons.location_on,
+                                title: 'Exact location',
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Only share this if you are at the entrance, bay or drop-off point.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.74),
+                                  height: 1.45,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: Text(
+                                  _exactPinStatusText(),
+                                  key: ValueKey<String>(
+                                    '${_exactPinShared}_${_exactPinSkipped}_${_exactPinShareSource?.name ?? 'none'}',
+                                  ),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.80),
+                                    height: 1.45,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _JobRequestInputField(
+                                controller: _pinNoteController,
+                                icon: Icons.edit_note,
+                                label: 'Any entrance, gate or drop-off notes?',
+                                hintText: 'Optional note',
+                                maxLines: 2,
+                                onChanged: (_) => setState(() {}),
+                              ),
+                              const SizedBox(height: 14),
+                              Builder(
+                                builder: (context) {
+                                  final currentLocationCaptured =
+                                      isVanCustomerCurrentLocationExactPinCaptured(
+                                        exactPinShared: _exactPinShared,
+                                        source: _exactPinShareSource,
+                                      );
+                                  final helperText =
+                                      vanCustomerExactPinHelperText(
+                                        exactPinShared: _exactPinShared,
+                                        source: _exactPinShareSource,
+                                        exactPinSubmitted: _submissionComplete,
+                                      );
+                                  final showCompletedCurrentLocationState =
+                                      currentLocationCaptured &&
+                                      !_isCapturingCurrentLocation;
+
+                                  return Column(
+                                    children: [
+                                      if (showCompletedCurrentLocationState) ...[
+                                        SizedBox(
+                                          width: double.infinity,
+                                          height: 52,
+                                          child: OutlinedButton.icon(
+                                            onPressed: null,
+                                            icon: const Icon(
+                                              Icons.check_circle,
+                                            ),
+                                            label: Text(
+                                              vanCustomerCurrentLocationExactPinButtonLabel(
+                                                exactPinShared: _exactPinShared,
+                                                source: _exactPinShareSource,
+                                              ),
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: Colors.white,
+                                              disabledForegroundColor: Colors
+                                                  .white
+                                                  .withValues(alpha: 0.92),
+                                              backgroundColor: const Color(
+                                                0xFF58D0A4,
+                                              ).withValues(alpha: 0.12),
+                                              disabledBackgroundColor:
+                                                  const Color(
+                                                    0xFF58D0A4,
+                                                  ).withValues(alpha: 0.12),
+                                              side: BorderSide(
+                                                color: const Color(
+                                                  0xFF58D0A4,
+                                                ).withValues(alpha: 0.38),
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(18),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          height: 52,
+                                          child: OutlinedButton.icon(
+                                            onPressed:
+                                                exactPinSelectionLocked ||
+                                                    _isCapturingCurrentLocation
+                                                ? null
+                                                : _shareExactPin,
+                                            icon: _isCapturingCurrentLocation
+                                                ? const SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2.2,
+                                                          color: Colors.white,
+                                                        ),
+                                                  )
+                                                : const Icon(Icons.refresh),
+                                            label: Text(
+                                              _isCapturingCurrentLocation
+                                                  ? 'Capturing current location...'
+                                                  : vanCustomerRetakeCurrentLocationExactPinButtonLabel(),
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: Colors.white,
+                                              disabledForegroundColor: Colors
+                                                  .white
+                                                  .withValues(alpha: 0.62),
+                                              side: BorderSide(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.18,
+                                                ),
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(18),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        SizedBox(
+                                          width: double.infinity,
+                                          height: 52,
+                                          child: FilledButton.icon(
+                                            onPressed:
+                                                exactPinSelectionLocked ||
+                                                    _isCapturingCurrentLocation
+                                                ? null
+                                                : _shareExactPin,
+                                            icon: _isCapturingCurrentLocation
+                                                ? const SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 2.2,
+                                                          color: Colors.white,
+                                                        ),
+                                                  )
+                                                : const Icon(Icons.my_location),
+                                            label: Text(
+                                              _isCapturingCurrentLocation
+                                                  ? 'Capturing current location...'
+                                                  : vanCustomerCurrentLocationExactPinButtonLabel(
+                                                      exactPinShared:
+                                                          _exactPinShared,
+                                                      source:
+                                                          _exactPinShareSource,
+                                                    ),
+                                            ),
+                                            style: FilledButton.styleFrom(
+                                              backgroundColor: const Color(
+                                                0xFF4A7DFF,
+                                              ),
+                                              disabledBackgroundColor:
+                                                  const Color(
+                                                    0xFF4A7DFF,
+                                                  ).withValues(alpha: 0.42),
+                                              foregroundColor: Colors.white,
+                                              disabledForegroundColor: Colors
+                                                  .white
+                                                  .withValues(alpha: 0.72),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(18),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      if (helperText != null) ...[
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          helperText,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.68,
+                                                ),
+                                                height: 1.4,
+                                              ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 10),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 52,
+                                        child: OutlinedButton.icon(
+                                          onPressed: exactPinSelectionLocked
+                                              ? null
+                                              : _showExactPinMapPickerSheet,
+                                          icon: const Icon(Icons.map_outlined),
+                                          label: Text(
+                                            vanCustomerExactPinMapButtonLabel(
+                                              exactPinShared: _exactPinShared,
+                                            ),
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: Colors.white,
+                                            disabledForegroundColor: Colors
+                                                .white
+                                                .withValues(alpha: 0.62),
+                                            side: BorderSide(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.18,
+                                              ),
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: TextButton(
+                                  onPressed: exactPinSelectionLocked
+                                      ? null
+                                      : _skipExactPin,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    disabledForegroundColor: Colors.white
+                                        .withValues(alpha: 0.52),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                  ),
+                                  child: const Text('Skip pin'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       _JobRequestGlassCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const _JobRequestSectionHeader(
-                              icon: Icons.location_on,
-                              title: 'Exact pin',
+                              icon: Icons.send,
+                              title: 'Send back to driver',
                             ),
-                            const SizedBox(height: 12),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              child: _exactPinShared
-                                  ? Container(
-                                      key: const ValueKey<String>('shared'),
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(20),
-                                        color: const Color(
-                                          0xFF58D0A4,
-                                        ).withValues(alpha: 0.14),
-                                        border: Border.all(
-                                          color: const Color(
-                                            0xFF58D0A4,
-                                          ).withValues(alpha: 0.26),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Once everything looks right, send the details back.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.74),
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: FilledButton.icon(
+                                onPressed: showExactPinSection
+                                    ? (canSubmitExactPin
+                                          ? _submitDetails
+                                          : null)
+                                    : (requestUnavailable
+                                          ? null
+                                          : _submitDetails),
+                                icon: _isSubmittingExactPin
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.2,
+                                          color: Colors.white,
                                         ),
+                                      )
+                                    : Icon(
+                                        _submissionComplete
+                                            ? Icons.check_circle
+                                            : Icons.send,
                                       ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.check_circle_outline,
-                                            color: Colors.white,
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  _exactPinStatusText(),
-                                                  style: theme
-                                                      .textTheme
-                                                      .titleMedium
-                                                      ?.copyWith(
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.w900,
-                                                      ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  _exactPinHelperText(),
-                                                  style: theme
-                                                      .textTheme
-                                                      .bodyMedium
-                                                      ?.copyWith(
-                                                        color: Colors.white
-                                                            .withValues(
-                                                              alpha: 0.74,
-                                                            ),
-                                                        height: 1.45,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : Text(
-                                      'Exact pin has not been shared yet.',
-                                      key: const ValueKey<String>('pending'),
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.72,
-                                            ),
-                                            height: 1.45,
-                                          ),
-                                    ),
+                                label: Text(
+                                  showExactPinSection
+                                      ? vanCustomerExactPinConfirmButtonLabel(
+                                          isSubmittingExactPin:
+                                              _isSubmittingExactPin,
+                                          exactPinSubmitted:
+                                              _submissionComplete,
+                                        )
+                                      : 'Send details',
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF58D0A4),
+                                  disabledBackgroundColor: const Color(
+                                    0xFF58D0A4,
+                                  ).withValues(alpha: 0.42),
+                                  foregroundColor: Colors.white,
+                                  disabledForegroundColor: Colors.white
+                                      .withValues(alpha: 0.74),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                              ),
                             ),
-                            const SizedBox(height: 12),
-                            _JobRequestInputField(
-                              controller: _pinNoteController,
-                              icon: Icons.edit_note,
-                              label: 'Add / edit pin note',
-                              hintText:
-                                  'Use rear gate or loading bay is round the back.',
-                              maxLines: 2,
-                              onChanged: (_) {
-                                DriverReplyMockState.instance
-                                    .setExactPinDetails(
-                                      source: _exactPinShareSource,
-                                      note: _pinNoteController.text.trim(),
-                                    );
-                              },
+                            const SizedBox(height: 10),
+                            Text(
+                              'Only this request will update.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.white.withValues(alpha: 0.58),
+                                height: 1.35,
+                              ),
                             ),
                           ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final stacked = constraints.maxWidth < 480;
-                          final shareLabel = _exactPinShared
-                              ? 'Edit exact pin'
-                              : 'Share exact pin';
-                          final shareIcon = _exactPinShared
-                              ? Icons.edit_location_alt_outlined
-                              : Icons.location_on;
-                          final actions = <Widget>[
-                            FilledButton.icon(
-                              onPressed: _shareExactPin,
-                              icon: Icon(shareIcon),
-                              label: Text(
-                                shareLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: _exactPinShared
-                                    ? const Color(0xFF58D0A4)
-                                    : const Color(0xFF4A7DFF),
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(54),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                            ),
-                            FilledButton.icon(
-                              onPressed: requestUnavailable
-                                  ? null
-                                  : _submitDetails,
-                              icon: const Icon(Icons.send),
-                              label: const Text('Submit details'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF58D0A4),
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(54),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                            ),
-                          ];
-
-                          if (stacked) {
-                            return Column(
-                              children: [
-                                for (var i = 0; i < actions.length; i++) ...[
-                                  actions[i],
-                                  if (i < actions.length - 1)
-                                    const SizedBox(height: 10),
-                                ],
-                              ],
-                            );
-                          }
-
-                          return Row(
-                            children: [
-                              Expanded(child: actions[0]),
-                              const SizedBox(width: 10),
-                              Expanded(child: actions[1]),
-                            ],
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'This reply will save back to the driver\'s job, calendar and place notes.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          height: 1.45,
                         ),
                       ),
                     ],
@@ -2574,110 +3235,6 @@ class _CustomerRequestPreviewPageState
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-enum _ExactPinChoice { yesHereNow, chooseOnMap, cancel }
-
-class _ExactPinSheet extends StatelessWidget {
-  const _ExactPinSheet({
-    required this.title,
-    required this.message,
-    required this.primaryLabel,
-    required this.secondaryLabel,
-    required this.onPrimary,
-    required this.onSecondary,
-    required this.onCancel,
-  });
-
-  final String title;
-  final String message;
-  final String primaryLabel;
-  final String secondaryLabel;
-  final VoidCallback onPrimary;
-  final VoidCallback onSecondary;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.12),
-                    Colors.white.withValues(alpha: 0.06),
-                  ],
-                ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    message,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.74),
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: onPrimary,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF4A7DFF),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: Text(primaryLabel),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton(
-                    onPressed: onSecondary,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.16),
-                      ),
-                      minimumSize: const Size.fromHeight(50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: Text(secondaryLabel),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton(onPressed: onCancel, child: const Text('Cancel')),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -2830,8 +3387,8 @@ class _SelectionPill extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 40),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             color: backgroundColor,
@@ -2844,7 +3401,7 @@ class _SelectionPill extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Colors.white.withValues(alpha: selected ? 1 : 0.86),
-              fontSize: 12.0,
+              fontSize: 13.4,
               height: 1.15,
               fontWeight: FontWeight.w800,
             ),
@@ -3130,58 +3687,6 @@ class _JobRequestInputField extends StatelessWidget {
   }
 }
 
-class _JobRequestChecklistTile extends StatelessWidget {
-  const _JobRequestChecklistTile({
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Colors.black.withValues(alpha: 0.12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: CheckboxListTile(
-        value: value,
-        onChanged: (checked) => onChanged(checked ?? false),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        controlAffinity: ListTileControlAffinity.leading,
-        activeColor: const Color(0xFF4A7DFF),
-        checkColor: Colors.white,
-        title: Row(
-          children: [
-            Icon(icon, color: Colors.white70, size: 17),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13.2,
-                  height: 1.12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _PreviewInfoRow extends StatelessWidget {
   const _PreviewInfoRow({
     required this.icon,
@@ -3234,11 +3739,4 @@ class _PreviewInfoRow extends StatelessWidget {
       ],
     );
   }
-}
-
-class _JobChecklistOption {
-  const _JobChecklistOption({required this.label, required this.icon});
-
-  final String label;
-  final IconData icon;
 }

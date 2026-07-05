@@ -7,15 +7,19 @@ import 'package:flutter/services.dart';
 
 import '../helpers/app_theme.dart';
 import '../helpers/van_business_logo_support.dart';
+import '../helpers/van_invoice_extra_suggestions.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_business_profile.dart';
 import '../models/van_invoice_draft.dart';
+import '../services/van_business_logo_storage_service.dart';
 import '../services/van_business_profile_storage.dart';
+import '../services/van_firebase_auth_service.dart';
 import '../services/van_invoice_number_storage.dart';
 import 'create_invoice_hub_page.dart';
 import 'van_invoice_preview_page.dart';
 import 'driver_customer_reply_mock_page.dart';
 import '../widgets/van_form_field_styles.dart';
+import '../widgets/van_back_business_hub_buttons.dart';
 
 Future<void> openCreateInvoiceMockPage(
   BuildContext context,
@@ -59,17 +63,29 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   late final TextEditingController _invoiceNotesController;
   late final ValueNotifier<double> _invoiceTotalNotifier;
   String? _selectedLogoPath;
+  String? _selectedLogoUrl;
+  XFile? _selectedLogoUpload;
   String? _selectedLogoName;
   String _defaultInvoiceNumber = '';
 
   final List<_InvoiceLineItemDraft> _lineItems = <_InvoiceLineItemDraft>[];
   final Set<String> _selectedExtras = <String>{};
+  final Set<String> _suggestedExtras = <String>{};
 
   @override
   void initState() {
     super.initState();
     final reply = widget.reply;
     final defaults = const VanBusinessProfile.defaults();
+    final quotePaymentInstructions = resolveVanMatePaymentInstructions(
+      reply.quotePaymentInstructions.isNotEmpty
+          ? reply.quotePaymentInstructions
+          : defaults.paymentInstructions,
+    );
+    final quoteExtras = reply.quoteExtras
+        .map((item) => sanitizeVanText(item).trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
     _businessNameController = TextEditingController(
       text: defaults.businessName,
     );
@@ -80,24 +96,26 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       text: defaults.businessAddress,
     );
     _paymentInstructionsController = TextEditingController(
-      text: defaults.paymentInstructions,
+      text: quotePaymentInstructions,
     );
     _customerNameController = TextEditingController(text: reply.customerName);
     _customerPhoneController = TextEditingController(text: reply.phoneNumber);
     _billingAddressController = TextEditingController(text: reply.address);
-    _customerEmailController = TextEditingController(text: '');
+    _customerEmailController = TextEditingController(text: reply.customerEmail);
     _invoiceNumberController = TextEditingController(text: '');
-    _invoiceDateController = TextEditingController(text: reply.jobDateLabel);
-    _dueDateController = TextEditingController(text: '');
+    _invoiceDateController = TextEditingController(
+      text: '${reply.jobDateLabel} ${reply.jobTimeLabel}'.trim(),
+    );
+    _dueDateController = TextEditingController(
+      text: VanInvoiceDraft.dueOnReceiptLabel,
+    );
     _jobReferenceController = TextEditingController(text: reply.jobTitle);
     _jobDescriptionController = TextEditingController(
-      text: '${reply.jobTitle} and delivery job completed.',
+      text: 'Invoice for completed ${reply.jobTitle} work.',
     );
-    _estimatedMilesController = TextEditingController(text: '18.4');
+    _estimatedMilesController = TextEditingController(text: '');
     _mileageChargeController = TextEditingController(text: '');
-    _invoiceNotesController = TextEditingController(
-      text: 'Thank you for your business. Please pay using the details above.',
-    );
+    _invoiceNotesController = TextEditingController(text: '');
     _invoiceTotalNotifier = ValueNotifier<double>(0);
 
     _lineItems.add(
@@ -107,6 +125,19 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
         amount: reply.quoteAmount?.toStringAsFixed(2) ?? '0.00',
       ),
     );
+    for (var index = 0; index < quoteExtras.length; index++) {
+      _lineItems.add(
+        _InvoiceLineItemDraft(
+          description: quoteExtras[index],
+          quantity: '1',
+          amount: '0.00',
+          extraKey:
+              _canonicalInvoiceExtraKey(quoteExtras[index]) ??
+              'quote_extra_${index + 1}',
+        ),
+      );
+    }
+    _syncQuickExtraState();
     _recalculateInvoiceSummary();
 
     unawaited(_loadSavedBusinessProfile());
@@ -154,6 +185,48 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     _invoiceTotalNotifier.value = _invoiceTotal;
   }
 
+  void _handleLineItemChanged() {
+    setState(() {
+      _syncQuickExtraState();
+    });
+  }
+
+  void _handleMileageFieldChanged() {
+    setState(() {
+      _syncQuickExtraState();
+      _recalculateInvoiceSummary();
+    });
+  }
+
+  Set<String> _buildSuggestedExtras() {
+    return buildSuggestedInvoiceExtraKeys(
+      checklistResponses: widget.reply.checklistResponses.map(
+        (response) => VanInvoiceReplyAnswer(
+          question: response.question,
+          answer: response.answer,
+          note: response.note ?? '',
+        ),
+      ),
+      customQuestionResponses: widget.reply.customQuestionResponses.map(
+        (response) => VanInvoiceReplyAnswer(
+          question: response.question,
+          answer: response.answer,
+        ),
+      ),
+      jobTitle: widget.reply.jobTitle,
+      jobDescription: _jobDescriptionController.text,
+      additionalNotes: widget.reply.additionalNotes,
+      quoteNotes: widget.reply.quoteNotes,
+      quoteMessage: widget.reply.quoteMessage,
+      estimatedMiles: _estimatedMilesController.text,
+      hasMileageCharge: _parseMoney(_mileageChargeController.text) > 0,
+    );
+  }
+
+  String? _canonicalInvoiceExtraKey(String value) {
+    return canonicalizeVanInvoiceExtraKey(value);
+  }
+
   VanBusinessProfile _currentBusinessProfile() {
     return VanBusinessProfile(
       businessName: _businessNameController.text.trim().isEmpty
@@ -171,43 +244,52 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       businessAddress: _businessAddressController.text.trim().isEmpty
           ? const VanBusinessProfile.defaults().businessAddress
           : _businessAddressController.text.trim(),
-      paymentInstructions: _paymentInstructionsController.text.trim().isEmpty
-          ? const VanBusinessProfile.defaults().paymentInstructions
-          : _paymentInstructionsController.text.trim(),
+      paymentInstructions: resolveVanMatePaymentInstructions(
+        _paymentInstructionsController.text,
+      ),
+      defaultExtraHelperAmount: 0,
+      defaultStairsAccessAmount: 0,
+      defaultWaitingTimeAmount: 0,
+      defaultCollectionDeliveryAmount: 0,
+      defaultMileageRate: 0,
       logoPath: resolveSavedVanBusinessLogoPath(_selectedLogoPath),
+      logoUrl: resolveSavedVanBusinessLogoUrl(_selectedLogoUrl),
     );
   }
 
   VanInvoiceDraft _buildInvoiceDraft() {
+    _syncQuickExtraState();
     final businessProfile = _currentBusinessProfile();
-
-    return VanInvoiceDraft(
-      businessName: businessProfile.businessName,
-      contactName: businessProfile.contactName,
-      phone: businessProfile.phone,
-      email: businessProfile.email,
-      businessAddress: businessProfile.businessAddress,
-      paymentInstructions: businessProfile.paymentInstructions,
-      logoPath: businessProfile.logoPath,
-      customerName: _customerNameController.text.trim().isEmpty
-          ? widget.reply.customerName
-          : _customerNameController.text.trim(),
-      customerPhone: _customerPhoneController.text.trim(),
-      billingAddress: _billingAddressController.text.trim().isEmpty
-          ? widget.reply.address
-          : _billingAddressController.text.trim(),
-      customerEmail: _customerEmailController.text.trim(),
+    final invoice = widget.reply.toInvoiceDraft(
+      businessProfile: businessProfile,
       invoiceNumber: _invoiceNumberController.text.trim().isEmpty
           ? _defaultInvoiceNumber
           : _invoiceNumberController.text.trim(),
+    );
+
+    return invoice.copyWith(
+      customerName: _customerNameController.text.trim().isEmpty
+          ? widget.reply.customerName
+          : _customerNameController.text.trim(),
+      customerPhone: _customerPhoneController.text.trim().isEmpty
+          ? widget.reply.phoneNumber
+          : _customerPhoneController.text.trim(),
+      billingAddress: _billingAddressController.text.trim().isEmpty
+          ? widget.reply.address
+          : _billingAddressController.text.trim(),
+      customerEmail: _customerEmailController.text.trim().isEmpty
+          ? widget.reply.customerEmail
+          : _customerEmailController.text.trim(),
       invoiceDate: _invoiceDateController.text.trim().isEmpty
-          ? widget.reply.jobDateLabel
+          ? '${widget.reply.jobDateLabel} ${widget.reply.jobTimeLabel}'.trim()
           : _invoiceDateController.text.trim(),
       dueDate: _dueDateController.text.trim(),
       jobReference: _jobReferenceController.text.trim().isEmpty
           ? widget.reply.jobTitle
           : _jobReferenceController.text.trim(),
-      jobDescription: _jobDescriptionController.text.trim(),
+      jobDescription: _jobDescriptionController.text.trim().isEmpty
+          ? invoice.jobDescription
+          : _jobDescriptionController.text.trim(),
       lineItems: [
         for (final item in _lineItems)
           VanInvoiceLineItem(
@@ -216,15 +298,32 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                 : item.descriptionController.text.trim(),
             quantity: _parseQuantity(item.quantityController.text),
             amount: _parseMoney(item.amountController.text),
+            extraKey: item.extraKey,
           ),
       ],
       estimatedMiles: _estimatedMilesController.text.trim(),
       mileageCharge: _parseMoney(_mileageChargeController.text),
-      invoiceNotes: _invoiceNotesController.text.trim(),
+      paymentInstructions: _paymentInstructionsController.text.trim(),
+      invoiceNotes: _invoiceNotesController.text.trim().isEmpty
+          ? invoice.invoiceNotes
+          : _invoiceNotesController.text.trim(),
     );
   }
 
+  bool _validateDueDateBeforeInvoiceAction() {
+    if (_dueDateController.text.trim().isNotEmpty) {
+      return true;
+    }
+    _showSnack(
+      'Add a due date or choose Due on receipt before saving the invoice.',
+    );
+    return false;
+  }
+
   Future<void> _previewInvoice() async {
+    if (!_validateDueDateBeforeInvoiceAction()) {
+      return;
+    }
     await openVanInvoicePreviewPage(context, _buildInvoiceDraft());
   }
 
@@ -236,11 +335,13 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
     _businessAddressController.text = profile.businessAddress;
     _paymentInstructionsController.text = profile.paymentInstructions;
     _selectedLogoPath = resolveSavedVanBusinessLogoPath(profile.logoPath);
+    _selectedLogoUrl = resolveSavedVanBusinessLogoUrl(profile.logoUrl);
+    _selectedLogoUpload = null;
     _selectedLogoName = profile.hasLogo ? 'Saved logo' : null;
   }
 
   Future<void> _loadSavedBusinessProfile() async {
-    final profile = await _businessProfileStorage.load();
+    final profile = await _businessProfileStorage.loadCanonicalProfile();
     if (!mounted) {
       return;
     }
@@ -262,8 +363,52 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   }
 
   Future<void> _saveBusinessProfile() async {
-    final profile = _currentBusinessProfile();
+    final existingProfile = await _businessProfileStorage
+        .loadCanonicalProfile();
+    String? resolvedLogoUrl = resolveSavedVanBusinessLogoUrl(_selectedLogoUrl);
+    final selectedLogoPath = resolveSavedVanBusinessLogoPath(_selectedLogoPath);
+    if (selectedLogoPath == null) {
+      resolvedLogoUrl = null;
+    } else if (_selectedLogoUpload != null) {
+      resolvedLogoUrl = null;
+      final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
+        source: 'van_mate.business_logo_upload',
+      );
+      if (ownerUid != null && ownerUid.trim().isNotEmpty) {
+        resolvedLogoUrl = await VanBusinessLogoStorageService.instance
+            .uploadBusinessLogo(
+              ownerUid: ownerUid,
+              logoFile: _selectedLogoUpload!,
+            );
+      }
+    }
+    final profile = existingProfile.copyWith(
+      businessName: _businessNameController.text.trim().isEmpty
+          ? const VanBusinessProfile.defaults().businessName
+          : _businessNameController.text.trim(),
+      contactName: _contactNameController.text.trim().isEmpty
+          ? const VanBusinessProfile.defaults().contactName
+          : _contactNameController.text.trim(),
+      phone: _businessPhoneController.text.trim().isEmpty
+          ? const VanBusinessProfile.defaults().phone
+          : _businessPhoneController.text.trim(),
+      email: _businessEmailController.text.trim().isEmpty
+          ? const VanBusinessProfile.defaults().email
+          : _businessEmailController.text.trim(),
+      businessAddress: _businessAddressController.text.trim().isEmpty
+          ? const VanBusinessProfile.defaults().businessAddress
+          : _businessAddressController.text.trim(),
+      paymentInstructions: resolveVanMatePaymentInstructions(
+        _paymentInstructionsController.text,
+      ),
+      logoPath: resolveSavedVanBusinessLogoPath(_selectedLogoPath),
+      logoUrl: resolvedLogoUrl,
+    );
     await _businessProfileStorage.save(profile);
+    if (_selectedLogoUpload != null) {
+      _selectedLogoUpload = null;
+    }
+    _selectedLogoUrl = resolvedLogoUrl;
     if (!mounted) {
       return;
     }
@@ -303,6 +448,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
         _selectedLogoPath = pickedImage.path.trim().isEmpty
             ? null
             : pickedImage.path.trim();
+        _selectedLogoUpload = pickedImage;
         _selectedLogoName = pickedImage.name;
       });
     } catch (_) {
@@ -316,6 +462,8 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   void _removeLogo() {
     setState(() {
       _selectedLogoPath = null;
+      _selectedLogoUrl = null;
+      _selectedLogoUpload = null;
       _selectedLogoName = null;
     });
   }
@@ -347,6 +495,10 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   }
 
   void _saveInvoice() {
+    if (!_validateDueDateBeforeInvoiceAction()) {
+      return;
+    }
+    _syncQuickExtraState();
     setState(() {});
     DriverReplyMockState.instance.setInvoiceCreated(
       true,
@@ -356,37 +508,134 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
   }
 
   void _addExtraLineItem(_InvoiceExtraPreset preset) {
-    if (_selectedExtras.contains(preset.key)) {
-      _showSnack('${preset.label} already added.');
+    if (preset.key != 'custom' && _selectedExtras.contains(preset.key)) {
       return;
     }
 
     setState(() {
-      _selectedExtras.add(preset.key);
-      _lineItems.add(
-        _InvoiceLineItemDraft(
-          description: preset.description,
-          quantity: preset.quantity,
-          amount: preset.amount,
-          extraKey: preset.key,
-        ),
-      );
+      if (preset.key == 'custom') {
+        _lineItems.add(
+          _InvoiceLineItemDraft(
+            description: preset.description,
+            quantity: preset.quantity,
+            amount: preset.amount,
+            extraKey: preset.key,
+          ),
+        );
+      } else if (preset.key == 'mileage') {
+        if (_hasMileageLineItem || _hasActiveMileageCharge) {
+          _clearMileageExtra();
+        } else {
+          _lineItems.add(
+            _InvoiceLineItemDraft(
+              description: preset.description,
+              quantity: preset.quantity,
+              amount: preset.amount,
+              extraKey: preset.key,
+            ),
+          );
+        }
+      } else {
+        final existing = _findMatchingExtraItems(preset.key);
+        if (existing.isNotEmpty) {
+          _removeExtraItems(existing);
+        } else {
+          _lineItems.add(
+            _InvoiceLineItemDraft(
+              description: preset.description,
+              quantity: preset.quantity,
+              amount: preset.amount,
+              extraKey: preset.key,
+            ),
+          );
+        }
+      }
+      _syncQuickExtraState();
     });
     _recalculateInvoiceSummary();
   }
 
   void _removeLineItem(_InvoiceLineItemDraft item) {
-    if (item.extraKey == null) {
-      return;
-    }
-
     setState(() {
       _selectedExtras.remove(item.extraKey);
       _lineItems.remove(item);
     });
 
     item.dispose();
+    _syncQuickExtraState();
     _recalculateInvoiceSummary();
+  }
+
+  void _removeExtraItems(List<_InvoiceLineItemDraft> items) {
+    for (final item in items) {
+      _selectedExtras.remove(item.extraKey);
+      _lineItems.remove(item);
+      item.dispose();
+    }
+  }
+
+  void _clearMileageExtra() {
+    final mileageItems = _findMatchingExtraItems('mileage');
+    _removeExtraItems(mileageItems);
+    _mileageChargeController.text = '';
+  }
+
+  List<_InvoiceLineItemDraft> _findMatchingExtraItems(String key) {
+    return _lineItems.where((item) => _extraKeyForItem(item) == key).toList();
+  }
+
+  String? _extraKeyForItem(_InvoiceLineItemDraft item) {
+    final existingKey = _normalizeQuickExtraKey(item.extraKey);
+    if (existingKey != null) {
+      return existingKey;
+    }
+    return _extraKeyForDescription(item.descriptionController.text);
+  }
+
+  String? _extraKeyForDescription(String value) {
+    return canonicalizeVanInvoiceExtraKey(value);
+  }
+
+  String? _normalizeQuickExtraKey(String? value) {
+    final normalized = value?.trim().toLowerCase() ?? '';
+    if (normalized.isEmpty) {
+      return null;
+    }
+    if (normalized == 'custom' ||
+        normalized == 'collection_delivery' ||
+        normalized == 'waiting_time' ||
+        normalized == 'stairs' ||
+        normalized == 'helper' ||
+        normalized == 'mileage') {
+      return normalized;
+    }
+    return null;
+  }
+
+  bool get _hasMileageLineItem => _findMatchingExtraItems('mileage').isNotEmpty;
+
+  bool get _hasActiveMileageCharge =>
+      _parseMoney(_mileageChargeController.text) > 0;
+
+  void _syncQuickExtraState() {
+    final selected = <String>{};
+    for (final item in _lineItems) {
+      final key = _extraKeyForItem(item);
+      item.extraKey = key;
+      if (key != null) {
+        selected.add(key);
+      }
+    }
+    if (_hasMileageLineItem || _hasActiveMileageCharge) {
+      selected.add('mileage');
+    }
+    final suggested = _buildSuggestedExtras()..removeAll(selected);
+    _selectedExtras
+      ..clear()
+      ..addAll(selected);
+    _suggestedExtras
+      ..clear()
+      ..addAll(suggested);
   }
 
   Widget _buildShellCard({required Widget child}) {
@@ -522,12 +771,22 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              height: 1.3,
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.visible,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                ),
+              ),
             ),
           ),
         ],
@@ -578,14 +837,17 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
         height: size,
         child: ColoredBox(
           color: Colors.white.withValues(alpha: 0.08),
-          child: buildVanBusinessLogoPreview(_selectedLogoPath),
+          child: buildVanBusinessLogoPreview(
+            _selectedLogoPath,
+            logoUrl: _selectedLogoUrl,
+          ),
         ),
       ),
     );
   }
 
   Widget _buildLogoCard() {
-    final hasLogo = _selectedLogoPath != null;
+    final hasLogo = _selectedLogoPath != null || _selectedLogoUrl != null;
 
     return Container(
       width: double.infinity,
@@ -685,7 +947,11 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Logo is saved locally with your profile.',
+                      _selectedLogoUrl != null
+                          ? 'Logo is saved to Firebase and shared across invoices and booking links.'
+                          : (hasLogo
+                                ? 'Logo selected. Save business profile to sync it to Firebase.'
+                                : 'Save your profile to sync a logo across invoices and booking links.'),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white.withValues(alpha: 0.58),
                         height: 1.35,
@@ -719,6 +985,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                 controller: item.descriptionController,
                 label: 'Description',
                 hint: 'Line item description',
+                onChanged: _handleLineItemChanged,
               ),
             ),
             if (!stacked) const SizedBox(width: 10),
@@ -777,6 +1044,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
               controller: item.descriptionController,
               label: 'Description',
               hint: 'Line item description',
+              onChanged: _handleLineItemChanged,
             ),
             const SizedBox(height: 10),
             Row(
@@ -864,11 +1132,16 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
 
   Widget _buildExtraChip(_InvoiceExtraPreset preset) {
     final selected = _selectedExtras.contains(preset.key);
+    final suggested = !selected && _suggestedExtras.contains(preset.key);
+    final active = selected || suggested;
+    final activeColor = selected
+        ? const Color(0xFF58D0A4)
+        : const Color(0xFF4A7DFF);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _addExtraLineItem(preset),
+        onTap: selected ? null : () => _addExtraLineItem(preset),
         borderRadius: BorderRadius.circular(999),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
@@ -876,22 +1149,63 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
             borderRadius: BorderRadius.circular(999),
             color: selected
                 ? const Color(0xFF58D0A4).withValues(alpha: 0.18)
+                : suggested
+                ? const Color(0xFF4A7DFF).withValues(alpha: 0.16)
                 : Colors.white.withValues(alpha: 0.06),
             border: Border.all(
               color: selected
-                  ? const Color(0xFF58D0A4).withValues(alpha: 0.28)
+                  ? const Color(0xFF58D0A4).withValues(alpha: 0.30)
+                  : suggested
+                  ? const Color(0xFF4A7DFF).withValues(alpha: 0.30)
                   : Colors.white.withValues(alpha: 0.10),
             ),
           ),
-          child: Text(
-            preset.label,
-            style: TextStyle(
-              color: selected
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.78),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected
+                    ? Icons.check_circle
+                    : suggested
+                    ? Icons.auto_awesome
+                    : Icons.circle_outlined,
+                size: 13,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                preset.label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: active ? 0.98 : 0.78),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (suggested) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: activeColor.withValues(alpha: 0.16),
+                    border: Border.all(
+                      color: activeColor.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Text(
+                    'Suggested',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 9.4,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
@@ -1134,6 +1448,12 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
         : (DriverReplyMockState.instance.invoiceCreated
               ? 'Invoice created'
               : 'Ready to invoice');
+    final exactPinChip = widget.reply.exactPinShared
+        ? 'Exact pin saved'
+        : widget.reply.requestExactPin
+        ? 'Exact pin available'
+        : 'Exact pin not requested';
+    final invoiceReadyChip = 'Ready to invoice';
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -1159,28 +1479,8 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => Navigator.of(context).pop(),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                color: Colors.white.withValues(alpha: 0.08),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.14),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.arrow_back_rounded,
-                                size: 19,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
+                        VanBackBusinessHubButtons(
+                          onBack: () => Navigator.of(context).pop(),
                         ),
                         const SizedBox(height: 18),
                         Text(
@@ -1193,7 +1493,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Create a simple invoice from this completed job.',
+                          'Create a final invoice for completed work.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: Colors.white.withValues(alpha: 0.76),
                             height: 1.45,
@@ -1263,23 +1563,20 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                                 runSpacing: 8,
                                 children: [
                                   _buildStatusChip(
-                                    'Completed',
+                                    widget.reply.isCompleted
+                                        ? 'Completed job'
+                                        : 'Ready to invoice',
                                     color: const Color(0xFF58D0A4),
                                     icon: Icons.check_circle,
                                     filled: true,
                                   ),
                                   _buildStatusChip(
-                                    'Quote sent',
-                                    color: const Color(0xFF58D0A4),
-                                    icon: Icons.request_quote_outlined,
-                                  ),
-                                  _buildStatusChip(
-                                    'Exact pin saved',
+                                    exactPinChip,
                                     color: const Color(0xFF58D0A4),
                                     icon: Icons.location_on,
                                   ),
                                   _buildStatusChip(
-                                    'Ready to invoice',
+                                    invoiceReadyChip,
                                     color: const Color(0xFF4A7DFF),
                                     icon: Icons.receipt_long,
                                     filled: true,
@@ -1664,6 +1961,13 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                                     amount: '0.00',
                                   ),
                                   _InvoiceExtraPreset(
+                                    key: 'collection_delivery',
+                                    label: 'Collection/delivery',
+                                    description: 'Collection/delivery',
+                                    quantity: '1',
+                                    amount: '0.00',
+                                  ),
+                                  _InvoiceExtraPreset(
                                     key: 'custom',
                                     label: 'Custom item',
                                     description: 'Custom item',
@@ -1701,6 +2005,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                                           const TextInputType.numberWithOptions(
                                             decimal: true,
                                           ),
+                                      onChanged: _handleMileageFieldChanged,
                                     ),
                                     _buildInput(
                                       controller: _mileageChargeController,
@@ -1710,7 +2015,7 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
                                           const TextInputType.numberWithOptions(
                                             decimal: true,
                                           ),
-                                      onChanged: _recalculateInvoiceSummary,
+                                      onChanged: _handleMileageFieldChanged,
                                     ),
                                   ];
 
@@ -1830,7 +2135,7 @@ class _InvoiceLineItemDraft {
        quantityController = TextEditingController(text: quantity),
        amountController = TextEditingController(text: amount);
 
-  final String? extraKey;
+  String? extraKey;
   final TextEditingController descriptionController;
   final TextEditingController quantityController;
   final TextEditingController amountController;

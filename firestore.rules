@@ -21,6 +21,240 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    function isPublicJobRequestOwner() {
+      return signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    function isPublicJobRequestOwnerCreate() {
+      return signedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+    }
+
+    function isPublicJobRequestCustomerReplyUpdate(requestId) {
+      return request.auth == null
+        && resource.data.ownerUid is string
+        && resource.data.jobId is string
+        && resource.data.requestId is string
+        && resource.data.requestId == requestId
+        && resource.data.expiresAt is timestamp
+        && request.time < resource.data.expiresAt
+        && resource.data.status != 'cancelled'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'requestStatus',
+          'replyReceivedAt',
+          'requestSubmittedAt',
+          'hasReply',
+          'hasExactPin',
+          'exactPinShared',
+          'checklistResponses',
+          'customQuestionResponses',
+          'additionalNotes',
+          'exactPinLatitude',
+          'exactPinLongitude',
+          'exactPinLat',
+          'exactPinLng',
+          'exactPinShareSource',
+          'exactPinSource',
+          'exactPinNote',
+          'updatedAt',
+        ])
+        && request.resource.data.requestStatus == 'reply_received'
+        && request.resource.data.replyReceivedAt is timestamp
+        && request.resource.data.requestSubmittedAt is timestamp
+        && request.resource.data.hasReply == true
+        && request.resource.data.hasExactPin is bool
+        && request.resource.data.exactPinShared is bool
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isPublicJobQuoteOwner() {
+      return signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    function isPublicJobQuoteOwnerCreate() {
+      return signedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+    }
+
+    function isPublicJobQuoteTokenOwner() {
+      return signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    function isPublicJobQuoteTokenOwnerCreate() {
+      return signedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+    }
+
+    function isPublicJobQuoteCustomerResponseUpdate(quoteId) {
+      let allowedKeys = [
+        'quoteAccepted',
+        'quoteDeclined',
+        'quoteResponseStatus',
+        'quoteTimingChoice',
+        'quoteStatus',
+        'quoteResponse',
+        'status',
+        'requestStatus',
+        'quoteRespondedAt',
+        'quoteAcceptedAt',
+        'quoteDeclinedAt',
+        'agreedDateTime',
+        'acceptedProposedDate',
+        'acceptedProposedStartTime',
+        'estimatedDurationMinutes',
+        'schedulingStatus',
+        'confirmedAt',
+        'updatedAt',
+      ];
+      let isAcceptedResponse =
+        request.resource.data.quoteStatus == 'accepted'
+        && (
+          !request.resource.data.keys().hasAny(['quoteResponse'])
+          || request.resource.data.quoteResponse == 'accepted'
+        )
+        && request.resource.data.quoteAccepted == true
+        && request.resource.data.quoteDeclined == false
+        && request.resource.data.quoteResponseStatus == 'accepted'
+        && request.resource.data.quoteTimingChoice == 'accepted_proposed_time'
+        && request.resource.data.status in ['accepted', 'confirmed']
+        && request.resource.data.requestStatus in ['accepted', 'confirmed']
+        && request.resource.data.quoteRespondedAt is timestamp
+        && request.resource.data.quoteAcceptedAt is timestamp
+        && request.resource.data.quoteDeclinedAt == null
+        && request.resource.data.agreedDateTime is timestamp
+        && (
+          request.resource.data.acceptedProposedDate == null
+          || request.resource.data.acceptedProposedDate is string
+        )
+        && (
+          request.resource.data.acceptedProposedStartTime == null
+          || request.resource.data.acceptedProposedStartTime is string
+        )
+        && (
+          request.resource.data.estimatedDurationMinutes == null
+          || request.resource.data.estimatedDurationMinutes is int
+        )
+        && request.resource.data.schedulingStatus == 'accepted_time'
+        && request.resource.data.confirmedAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+      let isAcceptedArrangeResponse =
+        request.resource.data.quoteStatus == 'accepted'
+        && (
+          !request.resource.data.keys().hasAny(['quoteResponse'])
+          || request.resource.data.quoteResponse == 'accepted'
+        )
+        && request.resource.data.quoteAccepted == true
+        && request.resource.data.quoteDeclined == false
+        && request.resource.data.quoteResponseStatus == 'accepted'
+        && request.resource.data.quoteTimingChoice == 'arrange_another_time'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.requestStatus == 'accepted'
+        && request.resource.data.quoteRespondedAt is timestamp
+        && request.resource.data.quoteAcceptedAt is timestamp
+        && request.resource.data.quoteDeclinedAt == null
+        && request.resource.data.agreedDateTime == null
+        && request.resource.data.acceptedProposedDate == null
+        && request.resource.data.acceptedProposedStartTime == null
+        && (
+          request.resource.data.estimatedDurationMinutes == null
+          || request.resource.data.estimatedDurationMinutes is int
+        )
+        && request.resource.data.schedulingStatus == 'awaiting_agreed_time'
+        && request.resource.data.confirmedAt == null
+        && request.resource.data.updatedAt is timestamp;
+      let isDeclinedResponse =
+        request.resource.data.quoteStatus == 'declined'
+        && (
+          !request.resource.data.keys().hasAny(['quoteResponse'])
+          || request.resource.data.quoteResponse == 'declined'
+        )
+        && request.resource.data.quoteAccepted == false
+        && request.resource.data.quoteDeclined == true
+        && request.resource.data.quoteResponseStatus == 'declined'
+        && request.resource.data.quoteTimingChoice == 'declined'
+        && request.resource.data.status == 'declined'
+        && request.resource.data.requestStatus == 'declined'
+        && request.resource.data.quoteRespondedAt is timestamp
+        && request.resource.data.quoteAcceptedAt == null
+        && request.resource.data.quoteDeclinedAt is timestamp
+        && request.resource.data.agreedDateTime == null
+        && request.resource.data.acceptedProposedDate == null
+        && request.resource.data.acceptedProposedStartTime == null
+        && request.resource.data.schedulingStatus == null
+        && request.resource.data.confirmedAt == null
+        && request.resource.data.updatedAt is timestamp;
+
+      return request.auth == null
+        && resource.data.ownerUid is string
+        && resource.data.jobId is string
+        && resource.data.quoteResponseId is string
+        && resource.data.quoteResponseId == quoteId
+        && (resource.data.quoteRespondedAt == null)
+        && resource.data.quoteStatus != 'accepted'
+        && resource.data.quoteStatus != 'declined'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedKeys)
+        && (isAcceptedResponse || isAcceptedArrangeResponse || isDeclinedResponse);
+    }
+
+    function isPublicJobQuoteExactPinUpdate(quoteId) {
+      let allowedKeys = [
+        'exactPinReceived',
+        'exactPinShared',
+        'hasExactPin',
+        'exactPinLatitude',
+        'exactPinLongitude',
+        'exactPinLat',
+        'exactPinLng',
+        'exactPinShareSource',
+        'exactPinSource',
+        'exactPinNote',
+        'exactPinSubmittedAt',
+        'responseLat',
+        'responseLng',
+        'responseAccuracy',
+        'responseSource',
+        'responseNote',
+        'awaitingExactPin',
+        'readyForCalendar',
+        'updatedAt',
+      ];
+
+      return request.auth == null
+        && resource.data.ownerUid is string
+        && resource.data.jobId is string
+        && resource.data.quoteResponseId is string
+        && resource.data.quoteResponseId == quoteId
+        && resource.data.quoteAccepted == true
+        && resource.data.quoteDeclined == false
+        && resource.data.quoteStatus == 'accepted'
+        && request.resource.data.quoteAccepted == true
+        && request.resource.data.quoteDeclined == false
+        && request.resource.data.quoteStatus == 'accepted'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedKeys)
+        && request.resource.data.exactPinReceived == true
+        && request.resource.data.exactPinShared == true
+        && request.resource.data.hasExactPin == true
+        && request.resource.data.exactPinLatitude is number
+        && request.resource.data.exactPinLongitude is number
+        && request.resource.data.exactPinLat is number
+        && request.resource.data.exactPinLng is number
+        && request.resource.data.exactPinShareSource is string
+        && request.resource.data.exactPinSource is string
+        && request.resource.data.exactPinNote is string
+        && request.resource.data.exactPinSubmittedAt is timestamp
+        && request.resource.data.responseLat is number
+        && request.resource.data.responseLng is number
+        && (
+          request.resource.data.responseAccuracy == null
+          || request.resource.data.responseAccuracy is number
+        )
+        && request.resource.data.responseSource is string
+        && request.resource.data.responseNote is string
+        && request.resource.data.awaitingExactPin == false
+        && request.resource.data.readyForCalendar == true
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     function isPinRequestPublicResponseUpdate() {
       return resource.data.status == 'pending'
         && request.auth == null
@@ -46,48 +280,21 @@ service cloud.firestore {
             && request.resource.data.responseNote is string
           ) || (
             request.resource.data.status == 'received_note'
-            && request.resource.data.responseLat == resource.data.responseLat
-            && request.resource.data.responseLng == resource.data.responseLng
-            && request.resource.data.responseAccuracy == resource.data.responseAccuracy
+            && (
+              request.resource.data.responseLat == resource.data.responseLat
+              || request.resource.data.responseLat == null
+            )
+            && (
+              request.resource.data.responseLng == resource.data.responseLng
+              || request.resource.data.responseLng == null
+            )
+            && (
+              request.resource.data.responseAccuracy == resource.data.responseAccuracy
+              || request.resource.data.responseAccuracy == null
+            )
             && request.resource.data.responseAt is timestamp
             && request.resource.data.responseNote is string
         )
-        );
-    }
-
-    function isJobRequestPublicResponseUpdate() {
-      return resource.data.status == 'pending'
-        && request.auth == null
-        && request.time < resource.data.expiresAt
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status',
-          'submittedAt',
-          'customerSubmittedAt',
-          'hasReply',
-          'hasExactPin',
-          'checklistResponses',
-          'customQuestionResponses',
-          'additionalNotes',
-          'exactPinLat',
-          'exactPinLng',
-          'exactPinSource',
-          'exactPinNote',
-          'updatedAt',
-        ])
-        && request.resource.data.status == 'submitted'
-        && request.resource.data.submittedAt is timestamp
-        && request.resource.data.customerSubmittedAt is timestamp
-        && request.resource.data.hasReply is bool
-        && request.resource.data.hasExactPin is bool
-        && request.resource.data.updatedAt is timestamp;
-    }
-
-    function isPublicJobRequestRead() {
-      return request.auth == null
-        && (
-          resource.data.status == 'pending'
-          || resource.data.status == 'submitted'
-          || resource.data.status == 'cancelled'
         );
     }
 
@@ -118,6 +325,18 @@ service cloud.firestore {
         allow read, write: if signedIn() && request.auth.uid == userId;
       }
 
+      match /van_job_services/{docId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /van_custom_job_questions/{docId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /van_booking_link_settings/{docId} {
+        allow read, write: if signedIn() && request.auth.uid == userId;
+      }
+
       match /van_pin_requests/{requestId} {
         allow read, write: if signedIn() && request.auth.uid == userId;
       }
@@ -145,16 +364,46 @@ service cloud.firestore {
     }
 
     match /van_job_requests/{requestId} {
-      allow get: if (
-          signedIn() && resource.data.ownerUid == request.auth.uid
-        ) || isPublicJobRequestRead();
-      allow list: if false;
+      allow get: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow list: if signedIn() && resource.data.ownerUid == request.auth.uid;
       allow create: if signedIn()
         && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if (
-          signedIn() && resource.data.ownerUid == request.auth.uid
-        ) || isJobRequestPublicResponseUpdate();
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid;
       allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /public_job_requests/{requestId} {
+      allow get: if request.auth == null || isPublicJobRequestOwner();
+      allow list: if isPublicJobRequestOwner();
+      allow create: if isPublicJobRequestOwnerCreate();
+      allow update: if isPublicJobRequestOwner()
+        || isPublicJobRequestCustomerReplyUpdate(requestId);
+      allow delete: if isPublicJobRequestOwner();
+    }
+
+    match /public_booking_links/{ownerUid} {
+      allow get: if request.auth == null
+        || (signedIn() && request.auth.uid == ownerUid);
+      allow list: if signedIn() && request.auth.uid == ownerUid;
+      allow create, update, delete: if signedIn()
+        && request.auth.uid == ownerUid;
+    }
+
+    match /public_quote_responses/{quoteId} {
+      allow get: if request.auth == null || isPublicJobQuoteOwner();
+      allow list: if isPublicJobQuoteOwner();
+      allow create: if isPublicJobQuoteOwnerCreate();
+      allow update: if isPublicJobQuoteOwner()
+        || isPublicJobQuoteCustomerResponseUpdate(quoteId)
+        || isPublicJobQuoteExactPinUpdate(quoteId);
+      allow delete: if isPublicJobQuoteOwner();
+    }
+
+    match /public_quote_response_tokens/{token} {
+      allow get: if request.auth == null || isPublicJobQuoteTokenOwner();
+      allow list: if isPublicJobQuoteTokenOwner();
+      allow create: if isPublicJobQuoteTokenOwnerCreate();
+      allow update, delete: if isPublicJobQuoteTokenOwner();
     }
 
     match /van_routes/{routeId} {

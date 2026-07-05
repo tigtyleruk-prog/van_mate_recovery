@@ -13,6 +13,7 @@ class VanInvoiceHistoryEntry {
     this.updatedAt,
     this.deleted = false,
     this.archived = false,
+    this.linkedJobDeleted = false,
   });
 
   final String jobKey;
@@ -22,6 +23,29 @@ class VanInvoiceHistoryEntry {
   final DateTime? updatedAt;
   final bool deleted;
   final bool archived;
+  final bool linkedJobDeleted;
+
+  VanInvoiceHistoryEntry copyWith({
+    String? jobKey,
+    VanInvoiceDraft? draft,
+    DateTime? savedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? deleted,
+    bool? archived,
+    bool? linkedJobDeleted,
+  }) {
+    return VanInvoiceHistoryEntry(
+      jobKey: jobKey ?? this.jobKey,
+      draft: draft ?? this.draft,
+      savedAt: savedAt ?? this.savedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deleted: deleted ?? this.deleted,
+      archived: archived ?? this.archived,
+      linkedJobDeleted: linkedJobDeleted ?? this.linkedJobDeleted,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -32,6 +56,7 @@ class VanInvoiceHistoryEntry {
       'updatedAt': updatedAt?.toIso8601String(),
       'deleted': deleted,
       'archived': archived,
+      'linkedJobDeleted': linkedJobDeleted,
     };
   }
 
@@ -56,6 +81,7 @@ class VanInvoiceHistoryEntry {
       updatedAt: _readDateTime(json['updatedAt']),
       deleted: _readBool(json['deleted']),
       archived: _readBool(json['archived']),
+      linkedJobDeleted: _readBool(json['linkedJobDeleted']),
     );
   }
 }

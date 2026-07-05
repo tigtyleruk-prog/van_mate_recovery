@@ -1,11 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../app/van_mate_app_shell.dart';
+import '../pages/profile_page.dart';
 import '../services/auth_service.dart';
 import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  final bool returnToProfile;
+
+  const RegisterPage({super.key, this.returnToProfile = false});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -58,6 +62,10 @@ class _RegisterPageState extends State<RegisterPage> {
         );
       }
 
+      await VanMateAuthService.instance.waitForCurrentUserReady(
+        requireNonAnonymous: true,
+      );
+
       if (!mounted) {
         return;
       }
@@ -65,7 +73,7 @@ class _RegisterPageState extends State<RegisterPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Account ready. You are signed in now.')),
       );
-      Navigator.of(context).maybePop();
+      _goToSignedInDestination();
     } on FirebaseAuthException catch (error) {
       if (!mounted) {
         return;
@@ -91,10 +99,29 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  void _goToSignedInDestination() {
+    if (widget.returnToProfile) {
+      Navigator.of(
+        context,
+      ).popUntil((route) => route.settings.name == ProfilePage.routeName);
+      return;
+    }
+
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/van-mate-shell'),
+        builder: (_) => const VanMateAppShell(),
+      ),
+      (route) => false,
+    );
+  }
+
   void _goToLogin() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => LoginPage(returnToProfile: widget.returnToProfile),
+      ),
+    );
   }
 
   @override

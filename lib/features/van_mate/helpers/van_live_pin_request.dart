@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'van_customer_request_actions.dart';
 import '../models/van_pin_request.dart';
 import '../models/van_place.dart';
 import '../models/van_route_stop.dart';
@@ -15,7 +16,7 @@ import '../widgets/van_premium_gate_sheet.dart';
 const String _kLivePinRequestFeatureName = 'Live Pin Request';
 const String _kLivePinRequestHeadline = 'Live Pin Request is Premium';
 const String _kLivePinRequestMessage =
-    'Ask a customer or site contact to share the exact delivery entrance or drop-off point, then save it as the drop pin.';
+    'Ask a customer or site contact to share the exact entrance, bay, gate, collection point, or drop-off pin, then save it as the drop pin.';
 
 enum VanPinRequestMessageKind { savedDrop, emergencyNumberOnly }
 
@@ -29,16 +30,16 @@ String buildVanPinRequestMessage({
   final message = StringBuffer();
   if (kind == VanPinRequestMessageKind.emergencyNumberOnly) {
     message.write(
-      'Hi, I\'m trying to find the correct delivery drop-off point.\n\n',
+      'Hi, I\'m trying to find the correct pickup/drop-off point.\n\n',
     );
     message.write(
-      'Please tap this link and share the exact entrance/drop-off pin:\n\n',
+      'Please tap this link and share the exact entrance, bay, gate, collection point, or drop-off pin:\n\n',
     );
     message.write(resolvedLink);
     message.write(
-      '\n\nBefore sharing, you will be asked whether you are actually at the pickup/drop-off point now.\n\nOnly share your location if you are at the correct delivery entrance/drop-off point.\n\nIf you are not there, please forward this link to someone on site, or reply with access instructions.\n\nIt only sends one location pin, not live tracking.\n\nThanks.',
+      '\n\nIt only sends one location pin, not live tracking.\n\nIf you\'re not there, please forward the link to someone on site or reply with access instructions.\n\nThanks.',
     );
-    return message.toString();
+    return normalizeOutgoingRequestMessage(message.toString());
   }
 
   message.write('Hi, I\'m delivering to ');
@@ -52,7 +53,7 @@ String buildVanPinRequestMessage({
     '\n\nBefore sharing, you will be asked whether you are actually at the pickup/drop-off point now.\n\nOnly share your location if you are at the correct delivery entrance/drop-off point.\n\nIf you are not there, please forward this link to someone on site, or reply with access instructions.\n\nIt only sends one location pin, not live tracking.\n\nThanks.',
   );
 
-  return message.toString();
+  return normalizeOutgoingRequestMessage(message.toString());
 }
 
 String buildVanEmergencyPinRequestMessage({required String requestLink}) {

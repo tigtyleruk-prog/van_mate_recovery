@@ -36,6 +36,7 @@ class VanQuotesCloudService {
 
   Future<List<DriverCustomerReplyMockData>> loadQuotes({
     required String ownerUid,
+    Source source = Source.serverAndCache,
   }) async {
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty) {
@@ -44,10 +45,12 @@ class VanQuotesCloudService {
 
     if (kDebugMode) {
       debugPrint(
-        '[VanQuotesCloud] load start uid=$normalizedOwnerUid path=users/$normalizedOwnerUid/van_quotes',
+        '[VanQuotesCloud] load start uid=$normalizedOwnerUid path=users/$normalizedOwnerUid/van_quotes source=$source',
       );
     }
-    final snapshot = await _quotes(normalizedOwnerUid).get();
+    final snapshot = await _quotes(
+      normalizedOwnerUid,
+    ).get(GetOptions(source: source));
     if (kDebugMode) {
       final fetchedIds = snapshot.docs.map((doc) => doc.id).join(', ');
       debugPrint(
@@ -64,6 +67,11 @@ class VanQuotesCloudService {
       }
       try {
         final quote = DriverCustomerReplyMockData.fromJson(normalized);
+        if (kDebugMode) {
+          debugPrint(
+            '[VanQuotesCloud][doc] path=users/$normalizedOwnerUid/van_quotes docId=${doc.id} jobId=${quote.jobId} requestId=${quote.requestId ?? '(none)'} status=${quote.status} requestStatus=${quote.requestStatus} deleted=${quote.deleted} archived=${quote.archived}',
+          );
+        }
         if (quote.isHiddenFromNormalLists) {
           hiddenCount += 1;
           if (kDebugMode) {
@@ -132,6 +140,8 @@ class VanQuotesCloudService {
       createdAt: job.createdAt ?? job.quoteSavedAt ?? DateTime.now(),
       updatedAt: job.updatedAt ?? DateTime.now(),
       data: job.toJson(),
+      deleted: job.deleted,
+      archived: job.archived,
     );
     final collectionPath = 'users/$normalizedOwnerUid/van_quotes';
     logVanFirebaseWriteStart(
@@ -202,6 +212,8 @@ class VanQuotesCloudService {
         createdAt: job.createdAt ?? job.quoteSavedAt ?? DateTime.now(),
         updatedAt: job.updatedAt ?? DateTime.now(),
         data: job.toJson(),
+        deleted: job.deleted,
+        archived: job.archived,
       );
       logVanFirebaseWriteStart(
         collectionPath: collectionPath,

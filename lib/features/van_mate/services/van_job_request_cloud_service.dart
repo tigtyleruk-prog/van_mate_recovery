@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:math';
 
+import '../helpers/van_customer_request_actions.dart';
+import '../helpers/van_job_request_state.dart';
 import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
+import 'van_firestore_payload_builder.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
 import 'van_user_cloud_service.dart';
@@ -18,13 +22,19 @@ class VanJobRequestCloudService {
   static final VanJobRequestCloudService instance =
       VanJobRequestCloudService._();
 
-  static const String rootCollectionName = 'van_job_requests';
+  static const String rootCollectionName = 'public_job_requests';
+  static const String _shortCodeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  static const int _shortCodeLength = 6;
+  static final Random _shortCodeRandom = Random.secure();
 
   final FirebaseFirestore _firestore;
   final VanFirebaseAuthService _authService;
 
   CollectionReference<Map<String, dynamic>> get _requests =>
       _firestore.collection(rootCollectionName);
+
+  CollectionReference<Map<String, dynamic>> get _legacyRequests =>
+      _firestore.collection('van_job_requests');
 
   CollectionReference<Map<String, dynamic>> _privateRequests(String ownerUid) {
     return _firestore
@@ -35,6 +45,38 @@ class VanJobRequestCloudService {
 
   String createRequestId() {
     return _requests.doc().id;
+  }
+
+  String generateShortCode() {
+    final buffer = StringBuffer();
+    for (var index = 0; index < _shortCodeLength; index++) {
+      final alphabetIndex = _shortCodeRandom.nextInt(_shortCodeAlphabet.length);
+      buffer.write(_shortCodeAlphabet[alphabetIndex]);
+    }
+    return buffer.toString();
+  }
+
+  Future<String> _generateUniqueShortCode({
+    String excludeRequestId = '',
+  }) async {
+    final normalizedExcludedId = excludeRequestId.trim();
+    for (var attempt = 0; attempt < 12; attempt++) {
+      final candidate = generateShortCode();
+      final existing = await _requests
+          .where('shortCode', isEqualTo: candidate)
+          .limit(1)
+          .get(const GetOptions(source: Source.serverAndCache));
+      if (existing.docs.isEmpty) {
+        return candidate;
+      }
+      final docId = existing.docs.first.id.trim();
+      if (docId.isNotEmpty && docId == normalizedExcludedId) {
+        return candidate;
+      }
+    }
+    throw StateError(
+      'Could not generate a unique short code for this request.',
+    );
   }
 
   Future<void> _mirrorPrivateRequest({
@@ -66,7 +108,10 @@ class VanJobRequestCloudService {
       );
       await _privateRequests(normalizedOwnerUid)
           .doc(request.requestId)
-          .set(request.toPrivateFirestore(), SetOptions(merge: true));
+          .set(
+            sanitizeVanFirestoreMap(request.toPrivateFirestore()),
+            SetOptions(merge: true),
+          );
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: request.requestId,
@@ -90,16 +135,90 @@ class VanJobRequestCloudService {
       return null;
     }
 
-    final snapshot = await _requests.doc(normalizedId).get();
-    if (!snapshot.exists) {
-      return null;
+    final publicSnapshot = await _requests
+        .doc(normalizedId)
+        .get(const GetOptions(source: Source.serverAndCache));
+    if (publicSnapshot.exists) {
+      final request = VanJobRequestRecord.fromFirestore(publicSnapshot);
+      return request.isHiddenFromNormalLists ? null : request;
     }
 
-    return VanJobRequestRecord.fromFirestore(snapshot);
+    try {
+      final legacySnapshot = await _legacyRequests
+          .doc(normalizedId)
+          .get(const GetOptions(source: Source.serverAndCache));
+      if (legacySnapshot.exists) {
+        final request = VanJobRequestRecord.fromFirestore(legacySnapshot);
+        return request.isHiddenFromNormalLists ? null : request;
+      }
+    } catch (error) {
+      debugPrint('[VanJobRequestCloud] legacy request load failed: $error');
+    }
+
+    return null;
+  }
+
+  Stream<VanJobRequestRecord?> watchRequestById(
+    String requestId, {
+    String debugOrigin = 'job_request_cloud',
+  }) {
+    final normalizedId = requestId.trim();
+    if (normalizedId.isEmpty) {
+      return const Stream<VanJobRequestRecord?>.empty();
+    }
+
+    return Stream<VanJobRequestRecord?>.multi((controller) {
+      debugPrint(
+        '[VanJobRequestStream] listen origin=$debugOrigin requestId=$normalizedId',
+      );
+      final subscription = _requests
+          .doc(normalizedId)
+          .snapshots()
+          .listen(
+            (snapshot) {
+              debugPrint(
+                '[VanJobRequestStream] snapshot origin=$debugOrigin requestId=$normalizedId '
+                'exists=${snapshot.exists} fromCache=${snapshot.metadata.isFromCache} '
+                'pendingWrites=${snapshot.metadata.hasPendingWrites}',
+              );
+              if (!snapshot.exists) {
+                controller.add(null);
+                return;
+              }
+              try {
+                controller.add(VanJobRequestRecord.fromFirestore(snapshot));
+              } catch (error) {
+                debugPrint(
+                  '[VanJobRequestCloud] watch request parse failed requestId=$normalizedId error=$error',
+                );
+                controller.add(null);
+              }
+            },
+            onError: (error, stackTrace) {
+              debugPrint(
+                '[VanJobRequestStream] error origin=$debugOrigin requestId=$normalizedId error=$error',
+              );
+              controller.addError(error, stackTrace);
+            },
+            onDone: () {
+              debugPrint(
+                '[VanJobRequestStream] done origin=$debugOrigin requestId=$normalizedId',
+              );
+              controller.close();
+            },
+          );
+      controller.onCancel = () async {
+        debugPrint(
+          '[VanJobRequestStream] cancel origin=$debugOrigin requestId=$normalizedId',
+        );
+        await subscription.cancel();
+      };
+    });
   }
 
   Future<List<VanJobRequestRecord>> loadRequestsForOwner({
     required String ownerUid,
+    Source source = Source.serverAndCache,
   }) async {
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty) {
@@ -108,12 +227,12 @@ class VanJobRequestCloudService {
 
     if (kDebugMode) {
       debugPrint(
-        '[VanJobRequestCloud] load start uid=$normalizedOwnerUid path=$rootCollectionName',
+        '[VanJobRequestCloud] load start uid=$normalizedOwnerUid path=$rootCollectionName source=$source',
       );
     }
     final snapshot = await _requests
         .where(Filter('ownerUid', isEqualTo: normalizedOwnerUid))
-        .get();
+        .get(GetOptions(source: source));
     if (kDebugMode) {
       final fetchedIds = snapshot.docs.map((doc) => doc.id).join(', ');
       debugPrint(
@@ -125,6 +244,17 @@ class VanJobRequestCloudService {
     for (final doc in snapshot.docs) {
       try {
         final request = VanJobRequestRecord.fromFirestore(doc);
+        if (kDebugMode) {
+          final parsedAnswerCount = request.answers
+              .where((item) => item.hasAnswer)
+              .length;
+          final parsedPhotoCount = request.photos
+              .where((item) => item.hasUrl)
+              .length;
+          debugPrint(
+            '[VanJobRequestCloud][doc] path=$rootCollectionName docId=${doc.id} jobId=${request.jobId} requestId=${request.requestId} status=${request.status} requestStatus=${request.status} deleted=${request.deleted} archived=${request.archived} parsedAnswerCount=$parsedAnswerCount parsedPhotoCount=$parsedPhotoCount preferredDate=${request.preferredDate?.toIso8601String() ?? '(none)'} preferredTimeWindow=${request.preferredTimeWindow.isEmpty ? '(none)' : request.preferredTimeWindow} preferredIsFlexible=${request.preferredIsFlexible} preferredTimingNote=${request.preferredTimingNote.isEmpty ? '(none)' : request.preferredTimingNote}',
+          );
+        }
         if (request.deleted || request.archived) {
           hiddenCount += 1;
           if (kDebugMode) {
@@ -173,35 +303,61 @@ class VanJobRequestCloudService {
         ? _requests.doc()
         : _requests.doc(requestId.trim());
     final now = DateTime.now();
+    final customerPhone = sanitizeVanCustomerPhoneNumber(draft.phoneNumber);
+    final existingRequest = await loadRequestById(docRef.id);
+    final shortCode =
+        normalizeVanJobRequestShortCode(
+          existingRequest?.shortCode ?? '',
+        ).isNotEmpty
+        ? normalizeVanJobRequestShortCode(existingRequest!.shortCode)
+        : await _generateUniqueShortCode(excludeRequestId: docRef.id);
     final request = VanJobRequestRecord(
       requestId: docRef.id,
       ownerUid: normalizedOwnerUid,
       jobId: normalizedJobId,
-      status: 'pending',
+      linkedJobId: normalizedJobId,
+      status: 'request_sent',
       createdAt: now,
       updatedAt: now,
       expiresAt: now.add(vanJobRequestDefaultExpiry),
+      shortCode: shortCode,
       scheduledAt: draft.scheduledAt,
       jobDateLabel: draft.jobDateLabel,
       jobTimeLabel: draft.jobTimeLabel,
+      scheduledDate: draft.scheduledDate,
+      scheduledStartTime: draft.scheduledStartTime,
+      estimatedDurationMinutes: draft.estimatedDurationMinutes,
+      calendarStatus: draft.calendarStatus,
+      locationPending: draft.locationPending,
       publicJobTitle: draft.jobTitle.trim(),
       publicCustomerName: draft.customerName.trim(),
       publicAddressSummary: draft.address.trim(),
-      publicPhoneNumber: draft.phoneNumber.trim(),
+      publicPhoneNumber: customerPhone,
       publicCustomerEmail: draft.customerEmail.trim(),
+      customerPostcode: draft.postcode.trim(),
       checklistItems: List<String>.unmodifiable(draft.checklistItems),
       customQuestions: List<String>.unmodifiable(draft.customQuestions),
+      selectedServiceId: draft.selectedServiceId.trim(),
+      selectedServiceName: draft.selectedServiceName.trim(),
       exactPinRequested: draft.requestExactPin,
+      requestPhotos: draft.requestPhotos,
+      requiresExactPinAfterQuoteAccepted:
+          draft.requiresExactPinAfterQuoteAccepted,
+      source: 'new_job',
+      sourceLabel: 'New Job',
       driverMessagePreview: draft.notesMessage.trim(),
       submittedAt: null,
       customerSubmittedAt: null,
       checklistResponses: const <VanJobRequestChecklistResponse>[],
       customQuestionResponses: const <VanJobRequestCustomQuestionResponse>[],
+      answers: List<VanJobRequestAnswer>.unmodifiable(draft.answers),
       additionalNotes: '',
-      exactPinLat: null,
-      exactPinLng: null,
-      exactPinSource: '',
+      exactPinLat: draft.exactPinLatitude,
+      exactPinLng: draft.exactPinLongitude,
+      exactPinSource: draft.exactPinSource,
       exactPinNote: '',
+      isTestData: kDebugMode,
+      testMode: kDebugMode,
     );
 
     final collectionPath = rootCollectionName;
@@ -217,7 +373,13 @@ class VanJobRequestCloudService {
         authType: currentUser.isAnonymous ? 'anonymous' : 'authenticated',
         source: source,
       );
-      await docRef.set(request.toFirestore(), SetOptions(merge: true));
+      await docRef.set(
+        sanitizeVanFirestoreMap(request.toPublicFirestore()),
+        SetOptions(merge: true),
+      );
+      debugPrint(
+        '[PhoneSave] requestId=${request.requestId} customerPhone=$customerPhone',
+      );
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: request.requestId,
@@ -289,7 +451,7 @@ class VanJobRequestCloudService {
       );
       batch.set(
         _requests.doc(cloudRequest.requestId),
-        cloudRequest.toFirestore(),
+        sanitizeVanFirestoreMap(cloudRequest.toPublicFirestore()),
         SetOptions(merge: true),
       );
     }
@@ -326,6 +488,106 @@ class VanJobRequestCloudService {
     }
   }
 
+  Future<void> mergeRequestFields({
+    required String ownerUid,
+    required String requestId,
+    required Map<String, dynamic> fields,
+    String source = 'van_mate.booking_link',
+  }) async {
+    final normalizedOwnerUid = ownerUid.trim();
+    final normalizedRequestId = requestId.trim();
+    if (normalizedRequestId.isEmpty || fields.isEmpty) {
+      return;
+    }
+
+    final sanitizedFields = sanitizeVanFirestoreMap(fields);
+    await _requests
+        .doc(normalizedRequestId)
+        .set(sanitizedFields, SetOptions(merge: true));
+
+    if (normalizedOwnerUid.isNotEmpty) {
+      await _privateRequests(
+        normalizedOwnerUid,
+      ).doc(normalizedRequestId).set(sanitizedFields, SetOptions(merge: true));
+    }
+
+    logVanFirebaseHydration(
+      stage: 'completed',
+      target: 'booking link request metadata',
+      extra:
+          'source=$source requestId=$normalizedRequestId ownerUid=${normalizedOwnerUid.isEmpty ? '(none)' : normalizedOwnerUid}',
+    );
+  }
+
+  Future<void> deleteRequest({
+    required String ownerUid,
+    required String requestId,
+    String source = 'van_mate.job_request',
+    bool testCleanup = false,
+  }) async {
+    final normalizedOwnerUid = ownerUid.trim();
+    final normalizedRequestId = requestId.trim();
+    if (normalizedOwnerUid.isEmpty || normalizedRequestId.isEmpty) {
+      return;
+    }
+
+    final batch = _firestore.batch();
+    final ownerPrivateRequests = _privateRequests(normalizedOwnerUid);
+    final collectionPath = rootCollectionName;
+    logVanFirebaseWriteStart(
+      collectionPath: collectionPath,
+      docId: normalizedRequestId,
+      uid: normalizedOwnerUid,
+      source: source,
+    );
+    final deletedPayload = sanitizeVanFirestoreMap(<String, dynamic>{
+      'deleted': true,
+      'archived': true,
+      'deletedByDriver': true,
+      'testCleanup': testCleanup,
+      'status': 'deleted',
+      'requestStatus': 'deleted',
+      'quoteStatus': 'deleted',
+      'quoteResponseStatus': 'deleted',
+      'deletedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    batch.set(
+      _requests.doc(normalizedRequestId),
+      deletedPayload,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      _legacyRequests.doc(normalizedRequestId),
+      deletedPayload,
+      SetOptions(merge: true),
+    );
+    batch.set(
+      ownerPrivateRequests.doc(normalizedRequestId),
+      deletedPayload,
+      SetOptions(merge: true),
+    );
+
+    try {
+      await batch.commit();
+      logVanFirebaseWriteSuccess(
+        collectionPath: collectionPath,
+        docId: normalizedRequestId,
+        uid: normalizedOwnerUid,
+        source: source,
+      );
+    } catch (error) {
+      logVanFirebaseWriteFailure(
+        collectionPath: collectionPath,
+        docId: normalizedRequestId,
+        uid: normalizedOwnerUid,
+        error: error,
+        source: source,
+      );
+      rethrow;
+    }
+  }
+
   Future<VanJobRequestRecord?> submitCustomerReply({
     required String requestId,
     required String ownerUid,
@@ -352,7 +614,11 @@ class VanJobRequestCloudService {
     if (existing == null) {
       return null;
     }
-    if (existing.status != 'pending' || existing.isExpired) {
+    if (existing.isHiddenFromNormalLists) {
+      return existing;
+    }
+    if (normalizeVanJobRequestStatus(existing.status) != 'request_sent' ||
+        existing.isExpired) {
       return existing;
     }
 
@@ -361,13 +627,18 @@ class VanJobRequestCloudService {
       requestId: existing.requestId,
       ownerUid: existing.ownerUid,
       jobId: existing.jobId,
-      status: 'submitted',
+      linkedJobId: existing.linkedJobId,
+      status: 'reply_received',
       createdAt: existing.createdAt,
       updatedAt: now,
       expiresAt: existing.expiresAt,
       scheduledAt: existing.scheduledAt,
       jobDateLabel: existing.jobDateLabel,
       jobTimeLabel: existing.jobTimeLabel,
+      scheduledDate: existing.scheduledDate,
+      scheduledStartTime: existing.scheduledStartTime,
+      estimatedDurationMinutes: existing.estimatedDurationMinutes,
+      calendarStatus: existing.calendarStatus,
       publicJobTitle: existing.publicJobTitle,
       publicCustomerName: existing.publicCustomerName,
       publicAddressSummary: existing.publicAddressSummary,
@@ -376,11 +647,23 @@ class VanJobRequestCloudService {
       checklistItems: existing.checklistItems,
       customQuestions: existing.customQuestions,
       exactPinRequested: existing.exactPinRequested,
+      requestPhotos: existing.requestPhotos,
+      requiresExactPinAfterQuoteAccepted:
+          existing.requiresExactPinAfterQuoteAccepted,
+      source: existing.source,
+      isPreview: existing.isPreview,
+      sourceLabel: existing.sourceLabel,
+      selectedServiceId: existing.selectedServiceId,
+      selectedServiceName: existing.selectedServiceName,
       driverMessagePreview: existing.driverMessagePreview,
       submittedAt: now,
       customerSubmittedAt: now,
+      requestSubmittedAt: now,
+      replyReceivedAt: now,
       checklistResponses: checklistResponses,
       customQuestionResponses: customQuestionResponses,
+      answers: existing.answers,
+      photos: existing.photos,
       additionalNotes: additionalNotes.trim(),
       exactPinLat: exactPinLat,
       exactPinLng: exactPinLng,
@@ -398,7 +681,10 @@ class VanJobRequestCloudService {
     try {
       await _requests
           .doc(normalizedRequestId)
-          .set(updated.toFirestore(), SetOptions(merge: true));
+          .set(
+            sanitizeVanFirestoreMap(updated.toPublicFirestore()),
+            SetOptions(merge: true),
+          );
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: normalizedRequestId,
@@ -439,6 +725,9 @@ class VanJobRequestCloudService {
     if (existing == null || existing.ownerUid.trim() != normalizedOwnerUid) {
       return existing;
     }
+    if (existing.isHiddenFromNormalLists) {
+      return existing;
+    }
 
     final updated = existing.copyWith(
       status: 'cancelled',
@@ -455,7 +744,10 @@ class VanJobRequestCloudService {
     try {
       await _requests
           .doc(normalizedRequestId)
-          .set(updated.toFirestore(), SetOptions(merge: true));
+          .set(
+            sanitizeVanFirestoreMap(updated.toPublicFirestore()),
+            SetOptions(merge: true),
+          );
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
         docId: normalizedRequestId,
