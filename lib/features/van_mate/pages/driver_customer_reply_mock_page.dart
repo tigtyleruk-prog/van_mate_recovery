@@ -141,6 +141,68 @@ class VanMateTestCleanupResult {
   bool get didClearAnything => totalCleared > 0;
 }
 
+class VanMateSavedJobsClearResult {
+  const VanMateSavedJobsClearResult({
+    this.deletedCloudJobs = 0,
+    this.deletedCloudQuotes = 0,
+    this.deletedPublicQuotes = 0,
+    this.deletedPublicQuoteTokens = 0,
+    this.deletedPublicRequests = 0,
+    this.deletedPrivateRequestMirrors = 0,
+    this.deletedLegacyRequestMirrors = 0,
+    this.clearedLocalJobs = 0,
+    this.clearedLocalRequests = 0,
+    this.clearedLocalQuoteStates = 0,
+    this.clearedLocalCalendarEntries = 0,
+  });
+
+  final int deletedCloudJobs;
+  final int deletedCloudQuotes;
+  final int deletedPublicQuotes;
+  final int deletedPublicQuoteTokens;
+  final int deletedPublicRequests;
+  final int deletedPrivateRequestMirrors;
+  final int deletedLegacyRequestMirrors;
+  final int clearedLocalJobs;
+  final int clearedLocalRequests;
+  final int clearedLocalQuoteStates;
+  final int clearedLocalCalendarEntries;
+
+  int get deletedCloudRecords =>
+      deletedCloudJobs +
+      deletedCloudQuotes +
+      deletedPublicQuotes +
+      deletedPublicQuoteTokens +
+      deletedPublicRequests +
+      deletedPrivateRequestMirrors +
+      deletedLegacyRequestMirrors;
+
+  int get clearedLocalEntries => clearedLocalJobs + clearedLocalRequests;
+
+  int get totalCleared => deletedCloudRecords + clearedLocalEntries;
+
+  bool get didClearAnything => totalCleared > 0;
+
+  String get sourceSummary {
+    final parts = <String>[
+      if (deletedCloudJobs > 0) 'jobs $deletedCloudJobs',
+      if (deletedCloudQuotes > 0) 'quotes $deletedCloudQuotes',
+      if (deletedPublicQuotes > 0) 'public quotes $deletedPublicQuotes',
+      if (deletedPublicQuoteTokens > 0) 'tokens $deletedPublicQuoteTokens',
+      if (deletedPublicRequests > 0) 'requests $deletedPublicRequests',
+      if (deletedPrivateRequestMirrors > 0)
+        'private mirrors $deletedPrivateRequestMirrors',
+      if (deletedLegacyRequestMirrors > 0)
+        'legacy mirrors $deletedLegacyRequestMirrors',
+      if (clearedLocalEntries > 0) 'local $clearedLocalEntries',
+    ];
+    if (parts.isEmpty) {
+      return 'No saved job data found.';
+    }
+    return 'Deleted $totalCleared entries: ${parts.join(', ')}.';
+  }
+}
+
 @immutable
 class VanQuoteHistoryEntry {
   const VanQuoteHistoryEntry({
@@ -3590,6 +3652,109 @@ class DriverReplyMockState extends ChangeNotifier {
       clearedQuoteDocs: clearedQuoteDocs,
       clearedPublicQuotes: clearedPublicQuotes,
     );
+  }
+
+  Future<VanMateSavedJobsClearResult> debugClearAllSavedJobFlowData({
+    bool syncCloud = true,
+  }) async {
+    if (!kDebugMode) {
+      return const VanMateSavedJobsClearResult();
+    }
+
+    final localJobs = _jobsById.length;
+    final localRequests = _jobRequestsById.length;
+    final localQuoteStates = _jobsById.values
+        .where((job) => job.hasQuote || job.quoteHistory.isNotEmpty)
+        .length;
+    final localCalendarEntries = _jobsById.values.where((job) {
+      final calendarStatus = job.calendarStatus.trim().toLowerCase();
+      final schedulingStatus = job.schedulingStatus.trim().toLowerCase();
+      return job.bookedCalendarSlot != null ||
+          job.isCompletedJob ||
+          calendarStatus == 'scheduled' ||
+          calendarStatus == 'completed' ||
+          schedulingStatus == 'scheduled';
+    }).length;
+
+    var deletedCloudJobs = 0;
+    var deletedCloudQuotes = 0;
+    var deletedPublicQuotes = 0;
+    var deletedPublicQuoteTokens = 0;
+    var deletedPublicRequests = 0;
+    var deletedPrivateRequestMirrors = 0;
+    var deletedLegacyRequestMirrors = 0;
+
+    if (syncCloud) {
+      final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
+        source: 'van_mate.debug_clear_saved_jobs',
+      );
+      final normalizedOwnerUid = ownerUid?.trim() ?? '';
+      if (normalizedOwnerUid.isNotEmpty) {
+        deletedCloudJobs = await VanJobsCloudService.instance
+            .deleteAllJobsForOwner(
+              ownerUid: normalizedOwnerUid,
+              source: 'van_mate.debug_clear_saved_jobs',
+            );
+        deletedCloudQuotes = await VanQuotesCloudService.instance
+            .deleteAllQuotesForOwner(
+              ownerUid: normalizedOwnerUid,
+              source: 'van_mate.debug_clear_saved_jobs',
+            );
+        final publicQuoteResult = await VanPublicQuoteCloudService.instance
+            .deleteAllQuotesForOwner(
+              ownerUid: normalizedOwnerUid,
+              source: 'van_mate.debug_clear_saved_jobs',
+            );
+        deletedPublicQuotes = publicQuoteResult.deletedQuotes;
+        deletedPublicQuoteTokens = publicQuoteResult.deletedTokens;
+        final requestResult = await VanJobRequestCloudService.instance
+            .deleteAllRequestsForOwner(
+              ownerUid: normalizedOwnerUid,
+              source: 'van_mate.debug_clear_saved_jobs',
+            );
+        deletedPublicRequests = requestResult.deletedPublicRequests;
+        deletedPrivateRequestMirrors = requestResult.deletedPrivateRequests;
+        deletedLegacyRequestMirrors = requestResult.deletedLegacyRequests;
+      }
+    }
+
+    await _clearLocalSavedJobFlowData();
+    await saveToStorage(syncCloud: false);
+    notifyListeners();
+
+    return VanMateSavedJobsClearResult(
+      deletedCloudJobs: deletedCloudJobs,
+      deletedCloudQuotes: deletedCloudQuotes,
+      deletedPublicQuotes: deletedPublicQuotes,
+      deletedPublicQuoteTokens: deletedPublicQuoteTokens,
+      deletedPublicRequests: deletedPublicRequests,
+      deletedPrivateRequestMirrors: deletedPrivateRequestMirrors,
+      deletedLegacyRequestMirrors: deletedLegacyRequestMirrors,
+      clearedLocalJobs: localJobs,
+      clearedLocalRequests: localRequests,
+      clearedLocalQuoteStates: localQuoteStates,
+      clearedLocalCalendarEntries: localCalendarEntries,
+    );
+  }
+
+  Future<void> _clearLocalSavedJobFlowData() async {
+    _cancelAllRequestWatchers();
+    _jobsById.clear();
+    _jobSourceById.clear();
+    _jobRequestsById.clear();
+    _deletedRequestKeys.clear();
+    _cloudVanJobIds.clear();
+    _announcedReplyJobIds.clear();
+    _announcedExactPinJobIds.clear();
+    _announcedExactPinEventTimes.clear();
+    _announcedExactPinStateTokens.clear();
+    _observedExactPinStateTokens.clear();
+    _announcedQuoteAcceptedJobIds.clear();
+    _announcedQuoteDeclinedJobIds.clear();
+    _initializedWatchedRequestIds.clear();
+    _recentRequestRefreshNotice = null;
+    _activeJobId = null;
+    await VanDeletedRequestsStore.instance.clear();
   }
 
   Future<void> clearAllLocalJobData() async {
@@ -11506,7 +11671,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
         }
       } else if (cleanedEmail.isNotEmpty) {
         final emailUri = Uri.parse(
-          'mailto:$cleanedEmail?subject=${Uri.encodeComponent('Trade Mate quote')}&body=${Uri.encodeComponent(message)}',
+          'mailto:$cleanedEmail?subject=${Uri.encodeComponent('Van Mate quote')}&body=${Uri.encodeComponent(message)}',
         );
         handoffOpened = await launchUrl(
           emailUri,
@@ -11796,7 +11961,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
 
   String _resolvedBusinessName() {
     final cleaned = sanitizeVanText(_businessName).trim();
-    return cleaned.isEmpty ? 'Trade Mate' : cleaned;
+    return cleaned.isEmpty ? 'Van Mate' : cleaned;
   }
 
   String? _currentJobCustomQuestionSummary() {

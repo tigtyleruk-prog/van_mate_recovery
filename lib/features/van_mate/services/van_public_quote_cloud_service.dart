@@ -9,6 +9,18 @@ import 'van_firestore_payload_builder.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
 
+class VanPublicQuoteDeleteResult {
+  const VanPublicQuoteDeleteResult({
+    this.deletedQuotes = 0,
+    this.deletedTokens = 0,
+  });
+
+  final int deletedQuotes;
+  final int deletedTokens;
+
+  int get totalDeleted => deletedQuotes + deletedTokens;
+}
+
 class VanPublicQuoteCloudService {
   VanPublicQuoteCloudService._({
     FirebaseFirestore? firestore,
@@ -167,10 +179,12 @@ class VanPublicQuoteCloudService {
       quoteResponseToken: quoteResponseToken,
       quoteId: docId,
     );
-    final explicitQuoteStatus = extraData['quoteStatus']?.toString().trim() ?? '';
+    final explicitQuoteStatus =
+        extraData['quoteStatus']?.toString().trim() ?? '';
     final explicitQuoteResponseStatus =
         extraData['quoteResponseStatus']?.toString().trim() ?? '';
-    final explicitResponse = extraData['quoteResponse']?.toString().trim() ?? '';
+    final explicitResponse =
+        extraData['quoteResponse']?.toString().trim() ?? '';
     final effectiveQuoteAccepted = extraData.containsKey('quoteAccepted')
         ? _readBoolLike(extraData['quoteAccepted'])
         : job.isQuoteAccepted;
@@ -184,8 +198,7 @@ class VanPublicQuoteCloudService {
         : effectiveQuoteDeclined
         ? 'declined'
         : job.quoteStatus.trim();
-    final effectiveQuoteResponseStatus =
-        explicitQuoteResponseStatus.isNotEmpty
+    final effectiveQuoteResponseStatus = explicitQuoteResponseStatus.isNotEmpty
         ? explicitQuoteResponseStatus
         : effectiveQuoteAccepted
         ? 'accepted'
@@ -419,5 +432,61 @@ class VanPublicQuoteCloudService {
       );
       rethrow;
     }
+  }
+
+  Future<VanPublicQuoteDeleteResult> deleteAllQuotesForOwner({
+    required String ownerUid,
+    String source = 'van_mate.debug_clear_saved_jobs',
+  }) async {
+    final normalizedOwnerUid = ownerUid.trim();
+    if (normalizedOwnerUid.isEmpty) {
+      return const VanPublicQuoteDeleteResult();
+    }
+
+    final quoteSnapshot = await _publicQuotes()
+        .where(Filter('ownerUid', isEqualTo: normalizedOwnerUid))
+        .get(const GetOptions(source: Source.server));
+    final tokenSnapshot = await _publicQuoteTokens()
+        .where(Filter('ownerUid', isEqualTo: normalizedOwnerUid))
+        .get(const GetOptions(source: Source.server));
+
+    var deletedQuotes = 0;
+    var deletedTokens = 0;
+    var batch = _firestore.batch();
+    var batchWrites = 0;
+
+    Future<void> commitIfFull() async {
+      if (batchWrites < 450) {
+        return;
+      }
+      await batch.commit();
+      batch = _firestore.batch();
+      batchWrites = 0;
+    }
+
+    for (final doc in quoteSnapshot.docs) {
+      batch.delete(doc.reference);
+      batchWrites += 1;
+      deletedQuotes += 1;
+      await commitIfFull();
+    }
+    for (final doc in tokenSnapshot.docs) {
+      batch.delete(doc.reference);
+      batchWrites += 1;
+      deletedTokens += 1;
+      await commitIfFull();
+    }
+    if (batchWrites > 0) {
+      await batch.commit();
+    }
+    if (kDebugMode) {
+      debugPrint(
+        '[VanPublicQuoteCloud][deleteAllQuotesForOwner] path=public_quote_responses deleted=$deletedQuotes tokenPath=public_quote_response_tokens tokensDeleted=$deletedTokens source=$source',
+      );
+    }
+    return VanPublicQuoteDeleteResult(
+      deletedQuotes: deletedQuotes,
+      deletedTokens: deletedTokens,
+    );
   }
 }

@@ -1,36 +1,18 @@
 import 'package:flutter/material.dart';
 
-class TradeQuoteSection extends StatelessWidget {
-  const TradeQuoteSection({super.key});
+class VanQuoteSection extends StatelessWidget {
+  const VanQuoteSection({super.key});
 
   static const _quoteSummary =
-      'Full kitchen renovation including removal of existing units, plumbing, electrical work, and installation of new units.';
-  static const _quoteTotal = '£8,450';
+      'Courier/removals job covering pickup, loading, transport, unloading, and agreed access notes.';
+  static const _quoteTotal = 'GBP 145';
   static const _quoteStatus = 'Awaiting customer response';
 
-  static const _labourBreakdown = '''
-Carpentry & installation: 3 days @ £320/day
-Plumbing: 1 day @ £280/day
-Electrical: 1 day @ £260/day
-Tiling: 2 days @ £240/day
-Decorating: 1 day @ £220/day
-Waste removal: Half day @ £180''';
-
-  static const _materialsBreakdown = '''
-Kitchen units: £2,400
-Worktops: £850
-Sink & taps: £420
-Appliances: £1,800
-Tiles & grout: £380
-Paint & finishes: £220
-Fixings & sundries: £180''';
-
   static const _quoteNotes = '''
-• All work to comply with current building regulations
-• Customer to supply appliances if not using our recommended package
-• 12-month workmanship guarantee included
-• Payment terms: 30% deposit, 40% at mid-point, 30% on completion
-• Estimated start date: within 2 weeks of quote acceptance''';
+- Price covers the agreed pickup and drop-off route
+- Customer to confirm access, parking, and any stairs or lift details
+- Quote excludes extra waiting time or additional stops unless agreed
+- Payment instructions are sent separately with the invoice''';
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +32,8 @@ Fixings & sundries: £180''';
           title: 'Quote Summary',
           icon: Icons.receipt_long_outlined,
           summary: _quoteStatus,
+          cardColor: cardColor,
+          borderColor: borderColor,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -69,9 +53,9 @@ Fixings & sundries: £180''';
                       fontSize: 14,
                     ),
                   ),
-                  Text(
+                  const Text(
                     _quoteTotal,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
                       fontSize: 18,
@@ -81,44 +65,18 @@ Fixings & sundries: £180''';
               ),
             ],
           ),
-          cardColor: cardColor,
-          borderColor: borderColor,
-        ),
-        const SizedBox(height: 10),
-        _QuoteCard(
-          title: 'Labour Breakdown',
-          icon: Icons.engineering_outlined,
-          summary: '5.5 days estimated',
-          child: Text(
-            _labourBreakdown,
-            style: TextStyle(color: subtitleColor, height: 1.5),
-          ),
-          cardColor: cardColor,
-          borderColor: borderColor,
-        ),
-        const SizedBox(height: 10),
-        _QuoteCard(
-          title: 'Materials Breakdown',
-          icon: Icons.inventory_2_outlined,
-          summary: '£6,250 materials',
-          child: Text(
-            _materialsBreakdown,
-            style: TextStyle(color: subtitleColor, height: 1.5),
-          ),
-          cardColor: cardColor,
-          borderColor: borderColor,
         ),
         const SizedBox(height: 10),
         _QuoteCard(
           title: 'Quote Notes',
           icon: Icons.notes_outlined,
           summary: '4 notes',
+          cardColor: cardColor,
+          borderColor: borderColor,
           child: Text(
             _quoteNotes,
             style: TextStyle(color: subtitleColor, height: 1.5),
           ),
-          cardColor: cardColor,
-          borderColor: borderColor,
         ),
       ],
     );

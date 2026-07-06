@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/van_invoice_draft.dart';
 
-class TradeInvoiceSection extends StatelessWidget {
-  const TradeInvoiceSection({super.key, this.invoice});
+class VanInvoiceSection extends StatelessWidget {
+  const VanInvoiceSection({super.key, this.invoice});
 
   final VanInvoiceDraft? invoice;
 
@@ -20,7 +20,8 @@ class TradeInvoiceSection extends StatelessWidget {
       'sent' => 'Sent',
       'overdue' => 'Overdue',
       'draft' => 'Draft',
-      _ => 'Sent', // TODO: Map all invoice statuses when model is fully connected
+      _ =>
+        'Sent', // TODO: Map all invoice statuses when model is fully connected
     };
   }
 
@@ -42,13 +43,11 @@ class TradeInvoiceSection extends StatelessWidget {
     return '5 line items'; // TODO: Replace with real line item count when available
   }
 
-  String get _labour {
-    // TODO: Labour breakdown not yet separated in VanInvoiceDraft model
+  String get _transportAndLoading {
     return '£500.00';
   }
 
-  String get _materials {
-    // TODO: Materials breakdown not yet separated in VanInvoiceDraft model
+  String get _accessAndHandling {
     return '£550.00';
   }
 
@@ -79,7 +78,8 @@ class TradeInvoiceSection extends StatelessWidget {
     if (invoice != null && invoice!.isPaid) {
       return '£0.00';
     }
-    return invoice?.totalDueText ?? '£1,320.00'; // TODO: Replace with real balance when payment tracking is available
+    return invoice?.totalDueText ??
+        '£1,320.00'; // TODO: Replace with real balance when payment tracking is available
   }
 
   String get _paymentMethod {
@@ -90,7 +90,10 @@ class TradeInvoiceSection extends StatelessWidget {
   String get _note1 {
     final notes = invoice?.visibleInvoiceNotes.trim() ?? '';
     if (notes.isNotEmpty) {
-      final lines = notes.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      final lines = notes
+          .split('\n')
+          .where((l) => l.trim().isNotEmpty)
+          .toList();
       if (lines.isNotEmpty) return lines.first;
     }
     return 'Sent to customer'; // TODO: Replace with real invoice notes when available
@@ -99,7 +102,10 @@ class TradeInvoiceSection extends StatelessWidget {
   String get _note2 {
     final notes = invoice?.visibleInvoiceNotes.trim() ?? '';
     if (notes.isNotEmpty) {
-      final lines = notes.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      final lines = notes
+          .split('\n')
+          .where((l) => l.trim().isNotEmpty)
+          .toList();
       if (lines.length > 1) return lines[1];
     }
     return 'Due on receipt'; // TODO: Replace with real invoice notes when available
@@ -108,7 +114,10 @@ class TradeInvoiceSection extends StatelessWidget {
   String get _note3 {
     final notes = invoice?.visibleInvoiceNotes.trim() ?? '';
     if (notes.isNotEmpty) {
-      final lines = notes.split('\n').where((l) => l.trim().isNotEmpty).toList();
+      final lines = notes
+          .split('\n')
+          .where((l) => l.trim().isNotEmpty)
+          .toList();
       if (lines.length > 2) return lines[2];
     }
     return 'Payment instructions included'; // TODO: Replace with real invoice notes when available
@@ -175,12 +184,12 @@ class TradeInvoiceSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Labour: $_labour',
+                'Transport and loading: $_transportAndLoading',
                 style: TextStyle(color: subtitleColor, height: 1.4),
               ),
               const SizedBox(height: 6),
               Text(
-                'Materials: $_materials',
+                'Access and handling: $_accessAndHandling',
                 style: TextStyle(color: subtitleColor, height: 1.4),
               ),
               const SizedBox(height: 6),
@@ -238,20 +247,11 @@ class TradeInvoiceSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _note1,
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
+              Text(_note1, style: TextStyle(color: subtitleColor, height: 1.4)),
               const SizedBox(height: 6),
-              Text(
-                _note2,
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
+              Text(_note2, style: TextStyle(color: subtitleColor, height: 1.4)),
               const SizedBox(height: 6),
-              Text(
-                _note3,
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
+              Text(_note3, style: TextStyle(color: subtitleColor, height: 1.4)),
             ],
           ),
         ),

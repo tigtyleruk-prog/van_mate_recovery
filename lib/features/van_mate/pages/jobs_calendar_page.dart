@@ -45,6 +45,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
     with WidgetsBindingObserver {
   DateTime _selectedDate = DateUtils.dateOnly(DateTime.now());
   bool _isRefreshingPendingRequests = false;
+  bool _isClearingSavedJobs = false;
 
   @override
   void initState() {
@@ -439,6 +440,81 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
 
     setState(() {});
     _showSnack('Local test data cleared.');
+  }
+
+  Future<void> _clearAllSavedJobs() async {
+    if (_isClearingSavedJobs) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF142031),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Clear all saved jobs?',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          ),
+          content: const Text(
+            'This will delete all saved requests, quotes, jobs and calendar entries for this account. Business Profile and questions will be kept.',
+            style: TextStyle(color: Colors.white70, height: 1.4),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+              ),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B6B),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Clear all saved jobs'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isClearingSavedJobs = true;
+    });
+
+    try {
+      final result = await DriverReplyMockState.instance
+          .debugClearAllSavedJobFlowData();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isClearingSavedJobs = false;
+      });
+      _showSnack(result.sourceSummary);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isClearingSavedJobs = false;
+      });
+      _showSnack('Could not clear saved jobs. Please try again.');
+      debugPrint('[ClearSavedJobs] failed: $error');
+    }
   }
 
   Future<void> _openReply() async {
@@ -1757,7 +1833,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
           ),
           const SizedBox(height: 12),
           Text(
-            'Debug-only cleanup. Use this to remove clearly marked test requests and jobs from Firebase without touching invoices, business profile, question packs, templates, or real customer history.',
+            'Debug-only cleanup for the current account. Business Profile, questions, templates and app configuration are kept.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.74),
               height: 1.45,
@@ -1768,9 +1844,18 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             width: double.infinity,
             height: 50,
             child: FilledButton.icon(
-              onPressed: _clearTestRequests,
-              icon: const Icon(Icons.cleaning_services_outlined),
-              label: const Text('Clear test requests'),
+              onPressed: _isClearingSavedJobs ? null : _clearAllSavedJobs,
+              icon: _isClearingSavedJobs
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.delete_sweep_outlined),
+              label: const Text('Clear all saved jobs'),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFFF6B6B),
                 foregroundColor: Colors.white,
@@ -1780,52 +1865,6 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                 textStyle: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: OutlinedButton.icon(
-              onPressed: _clearAllTestJobs,
-              icon: const Icon(Icons.delete_sweep_outlined),
-              label: const Text('Clear all test jobs'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFFB3B3),
-                side: BorderSide(
-                  color: const Color(0xFFFF6B6B).withValues(alpha: 0.42),
-                ),
-                backgroundColor: Colors.white.withValues(alpha: 0.05),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: _clearLocalTestData,
-              icon: const Icon(Icons.phone_android_outlined),
-              label: const Text('Clear local test data'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white70,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
-                backgroundColor: Colors.white.withValues(alpha: 0.03),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

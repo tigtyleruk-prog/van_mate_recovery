@@ -519,7 +519,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           ],
         ),
         const _ScheduleJobData(
-          title: 'Trade supplies drop',
+          title: 'Courier supplies drop',
           timeLabel: '14:00',
           statusLabel: 'Completed',
           status: _ScheduleJobStatus.completed,
@@ -584,7 +584,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
       state: _ScheduleDayState.completed,
       jobs: <_ScheduleJobData>[
         const _ScheduleJobData(
-          title: 'Trade drop-off',
+          title: 'Courier drop-off',
           timeLabel: '10:00',
           statusLabel: 'Completed',
           status: _ScheduleJobStatus.completed,

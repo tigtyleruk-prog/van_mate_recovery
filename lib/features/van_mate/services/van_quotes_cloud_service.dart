@@ -267,6 +267,47 @@ class VanQuotesCloudService {
     }
   }
 
+  Future<int> deleteAllQuotesForOwner({
+    required String ownerUid,
+    String source = 'van_mate.debug_clear_saved_jobs',
+  }) async {
+    final normalizedOwnerUid = ownerUid.trim();
+    if (normalizedOwnerUid.isEmpty) {
+      return 0;
+    }
+
+    final collectionPath = 'users/$normalizedOwnerUid/van_quotes';
+    final snapshot = await _quotes(
+      normalizedOwnerUid,
+    ).get(const GetOptions(source: Source.server));
+    if (snapshot.docs.isEmpty) {
+      return 0;
+    }
+
+    var deleted = 0;
+    var batch = _firestore.batch();
+    var batchWrites = 0;
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+      batchWrites += 1;
+      deleted += 1;
+      if (batchWrites == 450) {
+        await batch.commit();
+        batch = _firestore.batch();
+        batchWrites = 0;
+      }
+    }
+    if (batchWrites > 0) {
+      await batch.commit();
+    }
+    if (kDebugMode) {
+      debugPrint(
+        '[VanQuotesCloud][deleteAllQuotesForOwner] path=$collectionPath deleted=$deleted source=$source',
+      );
+    }
+    return deleted;
+  }
+
   Future<String?> ensureCurrentOwnerUid({String source = 'van_mate'}) async {
     return _authService.ensureCurrentUid(source: source);
   }

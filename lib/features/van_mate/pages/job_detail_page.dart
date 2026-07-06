@@ -29,13 +29,6 @@ import 'van_invoice_preview_page.dart';
 import '../widgets/van_form_field_styles.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 import '../widgets/van_duration_picker_sheet.dart';
-import '../widgets/van_job_progress_strip.dart';
-import '../widgets/van_survey_section.dart';
-import '../widgets/van_materials_section.dart';
-import '../widgets/van_quote_section.dart';
-import '../widgets/van_schedule_section.dart';
-import '../widgets/van_complete_section.dart';
-import '../widgets/van_invoice_section.dart';
 
 enum VanJobActionResult { updated, deleted, completed, cancelled, none }
 
@@ -649,14 +642,6 @@ class _JobDetailPageState extends State<JobDetailPage>
 
   bool get _completed => reply.isCompleted || widget.completed;
   bool get _cancelled => reply.isCancelled;
-  DateTime? get _completedAt => reply.completedAt;
-  List<String> get _completionPhotos =>
-      (_requestRecord?.photos ?? const <VanJobRequestPhoto>[])
-          .where((photo) => photo.hasUrl)
-          .map((photo) => photo.url.trim())
-          .where((url) => url.isNotEmpty)
-          .toList();
-  String? get _completionNotes => _requestRecord?.additionalNotes.trim();
   bool get _isBookingLinkSubmission {
     final request = _requestRecord;
     final source = request?.source.trim().toLowerCase() ?? '';
@@ -997,16 +982,6 @@ class _JobDetailPageState extends State<JobDetailPage>
   bool get _canUnblockCustomer => _blockedCustomerMatch != null;
 
   bool get _canChangeJobDateTime => !_completed && !_cancelled;
-
-  int _deriveProgressStage() {
-    if (_savedInvoice != null) return 7;
-    if (_completed) return 6;
-    if (_isAlreadyInCalendar) return 5;
-    if (reply.hasQuote) return 4;
-    if (_hasCustomerReply()) return 3;
-    if (reply.hasRequest) return 2;
-    return 1;
-  }
 
   bool get _canResendRequest =>
       _hasRequest &&
@@ -1506,7 +1481,7 @@ class _JobDetailPageState extends State<JobDetailPage>
     );
     final launched = await emailCustomerRequest(
       email: email,
-      subject: 'Trade Mate job request',
+      subject: 'Van Mate job request',
       message: message,
     );
     if (launched) {
@@ -4128,7 +4103,6 @@ class _JobDetailPageState extends State<JobDetailPage>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final progressStage = _deriveProgressStage();
     final bottomPadding = MediaQuery.viewPaddingOf(context).bottom;
     final replyDetailCards = _buildReplyDetailCards();
     final hasReplyDetails = replyDetailCards.isNotEmpty;
@@ -4409,43 +4383,6 @@ class _JobDetailPageState extends State<JobDetailPage>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        TradeJobProgressStrip(currentStage: progressStage),
-                        const SizedBox(height: 12),
-                        const SurveySection(),
-                        const SizedBox(height: 12),
-                        TradeMaterialsSection(
-                          materialsTotal: formatCurrency(
-                            reply.quoteAmount ?? 0,
-                          ),
-                          labourEstimate: _durationLabel(
-                            _estimatedDurationMinutes,
-                          ),
-                          notes: reply.quoteNotes.trim().isNotEmpty
-                              ? reply.quoteNotes.trim()
-                              : _requestRecord?.additionalNotes
-                                        .trim()
-                                        .isNotEmpty ==
-                                    true
-                              ? _requestRecord!.additionalNotes.trim()
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        const TradeQuoteSection(),
-                        const SizedBox(height: 12),
-                        const TradeScheduleSection(),
-                        const SizedBox(height: 12),
-                        TradeCompleteSection(
-                          completedAt: _completedAt,
-                          photos: _completionPhotos.isNotEmpty
-                              ? _completionPhotos
-                              : null,
-                          finalNotes: _completionNotes?.isNotEmpty == true
-                              ? _completionNotes
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        TradeInvoiceSection(invoice: _savedInvoice),
-                        const SizedBox(height: 12),
                         _buildShellCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

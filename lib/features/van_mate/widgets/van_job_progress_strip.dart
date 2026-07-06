@@ -1,20 +1,9 @@
 import 'package:flutter/material.dart';
 
-class TradeJobProgressStrip extends StatelessWidget {
-  const TradeJobProgressStrip({
-    super.key,
-    required this.currentStage,
-  });
+class VanJobProgressStrip extends StatelessWidget {
+  const VanJobProgressStrip({super.key, required this.currentStage});
 
-  static const _stages = <String>[
-    'Request',
-    'Survey',
-    'Materials',
-    'Quote',
-    'Schedule',
-    'Complete',
-    'Invoice',
-  ];
+  static const _stages = <String>['Request', 'Quote', 'Schedule', 'Invoice'];
 
   final int currentStage;
 
@@ -91,8 +80,7 @@ class TradeJobProgressStrip extends StatelessWidget {
                     _stages[stepIndex],
                     style: TextStyle(
                       color: isPending ? pendingLabelColor : Colors.white,
-                      fontWeight:
-                          isCurrent ? FontWeight.w800 : FontWeight.w600,
+                      fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
                       fontSize: 11,
                     ),
                     textAlign: TextAlign.center,

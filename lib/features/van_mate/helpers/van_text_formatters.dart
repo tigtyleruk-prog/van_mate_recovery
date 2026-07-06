@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 const String kVanMatePaymentInstructionsFallback =
-    'Payment will be arranged directly with the trader/business.';
+    'Payment will be arranged directly with the driver/business.';
 const String kVanMatePastBookingMessage =
     "You can't book a job in the past. Please choose today or a future date.";
 const double kVanMateMaxQuoteAmount = 99999.99;

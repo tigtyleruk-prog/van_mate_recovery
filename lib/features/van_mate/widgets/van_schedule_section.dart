@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-class TradeScheduleSection extends StatelessWidget {
-  const TradeScheduleSection({super.key});
+class VanScheduleSection extends StatelessWidget {
+  const VanScheduleSection({super.key, this.showTeamNotes = true});
+
+  final bool showTeamNotes;
 
   static const _jobDate = '29 Jan 2024';
   static const _startTime = '09:00';
@@ -30,59 +32,61 @@ class TradeScheduleSection extends StatelessWidget {
           title: 'Job Date',
           icon: Icons.calendar_today_outlined,
           summary: _jobDate,
+          cardColor: cardColor,
+          borderColor: borderColor,
           child: Text(
             _jobDate,
             style: TextStyle(color: subtitleColor, height: 1.4),
           ),
-          cardColor: cardColor,
-          borderColor: borderColor,
         ),
         const SizedBox(height: 10),
         _ScheduleCard(
           title: 'Start Time',
           icon: Icons.schedule_outlined,
           summary: _startTime,
+          cardColor: cardColor,
+          borderColor: borderColor,
           child: Text(
             _startTime,
             style: TextStyle(color: subtitleColor, height: 1.4),
           ),
-          cardColor: cardColor,
-          borderColor: borderColor,
         ),
         const SizedBox(height: 10),
         _ScheduleCard(
           title: 'Estimated Duration',
           icon: Icons.timelapse_outlined,
           summary: _estimatedDuration,
+          cardColor: cardColor,
+          borderColor: borderColor,
           child: Text(
             _estimatedDuration,
             style: TextStyle(color: subtitleColor, height: 1.4),
           ),
-          cardColor: cardColor,
-          borderColor: borderColor,
         ),
-        const SizedBox(height: 10),
-        _ScheduleCard(
-          title: 'Team / Notes',
-          icon: Icons.people_outline,
-          summary: '1 team member, 4 notes',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Team member: $_teamMember',
-                style: TextStyle(color: subtitleColor, height: 1.5),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                _notes,
-                style: TextStyle(color: subtitleColor, height: 1.5),
-              ),
-            ],
+        if (showTeamNotes) ...[
+          const SizedBox(height: 10),
+          _ScheduleCard(
+            title: 'Team / Notes',
+            icon: Icons.people_outline,
+            summary: '1 team member, 4 notes',
+            cardColor: cardColor,
+            borderColor: borderColor,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Team member: $_teamMember',
+                  style: TextStyle(color: subtitleColor, height: 1.5),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _notes,
+                  style: TextStyle(color: subtitleColor, height: 1.5),
+                ),
+              ],
+            ),
           ),
-          cardColor: cardColor,
-          borderColor: borderColor,
-        ),
+        ],
       ],
     );
   }

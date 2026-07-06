@@ -12,6 +12,21 @@ import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
 import 'van_user_cloud_service.dart';
 
+class VanJobRequestDeleteResult {
+  const VanJobRequestDeleteResult({
+    this.deletedPublicRequests = 0,
+    this.deletedPrivateRequests = 0,
+    this.deletedLegacyRequests = 0,
+  });
+
+  final int deletedPublicRequests;
+  final int deletedPrivateRequests;
+  final int deletedLegacyRequests;
+
+  int get totalDeleted =>
+      deletedPublicRequests + deletedPrivateRequests + deletedLegacyRequests;
+}
+
 class VanJobRequestCloudService {
   VanJobRequestCloudService._({
     FirebaseFirestore? firestore,
@@ -586,6 +601,74 @@ class VanJobRequestCloudService {
       );
       rethrow;
     }
+  }
+
+  Future<VanJobRequestDeleteResult> deleteAllRequestsForOwner({
+    required String ownerUid,
+    String source = 'van_mate.debug_clear_saved_jobs',
+  }) async {
+    final normalizedOwnerUid = ownerUid.trim();
+    if (normalizedOwnerUid.isEmpty) {
+      return const VanJobRequestDeleteResult();
+    }
+
+    final publicSnapshot = await _requests
+        .where(Filter('ownerUid', isEqualTo: normalizedOwnerUid))
+        .get(const GetOptions(source: Source.server));
+    final legacySnapshot = await _legacyRequests
+        .where(Filter('ownerUid', isEqualTo: normalizedOwnerUid))
+        .get(const GetOptions(source: Source.server));
+    final privateSnapshot = await _privateRequests(
+      normalizedOwnerUid,
+    ).get(const GetOptions(source: Source.server));
+
+    var deletedPublicRequests = 0;
+    var deletedPrivateRequests = 0;
+    var deletedLegacyRequests = 0;
+    var batch = _firestore.batch();
+    var batchWrites = 0;
+
+    Future<void> commitIfFull() async {
+      if (batchWrites < 450) {
+        return;
+      }
+      await batch.commit();
+      batch = _firestore.batch();
+      batchWrites = 0;
+    }
+
+    for (final doc in publicSnapshot.docs) {
+      batch.delete(doc.reference);
+      batchWrites += 1;
+      deletedPublicRequests += 1;
+      await commitIfFull();
+    }
+    for (final doc in privateSnapshot.docs) {
+      batch.delete(doc.reference);
+      batchWrites += 1;
+      deletedPrivateRequests += 1;
+      await commitIfFull();
+    }
+    for (final doc in legacySnapshot.docs) {
+      batch.delete(doc.reference);
+      batchWrites += 1;
+      deletedLegacyRequests += 1;
+      await commitIfFull();
+    }
+    if (batchWrites > 0) {
+      await batch.commit();
+    }
+
+    if (kDebugMode) {
+      debugPrint(
+        '[VanJobRequestCloud][deleteAllRequestsForOwner] path=public_job_requests deleted=$deletedPublicRequests privatePath=users/$normalizedOwnerUid/van_job_requests privateDeleted=$deletedPrivateRequests legacyPath=van_job_requests legacyDeleted=$deletedLegacyRequests source=$source',
+      );
+    }
+    return VanJobRequestDeleteResult(
+      deletedPublicRequests: deletedPublicRequests,
+      deletedPrivateRequests: deletedPrivateRequests,
+      deletedLegacyRequests: deletedLegacyRequests,
+    );
   }
 
   Future<VanJobRequestRecord?> submitCustomerReply({

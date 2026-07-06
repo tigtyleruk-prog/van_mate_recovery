@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class TradeCompleteSection extends StatelessWidget {
-  const TradeCompleteSection({
+class VanCompleteSection extends StatelessWidget {
+  const VanCompleteSection({
     super.key,
     this.completedAt,
     this.photos,
@@ -12,10 +12,6 @@ class TradeCompleteSection extends StatelessWidget {
   final List<String>? photos;
   final String? finalNotes;
 
-  // TODO: Add workItems parameter when work items/tasks model exists
-  // TODO: Add signatureStatus parameter when signature model exists
-  // TODO: Add rating parameter when customer rating model exists
-
   String get _completionDate {
     if (completedAt != null) {
       final day = completedAt!.day;
@@ -23,33 +19,22 @@ class TradeCompleteSection extends StatelessWidget {
       final year = completedAt!.year;
       return '$day $month $year';
     }
-    return '30 Jan 2024'; // fallback placeholder
+    return '30 Jan 2024';
   }
 
   static const _completionStatus = 'Completed successfully';
-  static const _beforePhotos = 'Before photos';
-  static const _afterPhotos = 'After photos';
+
   String get _photoCount {
     if (photos != null && photos!.isNotEmpty) {
       final count = photos!.length;
       return count == 1 ? '1 photo attached' : '$count photos attached';
     }
-    return '8 photos attached'; // fallback placeholder
+    return 'No completion photos attached';
   }
-  // TODO: Replace with real work items when tasks model exists
-  static const _workItems = '''• Fence panels installed
-• Gate fitted
-• Old fence removed
-• Site cleaned and waste removed''';
-  // TODO: Connect to signature model when available
-  static const _signatureStatus = 'Customer signature received';
-  // TODO: Connect to rating model when available
-  static const _satisfaction = '★★★★★';
-  String get _finalNotes {
-    if (finalNotes != null && finalNotes!.trim().isNotEmpty) {
-      return '"${finalNotes!.trim()}"';
-    }
-    return '"No completion notes"'; // fallback placeholder
+
+  String get _completionNotes {
+    final notes = finalNotes?.trim() ?? '';
+    return notes.isEmpty ? 'No completion notes' : notes;
   }
 
   static const List<String> _monthNames = <String>[
@@ -84,7 +69,7 @@ class TradeCompleteSection extends StatelessWidget {
         _CompleteCard(
           title: 'Job Completion',
           icon: Icons.check_circle_outlined,
-          summary: '$_completionDate • $_completionStatus',
+          summary: '$_completionDate - $_completionStatus',
           cardColor: cardColor,
           borderColor: borderColor,
           child: Column(
@@ -99,6 +84,11 @@ class TradeCompleteSection extends StatelessWidget {
                 'Status: $_completionStatus',
                 style: TextStyle(color: subtitleColor, height: 1.4),
               ),
+              const SizedBox(height: 6),
+              Text(
+                'Notes: $_completionNotes',
+                style: TextStyle(color: subtitleColor, height: 1.4),
+              ),
             ],
           ),
         ),
@@ -106,71 +96,12 @@ class TradeCompleteSection extends StatelessWidget {
         _CompleteCard(
           title: 'Completion Photos',
           icon: Icons.photo_library_outlined,
-          summary: '$_beforePhotos, $_afterPhotos • $_photoCount',
-          cardColor: cardColor,
-          borderColor: borderColor,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _beforePhotos,
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _afterPhotos,
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _photoCount,
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        _CompleteCard(
-          title: 'Work Completed',
-          icon: Icons.build_outlined,
-          summary: '4 items completed',
+          summary: _photoCount,
           cardColor: cardColor,
           borderColor: borderColor,
           child: Text(
-            _workItems,
-            style: TextStyle(color: subtitleColor, height: 1.5),
-          ),
-        ),
-        const SizedBox(height: 10),
-        _CompleteCard(
-          title: 'Customer Sign-off',
-          icon: Icons.how_to_reg_outlined,
-          summary: '$_signatureStatus • $_satisfaction',
-          cardColor: cardColor,
-          borderColor: borderColor,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _signatureStatus,
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Customer satisfaction: $_satisfaction',
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Final notes:',
-                style: TextStyle(color: subtitleColor, height: 1.4),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _finalNotes,
-                style: TextStyle(color: subtitleColor, height: 1.4, fontStyle: FontStyle.italic),
-              ),
-            ],
+            _photoCount,
+            style: TextStyle(color: subtitleColor, height: 1.4),
           ),
         ),
       ],

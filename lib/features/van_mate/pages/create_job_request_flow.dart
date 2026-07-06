@@ -601,7 +601,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                               onPressed: () async {
                                 final launched = await emailCustomerRequest(
                                   email: customerEmail,
-                                  subject: 'Trade Mate job request',
+                                  subject: 'Van Mate job request',
                                   message: emailBody,
                                 );
                                 if (launched) {
