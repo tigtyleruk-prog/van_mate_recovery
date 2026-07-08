@@ -54,7 +54,9 @@ void main() {
     expect(profile.defaultExtraHelperAmount, 20);
   });
 
-  testWidgets('missing quick extra default falls back to zero', (tester) async {
+  testWidgets('tapping quick extra twice removes it without duplicates', (
+    tester,
+  ) async {
     final profile = const VanBusinessProfile.defaults();
     final draft = VanInvoiceDraft.initial(
       jobKey: 'job-2',
@@ -76,10 +78,108 @@ void main() {
       profile: profile,
       reply: _reply('job-2'),
       extraLabel: 'Extra helper',
+      taps: 2,
     );
 
-    expect(savedDraft.lineItems[1].amount, 0);
+    expect(savedDraft.lineItems, hasLength(1));
     expect(savedDraft.totalDue, 120);
+  });
+
+  testWidgets('mileage supports decimal miles', (tester) async {
+    final profile = const VanBusinessProfile.defaults();
+    final draft = VanInvoiceDraft.initial(
+      jobKey: 'job-3',
+      businessProfile: profile,
+      customerName: 'Customer',
+      customerPhone: '07111111111',
+      customerEmail: '',
+      billingAddress: '2 Market Road',
+      invoiceDate: '21 Jun 2026',
+      jobReference: 'House move',
+      jobDescription: 'House move',
+      invoiceNumber: 'INV-3',
+      quoteAmount: 120,
+    );
+
+    final savedDraft = await _openAndSaveInvoiceItemsPage(
+      tester,
+      draft: draft,
+      profile: profile,
+      reply: _reply('job-3'),
+      extraLabel: 'Mileage',
+      editMiles: '1.5',
+    );
+
+    expect(savedDraft.estimatedMiles, '1.5');
+    expect(
+      savedDraft.lineItems.where((item) => item.extraKey == 'mileage'),
+      isEmpty,
+    );
+  });
+
+  testWidgets('edit saved extras opens shared settings sheet', (tester) async {
+    final profile = const VanBusinessProfile.defaults();
+    final draft = VanInvoiceDraft.initial(
+      jobKey: 'job-4',
+      businessProfile: profile,
+      customerName: 'Customer',
+      customerPhone: '07111111111',
+      customerEmail: '',
+      billingAddress: '2 Market Road',
+      invoiceDate: '21 Jun 2026',
+      jobReference: 'House move',
+      jobDescription: 'House move',
+      invoiceNumber: 'INV-4',
+      quoteAmount: 120,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EditInvoiceItemsPage(
+          draft: draft,
+          reply: _reply('job-4'),
+          businessProfile: profile,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit saved extras'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved extras'), findsOneWidget);
+    expect(find.text('Save extras'), findsOneWidget);
+  });
+
+  test('invoice draft date prefers confirmed appointment time', () {
+    const profile = VanBusinessProfile.defaults();
+    final reply = DriverCustomerReplyMockData(
+      jobId: 'completed-confirmed-time',
+      customerName: 'Customer',
+      jobTitle: 'House move',
+      scheduledAt: null,
+      jobDateLabel: '13 Jul 2026',
+      jobTimeLabel: 'morning',
+      scheduledDate: '2026-07-13',
+      scheduledStartTime: '09:00',
+      status: 'completed',
+      calendarStatus: 'completed',
+      address: '2 Market Road',
+      phoneNumber: '07111111111',
+      exactPinShared: false,
+      checklistResponses: const <DriverChecklistResponse>[],
+      customQuestionResponses: const <DriverCustomQuestionResponse>[],
+      additionalNotes: '',
+      preferredDate: DateTime(2026, 7, 13),
+      preferredTimeWindow: 'morning',
+    );
+
+    final draft = reply.toInvoiceDraft(
+      businessProfile: profile,
+      invoiceNumber: 'INV-3',
+    );
+
+    expect(draft.invoiceDate, '13 Jul 2026 at 09:00');
   });
 }
 
@@ -89,6 +189,8 @@ Future<VanInvoiceDraft> _openAndSaveInvoiceItemsPage(
   required VanBusinessProfile profile,
   required DriverCustomerReplyMockData reply,
   required String extraLabel,
+  int taps = 1,
+  String? editMiles,
 }) async {
   VanInvoiceDraft? savedDraft;
 
@@ -120,8 +222,15 @@ Future<VanInvoiceDraft> _openAndSaveInvoiceItemsPage(
   await tester.tap(find.text('Open'));
   await tester.pumpAndSettle();
 
-  await tester.tap(find.text(extraLabel));
-  await tester.pumpAndSettle();
+  for (var index = 0; index < taps; index++) {
+    await tester.tap(_quickExtraChip(extraLabel));
+    await tester.pumpAndSettle();
+  }
+
+  if (editMiles != null) {
+    await tester.enterText(find.widgetWithText(TextField, 'Miles'), editMiles);
+    await tester.pumpAndSettle();
+  }
 
   await tester.scrollUntilVisible(
     find.text('Save & back'),
@@ -133,6 +242,18 @@ Future<VanInvoiceDraft> _openAndSaveInvoiceItemsPage(
 
   expect(savedDraft, isNotNull);
   return savedDraft!;
+}
+
+Finder _quickExtraChip(String label) {
+  final chipIndex = switch (label) {
+    'Waiting time' => 1,
+    'Stairs / access' => 2,
+    'Mileage' => 3,
+    'Collection / delivery' => 4,
+    'Custom extra' => 5,
+    _ => 0,
+  };
+  return find.byType(ChoiceChip).at(chipIndex);
 }
 
 DriverCustomerReplyMockData _reply(String jobId) {

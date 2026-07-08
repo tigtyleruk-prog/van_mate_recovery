@@ -9,6 +9,7 @@ import '../helpers/van_block_customer_dialog.dart';
 import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_job_request_state.dart';
 import '../helpers/van_quote_decline.dart';
+import '../helpers/van_quote_ui_status.dart';
 import '../helpers/van_status_tone.dart';
 import '../models/van_job_request_record.dart';
 import 'driver_customer_reply_mock_page.dart';
@@ -171,6 +172,56 @@ String _preferredWindowLabel(String value) {
     default:
       return '';
   }
+}
+
+bool vanIncomingJobIsBookingLinkRequest(VanJobRequestRecord? request) {
+  final source = request?.source.trim().toLowerCase() ?? '';
+  if (source == 'booking_link') {
+    return true;
+  }
+  final notes = request?.additionalNotes.toLowerCase() ?? '';
+  return notes.contains('source: booking link');
+}
+
+bool vanIncomingJobHasGenuineCustomerReplyForStatus(
+  DriverCustomerReplyMockData job, {
+  VanJobRequestRecord? request,
+}) {
+  if (job.isQuoteAccepted ||
+      job.isQuoteDeclined ||
+      job.quoteRespondedAt != null) {
+    return true;
+  }
+
+  final timingChoice = job.quoteTimingChoice.trim().toLowerCase();
+  if (timingChoice == 'arrange_another_time' ||
+      timingChoice == 'accepted_proposed_time') {
+    return true;
+  }
+
+  return !vanIncomingJobIsBookingLinkRequest(request) && job.hasCustomerReply;
+}
+
+VanQuoteUiStatus deriveVanIncomingJobDisplayQuoteUiStatus(
+  DriverCustomerReplyMockData job, {
+  VanJobRequestRecord? request,
+}) {
+  final status = job.quoteUiStatus;
+  if (!vanIncomingJobIsBookingLinkRequest(request) ||
+      job.hasQuote ||
+      vanIncomingJobHasGenuineCustomerReplyForStatus(job, request: request) ||
+      status.primaryChipLabel != 'Request received' ||
+      status.secondaryChipLabel != 'Reply received') {
+    return status;
+  }
+
+  return const VanQuoteUiStatus(
+    primaryChipLabel: 'Request received',
+    secondaryChipLabel: 'Request received',
+    statusLabel: 'Request received',
+    summary: 'Request received.',
+    nextActionText: 'Open to review details and send a quote.',
+  );
 }
 
 class VanIncomingRequestsPage extends StatefulWidget {
@@ -761,8 +812,12 @@ class _IncomingRequestCard extends StatelessWidget {
     return normalizedAddress.contains(normalizedPostcode);
   }
 
+  VanQuoteUiStatus _displayQuoteUiStatus() {
+    return deriveVanIncomingJobDisplayQuoteUiStatus(job, request: request);
+  }
+
   String _statusChipLabel() {
-    return job.quoteUiStatus.primaryChipLabel;
+    return _displayQuoteUiStatus().primaryChipLabel;
   }
 
   Color _statusChipColor() {
@@ -782,7 +837,7 @@ class _IncomingRequestCard extends StatelessWidget {
     if (blocked) {
       return 'Blocked customer match. Review before responding.';
     }
-    return job.quoteUiStatus.nextActionText;
+    return _displayQuoteUiStatus().nextActionText;
   }
 
   @override
@@ -838,6 +893,7 @@ class _IncomingRequestCard extends StatelessWidget {
             actionState.canViewQuote ||
             actionState.canCallCustomer ||
             actionState.canTextCustomer);
+    final displayStatus = _displayQuoteUiStatus();
 
     return _IncomingGlassCard(
       child: InkWell(
@@ -864,23 +920,23 @@ class _IncomingRequestCard extends StatelessWidget {
                           label: _statusChipLabel(),
                           color: _statusChipColor(),
                         ),
-                        if (job.quoteUiStatus.secondaryChipLabel !=
-                            job.quoteUiStatus.primaryChipLabel)
+                        if (displayStatus.secondaryChipLabel !=
+                            displayStatus.primaryChipLabel)
                           _IncomingChip(
-                            label: job.quoteUiStatus.secondaryChipLabel,
+                            label: displayStatus.secondaryChipLabel,
                             color:
-                                job.quoteUiStatus.secondaryChipLabel ==
+                                displayStatus.secondaryChipLabel ==
                                         'Awaiting quote response' ||
-                                    job.quoteUiStatus.secondaryChipLabel ==
+                                    displayStatus.secondaryChipLabel ==
                                         'Time needs arranging' ||
-                                    job.quoteUiStatus.secondaryChipLabel ==
+                                    displayStatus.secondaryChipLabel ==
                                         'Awaiting exact pin'
                                 ? vanStatusToneColor(VanStatusTone.primary)
                                 : vanStatusToneColor(VanStatusTone.positive),
                           ),
-                        if (job.quoteUiStatus.showExactPinReceivedChip)
+                        if (displayStatus.showExactPinReceivedChip)
                           _IncomingChip(
-                            label: job.quoteUiStatus.exactPinChipLabel,
+                            label: displayStatus.exactPinChipLabel,
                             color: vanStatusToneColor(VanStatusTone.positive),
                           ),
                       ],

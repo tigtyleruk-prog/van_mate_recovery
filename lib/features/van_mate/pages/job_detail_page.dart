@@ -9,7 +9,6 @@ import 'package:share_plus/share_plus.dart';
 
 import '../helpers/app_theme.dart';
 import '../helpers/van_block_customer_dialog.dart';
-import '../helpers/van_completed_job_status_pills.dart';
 import '../models/van_invoice_draft.dart';
 import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_job_completion_actions.dart';
@@ -420,9 +419,12 @@ class _JobDetailPageState extends State<JobDetailPage>
     final address = _isBookingLinkSubmission && requestAddress.isNotEmpty
         ? requestAddress
         : sanitizeVanText(reply.address).trim();
-    final postcode = _requestRecord?.customerPostcode.trim().isNotEmpty == true
+    var postcode = _requestRecord?.customerPostcode.trim().isNotEmpty == true
         ? _requestRecord!.customerPostcode.trim()
         : sanitizeVanText(reply.postcode).trim();
+    if (_addressAlreadyIncludesPostcode(address, postcode)) {
+      postcode = '';
+    }
     final locationPending =
         _requestRecord?.locationPending == true || reply.locationPending;
     final requiresExactPinAfterQuoteAccepted =
@@ -446,6 +448,17 @@ class _JobDetailPageState extends State<JobDetailPage>
       return '$summary\nExact pin will be requested after quote acceptance.';
     }
     return summary;
+  }
+
+  bool _addressAlreadyIncludesPostcode(String address, String postcode) {
+    String normalize(String value) =>
+        value.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+    final normalizedAddress = normalize(address);
+    final normalizedPostcode = normalize(postcode);
+    return normalizedAddress.isNotEmpty &&
+        normalizedPostcode.isNotEmpty &&
+        (normalizedAddress == normalizedPostcode ||
+            normalizedAddress.endsWith(normalizedPostcode));
   }
 
   String get _displayPhone {
@@ -816,8 +829,6 @@ class _JobDetailPageState extends State<JobDetailPage>
     };
   }
 
-  bool get _canCreateQuoteFromJobInfo =>
-      _actionState.canCreateQuote && !_actionState.hasCustomerReply;
   bool get _canSendQuoteForRequestFlow =>
       _actionState.canCreateQuote &&
       _actionState.hasCustomerReply &&
@@ -827,8 +838,6 @@ class _JobDetailPageState extends State<JobDetailPage>
   bool get _canReviseQuote => _actionState.canReviseQuote;
   bool get _hideTimingAndSchedulingForDeclinedQuote =>
       _isBookingLinkSubmission && reply.isQuoteDeclined;
-
-  bool get _canMarkJobReady => _canAddJobToCalendarAction;
 
   bool get _canViewQuote => _actionState.canViewQuote;
 
@@ -932,7 +941,10 @@ class _JobDetailPageState extends State<JobDetailPage>
     return switch (_preferredTimingDecision.trim().toLowerCase()) {
       'use_customer_time' => 'Using customer time',
       'suggested_alternative' => 'Alternative suggested',
-      _ => 'Pending timing decision',
+      _ =>
+        _isAwaitingQuoteResponse
+            ? 'Awaiting quote acceptance'
+            : 'Quote not yet accepted',
     };
   }
 
@@ -944,7 +956,6 @@ class _JobDetailPageState extends State<JobDetailPage>
     return _quoteUiStatus.secondaryChipLabel;
   }
 
-  bool get _canCreateInvoiceFromJobInfo => _completed;
   VanInvoiceDraft? get _savedInvoice =>
       DriverReplyMockState.instance.invoiceForJob(reply.invoiceHistoryKey);
   bool get _hasAcceptedQuoteForInvoice =>
@@ -1634,7 +1645,7 @@ class _JobDetailPageState extends State<JobDetailPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Add to calendar',
+                'Add this accepted job to your Calendar?',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -1643,7 +1654,7 @@ class _JobDetailPageState extends State<JobDetailPage>
               ),
               const SizedBox(height: 8),
               Text(
-                'Add this job to Calendar for ${formatDate(scheduledAt)} at ${TimeOfDay.fromDateTime(scheduledAt).format(sheetContext)}?',
+                'Confirm this appointment.',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.72),
                   fontWeight: FontWeight.w600,
@@ -1678,6 +1689,44 @@ class _JobDetailPageState extends State<JobDetailPage>
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showAppointmentConflictDialog() async {
+    if (!mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF142031),
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Appointment conflict',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          ),
+          content: const Text(
+            'This appointment overlaps with another scheduled job.\n'
+            'Please choose a different time before adding it to Calendar.',
+            style: TextStyle(color: Colors.white70, height: 1.4),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4A7DFF),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('OK'),
+            ),
+          ],
         );
       },
     );
@@ -1789,9 +1838,7 @@ class _JobDetailPageState extends State<JobDetailPage>
         estimatedDurationMinutes: selectedDuration,
       );
       if (overlap != null) {
-        _showSnack(
-          DriverReplyMockState.instance.formatScheduleOverlapMessage(overlap),
-        );
+        await _showAppointmentConflictDialog();
         return;
       }
       final confirmed = await _showAddToCalendarConfirmationSheet(
@@ -1818,11 +1865,11 @@ class _JobDetailPageState extends State<JobDetailPage>
           _showSnack('Could not save this job to Calendar. Please try again.');
           return;
         }
-      } on VanScheduleOverlapException catch (error) {
+      } on VanScheduleOverlapException {
         if (!mounted) {
           return;
         }
-        _showSnack(error.message);
+        await _showAppointmentConflictDialog();
         return;
       } catch (error, stackTrace) {
         debugPrintSynchronously(
@@ -2282,6 +2329,68 @@ class _JobDetailPageState extends State<JobDetailPage>
     return cards;
   }
 
+  Widget _buildCustomerReplyDetailsContent(List<Widget> replyCards) {
+    if (replyCards.isEmpty && !_isBookingLinkSubmission) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _isBookingLinkSubmission ? 'Customer answers' : 'Customer reply',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (replyCards.isEmpty && _isBookingLinkSubmission)
+          Text(
+            'No answers submitted.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.76),
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = constraints.maxWidth >= 620
+                  ? (constraints.maxWidth - 10) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final detail in replyCards)
+                    SizedBox(width: cardWidth, child: detail),
+                ],
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Future<void> _openCustomerResponsesDialog(List<Widget> replyCards) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: const Color(0xFF0E1B2D),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 640, maxWidth: 760),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(18),
+            child: _buildCustomerReplyDetailsContent(replyCards),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCustomerReplySection(List<Widget> replyCards) {
     if (replyCards.isEmpty && !_isBookingLinkSubmission) {
       return const SizedBox.shrink();
@@ -2291,39 +2400,34 @@ class _JobDetailPageState extends State<JobDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _isBookingLinkSubmission ? 'Customer answers' : 'Customer reply',
+          const Text(
+            'Customer request',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 12),
-          if (replyCards.isEmpty && _isBookingLinkSubmission)
-            Text(
-              'No answers submitted.',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.76),
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final cardWidth = constraints.maxWidth >= 620
-                    ? (constraints.maxWidth - 10) / 2
-                    : constraints.maxWidth;
-                return Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    for (final detail in replyCards)
-                      SizedBox(width: cardWidth, child: detail),
-                  ],
-                );
-              },
+          const SizedBox(height: 10),
+          Text(
+            'View customer responses',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.76),
+              fontWeight: FontWeight.w700,
+              height: 1.4,
             ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: FilledButton.icon(
+              onPressed: () =>
+                  unawaited(_openCustomerResponsesDialog(replyCards)),
+              icon: const Icon(Icons.question_answer_outlined),
+              label: const Text('View responses'),
+            ),
+          ),
         ],
       ),
     );
@@ -2792,7 +2896,6 @@ class _JobDetailPageState extends State<JobDetailPage>
           LayoutBuilder(
             builder: (context, constraints) {
               final stacked = constraints.maxWidth < 520;
-              final bookingLinkActionsOnly = _isBookingLinkSubmission;
               final actionWidgets = <Widget>[
                 if (!_cancelled && !_completed) ...[
                   if (_canShowNavigateAction)
@@ -2806,60 +2909,17 @@ class _JobDetailPageState extends State<JobDetailPage>
                     _buildActionButton(
                       label: 'Call customer',
                       icon: Icons.phone,
-                      tone: VanStatusTone.neutral,
+                      tone: VanStatusTone.primary,
                       onTap: () => unawaited(_callCustomer()),
                     ),
                   if (_canCallCustomer)
                     _buildActionButton(
                       label: 'Text customer',
                       icon: Icons.sms_outlined,
-                      tone: VanStatusTone.neutral,
+                      tone: VanStatusTone.primary,
                       onTap: () => unawaited(_textCustomer()),
                     ),
                 ],
-                if (!widget.historyMode && _canViewQuote)
-                  _buildActionButton(
-                    label: 'View quote',
-                    icon: Icons.request_quote_outlined,
-                    tone: VanStatusTone.neutral,
-                    onTap: _openQuote,
-                  ),
-                if (!bookingLinkActionsOnly &&
-                    !_shouldShowSchedulingSection &&
-                    _canMarkJobReady)
-                  _buildActionButton(
-                    label: 'Add job to Calendar',
-                    icon: Icons.check_circle,
-                    tone: VanStatusTone.primary,
-                    filled: true,
-                    onTap: () => unawaited(_markReady()),
-                  ),
-                if (_canCreateQuoteFromJobInfo ||
-                    (_canSendQuoteForRequestFlow &&
-                        !_shouldShowBottomCreateQuoteButton))
-                  _buildActionButton(
-                    label: reply.isQuoteDeclined
-                        ? 'Revise / resend quote'
-                        : (reply.hasQuote ? 'Send quote' : 'Create quote'),
-                    icon: Icons.request_quote_outlined,
-                    tone: VanStatusTone.primary,
-                    filled: true,
-                    onTap: _openQuote,
-                  ),
-                if (!widget.historyMode &&
-                    !bookingLinkActionsOnly &&
-                    _canCreateInvoiceFromJobInfo)
-                  _buildActionButton(
-                    label: _createInvoiceActionLabel,
-                    icon: Icons.receipt_long_outlined,
-                    tone: _savedInvoice == null
-                        ? VanStatusTone.primary
-                        : VanStatusTone.neutral,
-                    filled: _savedInvoice == null,
-                    onTap: _savedInvoice == null
-                        ? _createInvoice
-                        : _openInvoice,
-                  ),
               ];
 
               if (stacked) {
@@ -3127,9 +3187,15 @@ class _JobDetailPageState extends State<JobDetailPage>
       return const SizedBox.shrink();
     }
 
-    final showsPreferredTiming = _hasPreferredTimingData;
+    final suppressAcceptedRequestTiming =
+        _showAcceptedCustomerRequestSummary && _hasConfirmedAppointmentData;
+    final showsPreferredTiming =
+        _hasPreferredTimingData && !suppressAcceptedRequestTiming;
     final showsConfirmedAppointment = _showConfirmedAppointmentSection;
     final showsSharedScheduling = _shouldShowSchedulingSection;
+    final showsSchedulingStatusCard =
+        showsSharedScheduling &&
+        !(reply.isQuoteAccepted || _isReadyForCalendar || _isAlreadyInCalendar);
     final showsBookingQuoteAction =
         _isBookingLinkSubmission && _canSendQuoteForRequestFlow;
 
@@ -3146,7 +3212,7 @@ class _JobDetailPageState extends State<JobDetailPage>
         if (showsPreferredTiming) ...[
           _buildPreferredTimeSection(),
           if (showsConfirmedAppointment ||
-              showsSharedScheduling ||
+              showsSchedulingStatusCard ||
               showsBookingQuoteAction)
             const SizedBox(height: 12),
         ],
@@ -3156,7 +3222,7 @@ class _JobDetailPageState extends State<JobDetailPage>
             const SizedBox(height: 12),
         ],
         if (showsSharedScheduling) ...[
-          if (_shouldShowSchedulingSection) ...[
+          if (showsSchedulingStatusCard) ...[
             _buildSchedulingStatusCard(),
             const SizedBox(height: 12),
           ],
@@ -3238,93 +3304,6 @@ class _JobDetailPageState extends State<JobDetailPage>
     final link = reply.activeQuoteResponseLink;
     Clipboard.setData(ClipboardData(text: link));
     _showSnack('Quote link copied.');
-  }
-
-  Future<void> _markReady() async {
-    final scheduledAt = effectiveAgreedSchedulingTimeForJob(
-      reply,
-      request: _requestRecord,
-    );
-    if (_isAwaitingRequiredExactPin) {
-      _showSnack(
-        'Wait for the exact pickup or drop-off pin before adding this job to the calendar.',
-      );
-      return;
-    }
-    if (!_hasCalendarReadyTime || scheduledAt == null) {
-      _showSnack(
-        'Set an exact agreed time before adding this job to the calendar.',
-      );
-      return;
-    }
-    final pastScheduleMessage = validateVanMateScheduledAt(scheduledAt);
-    if (pastScheduleMessage != null) {
-      _showSnack(pastScheduleMessage);
-      return;
-    }
-    if (_isAlreadyInCalendar) {
-      _showSnack('This job is already in your calendar.');
-      return;
-    }
-    debugPrintSynchronously(
-      'CONFIRM_SCHEDULE_TAPPED path=job_detail.actions jobId=$_jobId '
-      'source=${DriverReplyMockState.instance.debugSourceForJob(_jobId)}',
-    );
-    final overlap = DriverReplyMockState.instance.findScheduleOverlap(
-      ignoringJobId: _jobId,
-      scheduledAt: scheduledAt,
-      estimatedDurationMinutes: _estimatedDurationMinutes ?? 60,
-    );
-    if (overlap != null) {
-      _showSnack(
-        DriverReplyMockState.instance.formatScheduleOverlapMessage(overlap),
-      );
-      return;
-    }
-    final bool persisted;
-    try {
-      persisted = await DriverReplyMockState.instance.persistScheduledJob(
-        jobId: _jobId,
-        scheduledAt: scheduledAt,
-        estimatedDurationMinutes: _estimatedDurationMinutes ?? 60,
-        schedulingStatus: reply.schedulingStatus.trim().isNotEmpty
-            ? reply.schedulingStatus
-            : 'accepted_time',
-      );
-    } on VanScheduleOverlapException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      _showSnack(error.message);
-      return;
-    } on VanPastScheduleException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      _showSnack(error.message);
-      return;
-    }
-    if (!persisted) {
-      if (!mounted) {
-        return;
-      }
-      _showSnack('Could not save this job to Calendar. Please try again.');
-      return;
-    }
-    try {
-      await DriverReplyMockState.instance.refreshJobsFromCloud(
-        forceServer: true,
-      );
-    } catch (error, stackTrace) {
-      debugPrint('[CONFIRM_SCHEDULE_REFRESH_ERROR] error=$error');
-      debugPrintStack(stackTrace: stackTrace);
-    }
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
-    _showSnack('Job added to calendar.');
   }
 
   Future<void> _createInvoice() async {
@@ -3426,7 +3405,7 @@ class _JobDetailPageState extends State<JobDetailPage>
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'This job has been moved to Customer History. Create the invoice now, stay on the job, or head back to Calendar.',
+                        'This job has been moved to Customer History.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.78),
                           height: 1.45,
@@ -3445,7 +3424,7 @@ class _JobDetailPageState extends State<JobDetailPage>
                                 ? Icons.receipt_long_outlined
                                 : Icons.visibility_outlined,
                           ),
-                          label: Text(_createInvoiceActionLabel),
+                          label: const Text('Create invoice from quote'),
                           style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFF58D0A4),
                             foregroundColor: Colors.white,
@@ -3634,64 +3613,60 @@ class _JobDetailPageState extends State<JobDetailPage>
 
   Future<void> _markCompleted() async {
     final scheduledAt = _effectiveScheduledAt ?? _acceptedOrProposedScheduledAt;
-    final isScheduledFuture = _isAlreadyInCalendar && _isScheduledForFutureDate;
-    final shouldComplete = isScheduledFuture
-        ? await showDialog<bool>(
-                context: context,
-                builder: (dialogContext) {
-                  return AlertDialog(
-                    backgroundColor: const Color(0xFF142031),
-                    surfaceTintColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
+    final shouldComplete =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF142031),
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: const Text(
+                'Mark this job as completed?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              content: Text(
+                scheduledAt != null
+                    ? 'This job is booked for ${formatDateTime(scheduledAt, TimeOfDay.fromDateTime(scheduledAt))}. Mark it complete?'
+                    : 'Mark this job complete now?',
+                style: const TextStyle(color: Colors.white70, height: 1.4),
+              ),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              actions: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.16),
                     ),
-                    title: const Text(
-                      'Mark this job as completed?',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    content: Text(
-                      scheduledAt != null
-                          ? 'This job is booked for ${formatDateTime(scheduledAt, TimeOfDay.fromDateTime(scheduledAt))}. Mark it complete anyway?'
-                          : 'This job is booked for a future date. Mark it complete anyway?',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        height: 1.4,
-                      ),
-                    ),
-                    actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    actions: [
-                      OutlinedButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(false),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.16),
-                          ),
-                        ),
-                        child: const Text('Cancel'),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(true),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF58D0A4),
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Mark complete'),
-                      ),
-                    ],
-                  );
-                },
-              ) ??
-              false
-        : true;
+                  ),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF58D0A4),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Mark complete'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
 
     if (!shouldComplete) {
       return;
     }
 
+    _completedInSession = true;
     final completedAt = DateTime.now();
     final persisted = await DriverReplyMockState.instance.persistCompletedJob(
       jobId: _jobId,
@@ -3701,6 +3676,9 @@ class _JobDetailPageState extends State<JobDetailPage>
       if (!mounted) {
         return;
       }
+      setState(() {
+        _completedInSession = false;
+      });
       _showSnack('Could not complete this job. Please try again.');
       return;
     }
@@ -3717,10 +3695,7 @@ class _JobDetailPageState extends State<JobDetailPage>
       return;
     }
 
-    setState(() {
-      _completedInSession = true;
-    });
-    _showSnack('Job completed.');
+    setState(() {});
     final nextStep = await _showCompletedJobNextStepSheet();
     if (!mounted) {
       return;
@@ -3946,6 +3921,7 @@ class _JobDetailPageState extends State<JobDetailPage>
     final color = tone == VanStatusTone.neutral
         ? Colors.white
         : vanStatusToneColor(tone);
+    final contentColor = filled ? Colors.white : color;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -3971,15 +3947,15 @@ class _JobDetailPageState extends State<JobDetailPage>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 17, color: Colors.white),
+                Icon(icon, size: 17, color: contentColor),
                 const SizedBox(width: 8),
               ],
               Flexible(
                 child: Text(
                   label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: contentColor,
                     fontSize: 12.8,
                     fontWeight: FontWeight.w800,
                   ),
@@ -4137,176 +4113,6 @@ class _JobDetailPageState extends State<JobDetailPage>
         ? 'Customer reply received'
         : displayJobTitle;
     final timingAndSchedulingSection = _buildTimingAndSchedulingSection();
-    final statusChips = _cancelled
-        ? const <_JobsChipData>[
-            _JobsChipData(
-              label: 'Cancelled',
-              color: kVanStatusDangerColor,
-              icon: Icons.cancel,
-              filled: true,
-            ),
-            _JobsChipData(
-              label: 'Record kept',
-              color: kVanStatusNeutralColor,
-              icon: Icons.folder_outlined,
-            ),
-          ]
-        : reply.isQuoteDeclined
-        ? const <_JobsChipData>[
-            _JobsChipData(
-              label: 'Quote declined',
-              color: kVanStatusDangerColor,
-              icon: Icons.cancel_outlined,
-              filled: true,
-            ),
-          ]
-        : _isAlreadyInCalendar
-        ? <_JobsChipData>[
-            const _JobsChipData(
-              label: 'Quote accepted',
-              color: kVanStatusPositiveColor,
-              icon: Icons.request_quote_outlined,
-            ),
-            const _JobsChipData(
-              label: 'Scheduled',
-              color: kVanStatusPositiveColor,
-              icon: Icons.event_available,
-              filled: true,
-            ),
-            if (reply.exactPinSaved)
-              const _JobsChipData(
-                label: 'Exact pin received',
-                color: kVanStatusPositiveColor,
-                icon: Icons.location_on,
-              ),
-          ]
-        : reply.isQuoteAccepted && !reply.isConfirmed
-        ? <_JobsChipData>[
-            const _JobsChipData(
-              label: 'Quote accepted',
-              color: kVanStatusPositiveColor,
-              icon: Icons.request_quote_outlined,
-              filled: true,
-            ),
-            if (reply.exactPinSaved)
-              const _JobsChipData(
-                label: 'Exact pin received',
-                color: kVanStatusPositiveColor,
-                icon: Icons.location_on,
-              ),
-            if (_isAwaitingRequiredExactPin)
-              const _JobsChipData(
-                label: 'Awaiting exact pin',
-                color: kVanStatusWarningColor,
-                icon: Icons.location_on,
-              ),
-            if (_isAwaitingAgreedTime)
-              const _JobsChipData(
-                label: 'Time needs arranging',
-                color: kVanStatusWarningColor,
-                icon: Icons.schedule,
-              ),
-            if (_hasCalendarReadyTime)
-              const _JobsChipData(
-                label: 'Time agreed',
-                color: kVanStatusPositiveColor,
-                icon: Icons.event_available_outlined,
-              ),
-            if (_isReadyForCalendar)
-              const _JobsChipData(
-                label: 'Ready for Calendar',
-                color: kVanStatusPrimaryColor,
-                icon: Icons.event_available,
-              ),
-          ]
-        : _completed
-        ? buildVanCompletedJobStatusPills(reply)
-              .map(
-                (pill) => _JobsChipData(
-                  label: pill.label,
-                  color: pill.color,
-                  icon: pill.icon,
-                  filled: pill.filled,
-                ),
-              )
-              .toList(growable: false)
-        : reply.isConfirmed
-        ? <_JobsChipData>[
-            const _JobsChipData(
-              label: 'Quote accepted',
-              color: kVanStatusPositiveColor,
-              icon: Icons.request_quote_outlined,
-            ),
-            _JobsChipData(
-              label: _isBookingLinkSubmission ? 'Scheduled' : 'Job ready',
-              color: vanStatusToneColor(VanStatusTone.positive),
-              icon: _isBookingLinkSubmission
-                  ? Icons.event_available
-                  : Icons.check_circle,
-              filled: true,
-            ),
-            if (reply.exactPinSaved)
-              const _JobsChipData(
-                label: 'Exact pin received',
-                color: kVanStatusPositiveColor,
-                icon: Icons.location_on,
-              ),
-          ]
-        : _hasCustomerReply()
-        ? <_JobsChipData>[
-            _JobsChipData(
-              label: _isBookingLinkSubmission
-                  ? 'Request received'
-                  : 'Reply received',
-              color: kVanStatusPositiveColor,
-              icon: Icons.mark_email_read_outlined,
-              filled: true,
-            ),
-            if (reply.exactPinSaved)
-              const _JobsChipData(
-                label: 'Exact pin received',
-                color: kVanStatusPositiveColor,
-                icon: Icons.location_on,
-              ),
-            if (reply.hasQuote)
-              const _JobsChipData(
-                label: 'Quote sent',
-                color: kVanStatusWarningColor,
-                icon: Icons.request_quote_outlined,
-              ),
-            if (_hasManualAgreedTime)
-              const _JobsChipData(
-                label: 'Time agreed',
-                color: kVanStatusPositiveColor,
-                icon: Icons.event_available_outlined,
-              ),
-          ]
-        : <_JobsChipData>[
-            const _JobsChipData(
-              label: 'Active job',
-              color: kVanStatusNeutralColor,
-              icon: Icons.work_outline,
-              filled: true,
-            ),
-            if (reply.exactPinSaved)
-              const _JobsChipData(
-                label: 'Exact pin received',
-                color: kVanStatusPositiveColor,
-                icon: Icons.location_on,
-              ),
-            if (reply.hasQuote)
-              const _JobsChipData(
-                label: 'Quote sent',
-                color: kVanStatusWarningColor,
-                icon: Icons.request_quote_outlined,
-              ),
-            if (_hasManualAgreedTime)
-              const _JobsChipData(
-                label: 'Time agreed',
-                color: kVanStatusPositiveColor,
-                icon: Icons.event_available_outlined,
-              ),
-          ];
     final subtitle = _cancelled
         ? 'This job has been cancelled.'
         : reply.isQuoteDeclined
@@ -4443,20 +4249,6 @@ class _JobDetailPageState extends State<JobDetailPage>
                                   _buildOverflowMenuButton(),
                                 ],
                               ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final chip in statusChips)
-                                    _buildChip(
-                                      chip.label,
-                                      color: chip.color,
-                                      icon: chip.icon,
-                                      filled: chip.filled,
-                                    ),
-                                ],
-                              ),
                               const SizedBox(height: 14),
                               _buildSmallInfoCard(
                                 'Customer',
@@ -4502,7 +4294,9 @@ class _JobDetailPageState extends State<JobDetailPage>
                           key: _quoteSectionKey,
                           child: _buildQuoteSection(),
                         ),
-                        if (_completed && !widget.historyMode) ...[
+                        if (_completed &&
+                            !_completedInSession &&
+                            !widget.historyMode) ...[
                           const SizedBox(height: 12),
                           _buildCompletedJobCallout(),
                         ],
@@ -4559,20 +4353,6 @@ class _JobDetailPageState extends State<JobDetailPage>
       ),
     );
   }
-}
-
-class _JobsChipData {
-  const _JobsChipData({
-    required this.label,
-    required this.color,
-    required this.icon,
-    this.filled = false,
-  });
-
-  final String label;
-  final Color color;
-  final IconData icon;
-  final bool filled;
 }
 
 class _EditJobDetailsSheet extends StatefulWidget {

@@ -278,6 +278,14 @@
       font-size: 14px;
     }
 
+    .pin-captured-status {
+      margin: 14px 0 0;
+      color: #d9fff0;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
     .field {
       width: 100%;
       min-height: 108px;
@@ -678,21 +686,22 @@
         <p id="pinIntro" class="section-text">
           Please show the driver exactly where to collect or deliver.
         </p>
-        <div class="panel" style="margin-top: 14px;">
+        <div id="pinHelpPanel" class="panel" style="margin-top: 14px;">
           <p class="panel-text">
             This helps avoid wrong entrances, shared postcodes, new builds or hard-to-find addresses.
           </p>
         </div>
-        <div class="warning-panel" style="margin-top: 14px;">
+        <div id="pinPrivacyPanel" class="warning-panel" style="margin-top: 14px;">
           <div class="warning-title">Only use current location if you are there now</div>
           <p class="panel-text">
             If you are not there, choose the spot on the map instead.
           </p>
         </div>
-        <div class="actions">
+        <div id="pinChoiceActions" class="actions">
           <button id="shareCurrentPinButton" type="button">I'm at the exact spot now</button>
           <button id="choosePinButton" type="button" class="secondary">Choose the spot on a map</button>
         </div>
+        <p id="pinCapturedStatus" class="pin-captured-status hidden" aria-live="polite">✓ Current location captured</p>
         <div class="panel" style="margin-top: 14px;">
           <div class="panel-title">Access notes (optional)</div>
           <textarea
@@ -703,10 +712,10 @@
           ></textarea>
         </div>
         <div class="actions" style="margin-top: 14px;">
-          <button id="sendExactPinButton" type="button" class="success" disabled>Confirm and send exact location</button>
+          <button id="sendExactPinButton" type="button" class="success" disabled>Confirm exact location</button>
         </div>
         <p id="pinStatus" class="footer hidden" aria-live="polite"></p>
-        <p class="footer">This shares a one-time exact location. It does not track you live.</p>
+        <p class="footer">One-time location only. No live tracking.</p>
       </article>
     </section>
   </main>
@@ -873,6 +882,10 @@
     const arrangeTimeCard = document.getElementById("arrangeTimeCard");
     const pinCard = document.getElementById("pinCard");
     const pinIntro = document.getElementById("pinIntro");
+    const pinHelpPanel = document.getElementById("pinHelpPanel");
+    const pinPrivacyPanel = document.getElementById("pinPrivacyPanel");
+    const pinChoiceActions = document.getElementById("pinChoiceActions");
+    const pinCapturedStatus = document.getElementById("pinCapturedStatus");
     const acceptButton = document.getElementById("acceptButton");
     const arrangeTimeButton = document.getElementById("arrangeTimeButton");
     const declineButton = document.getElementById("declineButton");
@@ -990,6 +1003,22 @@
     function formatDetails(value) {
       const cleaned = String(value || "").trim();
       return cleaned || "Not set";
+    }
+
+    function cleanBusinessMessage(value, quote) {
+      let cleaned = String(value || "").trim();
+      if (!cleaned) {
+        return "";
+      }
+      const link = String((quote && quote.quoteResponseLink) || "").trim();
+      if (link) {
+        cleaned = cleaned.split(link).join("");
+      }
+      cleaned = cleaned.replace(/https?:\/\/\S*\/quote\/\S*/gi, "");
+      cleaned = cleaned.replace(/https?:\/\/\S*quote_response\.html\S*/gi, "");
+      cleaned = cleaned.replace(/[ \t]+$/gm, "");
+      cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+      return cleaned.trim();
     }
 
     function formatDateOnly(value) {
@@ -1264,7 +1293,7 @@
       }
 
       return state.selectedExactPin.responseSource === "currentLocationConfirmed"
-        ? "Current location captured. Add any access notes, then send exact location."
+        ? ""
         : "Exact spot selected. Add any access notes, then send exact location.";
     }
 
@@ -1327,6 +1356,7 @@
         jobId: text(data.jobId),
         requestId: text(data.requestId),
         customerName: text(data.customerName || data.publicCustomerName, "Customer"),
+        businessName: text(data.businessName || data.companyName, "Van Mate"),
         jobTitle: text(data.jobTitle || data.publicJobTitle || data.jobDescription, "Job"),
         address: text(
           data.address || data.publicAddressSummary || data.jobDescription || data.publicJobTitle,
@@ -1344,6 +1374,10 @@
         jobDateLabel: text(data.jobDateLabel),
         jobTimeLabel: text(data.jobTimeLabel),
         quoteAmount: typeof data.quoteAmount === "number" ? data.quoteAmount : Number(data.quoteAmount),
+        quoteExtras: Array.isArray(data.quoteExtras)
+          ? data.quoteExtras.map((item) => String(item || "").trim()).filter(Boolean)
+          : [],
+        quoteNotes: String(data.quoteNotes || data.businessMessage || "").trim(),
         quoteStatus: quoteStatus || "sent",
         quoteResponse,
         status,
@@ -1472,6 +1506,9 @@
       const needsExactPin = quoteNeedsExactPin(quote);
       const hasExactPin = quoteHasExactPin(quote);
       const hasSelectedExactPin = Boolean(state.selectedExactPin);
+      const currentLocationCaptured =
+        state.selectedExactPin &&
+        state.selectedExactPin.responseSource === "currentLocationConfirmed";
       const pending = !accepted && !declined;
 
       statusPill.className = accepted
@@ -1517,6 +1554,13 @@
       }
       renderRow("Job location", quote.address);
       renderRow("Quote amount", formatMoney(quote.quoteAmount));
+      if (quote.quoteExtras.length) {
+        renderRow("Extras", quote.quoteExtras.join("\n"));
+      }
+      const businessMessage = cleanBusinessMessage(quote.quoteNotes, quote);
+      if (businessMessage) {
+        renderRow(`Message from ${quote.businessName}`, formatDetails(businessMessage));
+      }
       if (hasExactPin) {
         renderRow(
           "Exact location",
@@ -1547,6 +1591,11 @@
         !accepted ||
         !needsExactPin ||
         !hasSelectedExactPin;
+      pinIntro.classList.toggle("hidden", Boolean(currentLocationCaptured));
+      pinHelpPanel.classList.toggle("hidden", Boolean(currentLocationCaptured));
+      pinPrivacyPanel.classList.toggle("hidden", Boolean(currentLocationCaptured));
+      pinChoiceActions.classList.toggle("hidden", Boolean(currentLocationCaptured));
+      pinCapturedStatus.classList.toggle("hidden", !currentLocationCaptured);
       if (sendDeclineButton) {
         sendDeclineButton.textContent =
           state.saving && state.selectedDecision === "decline"
@@ -1577,7 +1626,7 @@
           : "I'm at the exact spot now";
       sendExactPinButton.textContent = state.pinSaving
         ? "Sending exact location..."
-        : "Confirm and send exact location";
+        : "Confirm exact location";
       setInlineStatus(
         respondStatus,
         state.saving ? "Saving your response..." : state.saveError,
@@ -2194,7 +2243,7 @@
             accuracy: position.coords.accuracy,
             responseSource: "currentLocationConfirmed",
           });
-          setBanner("Current location captured. Add any access notes, then send exact location.");
+          setBanner("Current location captured.");
         },
         (error) => {
           setPinSelecting(false);

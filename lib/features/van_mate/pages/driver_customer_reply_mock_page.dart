@@ -22,6 +22,7 @@ import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
 import '../models/van_invoice_history_entry.dart';
 import '../models/van_invoice_draft.dart';
+import '../models/van_quote_extra_defaults.dart';
 import '../services/van_driver_mock_state_storage.dart';
 import '../services/van_deleted_requests_store.dart';
 import '../services/van_firebase_auth_service.dart';
@@ -33,8 +34,10 @@ import '../services/van_public_quote_cloud_service.dart';
 import '../services/van_quotes_cloud_service.dart';
 import '../services/van_invoices_cloud_service.dart';
 import '../services/van_invoice_number_storage.dart';
+import '../services/van_quote_extra_defaults_storage.dart';
 import '../widgets/van_duration_picker_sheet.dart';
 import '../widgets/van_form_field_styles.dart';
+import '../widgets/van_quote_extra_defaults_sheet.dart';
 
 String resolveExactPinAnnouncementCustomerName({
   required String requestCustomerName,
@@ -1189,6 +1192,7 @@ class DriverCustomerReplyMockData {
     required VanBusinessProfile businessProfile,
     required String invoiceNumber,
   }) {
+    final invoiceDate = _defaultInvoiceDateLabel();
     return VanInvoiceDraft.initial(
       jobKey: invoiceHistoryKey,
       linkedJobId: jobId,
@@ -1200,9 +1204,7 @@ class DriverCustomerReplyMockData {
       customerPhone: phoneNumber,
       customerEmail: customerEmail,
       billingAddress: address,
-      invoiceDate: jobTimeLabel.trim().isEmpty
-          ? jobDateLabel
-          : '$jobDateLabel $jobTimeLabel'.trim(),
+      invoiceDate: invoiceDate,
       jobReference: jobTitle,
       jobDescription: quoteJobDescription.trim().isNotEmpty
           ? quoteJobDescription.trim()
@@ -1214,6 +1216,25 @@ class DriverCustomerReplyMockData {
       quoteMessage: quoteMessage,
       quoteAmount: quoteAmount ?? 0,
     );
+  }
+
+  String _defaultInvoiceDateLabel() {
+    final confirmedAt = _confirmedInvoiceAppointmentDateTime();
+    if (confirmedAt != null) {
+      return formatDateTime(confirmedAt, TimeOfDay.fromDateTime(confirmedAt));
+    }
+    return jobTimeLabel.trim().isEmpty
+        ? jobDateLabel
+        : '$jobDateLabel $jobTimeLabel'.trim();
+  }
+
+  DateTime? _confirmedInvoiceAppointmentDateTime() {
+    return bookedCalendarSlot?.start ??
+        agreedDateTime ??
+        acceptedProposedScheduledAt ??
+        proposedScheduledAt ??
+        scheduledAt ??
+        _parseIsoDateAndTime(scheduledDate, scheduledStartTime);
   }
 
   String get statusLabel {
@@ -5509,12 +5530,12 @@ class DriverReplyMockState extends ChangeNotifier {
     final proposedStart = scheduledAt;
     final proposedEnd = scheduledAt.add(Duration(minutes: normalizedDuration));
 
-    for (final job in jobs) {
+    for (final job in _jobsById.values) {
       if (normalizedIgnoredJobId.isNotEmpty &&
           job.jobId == normalizedIgnoredJobId) {
         continue;
       }
-      if (job.isCancelled || job.isCompleted) {
+      if (job.isHiddenFromNormalLists || job.isCancelled || job.isCompleted) {
         continue;
       }
 
@@ -11073,7 +11094,9 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   late final TextEditingController _extraItemController;
   late final TextEditingController _proposedAppointmentNoteController;
 
-  final List<String> _extraItems = <String>[];
+  final List<String> _manualExtraItems = <String>[];
+  VanQuoteExtraSelections _selectedQuoteExtras =
+      VanQuoteExtraSelections.empty();
   DateTime? _proposedAppointmentDate;
   TimeOfDay? _proposedAppointmentTime;
   int? _estimatedDurationSelection;
@@ -11084,8 +11107,10 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   String _quoteAmountInputError = '';
   bool _saved = false;
   bool _sent = false;
+  bool _customerRequestExpanded = false;
   bool _openingSendChannel = false;
   bool _updatingAmountText = false;
+  VanQuoteExtraDefaults _quoteExtraDefaults = VanQuoteExtraDefaults.defaults();
 
   DriverCustomerReplyMockData get reply =>
       resolveVanQuoteWorkflowReply(widget.reply);
@@ -11217,7 +11242,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
           : kVanMatePaymentInstructionsFallback,
     );
     _extraItemController = TextEditingController();
-    _extraItems.addAll(
+    _manualExtraItems.addAll(
       reply.quoteExtras
           .map((item) => item.trim())
           .where((item) => item.isNotEmpty),
@@ -11245,6 +11270,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     }
     _estimatedDurationSelection = reply.estimatedDurationMinutes ?? 60;
     unawaited(_loadSavedPaymentInstructions());
+    unawaited(_loadQuoteExtraDefaults());
   }
 
   @override
@@ -11307,6 +11333,22 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     } catch (error) {
       debugPrint('[QuotePaymentInstructions] profile load failed: $error');
     }
+  }
+
+  Future<void> _loadQuoteExtraDefaults() async {
+    late final VanQuoteExtraDefaults defaults;
+    try {
+      defaults = await VanQuoteExtraDefaultsStorage.instance.load();
+    } catch (_) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _quoteExtraDefaults = defaults;
+    });
   }
 
   @override
@@ -11612,10 +11654,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     final instructions = resolveVanMatePaymentInstructions(
       _paymentInstructionsController.text,
     );
-    final extraItems = _extraItems
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+    final extraItems = _quoteExtraItemsForPayload();
     final proposedDate = _proposedAppointmentDate == null
         ? ''
         : _formatIsoDate(_proposedAppointmentDate!);
@@ -11861,26 +11900,129 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     }
 
     setState(() {
-      if (!_extraItems.contains(cleaned)) {
-        _extraItems.add(cleaned);
+      if (!_manualExtraItems.contains(cleaned)) {
+        _manualExtraItems.add(cleaned);
       }
     });
     _extraItemController.clear();
   }
 
-  void _toggleExtraItem(String item) {
-    final cleaned = item.trim();
-    if (cleaned.isEmpty) {
+  List<String> _quoteExtraItemsForPayload() {
+    return <String>[
+      ..._selectedQuoteExtras.quoteExtras,
+      ..._manualExtraItems
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty),
+    ];
+  }
+
+  Future<void> _handleQuickExtraTap(VanQuoteExtraDefault extra) async {
+    if (isQuantityVanQuoteExtraKey(extra.key)) {
+      await _openQuantityExtraEditor(extra);
       return;
     }
 
+    if (extra.key == kVanQuoteExtraCustomKey) {
+      await _openCustomExtraEditor(extra);
+      return;
+    }
+
+    final next = _selectedQuoteExtras.toggleFixed(extra);
+    _applyQuoteExtraSelection(next);
+  }
+
+  void _applyQuoteExtraSelection(VanQuoteExtraSelections next) {
+    final delta = next.total - _selectedQuoteExtras.total;
     setState(() {
-      if (_extraItems.contains(cleaned)) {
-        _extraItems.remove(cleaned);
-      } else {
-        _extraItems.add(cleaned);
-      }
+      _selectedQuoteExtras = next;
     });
+    _addAmountDeltaToQuote(delta);
+  }
+
+  void _addAmountDeltaToQuote(double delta) {
+    if (delta == 0) {
+      return;
+    }
+    final nextAmount = _currentQuoteAmount() + delta;
+    if (nextAmount < 0) {
+      _replaceAmountText('');
+      _lastValidAmountInput = '';
+      return;
+    }
+    if (nextAmount > kVanMateMaxQuoteAmount) {
+      _showSnack('Quote amount is too high.');
+      return;
+    }
+    final formatted = formatCurrencyInputValue(nextAmount);
+    _lastValidAmountInput = normalizeCurrencyInput(formatted);
+    _replaceAmountText(formatted);
+  }
+
+  Future<void> _openQuantityExtraEditor(VanQuoteExtraDefault extra) async {
+    final existing = _selectedQuoteExtras.selectionForKey(extra.key);
+    final result = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _QuoteQuantityExtraSheet(
+        extra: extra,
+        initialQuantity: existing?.quantity,
+      ),
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+
+    _applyQuoteExtraSelection(
+      _selectedQuoteExtras.applyQuantity(extra: extra, quantity: result),
+    );
+  }
+
+  Future<void> _openCustomExtraEditor(VanQuoteExtraDefault extra) async {
+    final existing = _selectedQuoteExtras.selectionForKey(extra.key);
+    final result = await showModalBottomSheet<_QuoteCustomExtraResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _QuoteCustomExtraSheet(
+        extra: extra,
+        initialLabel: existing?.label,
+        initialPrice: existing?.amount,
+      ),
+    );
+    if (result == null || !mounted) {
+      return;
+    }
+
+    _applyQuoteExtraSelection(
+      _selectedQuoteExtras.applyCustom(
+        extra: extra,
+        label: result.label,
+        price: result.price,
+      ),
+    );
+  }
+
+  Future<void> _openQuoteExtraSettings() async {
+    final updated = await showModalBottomSheet<VanQuoteExtraDefaults>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) =>
+          VanQuoteExtraDefaultsSheet(initialDefaults: _quoteExtraDefaults),
+    );
+    if (updated == null || !mounted) {
+      return;
+    }
+
+    await VanQuoteExtraDefaultsStorage.instance.save(updated);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _quoteExtraDefaults = updated;
+    });
+    _showSnack('Saved extras updated.');
   }
 
   String _amountValue() {
@@ -12093,134 +12235,104 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     );
   }
 
-  Widget _buildSuggestionChip(String label, {bool suggested = false}) {
-    final selected = _extraItems.contains(label);
-    final active = selected || suggested;
+  Widget _buildQuickExtraChip(
+    VanQuoteExtraDefault extra, {
+    bool suggested = false,
+  }) {
+    final selection = _selectedQuoteExtras.selectionForKey(extra.key);
+    final selected = selection != null;
     final activeColor = selected
         ? const Color(0xFF4A7DFF)
-        : const Color(0xFF58D0A4);
+        : suggested
+        ? const Color(0xFF58D0A4)
+        : Colors.white;
+    final chipText = selected
+        ? selection.chipLabel
+        : isQuantityVanQuoteExtraKey(extra.key)
+        ? '${extra.resolvedLabel} ${formatCurrency(extra.defaultPrice)}/'
+              '${extra.key == kVanQuoteExtraWaitingTimeKey ? 'hr' : 'mile'}'
+        : '${extra.resolvedLabel} ${formatCurrency(extra.defaultPrice)}';
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _toggleExtraItem(label),
+        onTap: () => unawaited(_handleQuickExtraTap(extra)),
         borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            color: selected
-                ? const Color(0xFF4A7DFF).withValues(alpha: 0.18)
-                : suggested
-                ? const Color(0xFF58D0A4).withValues(alpha: 0.14)
-                : Colors.white.withValues(alpha: 0.06),
-            border: Border.all(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 245),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
               color: selected
-                  ? const Color(0xFF4A7DFF).withValues(alpha: 0.32)
+                  ? const Color(0xFF4A7DFF).withValues(alpha: 0.20)
                   : suggested
-                  ? const Color(0xFF58D0A4).withValues(alpha: 0.30)
-                  : Colors.white.withValues(alpha: 0.10),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                selected
-                    ? Icons.check_circle
+                  ? const Color(0xFF58D0A4).withValues(alpha: 0.14)
+                  : Colors.white.withValues(alpha: 0.06),
+              border: Border.all(
+                color: selected
+                    ? const Color(0xFF4A7DFF).withValues(alpha: 0.36)
                     : suggested
-                    ? Icons.auto_awesome
-                    : Icons.circle_outlined,
-                size: 13,
-                color: Colors.white,
+                    ? const Color(0xFF58D0A4).withValues(alpha: 0.30)
+                    : Colors.white.withValues(alpha: 0.10),
               ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: active ? 0.96 : 0.88),
-                  fontSize: 11.0,
-                  fontWeight: FontWeight.w800,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected
+                      ? Icons.check_circle
+                      : suggested
+                      ? Icons.auto_awesome
+                      : Icons.add_circle_outline,
+                  size: 13,
+                  color: Colors.white,
                 ),
-              ),
-              if (suggested) ...[
                 const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    color: activeColor.withValues(alpha: 0.16),
-                    border: Border.all(
-                      color: activeColor.withValues(alpha: 0.24),
-                    ),
-                  ),
+                Flexible(
                   child: Text(
-                    'Suggested',
+                    chipText,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 9.2,
+                      color: Colors.white.withValues(
+                        alpha: selected ? 0.98 : 0.90,
+                      ),
+                      fontSize: 11.0,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
+                if (suggested && !selected) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: activeColor.withValues(alpha: 0.16),
+                      border: Border.all(
+                        color: activeColor.withValues(alpha: 0.24),
+                      ),
+                    ),
+                    child: Text(
+                      'Suggested',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 9.2,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectedExtraChip(String label) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _toggleExtraItem(label),
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            color: const Color(0xFF4A7DFF).withValues(alpha: 0.16),
-            border: Border.all(
-              color: const Color(0xFF4A7DFF).withValues(alpha: 0.32),
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.label_outline, size: 13, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.96),
-                  fontSize: 11.0,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.close, size: 12, color: Colors.white),
-            ],
-          ),
         ),
       ),
     );
-  }
-
-  bool _isPresetExtraItem(String item) {
-    switch (item.trim().toLowerCase()) {
-      case 'collection/delivery':
-      case 'extra helper':
-      case 'waiting time':
-      case 'stairs/access charge':
-      case 'mileage charge':
-        return true;
-      default:
-        return false;
-    }
   }
 
   bool _matchesChecklistQuestion(String actualQuestion, String targetQuestion) {
@@ -12538,39 +12650,73 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const _ReplySectionHeader(
-                              icon: Icons.fact_check_outlined,
-                              title: 'Job info',
-                            ),
-                            const SizedBox(height: 12),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final tileWidth = constraints.maxWidth < 520
-                                    ? constraints.maxWidth
-                                    : 228.0;
-                                if (pricingSummary.isEmpty) {
-                                  return Text(
-                                    'No customer reply details found.',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.82,
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _customerRequestExpanded =
+                                      !_customerRequestExpanded;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(18),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Expanded(
+                                      child: _ReplySectionHeader(
+                                        icon: Icons.fact_check_outlined,
+                                        title: 'View customer request',
                                       ),
                                     ),
-                                  );
-                                }
-                                return Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    for (final item in pricingSummary)
-                                      SizedBox(
-                                        width: tileWidth,
-                                        child: _QuoteDetailCard(item: item),
+                                    AnimatedRotation(
+                                      turns: _customerRequestExpanded ? 0.5 : 0,
+                                      duration: const Duration(
+                                        milliseconds: 180,
                                       ),
+                                      child: const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ],
-                                );
-                              },
+                                ),
+                              ),
                             ),
+                            if (_customerRequestExpanded)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final tileWidth = constraints.maxWidth < 520
+                                        ? constraints.maxWidth
+                                        : 228.0;
+                                    if (pricingSummary.isEmpty) {
+                                      return Text(
+                                        'No customer reply details found.',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.82,
+                                              ),
+                                            ),
+                                      );
+                                    }
+                                    return Wrap(
+                                      spacing: 10,
+                                      runSpacing: 10,
+                                      children: [
+                                        for (final item in pricingSummary)
+                                          SizedBox(
+                                            width: tileWidth,
+                                            child: _QuoteDetailCard(item: item),
+                                          ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -12584,15 +12730,29 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                               title: 'Quote details',
                             ),
                             const SizedBox(height: 12),
-                            _buildField(
-                              controller: _amountController,
-                              label: 'Quote amount',
-                              hint: '0.00',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              prefixText: '£',
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                color: const Color(
+                                  0xFF58D0A4,
+                                ).withValues(alpha: 0.08),
+                                border: Border.all(
+                                  color: const Color(
+                                    0xFF58D0A4,
+                                  ).withValues(alpha: 0.22),
+                                ),
+                              ),
+                              child: _buildField(
+                                controller: _amountController,
+                                label: 'Quote amount',
+                                hint: '0.00',
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                prefixText: '£',
+                              ),
                             ),
                             if (quoteAmountError != null &&
                                 _amountController.text.trim().isNotEmpty) ...[
@@ -12692,9 +12852,23 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                               maxLines: 2,
                             ),
                             const SizedBox(height: 14),
-                            const _ReplySectionHeader(
-                              icon: Icons.playlist_add,
-                              title: 'Optional extras',
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: _ReplySectionHeader(
+                                    icon: Icons.playlist_add,
+                                    title: 'Optional extras',
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Saved extras',
+                                  onPressed: _openQuoteExtraSettings,
+                                  icon: const Icon(
+                                    Icons.settings_outlined,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 10),
                             LayoutBuilder(
@@ -12754,42 +12928,16 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                               spacing: 8,
                               runSpacing: 8,
                               children: [
-                                for (final item in <MapEntry<String, String>>[
-                                  const MapEntry(
-                                    'collection_delivery',
-                                    'Collection/delivery',
-                                  ),
-                                  const MapEntry('helper', 'Extra helper'),
-                                  const MapEntry(
-                                    'waiting_time',
-                                    'Waiting time',
-                                  ),
-                                  const MapEntry(
-                                    'stairs',
-                                    'Stairs/access charge',
-                                  ),
-                                  const MapEntry('mileage', 'Mileage charge'),
-                                ])
-                                  _buildSuggestionChip(
-                                    item.value,
+                                for (final extra
+                                    in _quoteExtraDefaults.enabledExtras)
+                                  _buildQuickExtraChip(
+                                    extra,
                                     suggested: _suggestedExtraKeys.contains(
-                                      item.key,
+                                      extra.key,
                                     ),
                                   ),
                               ],
                             ),
-                            if (_extraItems.isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final item in _extraItems)
-                                    if (!_isPresetExtraItem(item))
-                                      _buildSelectedExtraChip(item),
-                                ],
-                              ),
-                            ],
                           ],
                         ),
                       ),
@@ -13133,6 +13281,300 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       ),
     );
   }
+}
+
+class _QuoteQuantityExtraSheet extends StatefulWidget {
+  const _QuoteQuantityExtraSheet({
+    required this.extra,
+    required this.initialQuantity,
+  });
+
+  final VanQuoteExtraDefault extra;
+  final double? initialQuantity;
+
+  @override
+  State<_QuoteQuantityExtraSheet> createState() =>
+      _QuoteQuantityExtraSheetState();
+}
+
+class _QuoteQuantityExtraSheetState extends State<_QuoteQuantityExtraSheet> {
+  late final TextEditingController _quantityController;
+
+  bool get _isWaitingTime => widget.extra.key == kVanQuoteExtraWaitingTimeKey;
+
+  String get _unitLabel => _isWaitingTime ? 'hours' : 'miles';
+
+  String get _rateUnit => _isWaitingTime ? 'hr' : 'mile';
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialQuantity;
+    _quantityController = TextEditingController(
+      text: initial == null || initial <= 0
+          ? ''
+          : _formatQuantityInput(initial),
+    );
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  double _quantity() {
+    final cleaned = _quantityController.text
+        .replaceAll(RegExp(r'[^0-9.]'), '')
+        .trim();
+    if (cleaned.isEmpty) {
+      return 0;
+    }
+    return double.tryParse(cleaned) ?? 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final rate = widget.extra.defaultPrice < 0
+        ? 0.0
+        : widget.extra.defaultPrice;
+    final quantity = _quantity();
+    final total = quantity * rate;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: _QuoteExtraEditorShell(
+          title: widget.extra.resolvedLabel,
+          subtitle: 'Rate ${formatCurrency(rate)}/$_rateUnit',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _quantityController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                onChanged: (_) => setState(() {}),
+                style: kVanMateFieldTextStyle,
+                decoration: vanMateFieldDecoration(
+                  label: _unitLabel,
+                  hintText: _isWaitingTime ? '1.5' : '1.5',
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${_formatQuantityInput(quantity)} ${_isWaitingTime ? 'h' : 'miles'} x ${formatCurrency(rate)}/$_rateUnit = ${formatCurrency(total)}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.86),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(0.0),
+                      child: const Text('Remove'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(quantity),
+                      child: const Text('Save'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuoteCustomExtraResult {
+  const _QuoteCustomExtraResult({required this.label, required this.price});
+
+  final String label;
+  final double price;
+}
+
+class _QuoteCustomExtraSheet extends StatefulWidget {
+  const _QuoteCustomExtraSheet({
+    required this.extra,
+    required this.initialLabel,
+    required this.initialPrice,
+  });
+
+  final VanQuoteExtraDefault extra;
+  final String? initialLabel;
+  final double? initialPrice;
+
+  @override
+  State<_QuoteCustomExtraSheet> createState() => _QuoteCustomExtraSheetState();
+}
+
+class _QuoteCustomExtraSheetState extends State<_QuoteCustomExtraSheet> {
+  late final TextEditingController _labelController;
+  late final TextEditingController _priceController;
+
+  @override
+  void initState() {
+    super.initState();
+    _labelController = TextEditingController(
+      text: widget.initialLabel?.trim().isNotEmpty == true
+          ? widget.initialLabel!.trim()
+          : widget.extra.resolvedLabel,
+    );
+    final initialPrice = widget.initialPrice ?? widget.extra.defaultPrice;
+    _priceController = TextEditingController(
+      text: initialPrice <= 0 ? '' : initialPrice.toStringAsFixed(2),
+    );
+  }
+
+  @override
+  void dispose() {
+    _labelController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  double _price() => parseCurrencyValue(_priceController.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset),
+        child: _QuoteExtraEditorShell(
+          title: widget.extra.resolvedLabel,
+          subtitle: 'Set the label and amount for this quote.',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _labelController,
+                style: kVanMateFieldTextStyle,
+                decoration: vanMateFieldDecoration(
+                  label: 'Label',
+                  hintText: widget.extra.resolvedLabel,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _priceController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                style: kVanMateFieldTextStyle,
+                decoration: vanMateFieldDecoration(
+                  label: 'Price',
+                  hintText: '0.00',
+                  prefixText: '£',
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pop(const _QuoteCustomExtraResult(label: '', price: 0)),
+                      child: const Text('Remove'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(context).pop(
+                        _QuoteCustomExtraResult(
+                          label: _labelController.text,
+                          price: _price(),
+                        ),
+                      ),
+                      child: const Text('Save'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuoteExtraEditorShell extends StatelessWidget {
+  const _QuoteExtraEditorShell({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF101B2A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                ),
+              ],
+            ),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white.withValues(alpha: 0.72),
+              ),
+            ),
+            const SizedBox(height: 14),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatQuantityInput(double value) {
+  final asFixed = value.toStringAsFixed(2);
+  return asFixed.replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
 class _QuoteSummaryItem {

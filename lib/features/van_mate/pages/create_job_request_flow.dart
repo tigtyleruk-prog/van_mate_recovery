@@ -1451,7 +1451,7 @@ String vanCustomerCurrentLocationExactPinButtonLabel({
         exactPinShared: exactPinShared,
         source: source,
       )
-      ? 'Current location captured \u2713'
+      ? '\u2713 Current location captured'
       : 'I\'m at the exact spot now';
 }
 
@@ -1471,7 +1471,7 @@ String? vanCustomerExactPinHelperText({
     exactPinShared: exactPinShared,
     source: source,
   )) {
-    return 'Current location captured. Add any access notes, then send exact location.';
+    return '\u2713 Current location captured';
   }
   return null;
 }
@@ -1490,7 +1490,7 @@ String vanCustomerExactPinConfirmButtonLabel({
   if (isSubmittingExactPin) {
     return 'Sending exact location...';
   }
-  return 'Confirm and send exact location';
+  return 'Confirm exact location';
 }
 
 class _CustomerRequestPreviewPageState
@@ -1875,7 +1875,7 @@ class _CustomerRequestPreviewPageState
       _exactPinLongitude = selectedPin.longitude;
     });
     final message = source == VanExactPinSource.currentLocation
-        ? 'Current location captured. Add any access notes, then send exact location.'
+        ? '\u2713 Current location captured'
         : 'Map location selected. Add any access notes, then send exact location.';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),

@@ -11,14 +11,17 @@ import '../helpers/van_invoice_extra_suggestions.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_business_profile.dart';
 import '../models/van_invoice_draft.dart';
+import '../models/van_quote_extra_defaults.dart';
 import '../services/van_business_logo_storage_service.dart';
 import '../services/van_business_profile_storage.dart';
 import '../services/van_firebase_auth_service.dart';
 import '../services/van_invoice_number_storage.dart';
+import '../services/van_quote_extra_defaults_storage.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'van_invoice_preview_page.dart';
 import '../widgets/van_form_field_styles.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
+import '../widgets/van_quote_extra_defaults_sheet.dart';
 
 Future<void> openCreateInvoiceHubPage(
   BuildContext context,
@@ -234,35 +237,6 @@ class _VanInvoiceHubPageState extends State<VanInvoiceHubPage> {
                                       MaterialPageRoute(
                                         builder: (_) =>
                                             EditInvoiceJobDetailsPage(
-                                              draft: draft,
-                                            ),
-                                      ),
-                                    );
-                                return result;
-                              }),
-                            ),
-                            const SizedBox(height: 12),
-                            _HubSectionCard(
-                              title: 'Business details',
-                              subtitle: 'Logo, business name and payment info.',
-                              lines: [
-                                draft.businessName,
-                                draft.hasLogo
-                                    ? 'Logo added'
-                                    : 'No logo selected',
-                                draft.paymentInstructionsLabel ==
-                                        VanInvoiceDraft
-                                            .paymentInstructionsFallback
-                                    ? 'Using default payment instructions'
-                                    : 'Payment instructions set',
-                              ],
-                              actionLabel: 'Edit business details',
-                              onAction: () => _openSection(() async {
-                                final result = await Navigator.of(context)
-                                    .push<VanInvoiceDraft>(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            EditInvoiceBusinessDetailsPage(
                                               draft: draft,
                                             ),
                                       ),
@@ -860,6 +834,7 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
   final List<_LineItemEditor> _items = <_LineItemEditor>[];
   final Set<String> _selectedExtras = <String>{};
   final Set<String> _suggestedExtras = <String>{};
+  VanQuoteExtraDefaults _quoteExtraDefaults = VanQuoteExtraDefaults.defaults();
 
   @override
   void initState() {
@@ -884,6 +859,9 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
       );
     }
 
+    _extractMileageLineItems();
+    _dedupeExtraLineItems();
+
     if (_items.isEmpty) {
       _items.add(
         _LineItemEditor(description: 'Line item', quantity: '1', amount: '0'),
@@ -891,6 +869,7 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
     }
 
     _syncQuickExtraState();
+    unawaited(_loadQuoteExtraDefaults());
   }
 
   @override
@@ -903,33 +882,13 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
     super.dispose();
   }
 
-  void _addExtra(_InvoiceExtraPreset preset) {
-    if (preset.key != 'custom' && _selectedExtras.contains(preset.key)) {
-      return;
-    }
-
+  void _toggleExtra(_InvoiceExtraPreset preset) {
     setState(() {
-      if (preset.key == 'custom') {
-        _items.add(
-          _LineItemEditor(
-            description: preset.description,
-            quantity: preset.quantity,
-            amount: preset.amountText,
-            extraKey: preset.key,
-          ),
-        );
-      } else if (preset.key == 'mileage') {
-        if (_hasMileageLineItem || _hasActiveMileageCharge) {
+      if (preset.key == kVanQuoteExtraMileageKey) {
+        if (_hasMileageItem) {
           _clearMileageExtra();
         } else {
-          _items.add(
-            _LineItemEditor(
-              description: preset.description,
-              quantity: preset.quantity,
-              amount: preset.amountText,
-              extraKey: preset.key,
-            ),
-          );
+          _setMileageExtra(defaultMiles: '1');
         }
       } else {
         final existing = _findMatchingExtraItems(preset.key);
@@ -948,6 +907,49 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
       }
       _syncQuickExtraState();
     });
+  }
+
+  void _extractMileageLineItems() {
+    final mileageItems = _findMatchingExtraItems(kVanQuoteExtraMileageKey);
+    if (mileageItems.isEmpty) {
+      return;
+    }
+
+    if (_mileageChargeController.text.trim().isEmpty) {
+      final total = mileageItems.fold<double>(
+        0,
+        (sum, item) =>
+            sum +
+            (_quantity(item.quantityController.text) *
+                _amount(item.amountController.text)),
+      );
+      if (total > 0) {
+        _mileageChargeController.text = total.toStringAsFixed(2);
+      }
+    }
+    if (_estimatedMilesController.text.trim().isEmpty) {
+      _estimatedMilesController.text = mileageItems
+          .first
+          .quantityController
+          .text
+          .trim();
+    }
+    _removeExtraItems(mileageItems);
+  }
+
+  void _dedupeExtraLineItems() {
+    final seen = <String>{};
+    final duplicates = <_LineItemEditor>[];
+    for (final item in _items) {
+      final key = _extraKeyForItem(item);
+      if (key == null || key == kVanQuoteExtraCustomKey) {
+        continue;
+      }
+      if (!seen.add(key)) {
+        duplicates.add(item);
+      }
+    }
+    _removeExtraItems(duplicates);
   }
 
   void _removeItem(_LineItemEditor item) {
@@ -1007,9 +1009,19 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
   }
 
   void _clearMileageExtra() {
-    final mileageItems = _findMatchingExtraItems('mileage');
+    final mileageItems = _findMatchingExtraItems(kVanQuoteExtraMileageKey);
     _removeExtraItems(mileageItems);
+    _estimatedMilesController.text = '';
     _mileageChargeController.text = '';
+  }
+
+  void _setMileageExtra({required String defaultMiles}) {
+    final miles = _miles > 0 ? _miles : _amount(defaultMiles);
+    _estimatedMilesController.text = _formatDecimal(miles);
+    final rate = _savedMileageRate;
+    if (rate > 0) {
+      _mileageChargeController.text = (miles * rate).toStringAsFixed(2);
+    }
   }
 
   List<_LineItemEditor> _findMatchingExtraItems(String key) {
@@ -1034,20 +1046,21 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
     if (normalized.isEmpty) {
       return null;
     }
-    if (normalized == 'custom' ||
-        normalized == 'collection_delivery' ||
-        normalized == 'waiting_time' ||
-        normalized == 'stairs' ||
-        normalized == 'helper' ||
-        normalized == 'mileage') {
+    if (kVanQuoteExtraDefaultOrder.contains(normalized)) {
       return normalized;
     }
     return null;
   }
 
-  bool get _hasMileageLineItem => _findMatchingExtraItems('mileage').isNotEmpty;
+  bool get _hasMileageLineItem =>
+      _findMatchingExtraItems(kVanQuoteExtraMileageKey).isNotEmpty;
 
   bool get _hasActiveMileageCharge => _mileageCharge > 0;
+
+  bool get _hasMileageItem =>
+      _hasMileageLineItem ||
+      _hasActiveMileageCharge ||
+      _estimatedMilesController.text.trim().isNotEmpty;
 
   void _syncQuickExtraState() {
     final selected = <String>{};
@@ -1058,8 +1071,8 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
         selected.add(key);
       }
     }
-    if (_hasMileageLineItem || _hasActiveMileageCharge) {
-      selected.add('mileage');
+    if (_hasMileageItem) {
+      selected.add(kVanQuoteExtraMileageKey);
     }
     final suggested = _buildSuggestedExtras()..removeAll(selected);
     _selectedExtras
@@ -1095,51 +1108,92 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
 
   double get _mileageCharge => _amount(_mileageChargeController.text);
 
+  double get _miles => _amount(_estimatedMilesController.text);
+
+  double get _savedMileageRate {
+    final rate = _quoteExtraDefaults
+        .extraForKey(kVanQuoteExtraMileageKey)
+        .defaultPrice;
+    return rate > 0 ? rate : 0;
+  }
+
+  double get _activeMileageUnitPrice {
+    final savedRate = _savedMileageRate;
+    if (savedRate > 0) {
+      return savedRate;
+    }
+    final miles = _miles;
+    if (miles > 0 && _mileageCharge > 0) {
+      return _mileageCharge / miles;
+    }
+    return 0;
+  }
+
   double get _totalDue => _lineItemsTotal + _mileageCharge;
 
-  List<_InvoiceExtraPreset> get _quickExtraPresets => <_InvoiceExtraPreset>[
-    _presetFor(key: 'mileage', label: 'Mileage', description: 'Mileage'),
-    _presetFor(
-      key: 'waiting_time',
-      label: 'Waiting time',
-      description: 'Waiting time',
-    ),
-    _presetFor(
-      key: 'stairs',
-      label: 'Stairs/access',
-      description: 'Stairs/access charge',
-    ),
-    _presetFor(
-      key: 'helper',
-      label: 'Extra helper',
-      description: 'Extra helper',
-    ),
-    _presetFor(
-      key: 'collection_delivery',
-      label: 'Collection/delivery',
-      description: 'Collection/delivery',
-    ),
-    const _InvoiceExtraPreset(
-      key: 'custom',
-      label: 'Custom item',
-      description: 'Custom item',
-      quantity: '1',
-      amount: 0,
-    ),
-  ];
+  Future<void> _loadQuoteExtraDefaults() async {
+    VanQuoteExtraDefaults defaults;
+    try {
+      defaults = await VanQuoteExtraDefaultsStorage.instance.load();
+    } catch (_) {
+      defaults = VanQuoteExtraDefaults.defaults();
+    }
+    if (!mounted) {
+      return;
+    }
 
-  _InvoiceExtraPreset _presetFor({
-    required String key,
-    required String label,
-    required String description,
-  }) {
+    setState(() {
+      _quoteExtraDefaults = defaults;
+      _syncQuickExtraState();
+    });
+  }
+
+  List<_InvoiceExtraPreset> get _quickExtraPresets {
+    return <_InvoiceExtraPreset>[
+      for (final extra in _quoteExtraDefaults.enabledExtras)
+        _presetFor(extra: extra),
+    ];
+  }
+
+  _InvoiceExtraPreset _presetFor({required VanQuoteExtraDefault extra}) {
+    final label = extra.resolvedLabel;
     return _InvoiceExtraPreset(
-      key: key,
+      key: extra.key,
       label: label,
-      description: description,
+      description: label,
       quantity: '1',
-      amount: widget.businessProfile.defaultAmountForQuickExtra(key),
+      amount: extra.defaultPrice,
     );
+  }
+
+  Future<void> _openSavedExtrasSettings() async {
+    final updated = await showModalBottomSheet<VanQuoteExtraDefaults>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) =>
+          VanQuoteExtraDefaultsSheet(initialDefaults: _quoteExtraDefaults),
+    );
+    if (updated == null || !mounted) {
+      return;
+    }
+
+    await VanQuoteExtraDefaultsStorage.instance.save(updated);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _quoteExtraDefaults = updated;
+      _syncQuickExtraState();
+    });
+  }
+
+  void _handleMileageMilesChanged() {
+    final rate = _savedMileageRate;
+    if (rate > 0) {
+      _mileageChargeController.text = (_miles * rate).toStringAsFixed(2);
+    }
+    _handleItemChanged();
   }
 
   void _saveAndBack() {
@@ -1148,14 +1202,15 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
       widget.draft.copyWith(
         lineItems: [
           for (final item in _items)
-            VanInvoiceLineItem(
-              description: item.descriptionController.text.trim().isEmpty
-                  ? 'Line item'
-                  : item.descriptionController.text.trim(),
-              quantity: _quantity(item.quantityController.text),
-              amount: _amount(item.amountController.text),
-              extraKey: item.extraKey,
-            ),
+            if (_extraKeyForItem(item) != kVanQuoteExtraMileageKey)
+              VanInvoiceLineItem(
+                description: item.descriptionController.text.trim().isEmpty
+                    ? 'Line item'
+                    : item.descriptionController.text.trim(),
+                quantity: _quantity(item.quantityController.text),
+                amount: _amount(item.amountController.text),
+                extraKey: item.extraKey,
+              ),
         ],
         estimatedMiles: _estimatedMilesController.text.trim(),
         mileageCharge: _mileageCharge,
@@ -1171,6 +1226,18 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _SectionHeading(
+            title: 'Invoice items',
+            trailing: Text(
+              '${_items.length + (_hasMileageItem ? 1 : 0)} item${_items.length + (_hasMileageItem ? 1 : 0) == 1 ? '' : 's'}',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.66),
+                fontSize: 11.4,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           ..._items.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -1183,12 +1250,35 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Quick extras',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
+          if (_hasMileageItem) ...[
+            _MileageLineCard(
+              milesController: _estimatedMilesController,
+              chargeController: _mileageChargeController,
+              unitPrice: _activeMileageUnitPrice,
+              onMilesChanged: _handleMileageMilesChanged,
+              onChargeChanged: _handleItemChanged,
+              onRemove: () {
+                setState(() {
+                  _clearMileageExtra();
+                  _syncQuickExtraState();
+                });
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 6),
+          _SectionHeading(
+            title: 'Quick extras',
+            trailing: TextButton.icon(
+              onPressed: () => unawaited(_openSavedExtrasSettings()),
+              icon: const Icon(Icons.settings_outlined, size: 16),
+              label: const Text('Edit saved extras'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -1198,24 +1288,9 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
             children: _quickExtraPresets.map(_extraChip).toList(),
           ),
           const SizedBox(height: 12),
-          _field(
-            _estimatedMilesController,
-            'Estimated miles',
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: _handleItemChanged,
-          ),
-          const SizedBox(height: 10),
-          _field(
-            _mileageChargeController,
-            'Mileage charge',
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            prefixText: '\u00A3',
-            onChanged: _handleItemChanged,
-          ),
-          const SizedBox(height: 12),
           _SummaryStrip(
             totalDueText: '\u00A3${_totalDue.toStringAsFixed(2)}',
-            lineCount: _items.length,
+            lineCount: _items.length + (_hasMileageItem ? 1 : 0),
             mileageText: '\u00A3${_mileageCharge.toStringAsFixed(2)}',
           ),
           const SizedBox(height: 16),
@@ -1252,11 +1327,15 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
             color: Colors.white,
           ),
           const SizedBox(width: 6),
-          Text(
-            preset.label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: active ? 0.98 : 0.82),
-              fontWeight: FontWeight.w800,
+          Flexible(
+            child: Text(
+              preset.chipLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: active ? 0.98 : 0.82),
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
           if (suggested) ...[
@@ -1280,7 +1359,7 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
           ],
         ],
       ),
-      onSelected: selected ? null : (_) => _addExtra(preset),
+      onSelected: (_) => _toggleExtra(preset),
       selectedColor: const Color(0xFF58D0A4).withValues(alpha: 0.18),
       labelStyle: TextStyle(
         color: selected ? Colors.white : Colors.white.withValues(alpha: 0.82),
@@ -1753,6 +1832,31 @@ class _SummaryStrip extends StatelessWidget {
   }
 }
 
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title, this.trailing});
+
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        ?trailing,
+      ],
+    );
+  }
+}
+
 Widget _field(
   TextEditingController controller,
   String label, {
@@ -1784,6 +1888,148 @@ Widget _field(
       hintOpacity: 0.50,
     ),
   );
+}
+
+class _MileageLineCard extends StatelessWidget {
+  const _MileageLineCard({
+    required this.milesController,
+    required this.chargeController,
+    required this.unitPrice,
+    required this.onMilesChanged,
+    required this.onChargeChanged,
+    required this.onRemove,
+  });
+
+  final TextEditingController milesController;
+  final TextEditingController chargeController;
+  final double unitPrice;
+  final VoidCallback onMilesChanged;
+  final VoidCallback onChargeChanged;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final stacked = MediaQuery.of(context).size.width < 520;
+    final fields = <Widget>[
+      Expanded(
+        flex: 3,
+        child: _readonlyField(context, label: 'Description', value: 'Mileage'),
+      ),
+      if (!stacked) const SizedBox(width: 10),
+      SizedBox(
+        width: stacked ? double.infinity : 120,
+        child: _field(
+          milesController,
+          'Miles',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: onMilesChanged,
+        ),
+      ),
+      if (!stacked) const SizedBox(width: 10),
+      SizedBox(
+        width: stacked ? double.infinity : 120,
+        child: _field(
+          chargeController,
+          'Total price',
+          prefixText: '\u00A3',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: onChargeChanged,
+        ),
+      ),
+      if (!stacked) ...[
+        const SizedBox(width: 10),
+        IconButton(
+          onPressed: onRemove,
+          icon: const Icon(Icons.delete_outline, color: Colors.white),
+        ),
+      ],
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.black.withValues(alpha: 0.14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (stacked) ...[
+            _readonlyField(context, label: 'Description', value: 'Mileage'),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _field(
+                    milesController,
+                    'Miles',
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: onMilesChanged,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _field(
+                    chargeController,
+                    'Total price',
+                    prefixText: '\u00A3',
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    onChanged: onChargeChanged,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                IconButton(
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.delete_outline, color: Colors.white),
+                ),
+              ],
+            ),
+          ] else
+            Row(children: fields),
+          const SizedBox(height: 10),
+          Text(
+            unitPrice > 0
+                ? 'Unit price: \u00A3${unitPrice.toStringAsFixed(2)} per mile'
+                : 'Total price: \u00A3${_amount(chargeController.text).toStringAsFixed(2)}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.70),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _readonlyField(
+    BuildContext context, {
+    required String label,
+    required String value,
+  }) {
+    return InputDecorator(
+      decoration: vanMateFieldDecoration(label: label, labelOpacity: 0.68),
+      child: Text(
+        value,
+        style: kVanMateFieldTextStyle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  static double _amount(String value) {
+    final cleaned = value.replaceAll(RegExp(r'[^0-9.\-]'), '').trim();
+    if (cleaned.isEmpty || cleaned == '-' || cleaned == '.') {
+      return 0;
+    }
+    return double.tryParse(cleaned) ?? 0;
+  }
 }
 
 class _LogoPanel extends StatelessWidget {
@@ -2063,4 +2309,18 @@ class _InvoiceExtraPreset {
   final double amount;
 
   String get amountText => amount == 0 ? '0' : amount.toStringAsFixed(2);
+
+  String get chipLabel {
+    if (key == kVanQuoteExtraMileageKey) {
+      return amount > 0
+          ? '$label \u00A3${amount.toStringAsFixed(2)}/mile'
+          : label;
+    }
+    return amount > 0 ? '$label \u00A3${amount.toStringAsFixed(2)}' : label;
+  }
+}
+
+String _formatDecimal(double value) {
+  final asFixed = value.toStringAsFixed(2);
+  return asFixed.replaceFirst(RegExp(r'\.?0+$'), '');
 }

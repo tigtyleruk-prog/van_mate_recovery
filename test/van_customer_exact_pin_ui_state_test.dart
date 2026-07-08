@@ -16,7 +16,7 @@ void main() {
         exactPinShared: true,
         source: VanExactPinSource.currentLocation,
       ),
-      'Current location captured \u2713',
+      '\u2713 Current location captured',
     );
     expect(
       vanCustomerExactPinHelperText(
@@ -24,7 +24,7 @@ void main() {
         source: VanExactPinSource.currentLocation,
         exactPinSubmitted: false,
       ),
-      'Current location captured. Add any access notes, then send exact location.',
+      '\u2713 Current location captured',
     );
   });
 
@@ -165,7 +165,7 @@ void main() {
         isSubmittingExactPin: false,
         exactPinSubmitted: false,
       ),
-      'Confirm and send exact location',
+      'Confirm exact location',
     );
   });
 }

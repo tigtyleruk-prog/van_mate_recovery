@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_request_record.dart';
 import 'package:van_mate_app/features/van_mate/pages/driver_customer_reply_mock_page.dart';
 import 'package:van_mate_app/features/van_mate/pages/job_detail_page.dart';
+import 'package:van_mate_app/features/van_mate/pages/van_incoming_requests_page.dart';
 
 void main() {
   test(
@@ -342,6 +343,52 @@ void main() {
     expect(effectiveAgreedSchedulingTimeForJob(job), isNotNull);
   });
 
+  test('calendar overlap validation blocks duplicate scheduled slots', () {
+    final state = DriverReplyMockState.instance;
+    state.debugResetStateForTest();
+    try {
+      final scheduledStart = DateTime.parse('2026-07-13T09:00:00.000');
+      final existing = _acceptedQuoteJob(
+        jobId: 'scheduled-0900',
+        status: 'scheduled',
+        requestStatus: 'confirmed',
+        schedulingStatus: 'scheduled',
+        calendarStatus: 'scheduled',
+        scheduledDate: '2026-07-13',
+        scheduledStartTime: '09:00',
+      ).copyWith(scheduledAt: scheduledStart, estimatedDurationMinutes: 60);
+
+      state.debugAddJobForTest(existing);
+
+      expect(
+        state.findScheduleOverlap(
+          ignoringJobId: 'new-job',
+          scheduledAt: scheduledStart,
+          estimatedDurationMinutes: 60,
+        ),
+        isNotNull,
+      );
+      expect(
+        state.findScheduleOverlap(
+          ignoringJobId: 'new-job',
+          scheduledAt: scheduledStart.add(const Duration(minutes: 30)),
+          estimatedDurationMinutes: 60,
+        ),
+        isNotNull,
+      );
+      expect(
+        state.findScheduleOverlap(
+          ignoringJobId: 'new-job',
+          scheduledAt: scheduledStart.add(const Duration(hours: 1)),
+          estimatedDurationMinutes: 60,
+        ),
+        isNull,
+      );
+    } finally {
+      state.debugResetStateForTest();
+    }
+  });
+
   test('no usable location hides navigate even when quote is accepted', () {
     final job = _acceptedQuoteJob(
       jobId: 'accepted-no-location',
@@ -423,6 +470,50 @@ void main() {
     expect(shouldPromptAddToCalendarForJob(job, request: request), isFalse);
   });
 
+  test('brand new booking-link request displays request received only', () {
+    final request = VanJobRequestRecord(
+      requestId: 'fresh-booking-link-request',
+      ownerUid: 'owner-1',
+      jobId: 'fresh-booking-link-job',
+      linkedJobId: 'fresh-booking-link-job',
+      status: 'reply_received',
+      createdAt: DateTime.parse('2026-06-19T08:00:00.000Z'),
+      updatedAt: DateTime.parse('2026-06-19T08:01:00.000Z'),
+      expiresAt: DateTime.parse('2026-06-26T08:00:00.000Z'),
+      publicJobTitle: 'Sofa move',
+      publicCustomerName: 'Morgan',
+      publicAddressSummary: '20 River Lane',
+      publicPhoneNumber: '07123456789',
+      source: 'booking_link',
+      sourceLabel: 'Booking Link',
+      selectedServiceName: 'Sofa move',
+      checklistItems: const <String>[],
+      customQuestions: const <String>[],
+      exactPinRequested: false,
+      replyReceivedAt: DateTime.parse('2026-06-19T08:01:00.000Z'),
+      additionalNotes: 'Initial booking request details.',
+    );
+    final job = _job(
+      jobId: request.jobId,
+      status: 'replyReceived',
+      requestStatus: 'reply_received',
+      replyReceivedAt: request.replyReceivedAt,
+      additionalNotes: 'Initial booking request details.',
+    );
+
+    expect(job.hasCustomerReply, isTrue);
+    expect(job.quoteUiStatus.secondaryChipLabel, 'Reply received');
+
+    final displayStatus = deriveVanIncomingJobDisplayQuoteUiStatus(
+      job,
+      request: request,
+    );
+
+    expect(displayStatus.primaryChipLabel, 'Request received');
+    expect(displayStatus.secondaryChipLabel, 'Request received');
+    expect(displayStatus.statusLabel, 'Request received');
+  });
+
   testWidgets(
     'pressing Create quote from detail opens Create Quote with reply answers',
     (tester) async {
@@ -452,11 +543,11 @@ void main() {
         findsNothing,
       );
 
-      final customerReplyTitle = find.text('Customer reply');
-      final customerRequestTitle = find.text('Customer request');
+      final customerResponsesPrompt = find.text('View customer responses');
+      final customerRequestTitle = find.text('Customer request').first;
       expect(
         tester.getTopLeft(createQuoteButton).dy,
-        greaterThan(tester.getTopLeft(customerReplyTitle).dy),
+        greaterThan(tester.getTopLeft(customerResponsesPrompt).dy),
       );
       expect(
         tester.getTopLeft(createQuoteButton).dy,
@@ -468,7 +559,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Create quote'), findsWidgets);
-      expect(find.text('Job info'), findsOneWidget);
+      expect(find.text('Job info'), findsNothing);
+      expect(find.text('View customer request'), findsOneWidget);
+      expect(find.text('Parking'), findsNothing);
+
+      await tester.tap(find.text('View customer request'));
+      await tester.pumpAndSettle();
+
       expect(find.text('Parking'), findsOneWidget);
       expect(find.textContaining('Driveway'), findsWidgets);
       expect(find.text('Custom'), findsOneWidget);
@@ -529,7 +626,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Create quote'), findsWidgets);
-      expect(find.text('Job info'), findsOneWidget);
+      expect(find.text('Job info'), findsNothing);
+      expect(find.text('View customer request'), findsOneWidget);
+      expect(find.text('Parking'), findsNothing);
+
+      await tester.tap(find.text('View customer request'));
+      await tester.pumpAndSettle();
+
       expect(find.text('Parking'), findsOneWidget);
       expect(find.textContaining('Driveway'), findsWidgets);
       expect(find.text('Custom'), findsOneWidget);
@@ -559,7 +662,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Create quote'), findsWidgets);
-      expect(find.text('Job info'), findsOneWidget);
+      expect(find.text('Job info'), findsNothing);
+      expect(find.text('View customer request'), findsOneWidget);
+      expect(find.text('Parking'), findsNothing);
+
+      await tester.tap(find.text('View customer request'));
+      await tester.pumpAndSettle();
+
       expect(find.text('Parking'), findsOneWidget);
       expect(find.textContaining('Driveway'), findsWidgets);
       expect(find.text('Custom'), findsOneWidget);
