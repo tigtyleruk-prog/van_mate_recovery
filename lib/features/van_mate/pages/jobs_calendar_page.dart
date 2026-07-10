@@ -946,7 +946,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
         _JobsInlineActionButton(
           label: 'View job',
           onTap: () => _openJobFor(job, completed: true),
-          tone: VanStatusTone.neutral,
+          tone: VanStatusTone.primary,
         ),
       );
       if (actionState.canViewQuote) {
@@ -955,7 +955,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             label: 'View quote',
             icon: Icons.request_quote_outlined,
             onTap: () => _createQuoteFor(job),
-            tone: VanStatusTone.neutral,
+            tone: VanStatusTone.primary,
           ),
         );
       } else if (!job.hasCustomerRequestAttached) {
@@ -981,7 +981,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
               : () => _viewInvoiceFor(job),
           tone: savedInvoice == null
               ? VanStatusTone.primary
-              : VanStatusTone.neutral,
+              : VanStatusTone.primary,
         ),
       );
     } else {
@@ -1025,7 +1025,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
               label: 'View quote',
               icon: Icons.request_quote_outlined,
               onTap: () => _createQuoteFor(job),
-              tone: VanStatusTone.neutral,
+              tone: VanStatusTone.primary,
             ),
           );
         } else {
@@ -1033,7 +1033,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             _JobsInlineActionButton(
               label: 'Open Job',
               onTap: () => _openJobFor(job, completed: false),
-              tone: VanStatusTone.neutral,
+              tone: VanStatusTone.primary,
             ),
           );
         }
@@ -1042,7 +1042,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
           _JobsInlineActionButton(
             label: 'Open Job',
             onTap: () => _openJobFor(job, completed: false),
-            tone: VanStatusTone.neutral,
+            tone: VanStatusTone.primary,
           ),
         );
       }
@@ -1074,7 +1074,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             label: 'Call customer',
             icon: Icons.phone,
             onTap: () => _callCustomerFor(job),
-            tone: VanStatusTone.neutral,
+            tone: VanStatusTone.primary,
           ),
         );
       }
@@ -1084,7 +1084,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             label: 'Text customer',
             icon: Icons.sms_outlined,
             onTap: () => _textCustomerFor(job),
-            tone: VanStatusTone.neutral,
+            tone: VanStatusTone.primary,
           ),
         );
       }
@@ -1101,7 +1101,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             label: 'View reply',
             icon: Icons.question_answer,
             onTap: () => _openReplyFor(job),
-            tone: VanStatusTone.neutral,
+            tone: VanStatusTone.primary,
           ),
         );
       }
@@ -1113,7 +1113,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
               label: 'View quote',
               icon: Icons.request_quote_outlined,
               onTap: () => _createQuoteFor(job),
-              tone: VanStatusTone.neutral,
+              tone: VanStatusTone.primary,
             ),
           );
         }

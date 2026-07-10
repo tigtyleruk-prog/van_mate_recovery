@@ -1291,14 +1291,14 @@ class _JobDetailPageState extends State<JobDetailPage>
             _buildActionButton(
               label: 'Text customer',
               icon: Icons.sms_outlined,
-              tone: VanStatusTone.neutral,
+              tone: VanStatusTone.primary,
               onTap: () => unawaited(_textCustomerRequest()),
             ),
           if (customerEmail.isNotEmpty)
             _buildActionButton(
               label: 'Email customer',
               icon: Icons.email_outlined,
-              tone: VanStatusTone.neutral,
+              tone: VanStatusTone.primary,
               onTap: () => unawaited(_emailCustomerRequest()),
             ),
           _buildActionButton(
@@ -2418,15 +2418,11 @@ class _JobDetailPageState extends State<JobDetailPage>
             ),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: FilledButton.icon(
-              onPressed: () =>
-                  unawaited(_openCustomerResponsesDialog(replyCards)),
-              icon: const Icon(Icons.question_answer_outlined),
-              label: const Text('View responses'),
-            ),
+          _buildActionButton(
+            label: 'View responses',
+            icon: Icons.question_answer_outlined,
+            tone: VanStatusTone.primary,
+            onTap: () => unawaited(_openCustomerResponsesDialog(replyCards)),
           ),
         ],
       ),
@@ -2995,7 +2991,7 @@ class _JobDetailPageState extends State<JobDetailPage>
           _buildActionButton(
             label: 'View quote',
             icon: Icons.open_in_new,
-            tone: VanStatusTone.neutral,
+            tone: VanStatusTone.primary,
             onTap: _openQuote,
           ),
         ],
@@ -3870,7 +3866,7 @@ class _JobDetailPageState extends State<JobDetailPage>
                       : Icons.visibility_outlined,
                   tone: _savedInvoice == null
                       ? VanStatusTone.primary
-                      : VanStatusTone.neutral,
+                      : VanStatusTone.primary,
                   filled: _savedInvoice == null,
                   onTap: _savedInvoice == null ? _createInvoice : _openInvoice,
                 ),
@@ -3918,10 +3914,13 @@ class _JobDetailPageState extends State<JobDetailPage>
     bool filled = false,
     VanStatusTone tone = VanStatusTone.neutral,
   }) {
-    final color = tone == VanStatusTone.neutral
+    final primaryNavigate = label == 'Navigate';
+    final color = primaryNavigate
+        ? const Color(0xFF4A7DFF)
+        : tone == VanStatusTone.neutral
         ? Colors.white
         : vanStatusToneColor(tone);
-    final contentColor = filled ? Colors.white : color;
+    final contentColor = filled || primaryNavigate ? Colors.white : color;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -3932,15 +3931,19 @@ class _JobDetailPageState extends State<JobDetailPage>
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: filled
+            color: primaryNavigate
+                ? color
+                : filled
                 ? color.withValues(
                     alpha: tone == VanStatusTone.neutral ? 0.10 : 0.20,
                   )
                 : Colors.white.withValues(alpha: 0.08),
             border: Border.all(
-              color: color.withValues(
-                alpha: tone == VanStatusTone.neutral ? 0.16 : 0.24,
-              ),
+              color: primaryNavigate
+                  ? color
+                  : color.withValues(
+                      alpha: tone == VanStatusTone.neutral ? 0.16 : 0.24,
+                    ),
             ),
           ),
           child: Row(

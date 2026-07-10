@@ -195,6 +195,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               label: 'View job',
               enabled: true,
               icon: Icons.open_in_new_rounded,
+              accent: const Color(0xFF4A7DFF),
               onTap: () =>
                   _openJobFor(job, closeSheetOnDeleted: closeSheetOnDeleted),
             ),
@@ -202,6 +203,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               label: savedInvoice == null ? 'Create invoice' : 'View invoice',
               enabled: true,
               icon: Icons.receipt_long_outlined,
+              accent: savedInvoice == null ? null : const Color(0xFF4A7DFF),
               onTap: savedInvoice == null
                   ? () => _createInvoiceFor(job)
                   : () => _viewInvoiceFor(job),
@@ -211,6 +213,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
                 label: 'View reply',
                 enabled: true,
                 icon: Icons.question_answer,
+                accent: const Color(0xFF4A7DFF),
                 onTap: () => _openReplyFor(job),
               ),
             if (job.hasQuote)
@@ -218,6 +221,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
                 label: 'View quote',
                 enabled: true,
                 icon: Icons.request_quote_outlined,
+                accent: const Color(0xFF4A7DFF),
                 onTap: () => _createQuoteFor(job),
               )
             else if (!job.hasCustomerRequestAttached)
@@ -233,6 +237,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               label: 'Open Job',
               enabled: true,
               icon: Icons.open_in_new_rounded,
+              accent: const Color(0xFF4A7DFF),
               onTap: () =>
                   _openJobFor(job, closeSheetOnDeleted: closeSheetOnDeleted),
             ),
@@ -248,6 +253,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
                 label: 'Call customer',
                 enabled: true,
                 icon: Icons.phone,
+                accent: const Color(0xFF4A7DFF),
                 onTap: () => _callCustomerFor(job),
               ),
             if (actionState.canTextCustomer)
@@ -255,6 +261,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
                 label: 'Text customer',
                 enabled: true,
                 icon: Icons.sms_outlined,
+                accent: const Color(0xFF4A7DFF),
                 onTap: () => _textCustomerFor(job),
               ),
             if (actionState.canCreateQuote)
@@ -269,6 +276,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
                 label: 'View quote',
                 enabled: true,
                 icon: Icons.request_quote_outlined,
+                accent: const Color(0xFF4A7DFF),
                 onTap: () => _createQuoteFor(job),
               ),
             if (showAcceptedQuoteAction)
@@ -493,6 +501,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               label: 'View reply',
               icon: Icons.question_answer,
               enabled: true,
+              accent: Color(0xFF4A7DFF),
             ),
             _ScheduleActionData(
               label: 'Create quote',
@@ -514,7 +523,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           accent: Color(0xFFB48CFF),
           body: 'Customer still confirming drop instructions.',
           actions: <_ScheduleActionData>[
-            _ScheduleActionData(label: 'View Request', enabled: true),
+            _ScheduleActionData(
+              label: 'View Request',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
             _ScheduleActionData(label: 'Resend', enabled: true),
           ],
         ),
@@ -526,7 +539,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           accent: Color(0xFF58D0A4),
           body: 'Notes and pin already saved.',
           actions: <_ScheduleActionData>[
-            _ScheduleActionData(label: 'View Notes', enabled: true),
+            _ScheduleActionData(
+              label: 'View Notes',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
           ],
         ),
       ],
@@ -554,7 +571,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           accent: Color(0xFFB48CFF),
           body: 'Quote sent. Waiting for customer approval.',
           actions: <_ScheduleActionData>[
-            _ScheduleActionData(label: 'View Request', enabled: true),
+            _ScheduleActionData(
+              label: 'View Request',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
             _ScheduleActionData(label: 'Resend', enabled: true),
           ],
         ),
@@ -571,7 +592,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               icon: Icons.navigation,
               enabled: false,
             ),
-            _ScheduleActionData(label: 'Open Job', enabled: true),
+            _ScheduleActionData(
+              label: 'Open Job',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
           ],
         ),
       ],
@@ -591,7 +616,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           accent: Color(0xFF58D0A4),
           body: 'Finished and ready to review later.',
           actions: <_ScheduleActionData>[
-            _ScheduleActionData(label: 'View Notes', enabled: true),
+            _ScheduleActionData(
+              label: 'View Notes',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
           ],
         ),
       ],
@@ -616,7 +645,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               icon: Icons.navigation,
               enabled: true,
             ),
-            _ScheduleActionData(label: 'Open Job', enabled: true),
+            _ScheduleActionData(
+              label: 'Open Job',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
           ],
         ),
         const _ScheduleJobData(
@@ -627,7 +660,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           accent: Color(0xFFB48CFF),
           body: 'Quote pending customer confirmation.',
           actions: <_ScheduleActionData>[
-            _ScheduleActionData(label: 'View Request', enabled: true),
+            _ScheduleActionData(
+              label: 'View Request',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
             _ScheduleActionData(label: 'Resend', enabled: true),
           ],
         ),
@@ -648,7 +685,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           accent: Color(0xFFFFC38C),
           body: 'Pin request sent. Navigation is disabled for now.',
           actions: <_ScheduleActionData>[
-            _ScheduleActionData(label: 'View Request', enabled: true),
+            _ScheduleActionData(
+              label: 'View Request',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
             _ScheduleActionData(
               label: 'Navigate',
               icon: Icons.navigation,
@@ -681,7 +722,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           accent: Color(0xFF58D0A4),
           body: 'Delivery closed out and notes saved.',
           actions: <_ScheduleActionData>[
-            _ScheduleActionData(label: 'View Notes', enabled: true),
+            _ScheduleActionData(
+              label: 'View Notes',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
           ],
         ),
         const _ScheduleJobData(
@@ -697,7 +742,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               icon: Icons.navigation,
               enabled: true,
             ),
-            _ScheduleActionData(label: 'Open Job', enabled: true),
+            _ScheduleActionData(
+              label: 'Open Job',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
           ],
         ),
       ],
@@ -717,7 +766,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
           accent: Color(0xFFB48CFF),
           body: 'Quick follow-up before it becomes a job.',
           actions: <_ScheduleActionData>[
-            _ScheduleActionData(label: 'View Request', enabled: true),
+            _ScheduleActionData(
+              label: 'View Request',
+              enabled: true,
+              accent: Color(0xFF4A7DFF),
+            ),
             _ScheduleActionData(label: 'Resend', enabled: true),
           ],
         ),
@@ -3329,6 +3382,17 @@ class _ScheduleActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = action.enabled;
+    final actionAccent = action.accent ?? accent;
+    final primaryNavigate = enabled && action.label == 'Navigate';
+    final fillColor = primaryNavigate
+        ? const Color(0xFF4A7DFF)
+        : Colors.white.withValues(alpha: enabled ? 0.08 : 0.04);
+    final borderColor = primaryNavigate
+        ? const Color(0xFF4A7DFF)
+        : enabled
+        ? actionAccent.withValues(alpha: 0.28)
+        : Colors.white.withValues(alpha: 0.08);
+    final contentColor = Colors.white.withValues(alpha: enabled ? 1 : 0.42);
 
     return Material(
       color: Colors.transparent,
@@ -3339,12 +3403,8 @@ class _ScheduleActionButton extends StatelessWidget {
           height: 44,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(15),
-            color: Colors.white.withValues(alpha: enabled ? 0.08 : 0.04),
-            border: Border.all(
-              color: enabled
-                  ? accent.withValues(alpha: 0.28)
-                  : Colors.white.withValues(alpha: 0.08),
-            ),
+            color: fillColor,
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -3353,7 +3413,9 @@ class _ScheduleActionButton extends StatelessWidget {
                 Icon(
                   action.icon,
                   size: 16,
-                  color: Colors.white.withValues(alpha: enabled ? 0.92 : 0.42),
+                  color: primaryNavigate
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: enabled ? 0.92 : 0.42),
                 ),
                 const SizedBox(width: 7),
               ],
@@ -3362,7 +3424,7 @@ class _ScheduleActionButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.2,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white.withValues(alpha: enabled ? 1 : 0.42),
+                  color: contentColor,
                 ),
               ),
             ],
@@ -3548,12 +3610,14 @@ class _ScheduleActionData {
     required this.label,
     required this.enabled,
     this.icon,
+    this.accent,
     this.onTap,
   });
 
   final String label;
   final bool enabled;
   final IconData? icon;
+  final Color? accent;
   final VoidCallback? onTap;
 }
 

@@ -1,3 +1,5 @@
+import 'van_quote_extra_defaults.dart';
+
 class VanJobService {
   const VanJobService({
     required this.id,
@@ -8,6 +10,7 @@ class VanJobService {
     required this.requireAddress,
     required this.requestExactPinAfterQuoteAccepted,
     required this.linkedQuestionIds,
+    required this.quoteExtraDefaults,
     required this.createdAt,
     required this.updatedAt,
     this.isArchived = false,
@@ -21,12 +24,14 @@ class VanJobService {
   final bool requireAddress;
   final bool requestExactPinAfterQuoteAccepted;
   final List<String> linkedQuestionIds;
+  final VanQuoteExtraDefaults quoteExtraDefaults;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isArchived;
 
   bool get hasDescription => description.trim().isNotEmpty;
   int get linkedQuestionCount => linkedQuestionIds.length;
+  int get enabledQuoteExtraCount => quoteExtraDefaults.enabledExtras.length;
 
   VanJobService copyWith({
     String? id,
@@ -37,6 +42,7 @@ class VanJobService {
     bool? requireAddress,
     bool? requestExactPinAfterQuoteAccepted,
     List<String>? linkedQuestionIds,
+    VanQuoteExtraDefaults? quoteExtraDefaults,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isArchived,
@@ -52,6 +58,7 @@ class VanJobService {
           requestExactPinAfterQuoteAccepted ??
           this.requestExactPinAfterQuoteAccepted,
       linkedQuestionIds: linkedQuestionIds ?? this.linkedQuestionIds,
+      quoteExtraDefaults: quoteExtraDefaults ?? this.quoteExtraDefaults,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isArchived: isArchived ?? this.isArchived,
@@ -68,6 +75,7 @@ class VanJobService {
       'requireAddress': requireAddress,
       'requestExactPinAfterQuoteAccepted': requestExactPinAfterQuoteAccepted,
       'linkedQuestionIds': linkedQuestionIds,
+      'quoteExtraDefaults': quoteExtraDefaults.toJson(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'isArchived': isArchived,
@@ -105,6 +113,16 @@ class VanJobService {
     final createdAt = readDate('createdAt', fallback: now);
     final updatedAt = readDate('updatedAt', fallback: createdAt);
     final name = readText('name', fallback: 'Service');
+    VanQuoteExtraDefaults readQuoteExtraDefaults() {
+      final raw =
+          json['quoteExtraDefaults'] ??
+          json['quoteExtras'] ??
+          json['extraDefaults'];
+      if (raw is Map) {
+        return VanQuoteExtraDefaults.fromJson(Map<String, dynamic>.from(raw));
+      }
+      return VanQuoteExtraDefaults.starterForServiceName(name);
+    }
 
     return VanJobService(
       id: readText('id', fallback: now.microsecondsSinceEpoch.toString()),
@@ -116,6 +134,7 @@ class VanJobService {
       requestExactPinAfterQuoteAccepted:
           json['requestExactPinAfterQuoteAccepted'] == true,
       linkedQuestionIds: readStringList('linkedQuestionIds'),
+      quoteExtraDefaults: readQuoteExtraDefaults(),
       createdAt: createdAt,
       updatedAt: updatedAt,
       isArchived: json['isArchived'] == true,

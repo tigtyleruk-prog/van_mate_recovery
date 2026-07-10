@@ -1230,10 +1230,10 @@ class _IncomingActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = filled ? const Color(0xFF58D0A4) : Colors.white;
+    final color = filled ? const Color(0xFF58D0A4) : const Color(0xFF4A7DFF);
     final borderColor = filled
         ? const Color(0xFF58D0A4)
-        : Colors.white.withValues(alpha: 0.16);
+        : const Color(0xFF4A7DFF).withValues(alpha: 0.42);
     return filled
         ? FilledButton.icon(
             onPressed: onPressed,

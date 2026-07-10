@@ -250,7 +250,7 @@ Finder _quickExtraChip(String label) {
     'Stairs / access' => 2,
     'Mileage' => 3,
     'Collection / delivery' => 4,
-    'Custom extra' => 5,
+    '3rd person' => 5,
     _ => 0,
   };
   return find.byType(ChoiceChip).at(chipIndex);

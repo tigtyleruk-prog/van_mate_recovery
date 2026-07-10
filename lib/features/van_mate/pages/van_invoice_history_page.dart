@@ -493,7 +493,7 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
       _buildActionButton(
         label: 'Export PDF',
         icon: Icons.picture_as_pdf_outlined,
-        color: const Color(0xFF58D0A4),
+        color: const Color(0xFF4A7DFF),
         onTap: () => _exportPdf(entry),
       ),
       if (!isPaid)
@@ -507,14 +507,14 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
         _buildActionButton(
           label: 'Call customer',
           icon: Icons.phone,
-          color: const Color(0xFFFFC56F),
+          color: const Color(0xFF4A7DFF),
           onTap: () => _callCustomer(entry),
         ),
       if (!isPaid && phone.isNotEmpty)
         _buildActionButton(
           label: 'Text customer',
           icon: Icons.sms_outlined,
-          color: const Color(0xFFB48CFF),
+          color: const Color(0xFF4A7DFF),
           onTap: () => _textCustomerReminder(entry),
         ),
     ];

@@ -86,6 +86,11 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
         .map((item) => sanitizeVanText(item).trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
+    final quoteExtraLineItems = buildVanInvoiceQuoteExtraLineItems(quoteExtras);
+    final baseQuoteAmount = resolveVanInvoiceBaseQuoteAmount(
+      quoteAmount: reply.quoteAmount ?? 0,
+      quoteExtraLineItems: quoteExtraLineItems,
+    );
     _businessNameController = TextEditingController(
       text: defaults.businessName,
     );
@@ -122,18 +127,16 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       _InvoiceLineItemDraft(
         description: reply.jobTitle,
         quantity: '1',
-        amount: reply.quoteAmount?.toStringAsFixed(2) ?? '0.00',
+        amount: baseQuoteAmount.toStringAsFixed(2),
       ),
     );
-    for (var index = 0; index < quoteExtras.length; index++) {
+    for (final item in quoteExtraLineItems) {
       _lineItems.add(
         _InvoiceLineItemDraft(
-          description: quoteExtras[index],
-          quantity: '1',
-          amount: '0.00',
-          extraKey:
-              _canonicalInvoiceExtraKey(quoteExtras[index]) ??
-              'quote_extra_${index + 1}',
+          description: item.description,
+          quantity: item.quantity.toString(),
+          amount: item.amount.toStringAsFixed(2),
+          extraKey: item.extraKey,
         ),
       );
     }
@@ -221,10 +224,6 @@ class _CreateInvoicePageState extends State<CreateInvoicePage> {
       estimatedMiles: _estimatedMilesController.text,
       hasMileageCharge: _parseMoney(_mileageChargeController.text) > 0,
     );
-  }
-
-  String? _canonicalInvoiceExtraKey(String value) {
-    return canonicalizeVanInvoiceExtraKey(value);
   }
 
   VanBusinessProfile _currentBusinessProfile() {

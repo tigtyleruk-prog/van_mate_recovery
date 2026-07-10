@@ -853,8 +853,10 @@ class _CustomerJobHistoryCard extends StatelessWidget {
             child: OutlinedButton(
               onPressed: onViewJob,
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+                foregroundColor: const Color(0xFF4A7DFF),
+                side: BorderSide(
+                  color: const Color(0xFF4A7DFF).withValues(alpha: 0.42),
+                ),
               ),
               child: const Text('View job'),
             ),
@@ -958,8 +960,10 @@ class _CustomerInvoiceHistoryCard extends StatelessWidget {
               OutlinedButton(
                 onPressed: onViewInvoice,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+                  foregroundColor: const Color(0xFF4A7DFF),
+                  side: BorderSide(
+                    color: const Color(0xFF4A7DFF).withValues(alpha: 0.42),
+                  ),
                 ),
                 child: const Text('View invoice'),
               ),
@@ -998,8 +1002,10 @@ class _CustomerActionButton extends StatelessWidget {
       icon: Icon(icon, size: 18),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.white,
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+        foregroundColor: const Color(0xFF4A7DFF),
+        side: BorderSide(
+          color: const Color(0xFF4A7DFF).withValues(alpha: 0.42),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );

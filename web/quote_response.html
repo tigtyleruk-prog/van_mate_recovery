@@ -204,6 +204,18 @@
       word-break: break-word;
     }
 
+    .summary-row.quote-amount-row {
+      border-color: rgba(88, 208, 164, 0.28);
+      background: rgba(88, 208, 164, 0.11);
+    }
+
+    .summary-row.quote-amount-row .summary-value {
+      color: #effff7;
+      font-size: 22px;
+      line-height: 1.15;
+      font-weight: 950;
+    }
+
     .actions {
       display: grid;
       gap: 10px;
@@ -647,8 +659,8 @@
         <h2 class="section-title">Respond</h2>
         <p class="section-text">Use the buttons below to confirm your choice.</p>
         <div class="actions">
-          <button id="acceptButton" type="button" class="success">Accept quote &amp; proposed time</button>
-          <button id="arrangeTimeButton" type="button" class="secondary">Accept quote, arrange another time</button>
+          <button id="acceptButton" type="button" class="success">Accept &amp; book</button>
+          <button id="arrangeTimeButton" type="button" class="secondary">Accept, arrange another time</button>
           <button id="declineButton" type="button" class="warning">Decline quote</button>
         </div>
         <p id="respondStatus" class="footer hidden" aria-live="polite"></p>
@@ -684,31 +696,20 @@
       <article id="pinCard" class="card hidden">
         <h2 class="section-title">Final step</h2>
         <p id="pinIntro" class="section-text">
-          Please show the driver exactly where to collect or deliver.
+          Please show the driver the exact collection or delivery point.
         </p>
-        <div id="pinHelpPanel" class="panel" style="margin-top: 14px;">
-          <p class="panel-text">
-            This helps avoid wrong entrances, shared postcodes, new builds or hard-to-find addresses.
-          </p>
-        </div>
-        <div id="pinPrivacyPanel" class="warning-panel" style="margin-top: 14px;">
-          <div class="warning-title">Only use current location if you are there now</div>
-          <p class="panel-text">
-            If you are not there, choose the spot on the map instead.
-          </p>
-        </div>
         <div id="pinChoiceActions" class="actions">
           <button id="shareCurrentPinButton" type="button">I'm at the exact spot now</button>
           <button id="choosePinButton" type="button" class="secondary">Choose the spot on a map</button>
         </div>
         <p id="pinCapturedStatus" class="pin-captured-status hidden" aria-live="polite">✓ Current location captured</p>
         <div class="panel" style="margin-top: 14px;">
-          <div class="panel-title">Access notes (optional)</div>
+          <div class="panel-title">Anything the driver should know? (optional)</div>
           <textarea
             id="pinNoteInputInline"
             class="field"
             maxlength="240"
-            placeholder="Gate code, parking, entrance, loading bay, stairs, or anything the driver should know..."
+            placeholder="Gate code, parking, loading bay, apartment number, ring bell or anything else the driver should know."
           ></textarea>
         </div>
         <div class="actions" style="margin-top: 14px;">
@@ -882,8 +883,6 @@
     const arrangeTimeCard = document.getElementById("arrangeTimeCard");
     const pinCard = document.getElementById("pinCard");
     const pinIntro = document.getElementById("pinIntro");
-    const pinHelpPanel = document.getElementById("pinHelpPanel");
-    const pinPrivacyPanel = document.getElementById("pinPrivacyPanel");
     const pinChoiceActions = document.getElementById("pinChoiceActions");
     const pinCapturedStatus = document.getElementById("pinCapturedStatus");
     const acceptButton = document.getElementById("acceptButton");
@@ -1477,9 +1476,12 @@
       );
     }
 
-    function renderRow(label, value) {
+    function renderRow(label, value, className = "") {
       const row = document.createElement("div");
       row.className = "summary-row";
+      if (className) {
+        row.classList.add(className);
+      }
       const labelEl = document.createElement("div");
       labelEl.className = "summary-label";
       labelEl.textContent = label;
@@ -1531,7 +1533,7 @@
         title.textContent = accepted ? "Quote accepted" : "Quote declined";
         description.textContent = accepted
           ? (needsExactPin
-              ? "Please show the driver exactly where to collect or deliver."
+              ? "Please show the driver the exact collection or delivery point."
               : (awaitingAgreedTime
                   ? "The driver will contact you to arrange the time."
                   : "Your response has been sent to the driver."))
@@ -1553,9 +1555,9 @@
         renderRow("Appointment note", formatDetails(quote.proposedAppointmentNote));
       }
       renderRow("Job location", quote.address);
-      renderRow("Quote amount", formatMoney(quote.quoteAmount));
+      renderRow("Quote amount", formatMoney(quote.quoteAmount), "quote-amount-row");
       if (quote.quoteExtras.length) {
-        renderRow("Extras", quote.quoteExtras.join("\n"));
+        renderRow("Included extras", quote.quoteExtras.join("\n"));
       }
       const businessMessage = cleanBusinessMessage(quote.quoteNotes, quote);
       if (businessMessage) {
@@ -1592,8 +1594,6 @@
         !needsExactPin ||
         !hasSelectedExactPin;
       pinIntro.classList.toggle("hidden", Boolean(currentLocationCaptured));
-      pinHelpPanel.classList.toggle("hidden", Boolean(currentLocationCaptured));
-      pinPrivacyPanel.classList.toggle("hidden", Boolean(currentLocationCaptured));
       pinChoiceActions.classList.toggle("hidden", Boolean(currentLocationCaptured));
       pinCapturedStatus.classList.toggle("hidden", !currentLocationCaptured);
       if (sendDeclineButton) {
@@ -1607,11 +1607,11 @@
       acceptButton.textContent =
         state.saving && state.selectedDecision === "accept_time"
           ? "Saving acceptance..."
-          : "Accept quote & proposed time";
+          : "Accept & book";
       arrangeTimeButton.textContent =
         state.saving && state.selectedDecision === "accept_arrange"
           ? "Saving acceptance..."
-          : "Accept quote, arrange another time";
+          : "Accept, arrange another time";
       confirmArrangeTimeButton.textContent =
         state.saving && state.selectedDecision === "accept_arrange"
           ? "Saving acceptance..."
@@ -1650,16 +1650,16 @@
       if (accepted || declined) {
         heroTitle.textContent = accepted ? "Quote accepted" : "Quote declined";
         if (accepted && needsExactPin) {
-          heroLede.textContent = "Please show the driver exactly where to collect or deliver.";
+          heroLede.textContent = "Please show the driver the exact collection or delivery point.";
           clearBanner();
-          setBanner("Quote accepted. Please show the driver exactly where to collect or deliver.");
+          setBanner("Quote accepted. Please show the driver the exact collection or delivery point.");
           content.classList.remove("hidden");
         respondCard.classList.add("hidden");
         arrangeTimeCard.classList.add("hidden");
         pinCard.classList.remove("hidden");
           pinIntro.textContent = awaitingAgreedTime
-            ? "Please show the driver exactly where to collect or deliver while the time is being arranged."
-            : "Please show the driver exactly where to collect or deliver.";
+            ? "Please show the driver the exact collection or delivery point while the time is being arranged."
+            : "Please show the driver the exact collection or delivery point.";
           return;
         }
 

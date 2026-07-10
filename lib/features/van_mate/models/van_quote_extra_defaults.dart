@@ -5,7 +5,9 @@ const String kVanQuoteExtraWaitingTimeKey = 'waiting_time';
 const String kVanQuoteExtraStairsKey = 'stairs';
 const String kVanQuoteExtraMileageKey = 'mileage';
 const String kVanQuoteExtraCollectionDeliveryKey = 'collection_delivery';
+const String kVanQuoteExtraThirdPersonKey = 'third_person';
 const String kVanQuoteExtraCustomKey = 'custom';
+const String kVanQuoteCustomExtraKeyPrefix = 'custom_extra_';
 
 const List<String> kVanQuoteExtraDefaultOrder = <String>[
   kVanQuoteExtraHelperKey,
@@ -13,7 +15,7 @@ const List<String> kVanQuoteExtraDefaultOrder = <String>[
   kVanQuoteExtraStairsKey,
   kVanQuoteExtraMileageKey,
   kVanQuoteExtraCollectionDeliveryKey,
-  kVanQuoteExtraCustomKey,
+  kVanQuoteExtraThirdPersonKey,
 ];
 
 const Map<String, String> kVanQuoteExtraDefaultLabels = <String, String>{
@@ -22,6 +24,7 @@ const Map<String, String> kVanQuoteExtraDefaultLabels = <String, String>{
   kVanQuoteExtraStairsKey: 'Stairs / access',
   kVanQuoteExtraMileageKey: 'Mileage',
   kVanQuoteExtraCollectionDeliveryKey: 'Collection / delivery',
+  kVanQuoteExtraThirdPersonKey: '3rd person',
   kVanQuoteExtraCustomKey: 'Custom extra',
 };
 
@@ -31,6 +34,7 @@ const Map<String, double> kVanQuoteExtraDefaultPrices = <String, double>{
   kVanQuoteExtraStairsKey: 10,
   kVanQuoteExtraMileageKey: 0,
   kVanQuoteExtraCollectionDeliveryKey: 0,
+  kVanQuoteExtraThirdPersonKey: 20,
   kVanQuoteExtraCustomKey: 0,
 };
 
@@ -49,6 +53,20 @@ class VanQuoteExtraDefault {
       label: kVanQuoteExtraDefaultLabels[key] ?? 'Extra',
       defaultPrice: kVanQuoteExtraDefaultPrices[key] ?? 0,
       enabled: true,
+    );
+  }
+
+  factory VanQuoteExtraDefault.custom({
+    required String key,
+    required String label,
+    required double defaultPrice,
+    bool enabled = true,
+  }) {
+    return VanQuoteExtraDefault(
+      key: normalizeVanQuoteCustomExtraKey(key, label: label),
+      label: label,
+      defaultPrice: defaultPrice < 0 ? 0 : defaultPrice,
+      enabled: enabled,
     );
   }
 
@@ -92,6 +110,7 @@ class VanQuoteExtraDefault {
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
+      'key': key,
       'label': resolvedLabel,
       'defaultPrice': defaultPrice,
       'enabled': enabled,
@@ -101,7 +120,12 @@ class VanQuoteExtraDefault {
 
 @immutable
 class VanQuoteExtraDefaults {
-  const VanQuoteExtraDefaults({required this.extras});
+  const VanQuoteExtraDefaults({
+    required this.extras,
+    this.customExtras = const <VanQuoteExtraDefault>[],
+    this.extraOrder = const <String>[],
+    this.deletedBuiltInKeys = const <String>{},
+  });
 
   factory VanQuoteExtraDefaults.defaults() {
     return VanQuoteExtraDefaults(
@@ -112,6 +136,73 @@ class VanQuoteExtraDefaults {
     );
   }
 
+  factory VanQuoteExtraDefaults.starterForServiceName(String serviceName) {
+    final normalized = serviceName.trim().toLowerCase();
+    if (normalized.contains('garden')) {
+      return _serviceStarterDefaults(
+        enabledBuiltInKeys: const <String>{},
+        customExtras: <VanQuoteExtraDefault>[
+          VanQuoteExtraDefault.custom(
+            key: 'custom_extra_green_waste',
+            label: 'Green waste',
+            defaultPrice: 20,
+          ),
+          VanQuoteExtraDefault.custom(
+            key: 'custom_extra_extra_hour',
+            label: 'Extra hour',
+            defaultPrice: 30,
+          ),
+          VanQuoteExtraDefault.custom(
+            key: 'custom_extra_materials',
+            label: 'Materials',
+            defaultPrice: 25,
+          ),
+        ],
+      );
+    }
+    if (normalized.contains('clean')) {
+      return _serviceStarterDefaults(
+        enabledBuiltInKeys: const <String>{},
+        customExtras: <VanQuoteExtraDefault>[
+          VanQuoteExtraDefault.custom(
+            key: 'custom_extra_oven_clean',
+            label: 'Oven clean',
+            defaultPrice: 40,
+          ),
+          VanQuoteExtraDefault.custom(
+            key: 'custom_extra_deep_clean',
+            label: 'Deep clean',
+            defaultPrice: 50,
+          ),
+          VanQuoteExtraDefault.custom(
+            key: 'custom_extra_extra_room',
+            label: 'Extra room',
+            defaultPrice: 15,
+          ),
+        ],
+      );
+    }
+    if (normalized.contains('man') && normalized.contains('van') ||
+        normalized.contains('removal') ||
+        normalized.contains('move')) {
+      return _serviceStarterDefaults(
+        enabledBuiltInKeys: const <String>{
+          kVanQuoteExtraHelperKey,
+          kVanQuoteExtraStairsKey,
+          kVanQuoteExtraMileageKey,
+        },
+        customExtras: <VanQuoteExtraDefault>[
+          VanQuoteExtraDefault.custom(
+            key: 'custom_extra_second_van',
+            label: 'Second van',
+            defaultPrice: 50,
+          ),
+        ],
+      );
+    }
+    return VanQuoteExtraDefaults.defaults();
+  }
+
   factory VanQuoteExtraDefaults.fromJson(Map<String, dynamic> json) {
     final fallback = VanQuoteExtraDefaults.defaults();
     final rawExtras = json['extras'];
@@ -119,48 +210,178 @@ class VanQuoteExtraDefaults {
     final extras = <String, VanQuoteExtraDefault>{};
 
     for (final key in kVanQuoteExtraDefaultOrder) {
-      final value =
-          source[key] ??
-          (key == kVanQuoteExtraCustomKey ? source['custom_extra'] : null);
+      final value = source[key];
       if (value is Map) {
         extras[key] = VanQuoteExtraDefault.fromJson(
           key,
           Map<String, dynamic>.from(value),
-        );
-      } else if (key == kVanQuoteExtraCustomKey) {
-        extras[key] = VanQuoteExtraDefault.fromJson(
-          key,
-          _legacyCustomExtraJson(source, fallback.extraForKey(key)),
         );
       } else {
         extras[key] = fallback.extraForKey(key);
       }
     }
 
-    return VanQuoteExtraDefaults(extras: extras);
+    final customExtras = _customExtrasFromJson(json, source);
+    return VanQuoteExtraDefaults(
+      extras: extras,
+      customExtras: customExtras,
+      extraOrder: _extraOrderFromJson(json, source),
+      deletedBuiltInKeys: _deletedBuiltInKeysFromJson(json, source),
+    );
   }
 
   final Map<String, VanQuoteExtraDefault> extras;
+  final List<VanQuoteExtraDefault> customExtras;
+  final List<String> extraOrder;
+  final Set<String> deletedBuiltInKeys;
 
   VanQuoteExtraDefault extraForKey(String key) {
-    return extras[key] ?? VanQuoteExtraDefault.fallback(key);
+    final normalized = key.trim().toLowerCase();
+    for (final extra in customExtras) {
+      if (extra.key.trim().toLowerCase() == normalized) {
+        return extra;
+      }
+    }
+    return extras[normalized] ?? VanQuoteExtraDefault.fallback(normalized);
+  }
+
+  bool isBuiltInExtraDeleted(String key) {
+    return deletedBuiltInKeys.contains(_normalizeVanQuoteExtraKey(key));
   }
 
   List<VanQuoteExtraDefault> get orderedExtras {
     return <VanQuoteExtraDefault>[
-      for (final key in kVanQuoteExtraDefaultOrder) extraForKey(key),
+      for (final key in _normalizedExtraOrder(
+        extraOrder,
+        customExtras: customExtras,
+        deletedBuiltInKeys: deletedBuiltInKeys,
+      ))
+        extraForKey(key),
     ];
   }
 
   List<VanQuoteExtraDefault> get enabledExtras {
-    return orderedExtras
-        .where((extra) => extra.enabled)
-        .toList(growable: false);
+    return orderedExtras.where((extra) => extra.enabled).toList();
   }
 
   VanQuoteExtraDefaults copyWithExtra(VanQuoteExtraDefault extra) {
+    if (isVanQuoteCustomExtraKey(extra.key) &&
+        !kVanQuoteExtraDefaultOrder.contains(extra.key)) {
+      final normalized = normalizeVanQuoteCustomExtra(
+        extra,
+        fallbackIndex: customExtras.length,
+      );
+      final updatedCustomExtras = <VanQuoteExtraDefault>[];
+      var replaced = false;
+      for (final existing in customExtras) {
+        if (existing.key == normalized.key) {
+          updatedCustomExtras.add(normalized);
+          replaced = true;
+        } else {
+          updatedCustomExtras.add(existing);
+        }
+      }
+      if (!replaced) {
+        updatedCustomExtras.add(normalized);
+      }
+      return copyWithCustomExtras(updatedCustomExtras);
+    }
+
+    final normalizedKey = _normalizeVanQuoteExtraKey(extra.key);
+    final updatedDeletedKeys = <String>{...deletedBuiltInKeys}
+      ..remove(normalizedKey);
+    final updatedExtras = <String, VanQuoteExtraDefault>{
+      ...extras,
+      normalizedKey: VanQuoteExtraDefault(
+        key: normalizedKey,
+        label: extra.label,
+        defaultPrice: extra.defaultPrice,
+        enabled: extra.enabled,
+      ),
+    };
     return VanQuoteExtraDefaults(
-      extras: <String, VanQuoteExtraDefault>{...extras, extra.key: extra},
+      extras: updatedExtras,
+      customExtras: customExtras,
+      extraOrder: _normalizedExtraOrder(
+        extraOrder,
+        customExtras: customExtras,
+        deletedBuiltInKeys: updatedDeletedKeys,
+      ),
+      deletedBuiltInKeys: updatedDeletedKeys,
+    );
+  }
+
+  VanQuoteExtraDefaults copyWithCustomExtras(
+    List<VanQuoteExtraDefault> updatedCustomExtras,
+  ) {
+    final normalizedCustomExtras = normalizeVanQuoteCustomExtras(
+      updatedCustomExtras,
+    );
+    return VanQuoteExtraDefaults(
+      extras: extras,
+      customExtras: normalizedCustomExtras,
+      extraOrder: _normalizedExtraOrder(
+        extraOrder,
+        customExtras: normalizedCustomExtras,
+        deletedBuiltInKeys: deletedBuiltInKeys,
+      ),
+      deletedBuiltInKeys: deletedBuiltInKeys,
+    );
+  }
+
+  VanQuoteExtraDefaults copyWithOrder(List<String> updatedOrder) {
+    return VanQuoteExtraDefaults(
+      extras: extras,
+      customExtras: customExtras,
+      extraOrder: _normalizedExtraOrder(
+        updatedOrder,
+        customExtras: customExtras,
+        deletedBuiltInKeys: deletedBuiltInKeys,
+      ),
+      deletedBuiltInKeys: deletedBuiltInKeys,
+    );
+  }
+
+  VanQuoteExtraDefaults deleteBuiltInExtra(String key) {
+    final normalizedKey = _normalizeVanQuoteExtraKey(key);
+    if (!isVanQuoteBuiltInExtraKey(normalizedKey)) {
+      return this;
+    }
+    final updatedDeletedKeys = <String>{...deletedBuiltInKeys}
+      ..add(normalizedKey);
+    final currentOrder = orderedExtras
+        .map((extra) => extra.key)
+        .where((extraKey) => extraKey != normalizedKey)
+        .toList(growable: false);
+    return VanQuoteExtraDefaults(
+      extras: extras,
+      customExtras: customExtras,
+      extraOrder: _normalizedExtraOrder(
+        currentOrder,
+        customExtras: customExtras,
+        deletedBuiltInKeys: updatedDeletedKeys,
+      ),
+      deletedBuiltInKeys: updatedDeletedKeys,
+    );
+  }
+
+  VanQuoteExtraDefaults resetBuiltInDefaults() {
+    return VanQuoteExtraDefaults(
+      extras: <String, VanQuoteExtraDefault>{
+        for (final key in kVanQuoteExtraDefaultOrder)
+          key: VanQuoteExtraDefault.fallback(key),
+      },
+      customExtras: customExtras,
+      extraOrder: _normalizedExtraOrder(
+        <String>[
+          ...kVanQuoteExtraDefaultOrder,
+          for (final extra in orderedExtras)
+            if (!isVanQuoteBuiltInExtraKey(extra.key)) extra.key,
+        ],
+        customExtras: customExtras,
+        deletedBuiltInKeys: const <String>{},
+      ),
+      deletedBuiltInKeys: const <String>{},
     );
   }
 
@@ -170,14 +391,186 @@ class VanQuoteExtraDefaults {
         for (final key in kVanQuoteExtraDefaultOrder)
           key: extraForKey(key).toJson(),
       },
+      'customExtras': <Map<String, dynamic>>[
+        for (final extra in normalizeVanQuoteCustomExtras(customExtras))
+          extra.toJson(),
+      ],
+      'extraOrder': <String>[for (final extra in orderedExtras) extra.key],
+      'deletedBuiltInKeys': <String>[
+        for (final key in kVanQuoteExtraDefaultOrder)
+          if (deletedBuiltInKeys.contains(key)) key,
+      ],
     };
   }
 }
 
-Map<String, dynamic> _legacyCustomExtraJson(
+VanQuoteExtraDefaults _serviceStarterDefaults({
+  required Set<String> enabledBuiltInKeys,
+  required List<VanQuoteExtraDefault> customExtras,
+}) {
+  var defaults = VanQuoteExtraDefaults.defaults();
+  for (final key in kVanQuoteExtraDefaultOrder) {
+    defaults = defaults.copyWithExtra(
+      defaults
+          .extraForKey(key)
+          .copyWith(enabled: enabledBuiltInKeys.contains(key)),
+    );
+  }
+  return defaults.copyWithCustomExtras(customExtras);
+}
+
+List<VanQuoteExtraDefault> _customExtrasFromJson(
+  Map<String, dynamic> json,
   Map<dynamic, dynamic> source,
-  VanQuoteExtraDefault fallback,
 ) {
+  final customExtras = <VanQuoteExtraDefault>[];
+  final rawCustomExtras =
+      json['customExtras'] ??
+      json['custom_extras'] ??
+      source['customExtras'] ??
+      source['custom_extras'];
+
+  if (rawCustomExtras is List) {
+    for (var index = 0; index < rawCustomExtras.length; index++) {
+      final item = rawCustomExtras[index];
+      if (item is! Map) {
+        continue;
+      }
+      final map = Map<String, dynamic>.from(item);
+      final label = map['label']?.toString().trim() ?? '';
+      if (label.isEmpty) {
+        continue;
+      }
+      final rawKey =
+          map['key']?.toString().trim() ?? map['id']?.toString().trim() ?? '';
+      customExtras.add(
+        VanQuoteExtraDefault.custom(
+          key: rawKey.isEmpty
+              ? buildVanQuoteCustomExtraKey(label: label, index: index)
+              : rawKey,
+          label: label,
+          defaultPrice: _jsonPrice(
+            map['defaultPrice'] ?? map['price'] ?? map['amount'],
+            0,
+          ),
+          enabled: _jsonEnabled(map['enabled'], fallback: true),
+        ),
+      );
+    }
+  }
+
+  final legacyCustom = _legacyCustomExtraFromJson(source);
+  if (legacyCustom != null &&
+      !customExtras.any(
+        (extra) =>
+            extra.key == legacyCustom.key ||
+            extra.resolvedLabel.trim().toLowerCase() ==
+                legacyCustom.resolvedLabel.trim().toLowerCase(),
+      )) {
+    customExtras.add(legacyCustom);
+  }
+
+  return normalizeVanQuoteCustomExtras(customExtras);
+}
+
+List<String> _extraOrderFromJson(
+  Map<String, dynamic> json,
+  Map<dynamic, dynamic> source,
+) {
+  return _stringListFromJson(
+    json['extraOrder'] ??
+        json['extra_order'] ??
+        json['quoteExtraOrder'] ??
+        json['quote_extra_order'] ??
+        source['extraOrder'] ??
+        source['extra_order'] ??
+        source['quoteExtraOrder'] ??
+        source['quote_extra_order'],
+  );
+}
+
+Set<String> _deletedBuiltInKeysFromJson(
+  Map<String, dynamic> json,
+  Map<dynamic, dynamic> source,
+) {
+  return _stringListFromJson(
+    json['deletedBuiltInKeys'] ??
+        json['deletedBuiltIns'] ??
+        json['deletedExtraKeys'] ??
+        json['deleted_built_in_keys'] ??
+        json['deleted_built_ins'] ??
+        source['deletedBuiltInKeys'] ??
+        source['deletedBuiltIns'] ??
+        source['deletedExtraKeys'] ??
+        source['deleted_built_in_keys'] ??
+        source['deleted_built_ins'],
+  )
+      .where(isVanQuoteBuiltInExtraKey)
+      .toSet();
+}
+
+List<String> _stringListFromJson(Object? value) {
+  if (value is Iterable) {
+    return <String>[
+      for (final item in value)
+        if (item.toString().trim().isNotEmpty)
+          _normalizeVanQuoteExtraKey(item.toString()),
+    ];
+  }
+  final raw = value?.toString().trim() ?? '';
+  if (raw.isEmpty) {
+    return const <String>[];
+  }
+  return raw
+      .split(',')
+      .map(_normalizeVanQuoteExtraKey)
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<String> _normalizedExtraOrder(
+  Iterable<String> requestedOrder, {
+  required Iterable<VanQuoteExtraDefault> customExtras,
+  required Set<String> deletedBuiltInKeys,
+}) {
+  final customKeys = <String>{
+    for (final extra in customExtras) _normalizeVanQuoteExtraKey(extra.key),
+  };
+  final ordered = <String>[];
+  final seen = <String>{};
+
+  void addIfActive(String rawKey) {
+    final key = _normalizeVanQuoteExtraKey(rawKey);
+    if (key.isEmpty || seen.contains(key)) {
+      return;
+    }
+    if (isVanQuoteBuiltInExtraKey(key)) {
+      if (deletedBuiltInKeys.contains(key)) {
+        return;
+      }
+      ordered.add(key);
+      seen.add(key);
+      return;
+    }
+    if (customKeys.contains(key)) {
+      ordered.add(key);
+      seen.add(key);
+    }
+  }
+
+  for (final key in requestedOrder) {
+    addIfActive(key);
+  }
+  for (final key in kVanQuoteExtraDefaultOrder) {
+    addIfActive(key);
+  }
+  for (final key in customKeys) {
+    addIfActive(key);
+  }
+  return ordered;
+}
+
+VanQuoteExtraDefault? _legacyCustomExtraFromJson(Map<dynamic, dynamic> source) {
   Object? firstPresent(List<String> keys) {
     for (final key in keys) {
       if (source.containsKey(key)) {
@@ -187,37 +580,68 @@ Map<String, dynamic> _legacyCustomExtraJson(
     return null;
   }
 
-  final label =
-      firstPresent(<String>[
-        'customLabel',
-        'customExtraLabel',
-        'custom_extra_label',
-        'customName',
-        'customExtraName',
-      ]) ??
-      fallback.label;
-  final price =
-      firstPresent(<String>[
-        'customPrice',
-        'customExtraPrice',
-        'custom_extra_price',
-        'customAmount',
-        'customExtraAmount',
-      ]) ??
-      fallback.defaultPrice;
-  final enabled =
-      firstPresent(<String>[
-        'customEnabled',
-        'customExtraEnabled',
-        'custom_extra_enabled',
-      ]) ??
-      fallback.enabled;
+  final rawCustomMap =
+      source[kVanQuoteExtraCustomKey] ?? source['custom_extra'];
+  if (rawCustomMap is Map) {
+    final extra = VanQuoteExtraDefault.fromJson(
+      kVanQuoteExtraCustomKey,
+      Map<String, dynamic>.from(rawCustomMap),
+    );
+    return _shouldKeepLegacyCustomExtra(extra)
+        ? VanQuoteExtraDefault.custom(
+            key: buildVanQuoteCustomExtraKey(
+              label: extra.resolvedLabel,
+              index: 0,
+            ),
+            label: extra.resolvedLabel,
+            defaultPrice: extra.defaultPrice,
+            enabled: extra.enabled,
+          )
+        : null;
+  }
 
-  return <String, dynamic>{
-    'label': label,
-    'defaultPrice': price,
-    'enabled': enabled,
-  };
+  final label = firstPresent(<String>[
+    'customLabel',
+    'customExtraLabel',
+    'custom_extra_label',
+    'customName',
+    'customExtraName',
+  ])?.toString().trim();
+  final hasLegacyLabel = label != null && label.isNotEmpty;
+  final price = firstPresent(<String>[
+    'customPrice',
+    'customExtraPrice',
+    'custom_extra_price',
+    'customAmount',
+    'customExtraAmount',
+  ]);
+  final enabled = firstPresent(<String>[
+    'customEnabled',
+    'customExtraEnabled',
+    'custom_extra_enabled',
+  ]);
+
+  if (!hasLegacyLabel && price == null && enabled == null) {
+    return null;
+  }
+
+  final resolvedLabel = hasLegacyLabel
+      ? label
+      : kVanQuoteExtraDefaultLabels[kVanQuoteExtraCustomKey]!;
+  final extra = VanQuoteExtraDefault.custom(
+    key: buildVanQuoteCustomExtraKey(label: resolvedLabel, index: 0),
+    label: resolvedLabel,
+    defaultPrice: _jsonPrice(price, 0),
+    enabled: _jsonEnabled(enabled, fallback: true),
+  );
+  return _shouldKeepLegacyCustomExtra(extra) ? extra : null;
+}
+
+bool _shouldKeepLegacyCustomExtra(VanQuoteExtraDefault extra) {
+  final label = extra.resolvedLabel.trim();
+  return label.isNotEmpty &&
+      (label != kVanQuoteExtraDefaultLabels[kVanQuoteExtraCustomKey] ||
+          extra.defaultPrice > 0);
 }
 
 double _jsonPrice(Object? value, double fallback) {
@@ -246,6 +670,101 @@ bool _jsonEnabled(Object? value, {required bool fallback}) {
     return true;
   }
   return fallback;
+}
+
+bool isVanQuoteCustomExtraKey(String key) {
+  final normalized = key.trim().toLowerCase();
+  return normalized == kVanQuoteExtraCustomKey ||
+      normalized.startsWith(kVanQuoteCustomExtraKeyPrefix);
+}
+
+bool isVanQuoteBuiltInExtraKey(String key) {
+  return kVanQuoteExtraDefaultOrder.contains(_normalizeVanQuoteExtraKey(key));
+}
+
+String _normalizeVanQuoteExtraKey(String key) => key.trim().toLowerCase();
+
+String normalizeVanQuoteCustomExtraKey(String key, {required String label}) {
+  final normalized = key
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9_]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_|_$'), '');
+  if (normalized.startsWith(kVanQuoteCustomExtraKeyPrefix) &&
+      normalized.length > kVanQuoteCustomExtraKeyPrefix.length) {
+    return normalized;
+  }
+  return buildVanQuoteCustomExtraKey(label: label, index: 0);
+}
+
+String buildVanQuoteCustomExtraKey({
+  required String label,
+  required int index,
+}) {
+  final slug = label
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^_|_$'), '');
+  final suffix = slug.isEmpty ? 'item_${index + 1}' : slug;
+  return '$kVanQuoteCustomExtraKeyPrefix$suffix';
+}
+
+List<VanQuoteExtraDefault> normalizeVanQuoteCustomExtras(
+  Iterable<VanQuoteExtraDefault> extras,
+) {
+  final normalized = <VanQuoteExtraDefault>[];
+  final usedKeys = <String>{};
+  var index = 0;
+  for (final extra in extras) {
+    final label = _cleanLabel(extra.resolvedLabel);
+    if (label.isEmpty) {
+      continue;
+    }
+    var key = normalizeVanQuoteCustomExtraKey(extra.key, label: label);
+    if (usedKeys.contains(key)) {
+      key = '${key}_${index + 1}';
+    }
+    usedKeys.add(key);
+    normalized.add(
+      VanQuoteExtraDefault.custom(
+        key: key,
+        label: label,
+        defaultPrice: extra.defaultPrice,
+        enabled: extra.enabled,
+      ),
+    );
+    index++;
+  }
+  return normalized;
+}
+
+VanQuoteExtraDefault normalizeVanQuoteCustomExtra(
+  VanQuoteExtraDefault extra, {
+  required int fallbackIndex,
+}) {
+  final normalized = normalizeVanQuoteCustomExtras(<VanQuoteExtraDefault>[
+    extra.key.trim().isEmpty || extra.key == kVanQuoteExtraCustomKey
+        ? VanQuoteExtraDefault.custom(
+            key: buildVanQuoteCustomExtraKey(
+              label: extra.resolvedLabel,
+              index: fallbackIndex,
+            ),
+            label: extra.resolvedLabel,
+            defaultPrice: extra.defaultPrice,
+            enabled: extra.enabled,
+          )
+        : extra,
+  ]);
+  return normalized.isEmpty
+      ? VanQuoteExtraDefault.custom(
+          key: buildVanQuoteCustomExtraKey(label: 'custom extra', index: 0),
+          label: 'Custom extra',
+          defaultPrice: 0,
+        )
+      : normalized.first;
 }
 
 @immutable
@@ -387,10 +906,13 @@ class VanQuoteExtraSelections {
   }
 
   List<String> get quoteExtras {
-    return <String>[
+    final orderedItems = <VanQuoteExtraSelection>[
       for (final key in kVanQuoteExtraDefaultOrder)
-        if (items.containsKey(key)) items[key]!.quoteExtraLabel,
+        if (items.containsKey(key)) items[key]!,
+      for (final item in items.values)
+        if (!kVanQuoteExtraDefaultOrder.contains(item.key)) item,
     ];
+    return <String>[for (final item in orderedItems) item.quoteExtraLabel];
   }
 }
 

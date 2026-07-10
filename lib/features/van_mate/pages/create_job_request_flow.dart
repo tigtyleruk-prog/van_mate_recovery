@@ -715,7 +715,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                               icon: const Icon(Icons.sms_outlined),
                               label: const Text('Text customer'),
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF58D0A4),
+                                backgroundColor: const Color(0xFF4A7DFF),
                                 foregroundColor: Colors.white,
                               ),
                             ),

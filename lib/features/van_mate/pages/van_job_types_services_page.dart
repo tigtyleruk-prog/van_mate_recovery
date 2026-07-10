@@ -8,12 +8,14 @@ import '../helpers/van_text_formatters.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
 import '../models/van_prefilled_job_questions.dart';
+import '../models/van_quote_extra_defaults.dart';
 import '../pages/van_custom_job_questions_page.dart';
 import '../services/van_business_hub_onboarding_storage.dart';
 import '../services/van_custom_job_questions_storage.dart';
 import '../services/van_job_services_storage.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 import '../widgets/van_form_field_styles.dart';
+import '../widgets/van_quote_extra_defaults_sheet.dart';
 
 Future<void> openVanJobTypesServicesPage(BuildContext context) {
   return Navigator.of(context).push(
@@ -554,6 +556,33 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     });
   }
 
+  Future<void> _editQuoteExtras() async {
+    final service = _service;
+    if (service == null) {
+      return;
+    }
+    final updated = await showModalBottomSheet<VanQuoteExtraDefaults>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => VanQuoteExtraDefaultsSheet(
+        initialDefaults: service.quoteExtraDefaults,
+        title: '${service.name} extras',
+        description: 'Set the quote extras shown for this service.',
+      ),
+    );
+    if (updated == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _service = service.copyWith(
+        quoteExtraDefaults: updated,
+        updatedAt: DateTime.now(),
+      );
+      _changed = true;
+    });
+  }
+
   List<_LinkedServiceQuestion> _linkedQuestionsForService(
     VanJobService service,
   ) {
@@ -816,6 +845,50 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                               color: service.isActive
                                   ? const Color(0xFF58D0A4)
                                   : const Color(0xFFFFB86C),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _GlassCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Quote extras',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                _InfoChip(
+                                  label:
+                                      '${service.enabledQuoteExtraCount} enabled',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _quoteExtraSummary(service.quoteExtraDefaults),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.72),
+                                height: 1.45,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              height: 40,
+                              child: OutlinedButton.icon(
+                                onPressed: _editQuoteExtras,
+                                icon: const Icon(Icons.tune),
+                                label: const Text('Edit Extras'),
+                              ),
                             ),
                           ],
                         ),
@@ -1201,6 +1274,8 @@ class _VanJobServiceEditorPageState extends State<VanJobServiceEditorPage> {
   bool _requestPhotos = false;
   bool _requireAddress = true;
   bool _requestExactPinAfterQuoteAccepted = true;
+  late VanQuoteExtraDefaults _quoteExtraDefaults;
+  bool _quoteExtrasEdited = false;
   bool _saving = false;
 
   bool get _isEditing => widget.initialService != null;
@@ -1220,6 +1295,9 @@ class _VanJobServiceEditorPageState extends State<VanJobServiceEditorPage> {
     _requireAddress = service?.requireAddress ?? true;
     _requestExactPinAfterQuoteAccepted =
         service?.requestExactPinAfterQuoteAccepted ?? true;
+    _quoteExtraDefaults =
+        service?.quoteExtraDefaults ??
+        VanQuoteExtraDefaults.starterForServiceName(widget.suggestedName ?? '');
   }
 
   @override
@@ -1227,6 +1305,29 @@ class _VanJobServiceEditorPageState extends State<VanJobServiceEditorPage> {
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _editQuoteExtras() async {
+    final initialDefaults = !_isEditing && !_quoteExtrasEdited
+        ? VanQuoteExtraDefaults.starterForServiceName(_nameController.text)
+        : _quoteExtraDefaults;
+    final updated = await showModalBottomSheet<VanQuoteExtraDefaults>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => VanQuoteExtraDefaultsSheet(
+        initialDefaults: initialDefaults,
+        title: 'Service extras',
+        description: 'Set the quote extras shown for this service.',
+      ),
+    );
+    if (updated == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _quoteExtraDefaults = updated;
+      _quoteExtrasEdited = true;
+    });
   }
 
   Future<void> _save() async {
@@ -1246,6 +1347,9 @@ class _VanJobServiceEditorPageState extends State<VanJobServiceEditorPage> {
 
     final now = DateTime.now();
     final existing = widget.initialService;
+    final quoteExtraDefaults = existing == null && !_quoteExtrasEdited
+        ? VanQuoteExtraDefaults.starterForServiceName(name)
+        : _quoteExtraDefaults;
     final service = VanJobService(
       id: existing?.id ?? now.microsecondsSinceEpoch.toString(),
       name: name,
@@ -1255,6 +1359,7 @@ class _VanJobServiceEditorPageState extends State<VanJobServiceEditorPage> {
       requireAddress: _requireAddress,
       requestExactPinAfterQuoteAccepted: _requestExactPinAfterQuoteAccepted,
       linkedQuestionIds: existing?.linkedQuestionIds ?? const <String>[],
+      quoteExtraDefaults: quoteExtraDefaults,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       isArchived: existing?.isArchived ?? false,
@@ -1421,6 +1526,58 @@ class _VanJobServiceEditorPageState extends State<VanJobServiceEditorPage> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: Colors.white.withValues(alpha: 0.05),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.10),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Expanded(
+                                  child: Text(
+                                    'Quote extras',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                _InfoChip(
+                                  label:
+                                      '${_quoteExtraDefaults.enabledExtras.length} enabled',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _quoteExtraSummary(_quoteExtraDefaults),
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.68),
+                                height: 1.35,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              height: 40,
+                              child: OutlinedButton.icon(
+                                onPressed: _editQuoteExtras,
+                                icon: const Icon(Icons.tune),
+                                label: const Text('Edit Extras'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1471,6 +1628,22 @@ class _LinkedServiceQuestion {
 
   final String id;
   final VanCustomJobQuestion question;
+}
+
+String _quoteExtraSummary(VanQuoteExtraDefaults defaults) {
+  final enabledExtras = defaults.enabledExtras;
+  if (enabledExtras.isEmpty) {
+    return 'No extras enabled for this service.';
+  }
+  final labels = enabledExtras
+      .take(3)
+      .map((extra) => extra.resolvedLabel)
+      .toList(growable: false);
+  final extraCount = enabledExtras.length - labels.length;
+  if (extraCount <= 0) {
+    return labels.join(', ');
+  }
+  return '${labels.join(', ')} + $extraCount more';
 }
 
 class _ServiceListCard extends StatelessWidget {
@@ -1555,6 +1728,7 @@ class _ServiceListCard extends StatelessWidget {
               _InfoChip(
                 label: '${service.linkedQuestionIds.length} linked questions',
               ),
+              _InfoChip(label: '${service.enabledQuoteExtraCount} extras'),
               for (final item in settingsSummary) _InfoChip(label: item),
             ],
           ),

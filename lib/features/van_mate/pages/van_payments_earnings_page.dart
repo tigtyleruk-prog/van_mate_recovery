@@ -542,6 +542,7 @@ class _VanPaymentsEarningsPageState extends State<VanPaymentsEarningsPage> {
     required IconData icon,
     required VoidCallback onPressed,
     bool filled = false,
+    Color color = Colors.white,
   }) {
     if (filled) {
       return SizedBox(
@@ -568,8 +569,8 @@ class _VanPaymentsEarningsPageState extends State<VanPaymentsEarningsPage> {
         icon: Icon(icon, size: 18),
         label: Text(label),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.36)),
+          foregroundColor: color,
+          side: BorderSide(color: color.withValues(alpha: 0.36)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -687,6 +688,7 @@ class _VanPaymentsEarningsPageState extends State<VanPaymentsEarningsPage> {
                   label: 'Call customer',
                   icon: Icons.phone,
                   onPressed: () => _callCustomer(entry),
+                  color: const Color(0xFF4A7DFF),
                 ),
             ],
           ),

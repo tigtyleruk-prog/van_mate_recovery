@@ -69,6 +69,7 @@ class VanBookingLinkCloudService {
                 'requestPhotos': service.requestPhotos,
                 'requestExactPinAfterQuoteAccepted':
                     service.requestExactPinAfterQuoteAccepted,
+                'quoteExtraDefaults': service.quoteExtraDefaults.toJson(),
                 'linkedQuestions': service.linkedQuestionIds
                     .map((id) => questionLookup[id])
                     .whereType<VanCustomJobQuestion>()
@@ -77,8 +78,7 @@ class VanBookingLinkCloudService {
                     )
                     .where(
                       (question) =>
-                          !VanPrefilledJobQuestions
-                              .isDeprecatedDuplicatePresetId(
+                          !VanPrefilledJobQuestions.isDeprecatedDuplicatePresetId(
                             question.id,
                           ),
                     )

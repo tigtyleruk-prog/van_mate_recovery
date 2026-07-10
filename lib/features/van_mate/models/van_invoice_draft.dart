@@ -102,21 +102,20 @@ class VanInvoiceDraft {
         .map((item) => sanitizeVanText(item).trim())
         .where((item) => item.isNotEmpty)
         .toList(growable: false);
+    final quoteExtraLineItems = buildVanInvoiceQuoteExtraLineItems(
+      normalizedExtras,
+    );
+    final baseQuoteAmount = resolveVanInvoiceBaseQuoteAmount(
+      quoteAmount: quoteAmount,
+      quoteExtraLineItems: quoteExtraLineItems,
+    );
     final lineItems = <VanInvoiceLineItem>[
       VanInvoiceLineItem(
         description: jobReference,
         quantity: 1,
-        amount: quoteAmount,
+        amount: baseQuoteAmount,
       ),
-      for (var index = 0; index < normalizedExtras.length; index++)
-        VanInvoiceLineItem(
-          description: normalizedExtras[index],
-          quantity: 1,
-          amount: 0,
-          extraKey:
-              _canonicalInvoiceExtraKey(normalizedExtras[index]) ??
-              _quoteExtraKey(normalizedExtras[index], index),
-        ),
+      ...quoteExtraLineItems,
     ];
     final quotePaymentText = sanitizeVanText(quotePaymentInstructions).trim();
     final quoteNotesText = sanitizeVanText(quoteNotes).trim();
@@ -189,6 +188,7 @@ class VanInvoiceDraft {
       return this;
     }
 
+    final quoteExtraLineItems = buildVanInvoiceQuoteExtraLineItems(quoteExtras);
     final baseLineItems = lineItems.isEmpty
         ? <VanInvoiceLineItem>[
             VanInvoiceLineItem(
@@ -196,10 +196,23 @@ class VanInvoiceDraft {
                   ? 'Line item'
                   : jobReference.trim(),
               quantity: 1,
-              amount: 0,
+              amount: resolveVanInvoiceBaseQuoteAmount(
+                quoteAmount: 0,
+                quoteExtraLineItems: quoteExtraLineItems,
+              ),
             ),
           ]
-        : <VanInvoiceLineItem>[lineItems.first];
+        : <VanInvoiceLineItem>[
+            VanInvoiceLineItem(
+              description: lineItems.first.description,
+              quantity: lineItems.first.quantity,
+              amount: resolveVanInvoiceBaseQuoteAmount(
+                quoteAmount: lineItems.first.amount,
+                quoteExtraLineItems: quoteExtraLineItems,
+              ),
+              extraKey: lineItems.first.extraKey,
+            ),
+          ];
 
     final seededExtras = <VanInvoiceLineItem>[];
     final seenKeys = <String>{};
@@ -214,14 +227,20 @@ class VanInvoiceDraft {
       }
     }
 
-    for (var index = 0; index < quoteExtras.length; index++) {
-      final description = sanitizeVanText(quoteExtras[index]).trim();
+    for (var index = 0; index < quoteExtraLineItems.length; index++) {
+      final lineItem = quoteExtraLineItems[index];
+      final description = sanitizeVanText(lineItem.description).trim();
       if (description.isEmpty) {
         continue;
       }
 
-      final canonicalKey = _canonicalInvoiceExtraKey(description);
-      final itemKey = canonicalKey ?? _quoteExtraKey(description, index);
+      final canonicalKey =
+          _canonicalInvoiceExtraKey(description) ??
+          _canonicalInvoiceExtraKey(quoteExtras[index]);
+      final itemKey =
+          canonicalKey ??
+          lineItem.extraKey ??
+          _quoteExtraKey(description, index);
       final dedupeKey = canonicalKey ?? description.toLowerCase();
       if (seenKeys.contains(dedupeKey)) {
         continue;
@@ -230,8 +249,8 @@ class VanInvoiceDraft {
       seededExtras.add(
         VanInvoiceLineItem(
           description: description,
-          quantity: 1,
-          amount: 0,
+          quantity: lineItem.quantity,
+          amount: lineItem.amount,
           extraKey: itemKey,
         ),
       );
@@ -643,6 +662,117 @@ class VanInvoiceDraft {
 
 const Object _vanInvoiceDraftNoChange = Object();
 
+List<VanInvoiceLineItem> buildVanInvoiceQuoteExtraLineItems(
+  Iterable<String> quoteExtras,
+) {
+  final lineItems = <VanInvoiceLineItem>[];
+  var index = 0;
+  for (final extra in quoteExtras) {
+    final parsed = _parseQuoteExtraLineItem(extra, index);
+    if (parsed != null) {
+      lineItems.add(parsed);
+      index++;
+    }
+  }
+  return lineItems;
+}
+
+double resolveVanInvoiceBaseQuoteAmount({
+  required double quoteAmount,
+  required Iterable<VanInvoiceLineItem> quoteExtraLineItems,
+}) {
+  final extrasTotal = quoteExtraLineItems.fold<double>(
+    0,
+    (total, item) => total + item.total,
+  );
+  if (quoteAmount > 0 && extrasTotal > 0 && quoteAmount >= extrasTotal) {
+    return _roundMoney(quoteAmount - extrasTotal);
+  }
+  return quoteAmount;
+}
+
+VanInvoiceLineItem? _parseQuoteExtraLineItem(String value, int index) {
+  final cleaned = sanitizeVanText(value).trim();
+  if (cleaned.isEmpty) {
+    return null;
+  }
+
+  final quantityTotal = _parseQuantityQuoteExtra(cleaned);
+  final description =
+      quantityTotal?.description ?? _descriptionBeforePrice(cleaned);
+  final amount = quantityTotal?.total ?? _trailingCurrencyAmount(cleaned) ?? 0;
+  final extraKey =
+      _canonicalInvoiceExtraKey(description) ??
+      _canonicalInvoiceExtraKey(cleaned) ??
+      _quoteExtraKey(description, index);
+
+  return VanInvoiceLineItem(
+    description: description.isEmpty ? cleaned : description,
+    quantity: 1,
+    amount: _roundMoney(amount),
+    extraKey: extraKey,
+  );
+}
+
+_ParsedQuoteExtraAmount? _parseQuantityQuoteExtra(String value) {
+  final match = RegExp(
+    r'^(.*?)\s+-\s+([0-9]+(?:\.[0-9]+)?)\s*(?:h|hr|hrs|hour|hours|mile|miles)\s+x\s+[^0-9-]*([0-9]+(?:\.[0-9]+)?)\s*/[^=]+=\s*[^0-9-]*([0-9]+(?:\.[0-9]+)?)\s*$',
+    caseSensitive: false,
+  ).firstMatch(value);
+  if (match == null) {
+    return null;
+  }
+
+  final description = sanitizeVanText(match.group(1) ?? '').trim();
+  final total = double.tryParse(match.group(4) ?? '');
+  if (description.isEmpty || total == null) {
+    return null;
+  }
+  return _ParsedQuoteExtraAmount(description: description, total: total);
+}
+
+String _descriptionBeforePrice(String value) {
+  final separator = value.lastIndexOf(' - ');
+  if (separator <= 0 || !_hasCurrencySignal(value)) {
+    return value;
+  }
+  final amount = _trailingCurrencyAmount(value);
+  if (amount == null) {
+    return value;
+  }
+  return sanitizeVanText(value.substring(0, separator)).trim();
+}
+
+double? _trailingCurrencyAmount(String value) {
+  if (!_hasCurrencySignal(value)) {
+    return null;
+  }
+  final match = RegExp(
+    r'([0-9]+(?:\.[0-9]+)?)\s*$',
+  ).firstMatch(value.replaceAll(',', ''));
+  if (match == null) {
+    return null;
+  }
+  return double.tryParse(match.group(1) ?? '');
+}
+
+bool _hasCurrencySignal(String value) {
+  final upper = value.toUpperCase();
+  return upper.contains('GBP') || value.codeUnits.contains(0x00A3);
+}
+
+double _roundMoney(double value) => double.parse(value.toStringAsFixed(2));
+
+class _ParsedQuoteExtraAmount {
+  const _ParsedQuoteExtraAmount({
+    required this.description,
+    required this.total,
+  });
+
+  final String description;
+  final double total;
+}
+
 String _quoteExtraKey(String value, int index) {
   final normalized = sanitizeVanText(value)
       .trim()
@@ -675,6 +805,10 @@ String? _canonicalInvoiceExtraKey(String value) {
   }
   if (normalized.contains('waiting time')) {
     return 'waiting_time';
+  }
+  if (normalized.contains('3rd person') ||
+      normalized.contains('third person')) {
+    return 'third_person';
   }
   if (normalized.contains('stairs') ||
       normalized.contains('stairs access') ||

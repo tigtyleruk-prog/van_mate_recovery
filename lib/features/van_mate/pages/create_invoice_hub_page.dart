@@ -1049,6 +1049,9 @@ class _EditInvoiceItemsPageState extends State<EditInvoiceItemsPage> {
     if (kVanQuoteExtraDefaultOrder.contains(normalized)) {
       return normalized;
     }
+    if (isVanQuoteCustomExtraKey(normalized)) {
+      return normalized;
+    }
     return null;
   }
 

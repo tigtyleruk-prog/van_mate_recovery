@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.dart';
+import 'package:van_mate_app/features/van_mate/services/van_quote_extra_defaults_storage.dart';
 import 'package:van_mate_app/features/van_mate/widgets/van_quote_extra_defaults_sheet.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   group('VanQuoteExtraDefaults', () {
     test('uses sensible quote extra defaults', () {
       final defaults = VanQuoteExtraDefaults.defaults();
@@ -19,53 +28,72 @@ void main() {
         defaults.extraForKey(kVanQuoteExtraCollectionDeliveryKey).defaultPrice,
         0,
       );
-      expect(defaults.extraForKey(kVanQuoteExtraCustomKey).defaultPrice, 0);
+      expect(
+        defaults.extraForKey(kVanQuoteExtraThirdPersonKey).defaultPrice,
+        20,
+      );
+      expect(defaults.customExtras, isEmpty);
       expect(
         defaults.enabledExtras,
         hasLength(kVanQuoteExtraDefaultOrder.length),
       );
     });
 
-    test('round trips custom labels, prices, and visibility', () {
+    test('round trips multiple custom labels, prices, and visibility', () {
       final edited = VanQuoteExtraDefaults.defaults()
-          .copyWithExtra(
-            VanQuoteExtraDefault.fallback(
-              kVanQuoteExtraCustomKey,
-            ).copyWith(label: 'Packing materials', defaultPrice: 12.5),
-          )
           .copyWithExtra(
             VanQuoteExtraDefault.fallback(
               kVanQuoteExtraMileageKey,
             ).copyWith(enabled: false),
-          );
+          )
+          .copyWithCustomExtras(<VanQuoteExtraDefault>[
+            VanQuoteExtraDefault.custom(
+              key: 'custom_extra_packing_materials',
+              label: 'Packing materials',
+              defaultPrice: 12.5,
+            ),
+            VanQuoteExtraDefault.custom(
+              key: 'custom_extra_4th_person',
+              label: '4th person',
+              defaultPrice: 15,
+              enabled: false,
+            ),
+          ]);
 
       final restored = VanQuoteExtraDefaults.fromJson(edited.toJson());
 
-      expect(
-        restored.extraForKey(kVanQuoteExtraCustomKey).resolvedLabel,
-        'Packing materials',
-      );
-      expect(restored.extraForKey(kVanQuoteExtraCustomKey).defaultPrice, 12.5);
+      expect(restored.customExtras, hasLength(2));
+      expect(restored.customExtras[0].resolvedLabel, 'Packing materials');
+      expect(restored.customExtras[0].defaultPrice, 12.5);
+      expect(restored.customExtras[1].resolvedLabel, '4th person');
+      expect(restored.customExtras[1].defaultPrice, 15);
+      expect(restored.customExtras[1].enabled, isFalse);
       expect(restored.extraForKey(kVanQuoteExtraMileageKey).enabled, isFalse);
       expect(
         restored.enabledExtras.map((extra) => extra.key),
         isNot(contains(kVanQuoteExtraMileageKey)),
       );
+      expect(
+        restored.enabledExtras.map((extra) => extra.resolvedLabel),
+        contains('Packing materials'),
+      );
     });
 
-    test('serializes custom extra into quote extras settings document', () {
-      final edited = VanQuoteExtraDefaults.defaults().copyWithExtra(
-        VanQuoteExtraDefault.fallback(kVanQuoteExtraCustomKey).copyWith(
+    test('serializes custom extras into quote extras settings document', () {
+      final edited = VanQuoteExtraDefaults.defaults().copyWithCustomExtras([
+        VanQuoteExtraDefault.custom(
+          key: 'custom_extra_packing_materials',
           label: 'Packing materials',
           defaultPrice: 12.5,
           enabled: true,
         ),
-      );
+      ]);
 
       final json = edited.toJson();
-      final extras = json['extras']! as Map<String, dynamic>;
-      final custom = extras[kVanQuoteExtraCustomKey]! as Map<String, dynamic>;
+      final customExtras = json['customExtras']! as List<dynamic>;
+      final custom = customExtras.single as Map<String, dynamic>;
 
+      expect(custom['key'], 'custom_extra_packing_materials');
       expect(custom['label'], 'Packing materials');
       expect(custom['defaultPrice'], 12.5);
       expect(custom['enabled'], isTrue);
@@ -75,30 +103,179 @@ void main() {
         'ownerUid': 'driver-1',
         ...json,
       });
-      expect(
-        restored.extraForKey(kVanQuoteExtraCustomKey).resolvedLabel,
-        'Packing materials',
-      );
-      expect(restored.extraForKey(kVanQuoteExtraCustomKey).defaultPrice, 12.5);
-      expect(restored.extraForKey(kVanQuoteExtraCustomKey).enabled, isTrue);
+      expect(restored.customExtras, hasLength(1));
+      expect(restored.customExtras.single.resolvedLabel, 'Packing materials');
+      expect(restored.customExtras.single.defaultPrice, 12.5);
+      expect(restored.customExtras.single.enabled, isTrue);
     });
 
-    test('restores legacy flat custom extra fields', () {
-      final restored = VanQuoteExtraDefaults.fromJson(<String, dynamic>{
-        'id': 'quote_extras',
-        'customExtraLabel': '3rd person',
-        'customExtraPrice': '\u00A315',
-        'customExtraEnabled': 'false',
-      });
+    test(
+      'migrates legacy flat custom extra fields into custom extras list',
+      () {
+        final restored = VanQuoteExtraDefaults.fromJson(<String, dynamic>{
+          'id': 'quote_extras',
+          'customExtraLabel': '3rd person',
+          'customExtraPrice': '\u00A315',
+          'customExtraEnabled': 'false',
+        });
 
-      final custom = restored.extraForKey(kVanQuoteExtraCustomKey);
-      expect(custom.resolvedLabel, '3rd person');
-      expect(custom.defaultPrice, 15);
-      expect(custom.enabled, isFalse);
+        expect(restored.customExtras, hasLength(1));
+        final custom = restored.customExtras.single;
+        expect(custom.resolvedLabel, '3rd person');
+        expect(custom.defaultPrice, 15);
+        expect(custom.enabled, isFalse);
+      },
+    );
+
+    test('provides service-specific starter templates', () {
+      final manAndVan = VanQuoteExtraDefaults.starterForServiceName(
+        'Man & Van',
+      );
+      expect(
+        manAndVan.enabledExtras.map((extra) => extra.resolvedLabel),
+        containsAll(<String>[
+          'Extra helper',
+          'Stairs / access',
+          'Mileage',
+          'Second van',
+        ]),
+      );
+      expect(
+        manAndVan.enabledExtras.map((extra) => extra.resolvedLabel),
+        isNot(contains('Waiting time')),
+      );
+
+      final gardening = VanQuoteExtraDefaults.starterForServiceName(
+        'Gardening',
+      );
+      expect(
+        gardening.enabledExtras.map((extra) => extra.resolvedLabel),
+        containsAll(<String>['Green waste', 'Extra hour', 'Materials']),
+      );
+      expect(
+        gardening.enabledExtras.map((extra) => extra.key),
+        isNot(contains(kVanQuoteExtraHelperKey)),
+      );
+
+      final cleaning = VanQuoteExtraDefaults.starterForServiceName('Cleaning');
+      expect(
+        cleaning.enabledExtras.map((extra) => extra.resolvedLabel),
+        containsAll(<String>['Oven clean', 'Deep clean', 'Extra room']),
+      );
+    });
+
+    test('job services keep their own quote extras', () {
+      final now = DateTime(2026, 7, 10);
+      final service = VanJobService(
+        id: 'gardening',
+        name: 'Gardening',
+        description: '',
+        isActive: true,
+        requestPhotos: false,
+        requireAddress: true,
+        requestExactPinAfterQuoteAccepted: false,
+        linkedQuestionIds: const <String>[],
+        quoteExtraDefaults: VanQuoteExtraDefaults.starterForServiceName(
+          'Gardening',
+        ),
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final restored = VanJobService.fromJson(service.toJson());
+
+      expect(restored.quoteExtraDefaults.enabledExtras, hasLength(3));
+      expect(
+        restored.quoteExtraDefaults.enabledExtras.map(
+          (extra) => extra.resolvedLabel,
+        ),
+        contains('Green waste'),
+      );
     });
   });
 
-  testWidgets('saved custom extra reloads in settings sheet', (tester) async {
+  test(
+    'stores service extras without overwriting global or other service extras',
+    () async {
+      final storage = VanQuoteExtraDefaultsStorage.instance;
+      await storage.save(
+        VanQuoteExtraDefaults.defaults()
+            .copyWithCustomExtras(<VanQuoteExtraDefault>[
+              VanQuoteExtraDefault.custom(
+                key: 'custom_extra_global_only',
+                label: 'Global only',
+                defaultPrice: 99,
+              ),
+            ]),
+      );
+
+      await storage.saveForService(
+        serviceKey: 'cleaning-service',
+        serviceName: 'Cleaning',
+        defaults: VanQuoteExtraDefaults.starterForServiceName('Cleaning')
+            .copyWithCustomExtras(<VanQuoteExtraDefault>[
+              VanQuoteExtraDefault.custom(
+                key: 'custom_extra_cleaning_service_only',
+                label: 'Cleaning service only',
+                defaultPrice: 25,
+              ),
+            ]),
+      );
+      await storage.saveForService(
+        serviceKey: 'gardening-service',
+        serviceName: 'Gardening',
+        defaults: VanQuoteExtraDefaults.starterForServiceName('Gardening')
+            .copyWithCustomExtras(<VanQuoteExtraDefault>[
+              VanQuoteExtraDefault.custom(
+                key: 'custom_extra_gardening_service_only',
+                label: 'Gardening service only',
+                defaultPrice: 30,
+              ),
+            ]),
+      );
+
+      final global = await storage.load(preferLocal: true);
+      final cleaning = await storage.loadForService(
+        serviceKey: 'cleaning-service',
+        serviceName: 'Cleaning',
+        preferLocal: true,
+      );
+      final gardening = await storage.loadForService(
+        serviceKey: 'gardening-service',
+        serviceName: 'Gardening',
+        preferLocal: true,
+      );
+
+      expect(
+        global.enabledExtras.map((extra) => extra.resolvedLabel),
+        contains('Global only'),
+      );
+      expect(
+        cleaning.enabledExtras.map((extra) => extra.resolvedLabel),
+        contains('Cleaning service only'),
+      );
+      expect(
+        cleaning.enabledExtras.map((extra) => extra.resolvedLabel),
+        isNot(contains('Global only')),
+      );
+      expect(
+        cleaning.enabledExtras.map((extra) => extra.resolvedLabel),
+        isNot(contains('Gardening service only')),
+      );
+      expect(
+        gardening.enabledExtras.map((extra) => extra.resolvedLabel),
+        contains('Gardening service only'),
+      );
+      expect(
+        gardening.enabledExtras.map((extra) => extra.resolvedLabel),
+        isNot(contains('Cleaning service only')),
+      );
+    },
+  );
+
+  testWidgets('saved custom extras can be added, reloaded, and deleted', (
+    tester,
+  ) async {
     final initial = VanQuoteExtraDefaults.defaults();
     VanQuoteExtraDefaults? saved;
 
@@ -108,15 +285,15 @@ void main() {
 
     await tester.tap(find.text('Open settings'));
     await tester.pumpAndSettle();
-    await tester.enterText(_customLabelField(), '3rd person');
-    await tester.enterText(_customPriceField(), '15');
     await tester.scrollUntilVisible(
-      _customEnabledSwitch(),
+      find.text('Add custom extra'),
       120,
       scrollable: find.byType(Scrollable).last,
     );
-    await tester.tap(_customEnabledSwitch());
+    await tester.tap(find.text('Add custom extra'));
     await tester.pumpAndSettle();
+    await _enterLastCustomExtra(tester, label: '4th person', price: '15');
+
     await tester.scrollUntilVisible(
       find.text('Save extras'),
       120,
@@ -126,20 +303,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(saved, isNotNull);
-    final custom = saved!.extraForKey(kVanQuoteExtraCustomKey);
-    expect(custom.resolvedLabel, '3rd person');
+    expect(saved!.customExtras, hasLength(1));
+    final custom = saved!.customExtras.single;
+    expect(custom.resolvedLabel, '4th person');
     expect(custom.defaultPrice, 15);
-    expect(custom.enabled, isFalse);
+    expect(custom.enabled, isTrue);
 
     await tester.tap(find.text('Open settings'));
     await tester.pumpAndSettle();
 
-    final fields = tester
-        .widgetList<TextField>(find.byType(TextField))
-        .toList();
-    expect(fields[10].controller?.text, '3rd person');
-    expect(fields[11].controller?.text, '15.00');
-    expect(tester.widget<Switch>(_customEnabledSwitch()).value, isFalse);
+    expect(_textFieldValues(tester), contains('4th person'));
+    expect(_textFieldValues(tester), contains('15.00'));
+
+    await tester.scrollUntilVisible(
+      find.byTooltip('Delete custom extra'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byTooltip('Delete custom extra'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Save extras'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Save extras'));
+    await tester.pumpAndSettle();
+
+    expect(saved!.customExtras, isEmpty);
   });
 
   group('VanQuoteExtraSelections', () {
@@ -191,20 +382,21 @@ void main() {
       expect(item.quoteExtraLabel, 'Mileage - 1.5 miles x £1.00/mile = £1.50');
     });
 
-    test('stores editable custom extra label and price', () {
-      final custom = VanQuoteExtraDefault.fallback(kVanQuoteExtraCustomKey);
-
-      final selected = VanQuoteExtraSelections.empty().applyCustom(
-        extra: custom,
-        label: 'Packing materials',
-        price: 12.5,
+    test('toggles saved custom extra label and price', () {
+      final custom = VanQuoteExtraDefault.custom(
+        key: 'custom_extra_4th_person',
+        label: '4th person',
+        defaultPrice: 15,
       );
 
-      final item = selected.selectionForKey(kVanQuoteExtraCustomKey);
+      final selected = VanQuoteExtraSelections.empty().toggleFixed(custom);
+
+      final item = selected.selectionForKey('custom_extra_4th_person');
       expect(item, isNotNull);
-      expect(item!.label, 'Packing materials');
-      expect(item.amount, 12.5);
-      expect(item.chipLabel, 'Packing materials £12.50');
+      expect(item!.label, '4th person');
+      expect(item.amount, 15);
+      expect(item.chipLabel, '4th person £15.00');
+      expect(selected.quoteExtras, contains('4th person - £15.00'));
     });
 
     test('updates a selected quantity extra without duplicate quote lines', () {
@@ -260,8 +452,20 @@ Future<void> pumpSettingsHost(
   );
 }
 
-Finder _customLabelField() => find.byType(TextField).at(10);
+Future<void> _enterLastCustomExtra(
+  WidgetTester tester, {
+  required String label,
+  required String price,
+}) async {
+  final fieldCount = find.byType(TextField).evaluate().length;
+  await tester.enterText(find.byType(TextField).at(fieldCount - 2), label);
+  await tester.enterText(find.byType(TextField).at(fieldCount - 1), price);
+  await tester.pumpAndSettle();
+}
 
-Finder _customPriceField() => find.byType(TextField).at(11);
-
-Finder _customEnabledSwitch() => find.byType(Switch).at(5);
+List<String> _textFieldValues(WidgetTester tester) {
+  return tester
+      .widgetList<TextField>(find.byType(TextField))
+      .map((field) => field.controller?.text ?? '')
+      .toList(growable: false);
+}

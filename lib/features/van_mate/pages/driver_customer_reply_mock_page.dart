@@ -18,6 +18,7 @@ import '../helpers/van_request_delete_key.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_exact_pin_source.dart';
 import '../models/van_business_profile.dart';
+import '../models/van_job_service.dart';
 import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
 import '../models/van_invoice_history_entry.dart';
@@ -29,6 +30,7 @@ import '../services/van_firebase_auth_service.dart';
 import '../services/van_firebase_debug_logging.dart';
 import '../services/van_business_profile_storage.dart';
 import '../services/van_job_request_cloud_service.dart';
+import '../services/van_job_services_storage.dart';
 import '../services/van_jobs_cloud_service.dart';
 import '../services/van_public_quote_cloud_service.dart';
 import '../services/van_quotes_cloud_service.dart';
@@ -10840,9 +10842,9 @@ class _DriverCustomerReplyPageState extends State<DriverCustomerReplyPage> {
                                 icon: const Icon(Icons.request_quote_outlined),
                                 label: const Text('View quote'),
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: Colors.white.withValues(
-                                    alpha: 0.12,
-                                  ),
+                                  backgroundColor: const Color(
+                                    0xFF4A7DFF,
+                                  ).withValues(alpha: 0.20),
                                   foregroundColor: Colors.white,
                                   minimumSize: const Size.fromHeight(54),
                                   shape: RoundedRectangleBorder(
@@ -10870,9 +10872,11 @@ class _DriverCustomerReplyPageState extends State<DriverCustomerReplyPage> {
                                 icon: const Icon(Icons.phone),
                                 label: const Text('Call customer'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
+                                  foregroundColor: const Color(0xFF4A7DFF),
                                   side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.22),
+                                    color: const Color(
+                                      0xFF4A7DFF,
+                                    ).withValues(alpha: 0.42),
                                   ),
                                   minimumSize: const Size.fromHeight(54),
                                   shape: RoundedRectangleBorder(
@@ -10886,9 +10890,11 @@ class _DriverCustomerReplyPageState extends State<DriverCustomerReplyPage> {
                                 icon: const Icon(Icons.sms_outlined),
                                 label: const Text('Text customer'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
+                                  foregroundColor: const Color(0xFF4A7DFF),
                                   side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.22),
+                                    color: const Color(
+                                      0xFF4A7DFF,
+                                    ).withValues(alpha: 0.42),
                                   ),
                                   minimumSize: const Size.fromHeight(54),
                                   shape: RoundedRectangleBorder(
@@ -11091,10 +11097,8 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   late final TextEditingController _descriptionController;
   late final TextEditingController _quoteNotesController;
   late final TextEditingController _paymentInstructionsController;
-  late final TextEditingController _extraItemController;
   late final TextEditingController _proposedAppointmentNoteController;
 
-  final List<String> _manualExtraItems = <String>[];
   VanQuoteExtraSelections _selectedQuoteExtras =
       VanQuoteExtraSelections.empty();
   DateTime? _proposedAppointmentDate;
@@ -11108,9 +11112,12 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   bool _saved = false;
   bool _sent = false;
   bool _customerRequestExpanded = false;
+  bool _messagePreviewExpanded = false;
   bool _openingSendChannel = false;
   bool _updatingAmountText = false;
   VanQuoteExtraDefaults _quoteExtraDefaults = VanQuoteExtraDefaults.defaults();
+  VanJobService? _selectedQuoteService;
+  String _activeQuoteExtraDefaultsScopeKey = '';
 
   DriverCustomerReplyMockData get reply =>
       resolveVanQuoteWorkflowReply(widget.reply);
@@ -11222,6 +11229,12 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     _isRevisingQuote = reply.isQuoteDeclined;
     WidgetsBinding.instance.addObserver(this);
     DriverReplyMockState.instance.addListener(_handleDriverStateChanged);
+    VanQuoteExtraDefaultsStorage.instance.addListener(
+      _handleQuoteExtraDefaultsChanged,
+    );
+    VanJobServicesStorage.instance.addListener(
+      _handleQuoteExtraDefaultsChanged,
+    );
     _saved = _deriveSavedQuoteFlag(reply);
     _sent = _deriveSentQuoteFlag(reply);
     _amountController = TextEditingController(
@@ -11240,12 +11253,6 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       text: reply.quotePaymentInstructions.trim().isNotEmpty
           ? reply.quotePaymentInstructions
           : kVanMatePaymentInstructionsFallback,
-    );
-    _extraItemController = TextEditingController();
-    _manualExtraItems.addAll(
-      reply.quoteExtras
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty),
     );
     _proposedAppointmentNoteController = TextEditingController(
       text: reply.proposedAppointmentNote,
@@ -11275,6 +11282,12 @@ class _CreateQuotePageState extends State<CreateQuotePage>
 
   @override
   void dispose() {
+    VanQuoteExtraDefaultsStorage.instance.removeListener(
+      _handleQuoteExtraDefaultsChanged,
+    );
+    VanJobServicesStorage.instance.removeListener(
+      _handleQuoteExtraDefaultsChanged,
+    );
     DriverReplyMockState.instance.removeListener(_handleDriverStateChanged);
     WidgetsBinding.instance.removeObserver(this);
     _amountController.removeListener(_enforceQuoteAmountEditingRules);
@@ -11285,7 +11298,6 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     _descriptionController.dispose();
     _quoteNotesController.dispose();
     _paymentInstructionsController.dispose();
-    _extraItemController.dispose();
     _proposedAppointmentNoteController.dispose();
     super.dispose();
   }
@@ -11299,6 +11311,10 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       _saved = _deriveSavedQuoteFlag(reply);
       _sent = _deriveSentQuoteFlag(reply);
     });
+  }
+
+  void _handleQuoteExtraDefaultsChanged() {
+    unawaited(_loadQuoteExtraDefaults(preferLocal: true));
   }
 
   bool _deriveSavedQuoteFlag(DriverCustomerReplyMockData value) {
@@ -11335,20 +11351,164 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     }
   }
 
-  Future<void> _loadQuoteExtraDefaults() async {
-    late final VanQuoteExtraDefaults defaults;
+  Future<VanQuoteExtraDefaults?> _loadQuoteExtraDefaultsFromStorage({
+    bool preferLocal = false,
+    String serviceKey = '',
+    String serviceName = '',
+  }) async {
     try {
-      defaults = await VanQuoteExtraDefaultsStorage.instance.load();
-    } catch (_) {
+      if (serviceKey.trim().isNotEmpty || serviceName.trim().isNotEmpty) {
+        return await VanQuoteExtraDefaultsStorage.instance.loadForService(
+          serviceKey: serviceKey,
+          serviceName: serviceName,
+          preferLocal: preferLocal,
+        );
+      }
+      return await VanQuoteExtraDefaultsStorage.instance.load(
+        preferLocal: preferLocal,
+      );
+    } catch (error) {
+      debugPrint('[QuoteExtras] load failed: $error');
+      return null;
+    }
+  }
+
+  Future<void> _loadQuoteExtraDefaults({bool preferLocal = false}) async {
+    final request = _requestRecord;
+    final selectedServiceId = request?.selectedServiceId.trim() ?? '';
+    final selectedServiceName = request?.selectedServiceName.trim() ?? '';
+    final selectedService = await _loadSelectedQuoteService();
+    if (selectedService != null) {
+      if (!mounted) {
+        return;
+      }
+      _applyLoadedQuoteExtraDefaults(
+        defaults: selectedService.quoteExtraDefaults,
+        selectedService: selectedService,
+        scopeKey: _quoteExtraDefaultsScopeKey(
+          serviceKey: selectedService.id,
+          serviceName: selectedService.name,
+        ),
+      );
+      return;
+    }
+
+    if (selectedServiceId.isNotEmpty || selectedServiceName.isNotEmpty) {
+      final defaults = await _loadQuoteExtraDefaultsFromStorage(
+        preferLocal: preferLocal,
+        serviceKey: selectedServiceId,
+        serviceName: selectedServiceName,
+      );
+      if (!mounted) {
+        return;
+      }
+      _applyLoadedQuoteExtraDefaults(
+        defaults:
+            defaults ??
+            VanQuoteExtraDefaults.starterForServiceName(selectedServiceName),
+        selectedService: null,
+        scopeKey: _quoteExtraDefaultsScopeKey(
+          serviceKey: selectedServiceId,
+          serviceName: selectedServiceName,
+        ),
+      );
+      return;
+    }
+
+    final defaults = await _loadQuoteExtraDefaultsFromStorage(
+      preferLocal: preferLocal,
+    );
+    if (defaults == null) {
       return;
     }
     if (!mounted) {
       return;
     }
 
+    _applyLoadedQuoteExtraDefaults(
+      defaults: defaults,
+      selectedService: null,
+      scopeKey: _quoteExtraDefaultsScopeKey(),
+    );
+  }
+
+  void _applyLoadedQuoteExtraDefaults({
+    required VanQuoteExtraDefaults defaults,
+    required VanJobService? selectedService,
+    required String scopeKey,
+  }) {
+    final scopeChanged = _activeQuoteExtraDefaultsScopeKey != scopeKey;
     setState(() {
+      _selectedQuoteService = selectedService;
       _quoteExtraDefaults = defaults;
+      _activeQuoteExtraDefaultsScopeKey = scopeKey;
+      if (scopeChanged) {
+        _selectedQuoteExtras = VanQuoteExtraSelections.empty();
+      }
     });
+  }
+
+  Future<VanJobService?> _loadSelectedQuoteService() async {
+    final request = _requestRecord;
+    final selectedServiceId = request?.selectedServiceId.trim() ?? '';
+    final selectedServiceName = request?.selectedServiceName.trim() ?? '';
+    if (selectedServiceId.isEmpty && selectedServiceName.isEmpty) {
+      return null;
+    }
+
+    try {
+      final services = await VanJobServicesStorage.instance.loadAll();
+      if (selectedServiceId.isNotEmpty) {
+        final match = services
+            .where((service) => service.id.trim() == selectedServiceId)
+            .firstOrNull;
+        if (match != null) {
+          return match;
+        }
+        return null;
+      }
+
+      final normalizedServiceName = _normalizeQuoteServiceName(
+        selectedServiceName,
+      );
+      if (normalizedServiceName.isEmpty) {
+        return null;
+      }
+      return services
+          .where(
+            (service) =>
+                _normalizeQuoteServiceName(service.name) ==
+                normalizedServiceName,
+          )
+          .firstOrNull;
+    } catch (error) {
+      debugPrint('[QuoteExtras] service lookup failed: $error');
+      return null;
+    }
+  }
+
+  String _normalizeQuoteServiceName(String value) {
+    return sanitizeVanText(
+      value,
+    ).trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  String _quoteExtraDefaultsScopeKey({
+    String serviceKey = '',
+    String serviceName = '',
+  }) {
+    final rawKey = serviceKey.trim().isNotEmpty
+        ? serviceKey.trim()
+        : serviceName.trim();
+    if (rawKey.isEmpty) {
+      return 'global';
+    }
+    final normalized = rawKey
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    return normalized.isEmpty ? 'global' : 'service:$normalized';
   }
 
   @override
@@ -11382,6 +11542,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     if (normalized.isEmpty) {
       _lastValidAmountInput = '';
       _setQuoteAmountInputError('');
+      _clearQuoteExtrasIfDisabled();
       return;
     }
 
@@ -11390,6 +11551,9 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       _setQuoteAmountInputError('');
       if (normalized != _amountController.text) {
         _replaceAmountText(normalized);
+      }
+      if (!_canUseQuoteExtras) {
+        _clearQuoteExtrasIfDisabled();
       }
       return;
     }
@@ -11402,6 +11566,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
           : 'Enter a valid quote amount.',
     );
     _replaceAmountText(_lastValidAmountInput);
+    _clearQuoteExtrasIfDisabled();
   }
 
   void _replaceAmountText(String value) {
@@ -11893,30 +12058,18 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     _showSnack('Quote message copied.');
   }
 
-  void _addExtraItem(String item) {
-    final cleaned = item.trim();
-    if (cleaned.isEmpty) {
-      return;
-    }
-
-    setState(() {
-      if (!_manualExtraItems.contains(cleaned)) {
-        _manualExtraItems.add(cleaned);
-      }
-    });
-    _extraItemController.clear();
-  }
-
   List<String> _quoteExtraItemsForPayload() {
-    return <String>[
-      ..._selectedQuoteExtras.quoteExtras,
-      ..._manualExtraItems
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty),
-    ];
+    if (!_canUseQuoteExtras) {
+      return const <String>[];
+    }
+    return _selectedQuoteExtras.quoteExtras;
   }
 
   Future<void> _handleQuickExtraTap(VanQuoteExtraDefault extra) async {
+    if (!_canUseQuoteExtras) {
+      return;
+    }
+
     if (isQuantityVanQuoteExtraKey(extra.key)) {
       await _openQuantityExtraEditor(extra);
       return;
@@ -11932,6 +12085,9 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   }
 
   void _applyQuoteExtraSelection(VanQuoteExtraSelections next) {
+    if (!_canUseQuoteExtras) {
+      return;
+    }
     final delta = next.total - _selectedQuoteExtras.total;
     setState(() {
       _selectedQuoteExtras = next;
@@ -12004,25 +12160,119 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   }
 
   Future<void> _openQuoteExtraSettings() async {
-    final updated = await showModalBottomSheet<VanQuoteExtraDefaults>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) =>
-          VanQuoteExtraDefaultsSheet(initialDefaults: _quoteExtraDefaults),
+    final quoteService = _selectedQuoteService;
+    final request = _requestRecord;
+    final selectedServiceKey =
+        request?.selectedServiceId.trim() ?? quoteService?.id.trim() ?? '';
+    final selectedServiceName =
+        request?.selectedServiceName.trim() ?? quoteService?.name.trim() ?? '';
+    final hasSelectedServiceScope =
+        selectedServiceKey.isNotEmpty || selectedServiceName.isNotEmpty;
+    final serviceTitle = selectedServiceName.isNotEmpty
+        ? selectedServiceName
+        : quoteService?.name.trim() ?? '';
+    final updated = await Navigator.of(context).push<VanQuoteExtraDefaults>(
+      PageRouteBuilder<VanQuoteExtraDefaults>(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.black54,
+        barrierLabel: 'Saved extras',
+        pageBuilder: (routeContext, animation, secondaryAnimation) {
+          return Material(
+            type: MaterialType.transparency,
+            child: FractionallySizedBox(
+              widthFactor: 1,
+              alignment: Alignment.bottomCenter,
+              child: VanQuoteExtraDefaultsSheet(
+                initialDefaults: _quoteExtraDefaults,
+                title: !hasSelectedServiceScope
+                    ? 'Saved extras'
+                    : '${serviceTitle.isEmpty ? 'Service' : serviceTitle} extras',
+                description: !hasSelectedServiceScope
+                    ? 'Set the quick extra labels and amounts used when building quotes.'
+                    : 'Set the quote extras shown for this service.',
+              ),
+            ),
+          );
+        },
+        transitionsBuilder:
+            (routeContext, animation, secondaryAnimation, child) {
+              final curved = CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              );
+              return FadeTransition(
+                opacity: curved,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.08),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: child,
+                ),
+              );
+            },
+      ),
     );
-    if (updated == null || !mounted) {
+    if (!mounted) {
       return;
     }
 
-    await VanQuoteExtraDefaultsStorage.instance.save(updated);
+    if (updated != null) {
+      if (hasSelectedServiceScope) {
+        final updatedService = quoteService?.copyWith(
+          quoteExtraDefaults: updated,
+          updatedAt: DateTime.now(),
+        );
+        if (quoteService != null) {
+          await VanJobServicesStorage.instance.upsert(updatedService!);
+        }
+        await VanQuoteExtraDefaultsStorage.instance.saveForService(
+          serviceKey: selectedServiceKey,
+          serviceName: selectedServiceName,
+          defaults: updated,
+        );
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _selectedQuoteService = updatedService;
+          _quoteExtraDefaults = updated;
+          _activeQuoteExtraDefaultsScopeKey = _quoteExtraDefaultsScopeKey(
+            serviceKey: selectedServiceKey,
+            serviceName: selectedServiceName,
+          );
+        });
+        _showSnack(
+          '${serviceTitle.isEmpty ? 'Service' : serviceTitle} extras updated.',
+        );
+        return;
+      }
+      await VanQuoteExtraDefaultsStorage.instance.save(updated);
+      if (!mounted) {
+        return;
+      }
+    }
+
+    final refreshed = await _loadQuoteExtraDefaultsFromStorage(
+      preferLocal: updated != null,
+      serviceKey: selectedServiceKey,
+      serviceName: selectedServiceName,
+    );
     if (!mounted) {
       return;
     }
     setState(() {
-      _quoteExtraDefaults = updated;
+      _quoteExtraDefaults = refreshed ?? updated ?? _quoteExtraDefaults;
+      _activeQuoteExtraDefaultsScopeKey = _quoteExtraDefaultsScopeKey(
+        serviceKey: selectedServiceKey,
+        serviceName: selectedServiceName,
+      );
     });
-    _showSnack('Saved extras updated.');
+    if (updated != null) {
+      _showSnack('Saved extras updated.');
+    }
   }
 
   String _amountValue() {
@@ -12030,6 +12280,19 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   }
 
   double _currentQuoteAmount() => parseCurrencyValue(_amountValue());
+
+  bool get _canUseQuoteExtras =>
+      _quoteAmountValidationMessage() == null && _currentQuoteAmount() > 0;
+
+  void _clearQuoteExtrasIfDisabled() {
+    if (_canUseQuoteExtras || _selectedQuoteExtras.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _selectedQuoteExtras = VanQuoteExtraSelections.empty();
+    });
+  }
 
   String? _quoteAmountValidationMessage({bool allowEmpty = false}) {
     return validateVanMateQuoteAmountInput(
@@ -12174,10 +12437,12 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     FocusNode? focusNode,
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged,
+    bool enabled = true,
   }) {
     return TextField(
       controller: controller,
       focusNode: focusNode,
+      enabled: enabled,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       maxLines: maxLines,
@@ -12238,6 +12503,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   Widget _buildQuickExtraChip(
     VanQuoteExtraDefault extra, {
     bool suggested = false,
+    bool enabled = true,
   }) {
     final selection = _selectedQuoteExtras.selectionForKey(extra.key);
     final selected = selection != null;
@@ -12255,7 +12521,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => unawaited(_handleQuickExtraTap(extra)),
+        onTap: enabled ? () => unawaited(_handleQuickExtraTap(extra)) : null,
         borderRadius: BorderRadius.circular(999),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 245),
@@ -12265,12 +12531,16 @@ class _CreateQuotePageState extends State<CreateQuotePage>
               borderRadius: BorderRadius.circular(999),
               color: selected
                   ? const Color(0xFF4A7DFF).withValues(alpha: 0.20)
+                  : !enabled
+                  ? Colors.white.withValues(alpha: 0.035)
                   : suggested
                   ? const Color(0xFF58D0A4).withValues(alpha: 0.14)
                   : Colors.white.withValues(alpha: 0.06),
               border: Border.all(
                 color: selected
                     ? const Color(0xFF4A7DFF).withValues(alpha: 0.36)
+                    : !enabled
+                    ? Colors.white.withValues(alpha: 0.07)
                     : suggested
                     ? const Color(0xFF58D0A4).withValues(alpha: 0.30)
                     : Colors.white.withValues(alpha: 0.10),
@@ -12282,11 +12552,13 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                 Icon(
                   selected
                       ? Icons.check_circle
+                      : !enabled
+                      ? Icons.add_circle_outline
                       : suggested
                       ? Icons.auto_awesome
                       : Icons.add_circle_outline,
                   size: 13,
-                  color: Colors.white,
+                  color: Colors.white.withValues(alpha: enabled ? 1 : 0.42),
                 ),
                 const SizedBox(width: 6),
                 Flexible(
@@ -12296,7 +12568,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                     softWrap: false,
                     style: TextStyle(
                       color: Colors.white.withValues(
-                        alpha: selected ? 0.98 : 0.90,
+                        alpha: enabled ? (selected ? 0.98 : 0.90) : 0.42,
                       ),
                       fontSize: 11.0,
                       fontWeight: FontWeight.w800,
@@ -12441,6 +12713,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
         ? _quoteAmountInputError
         : _quoteAmountValidationMessage(allowEmpty: true);
     final hasValidQuoteAmount = _hasValidQuoteAmount();
+    final quoteExtrasEnabled = _canUseQuoteExtras;
     final showHighQuoteWarning = _showsHighQuoteAmountWarning();
     final customQuestionSummary = _currentJobCustomQuestionSummary();
     final request = _requestRecord;
@@ -12745,7 +13018,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                               ),
                               child: _buildField(
                                 controller: _amountController,
-                                label: 'Quote amount',
+                                label: 'Total quote',
                                 hint: '0.00',
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
@@ -12871,59 +13144,16 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                               ],
                             ),
                             const SizedBox(height: 10),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final stacked = constraints.maxWidth < 460;
-                                final addButton = SizedBox(
-                                  height: 54,
-                                  width: stacked ? double.infinity : 96,
-                                  child: FilledButton(
-                                    onPressed: () => _addExtraItem(
-                                      _extraItemController.text,
-                                    ),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF4A7DFF),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(18),
-                                      ),
-                                    ),
-                                    child: const Text('Add'),
-                                  ),
-                                );
-
-                                if (stacked) {
-                                  return Column(
-                                    children: [
-                                      _buildField(
-                                        controller: _extraItemController,
-                                        label: 'Add extra line item',
-                                        hint: 'Waiting time',
-                                        maxLines: 1,
-                                      ),
-                                      const SizedBox(height: 10),
-                                      addButton,
-                                    ],
-                                  );
-                                }
-
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildField(
-                                        controller: _extraItemController,
-                                        label: 'Add extra line item',
-                                        hint: 'Waiting time',
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    addButton,
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 10),
+                            if (!quoteExtrasEnabled) ...[
+                              Text(
+                                'Enter a quote amount before adding extras.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.58),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -12935,6 +13165,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                     suggested: _suggestedExtraKeys.contains(
                                       extra.key,
                                     ),
+                                    enabled: quoteExtrasEnabled,
                                   ),
                               ],
                             ),
@@ -12946,132 +13177,171 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: _ReplySectionHeader(
-                                    icon: Icons.preview,
-                                    title: 'Message preview',
-                                  ),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                setState(() {
+                                  _messagePreviewExpanded =
+                                      !_messagePreviewExpanded;
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
                                 ),
-                                if (parseCurrencyValue(_amountController.text) >
-                                    0)
-                                  PopupMenuButton<String>(
-                                    tooltip: 'More quote actions',
-                                    icon: const Icon(
-                                      Icons.more_vert,
-                                      color: Colors.white,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.preview,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.92,
+                                      ),
                                     ),
-                                    color: const Color(0xFF142031),
-                                    onSelected: (value) {
-                                      switch (value) {
-                                        case 'copy_message':
-                                          _copyMessage();
-                                          break;
-                                        case 'share_message':
-                                          unawaited(
-                                            _shareQuoteMessage(
-                                              _quotePreviewText(),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Message preview',
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.94,
+                                              ),
+                                              fontWeight: FontWeight.w900,
                                             ),
-                                          );
-                                          break;
-                                        case 'copy_link':
-                                          _copyQuoteLink();
-                                          break;
-                                      }
-                                    },
-                                    itemBuilder: (context) => const [
-                                      PopupMenuItem<String>(
-                                        value: 'copy_message',
-                                        child: Text('Copy quote message'),
                                       ),
-                                      PopupMenuItem<String>(
-                                        value: 'share_message',
-                                        child: Text('Share quote message'),
+                                    ),
+                                    if (parseCurrencyValue(
+                                          _amountController.text,
+                                        ) >
+                                        0)
+                                      PopupMenuButton<String>(
+                                        tooltip: 'More quote actions',
+                                        icon: const Icon(
+                                          Icons.more_vert,
+                                          color: Colors.white,
+                                        ),
+                                        color: const Color(0xFF142031),
+                                        onSelected: (value) {
+                                          switch (value) {
+                                            case 'copy_message':
+                                              _copyMessage();
+                                              break;
+                                            case 'share_message':
+                                              unawaited(
+                                                _shareQuoteMessage(
+                                                  _quotePreviewText(),
+                                                ),
+                                              );
+                                              break;
+                                            case 'copy_link':
+                                              _copyQuoteLink();
+                                              break;
+                                          }
+                                        },
+                                        itemBuilder: (context) => const [
+                                          PopupMenuItem<String>(
+                                            value: 'copy_message',
+                                            child: Text('Copy quote message'),
+                                          ),
+                                          PopupMenuItem<String>(
+                                            value: 'share_message',
+                                            child: Text('Share quote message'),
+                                          ),
+                                          PopupMenuItem<String>(
+                                            value: 'copy_link',
+                                            child: Text('Copy quote link'),
+                                          ),
+                                        ],
                                       ),
-                                      PopupMenuItem<String>(
-                                        value: 'copy_link',
-                                        child: Text('Copy quote link'),
+                                    Icon(
+                                      _messagePreviewExpanded
+                                          ? Icons.expand_less
+                                          : Icons.expand_more,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.88,
                                       ),
-                                    ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (_messagePreviewExpanded) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(18),
+                                  color: Colors.black.withValues(alpha: 0.14),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.10),
                                   ),
+                                ),
+                                child: Text(
+                                  _quotePreviewDisplayText(previewText),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.82),
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ),
+                              if (hasValidQuoteAmount) ...[
+                                const SizedBox(height: 12),
+                                _buildQuoteChip(
+                                  'Quote response link ready',
+                                  color: const Color(0xFF4A7DFF),
+                                  icon: Icons.link,
+                                ),
                               ],
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: Colors.black.withValues(alpha: 0.14),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.10),
+                              if (actionState.canViewQuote &&
+                                  (awaitingCustomerResponse ||
+                                      quoteAccepted ||
+                                      quoteDeclined)) ...[
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    if (awaitingCustomerResponse &&
+                                        _isRevisingQuote)
+                                      _buildQuoteChip(
+                                        'Revised quote sent',
+                                        color: const Color(0xFF58D0A4),
+                                        icon: Icons.refresh_rounded,
+                                        filled: true,
+                                      ),
+                                    if (awaitingCustomerResponse)
+                                      _buildQuoteChip(
+                                        'Awaiting customer response',
+                                        color: const Color(0xFF4A7DFF),
+                                        icon: Icons.hourglass_bottom,
+                                        filled: true,
+                                      ),
+                                    if (quoteAccepted)
+                                      _buildQuoteChip(
+                                        'Quote accepted',
+                                        color: const Color(0xFF58D0A4),
+                                        icon: Icons.check_circle,
+                                        filled: true,
+                                      ),
+                                    if (quoteDeclined)
+                                      _buildQuoteChip(
+                                        'Quote declined',
+                                        color: const Color(0xFFFF6E6E),
+                                        icon: Icons.cancel,
+                                        filled: true,
+                                      ),
+                                  ],
                                 ),
-                              ),
-                              child: Text(
-                                _quotePreviewDisplayText(previewText),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.82),
-                                  height: 1.45,
+                              ] else if (_saved) ...[
+                                const SizedBox(height: 12),
+                                _buildQuoteChip(
+                                  'Quote saved',
+                                  color: const Color(0xFF58D0A4),
+                                  icon: Icons.check_circle,
+                                  filled: true,
                                 ),
-                              ),
-                            ),
-                            if (hasValidQuoteAmount) ...[
-                              const SizedBox(height: 12),
-                              _buildQuoteChip(
-                                'Quote response link ready',
-                                color: const Color(0xFF4A7DFF),
-                                icon: Icons.link,
-                              ),
-                            ],
-                            if (actionState.canViewQuote &&
-                                (awaitingCustomerResponse ||
-                                    quoteAccepted ||
-                                    quoteDeclined)) ...[
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  if (awaitingCustomerResponse &&
-                                      _isRevisingQuote)
-                                    _buildQuoteChip(
-                                      'Revised quote sent',
-                                      color: const Color(0xFF58D0A4),
-                                      icon: Icons.refresh_rounded,
-                                      filled: true,
-                                    ),
-                                  if (awaitingCustomerResponse)
-                                    _buildQuoteChip(
-                                      'Awaiting customer response',
-                                      color: const Color(0xFF4A7DFF),
-                                      icon: Icons.hourglass_bottom,
-                                      filled: true,
-                                    ),
-                                  if (quoteAccepted)
-                                    _buildQuoteChip(
-                                      'Quote accepted',
-                                      color: const Color(0xFF58D0A4),
-                                      icon: Icons.check_circle,
-                                      filled: true,
-                                    ),
-                                  if (quoteDeclined)
-                                    _buildQuoteChip(
-                                      'Quote declined',
-                                      color: const Color(0xFFFF6E6E),
-                                      icon: Icons.cancel,
-                                      filled: true,
-                                    ),
-                                ],
-                              ),
-                            ] else if (_saved) ...[
-                              const SizedBox(height: 12),
-                              _buildQuoteChip(
-                                'Quote saved',
-                                color: const Color(0xFF58D0A4),
-                                icon: Icons.check_circle,
-                                filled: true,
-                              ),
+                              ],
                             ],
                           ],
                         ),
@@ -13162,6 +13432,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                 onPressed: () => unawaited(_openQuoteLink()),
                                 icon: Icons.open_in_new,
                                 label: 'View quote',
+                                color: const Color(0xFF4A7DFF),
                               ),
                             if (canAddAcceptedQuoteToCalendar)
                               filledAction(

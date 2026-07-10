@@ -106,6 +106,9 @@ String? canonicalizeVanInvoiceExtraKey(String value) {
   if (_containsAny(normalized, _waitingTimeKeywords)) {
     return 'waiting_time';
   }
+  if (_containsAny(normalized, _thirdPersonKeywords)) {
+    return 'third_person';
+  }
   if (_containsAny(normalized, _stairsKeywords)) {
     return 'stairs';
   }
@@ -136,6 +139,11 @@ const List<String> _helperKeywords = <String>[
 ];
 
 const List<String> _waitingTimeKeywords = <String>['waiting time'];
+
+const List<String> _thirdPersonKeywords = <String>[
+  '3rd person',
+  'third person',
+];
 
 const List<String> _stairsKeywords = <String>[
   'stairs',
