@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.dart';
+import 'package:van_mate_app/features/van_mate/models/van_service_template.dart';
 import 'package:van_mate_app/features/van_mate/services/van_quote_extra_defaults_storage.dart';
 import 'package:van_mate_app/features/van_mate/widgets/van_quote_extra_defaults_sheet.dart';
 
@@ -163,6 +164,117 @@ void main() {
         containsAll(<String>['Oven clean', 'Deep clean', 'Extra room']),
       );
     });
+
+    test('template services contain only their declared extras', () {
+      final bakery = findVanServiceTemplateById('bakery')!.quoteExtraDefaults();
+      final courier = findVanServiceTemplateById(
+        'courier',
+      )!.quoteExtraDefaults();
+
+      expect(bakery.orderedExtras.map((extra) => extra.resolvedLabel), <String>[
+        'Delivery',
+        'Rush order',
+        'Gift box',
+      ]);
+      expect(
+        courier.orderedExtras.map((extra) => extra.resolvedLabel),
+        <String>['Waiting time', 'Urgent delivery', 'Signature required'],
+      );
+      expect(
+        bakery.orderedExtras.map((extra) => extra.key),
+        isNot(contains(kVanQuoteExtraHelperKey)),
+      );
+    });
+
+    test('custom service starts with no extras', () {
+      final custom = VanQuoteExtraDefaults.starterForServiceName(
+        'My bespoke service',
+      );
+      expect(custom.orderedExtras, isEmpty);
+      expect(custom.customExtras, isEmpty);
+    });
+
+    test(
+      'legacy automatic generic seeds are removed without label matching',
+      () {
+        final legacy = <String, dynamic>{
+          'extras': <String, dynamic>{
+            for (final key in kVanQuoteExtraDefaultOrder)
+              key: VanQuoteExtraDefault.fallback(
+                key,
+              ).copyWith(enabled: false).toJson(),
+          },
+          'customExtras': <Map<String, dynamic>>[
+            VanQuoteExtraDefault.custom(
+              key: 'custom_extra_user_helper',
+              label: 'Extra helper',
+              defaultPrice: 45,
+            ).toJson(),
+          ],
+        };
+
+        final migrated = VanQuoteExtraDefaults.fromJson(
+          legacy,
+          legacyIncludedBuiltInKeys: const <String>{},
+        );
+
+        expect(migrated.includedBuiltInKeys, isEmpty);
+        expect(migrated.orderedExtras, hasLength(1));
+        expect(migrated.orderedExtras.single.key, 'custom_extra_user_helper');
+        expect(migrated.orderedExtras.single.resolvedLabel, 'Extra helper');
+      },
+    );
+
+    test('legacy edited built-in survives service migration', () {
+      final legacy = VanQuoteExtraDefaults.defaults().toJson();
+      final extras = Map<String, dynamic>.from(legacy['extras']! as Map);
+      extras[kVanQuoteExtraHelperKey] = VanQuoteExtraDefault.fallback(
+        kVanQuoteExtraHelperKey,
+      ).copyWith(label: 'Two-person lift', defaultPrice: 35).toJson();
+      legacy
+        ..remove('includedBuiltInKeys')
+        ..['extras'] = extras;
+
+      final migrated = VanQuoteExtraDefaults.fromJson(
+        legacy,
+        legacyIncludedBuiltInKeys: const <String>{},
+      );
+
+      expect(migrated.orderedExtras, hasLength(1));
+      expect(migrated.orderedExtras.single.resolvedLabel, 'Two-person lift');
+    });
+
+    test(
+      'reset restores template extras and retains service custom extras',
+      () {
+        final gardening = findVanServiceTemplateById(
+          'gardening',
+        )!.quoteExtraDefaults();
+        final edited = gardening.copyWithCustomExtras(<VanQuoteExtraDefault>[
+          VanQuoteExtraDefault.custom(
+            key: 'custom_extra_soil_disposal',
+            label: 'Soil disposal',
+            defaultPrice: 20,
+          ),
+        ]);
+
+        final reset = edited.resetToStarter(gardening);
+
+        expect(
+          reset.orderedExtras.map((extra) => extra.resolvedLabel),
+          <String>[
+            'Green waste removal',
+            'Extra labour',
+            'Materials',
+            'Soil disposal',
+          ],
+        );
+        expect(
+          reset.orderedExtras.map((extra) => extra.resolvedLabel),
+          isNot(contains('Extra helper')),
+        );
+      },
+    );
 
     test('job services keep their own quote extras', () {
       final now = DateTime(2026, 7, 10);

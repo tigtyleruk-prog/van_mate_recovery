@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'van_business_profile_scope_storage.dart';
+
 class VanDriverMockStateStorage {
   VanDriverMockStateStorage._();
 
@@ -30,7 +32,9 @@ class VanDriverMockStateStorage {
 
   Future<Map<String, dynamic>?> loadJson() async {
     await ensureLoaded();
-    final raw = _preferences?.getString(_stateKey);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_stateKey);
+    final raw = _preferences?.getString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return null;
     }
@@ -47,12 +51,19 @@ class VanDriverMockStateStorage {
 
   Future<void> saveJson(Map<String, dynamic> state) async {
     await ensureLoaded();
-    await _preferences?.setString(_stateKey, jsonEncode(_jsonSafeValue(state)));
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_stateKey);
+    await _preferences?.setString(
+      storageKey,
+      jsonEncode(_jsonSafeValue(state)),
+    );
   }
 
   Future<void> clear() async {
     await ensureLoaded();
-    await _preferences?.remove(_stateKey);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_stateKey);
+    await _preferences?.remove(storageKey);
   }
 }
 

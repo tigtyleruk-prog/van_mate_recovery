@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/van_expense_entry.dart';
+import 'van_business_profile_scope_storage.dart';
 
 class VanExpensesStorage extends ChangeNotifier {
   VanExpensesStorage._();
@@ -31,7 +32,9 @@ class VanExpensesStorage extends ChangeNotifier {
 
   Future<List<VanExpenseEntry>> loadAll() async {
     await ensureLoaded();
-    final raw = _preferences?.getString(_expensesKey);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_expensesKey);
+    final raw = _preferences?.getString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return const <VanExpenseEntry>[];
     }
@@ -52,10 +55,12 @@ class VanExpensesStorage extends ChangeNotifier {
 
   Future<void> saveAll(List<VanExpenseEntry> expenses) async {
     await ensureLoaded();
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_expensesKey);
     final sorted = List<VanExpenseEntry>.from(expenses)
       ..sort(_compareNewestFirst);
     await _preferences?.setString(
-      _expensesKey,
+      storageKey,
       jsonEncode(sorted.map((item) => item.toJson()).toList(growable: false)),
     );
     notifyListeners();
@@ -80,7 +85,9 @@ class VanExpensesStorage extends ChangeNotifier {
 
   Future<void> clear() async {
     await ensureLoaded();
-    await _preferences?.remove(_expensesKey);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_expensesKey);
+    await _preferences?.remove(storageKey);
     notifyListeners();
   }
 

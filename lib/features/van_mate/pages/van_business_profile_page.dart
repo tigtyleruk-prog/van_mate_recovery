@@ -47,26 +47,12 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
       TextEditingController();
   final TextEditingController _paymentNotesController = TextEditingController();
   final TextEditingController _vatNumberController = TextEditingController();
-  final TextEditingController _defaultInvoiceNotesController =
-      TextEditingController();
-  final TextEditingController _defaultPaymentTermsController =
-      TextEditingController();
-  final TextEditingController _thankYouMessageController =
-      TextEditingController();
-  final TextEditingController _defaultExtraHelperAmountController =
-      TextEditingController();
-  final TextEditingController _defaultStairsAccessAmountController =
-      TextEditingController();
-  final TextEditingController _defaultWaitingTimeAmountController =
-      TextEditingController();
-  final TextEditingController _defaultCollectionDeliveryAmountController =
-      TextEditingController();
-  final TextEditingController _defaultMileageRateController =
-      TextEditingController();
 
   bool _vatRegistered = false;
   bool _isLoading = true;
   bool _isSaving = false;
+  VanBusinessProfileSettings _loadedSettings =
+      const VanBusinessProfileSettings.defaults();
   String? _logoPath;
   String? _logoUrl;
   String? _logoStoragePath;
@@ -97,14 +83,6 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
     _accountNumberController.dispose();
     _paymentNotesController.dispose();
     _vatNumberController.dispose();
-    _defaultInvoiceNotesController.dispose();
-    _defaultPaymentTermsController.dispose();
-    _thankYouMessageController.dispose();
-    _defaultExtraHelperAmountController.dispose();
-    _defaultStairsAccessAmountController.dispose();
-    _defaultWaitingTimeAmountController.dispose();
-    _defaultCollectionDeliveryAmountController.dispose();
-    _defaultMileageRateController.dispose();
     super.dispose();
   }
 
@@ -136,6 +114,7 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
     String? logoStoragePath,
   }) {
     setState(() {
+      _loadedSettings = profile;
       _businessNameController.text = profile.businessName;
       _ownerNameController.text = profile.ownerName;
       _businessTypeController.text = profile.businessType;
@@ -153,24 +132,6 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
       _paymentNotesController.text = profile.paymentNotes;
       _vatRegistered = profile.vatRegistered;
       _vatNumberController.text = profile.vatNumber;
-      _defaultInvoiceNotesController.text = profile.defaultInvoiceNotes;
-      _defaultPaymentTermsController.text = profile.defaultPaymentTerms;
-      _thankYouMessageController.text = profile.thankYouMessage;
-      _defaultExtraHelperAmountController.text = _formatMoneyInput(
-        profile.defaultExtraHelperAmount,
-      );
-      _defaultStairsAccessAmountController.text = _formatMoneyInput(
-        profile.defaultStairsAccessAmount,
-      );
-      _defaultWaitingTimeAmountController.text = _formatMoneyInput(
-        profile.defaultWaitingTimeAmount,
-      );
-      _defaultCollectionDeliveryAmountController.text = _formatMoneyInput(
-        profile.defaultCollectionDeliveryAmount,
-      );
-      _defaultMileageRateController.text = _formatMoneyInput(
-        profile.defaultMileageRate,
-      );
       _logoPath = profile.logoPath;
       _logoUrl = resolveSavedVanBusinessLogoUrl(logoUrl);
       _logoStoragePath = _normalizeCloudStoragePath(logoStoragePath);
@@ -245,22 +206,17 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
       paymentNotes: _paymentNotesController.text.trim(),
       vatRegistered: _vatRegistered,
       vatNumber: _vatNumberController.text.trim(),
-      defaultInvoiceNotes: _defaultInvoiceNotesController.text.trim(),
-      defaultPaymentTerms: _defaultPaymentTermsController.text.trim(),
-      thankYouMessage: _thankYouMessageController.text.trim(),
-      defaultExtraHelperAmount: _parseMoneyInput(
-        _defaultExtraHelperAmountController.text,
-      ),
-      defaultStairsAccessAmount: _parseMoneyInput(
-        _defaultStairsAccessAmountController.text,
-      ),
-      defaultWaitingTimeAmount: _parseMoneyInput(
-        _defaultWaitingTimeAmountController.text,
-      ),
-      defaultCollectionDeliveryAmount: _parseMoneyInput(
-        _defaultCollectionDeliveryAmountController.text,
-      ),
-      defaultMileageRate: _parseMoneyInput(_defaultMileageRateController.text),
+      // Preserve hidden legacy values until a dedicated Invoice Settings page
+      // owns their editing and migration.
+      defaultInvoiceNotes: _loadedSettings.defaultInvoiceNotes,
+      defaultPaymentTerms: _loadedSettings.defaultPaymentTerms,
+      thankYouMessage: _loadedSettings.thankYouMessage,
+      defaultExtraHelperAmount: _loadedSettings.defaultExtraHelperAmount,
+      defaultStairsAccessAmount: _loadedSettings.defaultStairsAccessAmount,
+      defaultWaitingTimeAmount: _loadedSettings.defaultWaitingTimeAmount,
+      defaultCollectionDeliveryAmount:
+          _loadedSettings.defaultCollectionDeliveryAmount,
+      defaultMileageRate: _loadedSettings.defaultMileageRate,
       logoPath: resolveSavedVanBusinessLogoPath(_logoPath),
     );
 
@@ -375,6 +331,7 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
       _logoUrl = resolvedLogoUrl;
       _logoStoragePath = resolvedLogoStoragePath;
       _selectedLogoUpload = null;
+      _loadedSettings = profile;
       if (!mounted) {
         return;
       }
@@ -437,21 +394,6 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  double _parseMoneyInput(String value) {
-    final cleaned = value.replaceAll(RegExp(r'[^0-9.\-]'), '').trim();
-    if (cleaned.isEmpty || cleaned == '.' || cleaned == '-') {
-      return 0;
-    }
-    return double.tryParse(cleaned) ?? 0;
-  }
-
-  String _formatMoneyInput(double value) {
-    if (value <= 0) {
-      return '';
-    }
-    return value.toStringAsFixed(2);
-  }
-
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
@@ -495,37 +437,10 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                       bottomInset + keyboardInset + 24,
                     ),
                     children: [
-                      _GlassCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Business Profile',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                                height: 1.0,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Your business details used across quotes, invoices and reports.',
-                              style: TextStyle(
-                                fontSize: 13.2,
-                                height: 1.45,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white.withValues(alpha: 0.76),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
                       _SectionCard(
                         title: 'Business Details',
-                        subtitle: 'How your business appears on documents.',
+                        subtitle:
+                            'Your business identity and contact information.',
                         child: _ResponsiveFields(
                           children: [
                             _ProfileField(
@@ -567,7 +482,7 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                       const SizedBox(height: 12),
                       _SectionCard(
                         title: 'Address Details',
-                        subtitle: 'Used on invoices and business paperwork.',
+                        subtitle: 'Used on quotes, invoices and your profile.',
                         child: _ResponsiveFields(
                           children: [
                             _ProfileField(
@@ -604,23 +519,47 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                               controller: _bankNameController,
                               label: 'Bank name',
                               hint: 'Your bank',
+                              autofillHints: null,
+                              enableSuggestions: false,
+                              autocorrect: false,
+                              enableIMEPersonalizedLearning: false,
+                              smartDashesType: SmartDashesType.disabled,
+                              smartQuotesType: SmartQuotesType.disabled,
                             ),
                             _ProfileField(
                               controller: _accountNameController,
-                              label: 'Account name',
+                              label: 'Account holder name',
                               hint: 'Account holder name',
+                              autofillHints: null,
+                              enableSuggestions: false,
+                              autocorrect: false,
+                              enableIMEPersonalizedLearning: false,
+                              smartDashesType: SmartDashesType.disabled,
+                              smartQuotesType: SmartQuotesType.disabled,
                             ),
                             _ProfileField(
                               controller: _sortCodeController,
                               label: 'Sort code',
                               hint: '12-34-56',
-                              keyboardType: TextInputType.number,
+                              keyboardType: TextInputType.text,
+                              autofillHints: null,
+                              enableSuggestions: false,
+                              autocorrect: false,
+                              enableIMEPersonalizedLearning: false,
+                              smartDashesType: SmartDashesType.disabled,
+                              smartQuotesType: SmartQuotesType.disabled,
                             ),
                             _ProfileField(
                               controller: _accountNumberController,
-                              label: 'Account number',
+                              label: 'Bank account number',
                               hint: '12345678',
                               keyboardType: TextInputType.number,
+                              autofillHints: null,
+                              enableSuggestions: false,
+                              autocorrect: false,
+                              enableIMEPersonalizedLearning: false,
+                              smartDashesType: SmartDashesType.disabled,
+                              smartQuotesType: SmartQuotesType.disabled,
                             ),
                             _ProfileField(
                               controller: _paymentNotesController,
@@ -628,6 +567,12 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                               hint: 'Bank transfer, due on receipt, etc.',
                               maxLines: 3,
                               keyboardType: TextInputType.multiline,
+                              autofillHints: null,
+                              enableSuggestions: false,
+                              autocorrect: false,
+                              enableIMEPersonalizedLearning: false,
+                              smartDashesType: SmartDashesType.disabled,
+                              smartQuotesType: SmartQuotesType.disabled,
                             ),
                           ],
                         ),
@@ -635,7 +580,7 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                       const SizedBox(height: 12),
                       _SectionCard(
                         title: 'Tax Details',
-                        subtitle: 'VAT status for future documents.',
+                        subtitle: 'VAT details used on quotes and invoices.',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -685,6 +630,7 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                                 controller: _vatNumberController,
                                 label: 'VAT number',
                                 hint: 'GB123456789',
+                                isFinalField: true,
                               ),
                             ],
                           ],
@@ -692,90 +638,9 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                       ),
                       const SizedBox(height: 12),
                       _SectionCard(
-                        title: 'Invoice Defaults',
-                        subtitle:
-                            'Reusable text and quick-extra charges for future invoices.',
-                        child: _ResponsiveFields(
-                          children: [
-                            _ProfileField(
-                              controller: _defaultInvoiceNotesController,
-                              label: 'Default invoice notes',
-                              hint: 'Extra notes to show on invoices',
-                              maxLines: 3,
-                              keyboardType: TextInputType.multiline,
-                            ),
-                            _ProfileField(
-                              controller: _defaultPaymentTermsController,
-                              label: 'Default payment terms',
-                              hint: 'Due on receipt, 14 days, etc.',
-                              maxLines: 3,
-                              keyboardType: TextInputType.multiline,
-                            ),
-                            _ProfileField(
-                              controller: _thankYouMessageController,
-                              label: 'Thank you message',
-                              hint: 'Thanks for your business',
-                              maxLines: 3,
-                              keyboardType: TextInputType.multiline,
-                            ),
-                            _ProfileField(
-                              controller: _defaultExtraHelperAmountController,
-                              label: 'Extra helper default amount',
-                              hint: '20.00',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              prefixText: '£',
-                            ),
-                            _ProfileField(
-                              controller: _defaultStairsAccessAmountController,
-                              label: 'Stairs/access default amount',
-                              hint: '10.00',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              prefixText: '£',
-                            ),
-                            _ProfileField(
-                              controller: _defaultWaitingTimeAmountController,
-                              label: 'Waiting time default amount',
-                              hint: '15.00',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              prefixText: '£',
-                            ),
-                            _ProfileField(
-                              controller:
-                                  _defaultCollectionDeliveryAmountController,
-                              label: 'Collection/delivery default amount',
-                              hint: '10.00',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              prefixText: '£',
-                            ),
-                            _ProfileField(
-                              controller: _defaultMileageRateController,
-                              label: 'Mileage default rate',
-                              hint: '1.50',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              prefixText: '£',
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _SectionCard(
                         title: 'Business Logo',
-                        subtitle: 'Add a logo for invoices and reports later.',
+                        subtitle:
+                            'Used across your profile, invoices and Booking Link.',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -980,7 +845,13 @@ class _ProfileField extends StatelessWidget {
   final int maxLines;
   final TextInputType keyboardType;
   final TextCapitalization textCapitalization;
-  final String? prefixText;
+  final bool isFinalField;
+  final Iterable<String>? autofillHints;
+  final bool enableSuggestions;
+  final bool autocorrect;
+  final bool enableIMEPersonalizedLearning;
+  final SmartDashesType smartDashesType;
+  final SmartQuotesType smartQuotesType;
 
   const _ProfileField({
     required this.controller,
@@ -989,30 +860,52 @@ class _ProfileField extends StatelessWidget {
     this.maxLines = 1,
     this.keyboardType = TextInputType.text,
     this.textCapitalization = TextCapitalization.none,
-    this.prefixText,
+    this.isFinalField = false,
+    this.autofillHints,
+    this.enableSuggestions = true,
+    this.autocorrect = true,
+    this.enableIMEPersonalizedLearning = true,
+    this.smartDashesType = SmartDashesType.enabled,
+    this.smartQuotesType = SmartQuotesType.enabled,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      textCapitalization: textCapitalization,
-      textInputAction: maxLines > 1
-          ? TextInputAction.newline
-          : TextInputAction.next,
-      onSubmitted: maxLines > 1
-          ? null
-          : (_) => FocusScope.of(context).nextFocus(),
-      scrollPadding: const EdgeInsets.only(bottom: 120),
-      style: kVanMateFieldTextStyle,
-      decoration: vanMateFieldDecoration(
-        label: label,
-        hintText: hint,
-        labelOpacity: 0.68,
-        hintOpacity: 0.48,
-        prefixText: prefixText,
+    return RepaintBoundary(
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
+        textCapitalization: textCapitalization,
+        textInputAction: maxLines > 1
+            ? TextInputAction.newline
+            : isFinalField
+            ? TextInputAction.done
+            : TextInputAction.next,
+        onSubmitted: maxLines > 1
+            ? null
+            : (_) {
+                if (isFinalField) {
+                  FocusScope.of(context).unfocus();
+                } else {
+                  FocusScope.of(context).nextFocus();
+                }
+              },
+        scrollPadding: const EdgeInsets.only(bottom: 120),
+        autofillHints: autofillHints,
+        obscureText: false,
+        enableSuggestions: enableSuggestions,
+        autocorrect: autocorrect,
+        enableIMEPersonalizedLearning: enableIMEPersonalizedLearning,
+        smartDashesType: smartDashesType,
+        smartQuotesType: smartQuotesType,
+        style: kVanMateFieldTextStyle,
+        decoration: vanMateFieldDecoration(
+          label: label,
+          hintText: hint,
+          labelOpacity: 0.68,
+          hintOpacity: 0.48,
+        ),
       ),
     );
   }

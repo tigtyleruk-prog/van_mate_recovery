@@ -24,6 +24,7 @@ import '../models/van_job_request_record.dart';
 import '../models/van_invoice_history_entry.dart';
 import '../models/van_invoice_draft.dart';
 import '../models/van_quote_extra_defaults.dart';
+import '../models/van_service_template.dart';
 import '../services/van_driver_mock_state_storage.dart';
 import '../services/van_deleted_requests_store.dart';
 import '../services/van_firebase_auth_service.dart';
@@ -12185,6 +12186,13 @@ class _CreateQuotePageState extends State<CreateQuotePage>
               alignment: Alignment.bottomCenter,
               child: VanQuoteExtraDefaultsSheet(
                 initialDefaults: _quoteExtraDefaults,
+                resetDefaults: hasSelectedServiceScope
+                    ? findVanServiceTemplateForService(
+                            serviceId: selectedServiceKey,
+                            serviceName: selectedServiceName,
+                          )?.quoteExtraDefaults() ??
+                          VanQuoteExtraDefaults.empty()
+                    : null,
                 title: !hasSelectedServiceScope
                     ? 'Saved extras'
                     : '${serviceTitle.isEmpty ? 'Service' : serviceTitle} extras',

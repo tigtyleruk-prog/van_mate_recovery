@@ -1,4 +1,5 @@
 import 'van_quote_extra_defaults.dart';
+import 'van_service_template.dart';
 
 class VanJobService {
   const VanJobService({
@@ -10,6 +11,7 @@ class VanJobService {
     required this.requireAddress,
     required this.requestExactPinAfterQuoteAccepted,
     required this.linkedQuestionIds,
+    this.disabledLinkedQuestionIds = const <String>[],
     required this.quoteExtraDefaults,
     required this.createdAt,
     required this.updatedAt,
@@ -24,6 +26,7 @@ class VanJobService {
   final bool requireAddress;
   final bool requestExactPinAfterQuoteAccepted;
   final List<String> linkedQuestionIds;
+  final List<String> disabledLinkedQuestionIds;
   final VanQuoteExtraDefaults quoteExtraDefaults;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -42,6 +45,7 @@ class VanJobService {
     bool? requireAddress,
     bool? requestExactPinAfterQuoteAccepted,
     List<String>? linkedQuestionIds,
+    List<String>? disabledLinkedQuestionIds,
     VanQuoteExtraDefaults? quoteExtraDefaults,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -58,6 +62,8 @@ class VanJobService {
           requestExactPinAfterQuoteAccepted ??
           this.requestExactPinAfterQuoteAccepted,
       linkedQuestionIds: linkedQuestionIds ?? this.linkedQuestionIds,
+      disabledLinkedQuestionIds:
+          disabledLinkedQuestionIds ?? this.disabledLinkedQuestionIds,
       quoteExtraDefaults: quoteExtraDefaults ?? this.quoteExtraDefaults,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -75,6 +81,7 @@ class VanJobService {
       'requireAddress': requireAddress,
       'requestExactPinAfterQuoteAccepted': requestExactPinAfterQuoteAccepted,
       'linkedQuestionIds': linkedQuestionIds,
+      'disabledLinkedQuestionIds': disabledLinkedQuestionIds,
       'quoteExtraDefaults': quoteExtraDefaults.toJson(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -119,9 +126,22 @@ class VanJobService {
           json['quoteExtras'] ??
           json['extraDefaults'];
       if (raw is Map) {
-        return VanQuoteExtraDefaults.fromJson(Map<String, dynamic>.from(raw));
+        final template = findVanServiceTemplateForService(
+          serviceId: readText('id'),
+          serviceName: name,
+        );
+        return VanQuoteExtraDefaults.fromJson(
+          Map<String, dynamic>.from(raw),
+          legacyIncludedBuiltInKeys:
+              template?.quoteExtraDefaults().includedBuiltInKeys ??
+              const <String>{},
+        );
       }
-      return VanQuoteExtraDefaults.starterForServiceName(name);
+      return findVanServiceTemplateForService(
+            serviceId: readText('id'),
+            serviceName: name,
+          )?.quoteExtraDefaults() ??
+          VanQuoteExtraDefaults.empty();
     }
 
     return VanJobService(
@@ -134,6 +154,7 @@ class VanJobService {
       requestExactPinAfterQuoteAccepted:
           json['requestExactPinAfterQuoteAccepted'] == true,
       linkedQuestionIds: readStringList('linkedQuestionIds'),
+      disabledLinkedQuestionIds: readStringList('disabledLinkedQuestionIds'),
       quoteExtraDefaults: readQuoteExtraDefaults(),
       createdAt: createdAt,
       updatedAt: updatedAt,

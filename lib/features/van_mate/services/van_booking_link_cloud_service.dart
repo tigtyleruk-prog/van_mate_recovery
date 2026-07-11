@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/van_business_profile.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
-import '../models/van_prefilled_job_questions.dart';
 import 'van_firestore_payload_builder.dart';
 import 'van_firebase_debug_logging.dart';
 import 'van_user_cloud_service.dart';
@@ -23,6 +22,8 @@ class VanBookingLinkCloudService {
 
   Future<void> savePublicConfig({
     required String ownerUid,
+    String? publicConfigId,
+    String? businessProfileId,
     required String title,
     required bool isActive,
     required VanBusinessProfile profile,
@@ -31,6 +32,9 @@ class VanBookingLinkCloudService {
     String source = 'van_mate.booking_link_publish',
   }) async {
     final normalizedOwnerUid = ownerUid.trim();
+    final normalizedPublicConfigId = publicConfigId?.trim().isNotEmpty == true
+        ? publicConfigId!.trim()
+        : normalizedOwnerUid;
     if (normalizedOwnerUid.isEmpty) {
       return;
     }
@@ -43,13 +47,15 @@ class VanBookingLinkCloudService {
         ? ''
         : rawBusinessName;
     final payload = buildVanCloudDocPayload(
-      id: normalizedOwnerUid,
+      id: normalizedPublicConfigId,
       ownerUid: normalizedOwnerUid,
       source: source,
       createdAt: now,
       updatedAt: now,
       data: <String, dynamic>{
         'title': title.trim(),
+        'publicConfigId': normalizedPublicConfigId,
+        'businessProfileId': businessProfileId?.trim() ?? '',
         'isActive': isActive,
         'businessName': normalizedBusinessName,
         'contactName': profile.contactName.trim(),
@@ -71,16 +77,13 @@ class VanBookingLinkCloudService {
                     service.requestExactPinAfterQuoteAccepted,
                 'quoteExtraDefaults': service.quoteExtraDefaults.toJson(),
                 'linkedQuestions': service.linkedQuestionIds
+                    .where(
+                      (id) => !service.disabledLinkedQuestionIds.contains(id),
+                    )
                     .map((id) => questionLookup[id])
                     .whereType<VanCustomJobQuestion>()
                     .where(
                       (question) => question.isActive && !question.isArchived,
-                    )
-                    .where(
-                      (question) =>
-                          !VanPrefilledJobQuestions.isDeprecatedDuplicatePresetId(
-                            question.id,
-                          ),
                     )
                     .map(
                       (question) => <String, dynamic>{
@@ -101,7 +104,7 @@ class VanBookingLinkCloudService {
 
     logVanFirebaseWriteStart(
       collectionPath: 'public_booking_links',
-      docId: normalizedOwnerUid,
+      docId: normalizedPublicConfigId,
       uid: normalizedOwnerUid,
       source: source,
     );
@@ -112,18 +115,18 @@ class VanBookingLinkCloudService {
         source: source,
       );
       await _publicConfig(
-        normalizedOwnerUid,
+        normalizedPublicConfigId,
       ).set(sanitizeVanFirestoreMap(payload), SetOptions(merge: true));
       logVanFirebaseWriteSuccess(
         collectionPath: 'public_booking_links',
-        docId: normalizedOwnerUid,
+        docId: normalizedPublicConfigId,
         uid: normalizedOwnerUid,
         source: source,
       );
     } catch (error) {
       logVanFirebaseWriteFailure(
         collectionPath: 'public_booking_links',
-        docId: normalizedOwnerUid,
+        docId: normalizedPublicConfigId,
         uid: normalizedOwnerUid,
         error: error,
         source: source,

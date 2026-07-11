@@ -546,6 +546,9 @@
 
     const state = {
       config: null,
+      publicConfigId: ownerUid,
+      driverOwnerUid: ownerUid,
+      businessProfileId: "",
       selectedServiceId: "",
       submitting: false,
       submitted: false,
@@ -1114,7 +1117,8 @@
       });
 
       console.log("[BookingLink] submit tapped", {
-        ownerUid,
+        ownerUid: state.driverOwnerUid || ownerUid,
+        publicConfigId: state.publicConfigId || ownerUid,
         serviceId: readText(service.id),
         serviceName: readText(service.name),
         customerName: readText(customerName.value),
@@ -1140,7 +1144,9 @@
           additionalNotes: readText(preferredTimingNote.value),
         });
         const response = await submitBookingLinkRequest({
-          ownerUid,
+          ownerUid: state.driverOwnerUid || ownerUid,
+          publicConfigId: state.publicConfigId || ownerUid,
+          businessProfileId: state.businessProfileId || "",
           serviceId: readText(service.id),
           serviceName: readText(service.name),
           customerName: readText(customerName.value),
@@ -1217,6 +1223,10 @@
       }
 
       try {
+        console.log("[BookingLink] Firestore read start", {
+          path: `public_booking_links/${ownerUid}`,
+          publicConfigId: ownerUid,
+        });
         const snapshot = await db.collection("public_booking_links").doc(ownerUid).get();
         if (!snapshot.exists) {
           showBanner("This Booking Link could not be found.");
@@ -1224,6 +1234,14 @@
           return;
         }
         const config = snapshot.data() || {};
+        console.log("[BookingLink] Firestore read success", {
+          path: `public_booking_links/${ownerUid}`,
+          publicConfigId: readText(config.publicConfigId) || ownerUid,
+          businessProfileId: readText(config.businessProfileId),
+        });
+        state.publicConfigId = readText(config.publicConfigId) || ownerUid;
+        state.driverOwnerUid = readText(config.ownerUid) || ownerUid;
+        state.businessProfileId = readText(config.businessProfileId);
         if (config.isActive === false) {
           showBanner("This Booking Link is currently inactive.");
           const fallbackTitle =
@@ -1244,6 +1262,11 @@
         state.config = { ...config, services };
         renderConfig();
       } catch (error) {
+        console.error("[BookingLink] Firestore read failure", {
+          path: `public_booking_links/${ownerUid}`,
+          code: readText(error && error.code),
+          message: readText(error && error.message),
+        });
         showBanner("Could not load this Booking Link right now.");
         pageTitle.textContent = "Booking Link unavailable";
       }

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/van_quote_extra_defaults.dart';
+import '../models/van_service_template.dart';
+import 'van_business_profile_scope_storage.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
 import 'van_user_cloud_service.dart';
@@ -21,6 +23,7 @@ class VanQuoteExtraDefaultsStorage extends ChangeNotifier {
   static const String firestorePathTemplate =
       'users/{uid}/van_settings/quote_extras';
   static const String _localKeyPrefix = 'van_quote_extra_defaults_v1';
+  static const String _activeProfileIdKey = 'van_active_business_profile_id_v1';
 
   final FirebaseFirestore? _firestore;
 
@@ -47,7 +50,11 @@ class VanQuoteExtraDefaultsStorage extends ChangeNotifier {
     );
     final localDocument = _loadLocalDocument(ownerUid);
 
-    if (preferLocal || ownerUid == null || ownerUid.trim().isEmpty) {
+    if (preferLocal ||
+        ownerUid == null ||
+        ownerUid.trim().isEmpty ||
+        !await VanBusinessProfileScopeStorage.instance
+            .isDefaultBusinessActive()) {
       return localDocument.globalDefaults;
     }
 
@@ -120,7 +127,11 @@ class VanQuoteExtraDefaultsStorage extends ChangeNotifier {
       );
     }
 
-    if (preferLocal || ownerUid == null || ownerUid.trim().isEmpty) {
+    if (preferLocal ||
+        ownerUid == null ||
+        ownerUid.trim().isEmpty ||
+        !await VanBusinessProfileScopeStorage.instance
+            .isDefaultBusinessActive()) {
       return localServiceDefaults();
     }
 
@@ -177,7 +188,10 @@ class VanQuoteExtraDefaultsStorage extends ChangeNotifier {
     ).copyWith(globalDefaults: defaults);
     await _saveLocalDocument(document, ownerUid);
 
-    if (ownerUid == null || ownerUid.trim().isEmpty) {
+    if (ownerUid == null ||
+        ownerUid.trim().isEmpty ||
+        !await VanBusinessProfileScopeStorage.instance
+            .isDefaultBusinessActive()) {
       notifyListeners();
       return;
     }
@@ -247,7 +261,10 @@ class VanQuoteExtraDefaultsStorage extends ChangeNotifier {
     );
     await _saveLocalDocument(document, ownerUid);
 
-    if (ownerUid == null || ownerUid.trim().isEmpty) {
+    if (ownerUid == null ||
+        ownerUid.trim().isEmpty ||
+        !await VanBusinessProfileScopeStorage.instance
+            .isDefaultBusinessActive()) {
       notifyListeners();
       return;
     }
@@ -346,10 +363,17 @@ class VanQuoteExtraDefaultsStorage extends ChangeNotifier {
 
   String _localKey(String? ownerUid) {
     final normalizedOwnerUid = ownerUid?.trim() ?? '';
+    final activeBusinessId =
+        _preferences?.getString(_activeProfileIdKey)?.trim() ??
+        VanBusinessProfileScopeStorage.defaultBusinessId;
+    final businessSuffix =
+        activeBusinessId == VanBusinessProfileScopeStorage.defaultBusinessId
+        ? ''
+        : '_business_$activeBusinessId';
     if (normalizedOwnerUid.isEmpty) {
-      return '${_localKeyPrefix}_local';
+      return '${_localKeyPrefix}_local$businessSuffix';
     }
-    return '${_localKeyPrefix}_$normalizedOwnerUid';
+    return '${_localKeyPrefix}_$normalizedOwnerUid$businessSuffix';
   }
 
   String _serviceDefaultsKey({
@@ -428,7 +452,11 @@ class _QuoteExtraDefaultsDocument {
     required String serviceName,
   }) {
     return serviceDefaults[serviceKey]?.defaults ??
-        VanQuoteExtraDefaults.starterForServiceName(serviceName);
+        findVanServiceTemplateForService(
+          serviceId: serviceKey,
+          serviceName: serviceName,
+        )?.quoteExtraDefaults() ??
+        VanQuoteExtraDefaults.empty();
   }
 
   _QuoteExtraDefaultsDocument copyWith({
@@ -487,11 +515,11 @@ class _ServiceQuoteExtraDefaults {
     return _ServiceQuoteExtraDefaults(
       serviceKey: (json['serviceKey'] ?? fallbackServiceKey).toString().trim(),
       serviceName: json['serviceName']?.toString().trim() ?? '',
-      defaults: rawDefaults is Map
-          ? VanQuoteExtraDefaults.fromJson(
-              Map<String, dynamic>.from(rawDefaults),
-            )
-          : VanQuoteExtraDefaults.fromJson(json),
+      defaults: _readServiceDefaults(
+        rawDefaults is Map ? Map<String, dynamic>.from(rawDefaults) : json,
+        serviceKey: (json['serviceKey'] ?? fallbackServiceKey).toString(),
+        serviceName: json['serviceName']?.toString() ?? '',
+      ),
     );
   }
 
@@ -506,4 +534,20 @@ class _ServiceQuoteExtraDefaults {
       'defaults': defaults.toJson(),
     };
   }
+}
+
+VanQuoteExtraDefaults _readServiceDefaults(
+  Map<String, dynamic> json, {
+  required String serviceKey,
+  required String serviceName,
+}) {
+  final template = findVanServiceTemplateForService(
+    serviceId: serviceKey,
+    serviceName: serviceName,
+  );
+  return VanQuoteExtraDefaults.fromJson(
+    json,
+    legacyIncludedBuiltInKeys:
+        template?.quoteExtraDefaults().includedBuiltInKeys ?? const <String>{},
+  );
 }

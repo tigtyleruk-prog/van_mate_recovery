@@ -7,6 +7,7 @@ import '../models/van_business_profile.dart';
 import '../models/van_business_profile_settings.dart';
 import 'van_booking_link_cloud_service.dart';
 import 'van_business_profile_cloud_service.dart';
+import 'van_business_profile_scope_storage.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
 
@@ -103,6 +104,9 @@ class VanBusinessProfileStorage {
 
   Future<VanBusinessProfile> load() async {
     await ensureLoaded();
+    final scopeId = await VanBusinessProfileScopeStorage.instance
+        .activeBusinessId();
+    String key(String baseKey) => _scopedKey(baseKey, scopeId);
 
     final defaults = const VanBusinessProfile.defaults();
     double readAmount(String key, double fallback) {
@@ -118,51 +122,58 @@ class VanBusinessProfileStorage {
 
     return VanBusinessProfile(
       businessName:
-          _preferences?.getString(_businessNameKey)?.trim().isNotEmpty == true
-          ? sanitizeVanText(_preferences!.getString(_businessNameKey)).trim()
+          _preferences?.getString(key(_businessNameKey))?.trim().isNotEmpty ==
+              true
+          ? sanitizeVanText(
+              _preferences!.getString(key(_businessNameKey)),
+            ).trim()
           : defaults.businessName,
       contactName:
-          _preferences?.getString(_contactNameKey)?.trim().isNotEmpty == true
-          ? sanitizeVanText(_preferences!.getString(_contactNameKey)).trim()
+          _preferences?.getString(key(_contactNameKey))?.trim().isNotEmpty ==
+              true
+          ? sanitizeVanText(
+              _preferences!.getString(key(_contactNameKey)),
+            ).trim()
           : defaults.contactName,
-      phone: _preferences?.getString(_phoneKey)?.trim().isNotEmpty == true
-          ? sanitizeVanText(_preferences!.getString(_phoneKey)).trim()
+      phone: _preferences?.getString(key(_phoneKey))?.trim().isNotEmpty == true
+          ? sanitizeVanText(_preferences!.getString(key(_phoneKey))).trim()
           : defaults.phone,
-      email: _preferences?.getString(_emailKey)?.trim().isNotEmpty == true
-          ? sanitizeVanText(_preferences!.getString(_emailKey)).trim()
+      email: _preferences?.getString(key(_emailKey))?.trim().isNotEmpty == true
+          ? sanitizeVanText(_preferences!.getString(key(_emailKey))).trim()
           : defaults.email,
       businessAddress:
-          _preferences?.getString(_addressKey)?.trim().isNotEmpty == true
-          ? sanitizeVanText(_preferences!.getString(_addressKey)).trim()
+          _preferences?.getString(key(_addressKey))?.trim().isNotEmpty == true
+          ? sanitizeVanText(_preferences!.getString(key(_addressKey))).trim()
           : defaults.businessAddress,
       paymentInstructions: resolveVanMatePaymentInstructions(
-        _preferences?.getString(_paymentInstructionsKey),
+        _preferences?.getString(key(_paymentInstructionsKey)),
       ),
       defaultExtraHelperAmount: readAmount(
-        _defaultExtraHelperAmountKey,
+        key(_defaultExtraHelperAmountKey),
         defaults.defaultExtraHelperAmount,
       ),
       defaultStairsAccessAmount: readAmount(
-        _defaultStairsAccessAmountKey,
+        key(_defaultStairsAccessAmountKey),
         defaults.defaultStairsAccessAmount,
       ),
       defaultWaitingTimeAmount: readAmount(
-        _defaultWaitingTimeAmountKey,
+        key(_defaultWaitingTimeAmountKey),
         defaults.defaultWaitingTimeAmount,
       ),
       defaultCollectionDeliveryAmount: readAmount(
-        _defaultCollectionDeliveryAmountKey,
+        key(_defaultCollectionDeliveryAmountKey),
         defaults.defaultCollectionDeliveryAmount,
       ),
       defaultMileageRate: readAmount(
-        _defaultMileageRateKey,
+        key(_defaultMileageRateKey),
         defaults.defaultMileageRate,
       ),
       logoPath: resolveSavedVanBusinessLogoPath(
-        _preferences?.getString(_logoPathKey),
+        _preferences?.getString(key(_logoPathKey)),
       ),
-      logoUrl: _preferences?.getString(_logoUrlKey)?.trim().isNotEmpty == true
-          ? sanitizeVanText(_preferences!.getString(_logoUrlKey)).trim()
+      logoUrl:
+          _preferences?.getString(key(_logoUrlKey))?.trim().isNotEmpty == true
+          ? sanitizeVanText(_preferences!.getString(key(_logoUrlKey))).trim()
           : null,
     );
   }
@@ -171,6 +182,10 @@ class VanBusinessProfileStorage {
     bool allowLocalFallbackOnCloudError = true,
   }) async {
     await ensureLoaded();
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return load();
+    }
 
     final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
       source: 'van_mate.business_profile_canonical_load',
@@ -208,6 +223,10 @@ class VanBusinessProfileStorage {
   }
 
   Future<VanBusinessProfile?> loadFromCloud() async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return load();
+    }
     logVanFirebaseHydration(
       stage: 'started',
       target: 'business profile cloud load',
@@ -260,8 +279,17 @@ class VanBusinessProfileStorage {
     }
   }
 
-  Future<void> save(VanBusinessProfile profile, {bool syncCloud = true}) async {
+  Future<void> save(
+    VanBusinessProfile profile, {
+    bool syncCloud = true,
+    String? scopeIdOverride,
+  }) async {
     await ensureLoaded();
+    final override = scopeIdOverride?.trim() ?? '';
+    final scopeId = override.isNotEmpty
+        ? override
+        : await VanBusinessProfileScopeStorage.instance.activeBusinessId();
+    String key(String baseKey) => _scopedKey(baseKey, scopeId);
 
     final resolvedProfile = profile.copyWith(
       paymentInstructions: resolveVanMatePaymentInstructions(
@@ -270,54 +298,61 @@ class VanBusinessProfileStorage {
     );
 
     await _preferences?.setString(
-      _businessNameKey,
+      key(_businessNameKey),
       resolvedProfile.businessName,
     );
-    await _preferences?.setString(_contactNameKey, resolvedProfile.contactName);
-    await _preferences?.setString(_phoneKey, resolvedProfile.phone);
-    await _preferences?.setString(_emailKey, resolvedProfile.email);
-    await _preferences?.setString(_addressKey, resolvedProfile.businessAddress);
     await _preferences?.setString(
-      _paymentInstructionsKey,
+      key(_contactNameKey),
+      resolvedProfile.contactName,
+    );
+    await _preferences?.setString(key(_phoneKey), resolvedProfile.phone);
+    await _preferences?.setString(key(_emailKey), resolvedProfile.email);
+    await _preferences?.setString(
+      key(_addressKey),
+      resolvedProfile.businessAddress,
+    );
+    await _preferences?.setString(
+      key(_paymentInstructionsKey),
       resolvedProfile.paymentInstructions,
     );
     await _preferences?.setDouble(
-      _defaultExtraHelperAmountKey,
+      key(_defaultExtraHelperAmountKey),
       resolvedProfile.defaultExtraHelperAmount,
     );
     await _preferences?.setDouble(
-      _defaultStairsAccessAmountKey,
+      key(_defaultStairsAccessAmountKey),
       resolvedProfile.defaultStairsAccessAmount,
     );
     await _preferences?.setDouble(
-      _defaultWaitingTimeAmountKey,
+      key(_defaultWaitingTimeAmountKey),
       resolvedProfile.defaultWaitingTimeAmount,
     );
     await _preferences?.setDouble(
-      _defaultCollectionDeliveryAmountKey,
+      key(_defaultCollectionDeliveryAmountKey),
       resolvedProfile.defaultCollectionDeliveryAmount,
     );
     await _preferences?.setDouble(
-      _defaultMileageRateKey,
+      key(_defaultMileageRateKey),
       resolvedProfile.defaultMileageRate,
     );
 
     final logoPath = resolveSavedVanBusinessLogoPath(resolvedProfile.logoPath);
     if (logoPath != null) {
-      await _preferences?.setString(_logoPathKey, logoPath);
+      await _preferences?.setString(key(_logoPathKey), logoPath);
     } else {
-      await _preferences?.remove(_logoPathKey);
+      await _preferences?.remove(key(_logoPathKey));
     }
     final logoUrl = sanitizeVanText(resolvedProfile.logoUrl).trim();
     if (logoUrl.isNotEmpty) {
-      await _preferences?.setString(_logoUrlKey, logoUrl);
+      await _preferences?.setString(key(_logoUrlKey), logoUrl);
     } else {
-      await _preferences?.remove(_logoUrlKey);
+      await _preferences?.remove(key(_logoUrlKey));
     }
 
     debugPrint('[BusinessProfile] saved');
 
-    if (!syncCloud) {
+    if (!syncCloud ||
+        scopeId != VanBusinessProfileScopeStorage.defaultBusinessId) {
       return;
     }
 
@@ -368,10 +403,16 @@ class VanBusinessProfileStorage {
 
   Future<void> clear() async {
     await ensureLoaded();
+    final syncCloud = await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive();
     await _clearLocalProfileCache();
     await clearSettings();
 
     debugPrint('[BusinessProfile] cleared');
+
+    if (!syncCloud) {
+      return;
+    }
 
     try {
       final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
@@ -400,23 +441,29 @@ class VanBusinessProfileStorage {
   }
 
   Future<void> _clearLocalProfileCache() async {
-    await _preferences?.remove(_businessNameKey);
-    await _preferences?.remove(_contactNameKey);
-    await _preferences?.remove(_phoneKey);
-    await _preferences?.remove(_emailKey);
-    await _preferences?.remove(_addressKey);
-    await _preferences?.remove(_paymentInstructionsKey);
-    await _preferences?.remove(_defaultExtraHelperAmountKey);
-    await _preferences?.remove(_defaultStairsAccessAmountKey);
-    await _preferences?.remove(_defaultWaitingTimeAmountKey);
-    await _preferences?.remove(_defaultCollectionDeliveryAmountKey);
-    await _preferences?.remove(_defaultMileageRateKey);
-    await _preferences?.remove(_logoPathKey);
-    await _preferences?.remove(_logoUrlKey);
+    final scopeId = await VanBusinessProfileScopeStorage.instance
+        .activeBusinessId();
+    String key(String baseKey) => _scopedKey(baseKey, scopeId);
+    await _preferences?.remove(key(_businessNameKey));
+    await _preferences?.remove(key(_contactNameKey));
+    await _preferences?.remove(key(_phoneKey));
+    await _preferences?.remove(key(_emailKey));
+    await _preferences?.remove(key(_addressKey));
+    await _preferences?.remove(key(_paymentInstructionsKey));
+    await _preferences?.remove(key(_defaultExtraHelperAmountKey));
+    await _preferences?.remove(key(_defaultStairsAccessAmountKey));
+    await _preferences?.remove(key(_defaultWaitingTimeAmountKey));
+    await _preferences?.remove(key(_defaultCollectionDeliveryAmountKey));
+    await _preferences?.remove(key(_defaultMileageRateKey));
+    await _preferences?.remove(key(_logoPathKey));
+    await _preferences?.remove(key(_logoUrlKey));
   }
 
   Future<VanBusinessProfileSettings> loadSettings() async {
     await ensureLoaded();
+    final scopeId = await VanBusinessProfileScopeStorage.instance
+        .activeBusinessId();
+    String key(String baseKey) => _scopedKey(baseKey, scopeId);
 
     final legacyProfile = await load();
     String readText(String key, String fallback) {
@@ -443,57 +490,64 @@ class VanBusinessProfileStorage {
 
     return VanBusinessProfileSettings(
       businessName: readText(
-        _settingsBusinessNameKey,
+        key(_settingsBusinessNameKey),
         legacyProfile.businessName,
       ),
-      ownerName: readText(_settingsOwnerNameKey, legacyProfile.contactName),
-      businessType: readText(_settingsBusinessTypeKey, ''),
-      phoneNumber: readText(_settingsPhoneNumberKey, legacyProfile.phone),
-      emailAddress: readText(_settingsEmailAddressKey, legacyProfile.email),
-      websiteOrSocialLink: readText(_settingsWebsiteOrSocialLinkKey, ''),
+      ownerName: readText(
+        key(_settingsOwnerNameKey),
+        legacyProfile.contactName,
+      ),
+      businessType: readText(key(_settingsBusinessTypeKey), ''),
+      phoneNumber: readText(key(_settingsPhoneNumberKey), legacyProfile.phone),
+      emailAddress: readText(
+        key(_settingsEmailAddressKey),
+        legacyProfile.email,
+      ),
+      websiteOrSocialLink: readText(key(_settingsWebsiteOrSocialLinkKey), ''),
       addressLine1: readText(
-        _settingsAddressLine1Key,
+        key(_settingsAddressLine1Key),
         legacyProfile.businessAddress,
       ),
-      addressLine2: readText(_settingsAddressLine2Key, ''),
-      townOrCity: readText(_settingsTownOrCityKey, ''),
-      postcode: readText(_settingsPostcodeKey, ''),
-      bankName: readText(_settingsBankNameKey, ''),
-      accountName: readText(_settingsAccountNameKey, ''),
-      sortCode: readText(_settingsSortCodeKey, ''),
-      accountNumber: readText(_settingsAccountNumberKey, ''),
+      addressLine2: readText(key(_settingsAddressLine2Key), ''),
+      townOrCity: readText(key(_settingsTownOrCityKey), ''),
+      postcode: readText(key(_settingsPostcodeKey), ''),
+      bankName: readText(key(_settingsBankNameKey), ''),
+      accountName: readText(key(_settingsAccountNameKey), ''),
+      sortCode: readText(key(_settingsSortCodeKey), ''),
+      accountNumber: readText(key(_settingsAccountNumberKey), ''),
       paymentNotes: readText(
-        _settingsPaymentNotesKey,
+        key(_settingsPaymentNotesKey),
         legacyProfile.paymentInstructions,
       ),
-      vatRegistered: _preferences?.getBool(_settingsVatRegisteredKey) ?? false,
-      vatNumber: readText(_settingsVatNumberKey, ''),
-      defaultInvoiceNotes: readText(_settingsDefaultInvoiceNotesKey, ''),
-      defaultPaymentTerms: readText(_settingsDefaultPaymentTermsKey, ''),
-      thankYouMessage: readText(_settingsThankYouMessageKey, ''),
+      vatRegistered:
+          _preferences?.getBool(key(_settingsVatRegisteredKey)) ?? false,
+      vatNumber: readText(key(_settingsVatNumberKey), ''),
+      defaultInvoiceNotes: readText(key(_settingsDefaultInvoiceNotesKey), ''),
+      defaultPaymentTerms: readText(key(_settingsDefaultPaymentTermsKey), ''),
+      thankYouMessage: readText(key(_settingsThankYouMessageKey), ''),
       defaultExtraHelperAmount: readAmount(
-        _settingsDefaultExtraHelperAmountKey,
+        key(_settingsDefaultExtraHelperAmountKey),
         legacyProfile.defaultExtraHelperAmount,
       ),
       defaultStairsAccessAmount: readAmount(
-        _settingsDefaultStairsAccessAmountKey,
+        key(_settingsDefaultStairsAccessAmountKey),
         legacyProfile.defaultStairsAccessAmount,
       ),
       defaultWaitingTimeAmount: readAmount(
-        _settingsDefaultWaitingTimeAmountKey,
+        key(_settingsDefaultWaitingTimeAmountKey),
         legacyProfile.defaultWaitingTimeAmount,
       ),
       defaultCollectionDeliveryAmount: readAmount(
-        _settingsDefaultCollectionDeliveryAmountKey,
+        key(_settingsDefaultCollectionDeliveryAmountKey),
         legacyProfile.defaultCollectionDeliveryAmount,
       ),
       defaultMileageRate: readAmount(
-        _settingsDefaultMileageRateKey,
+        key(_settingsDefaultMileageRateKey),
         legacyProfile.defaultMileageRate,
       ),
       logoPath: resolveSavedVanBusinessLogoPath(
-        _preferences?.containsKey(_settingsLogoPathKey) == true
-            ? _preferences?.getString(_settingsLogoPathKey)
+        _preferences?.containsKey(key(_settingsLogoPathKey)) == true
+            ? _preferences?.getString(key(_settingsLogoPathKey))
             : legacyProfile.logoPath,
       ),
     );
@@ -505,6 +559,9 @@ class VanBusinessProfileStorage {
     String? cloudLogoPath,
   }) async {
     await ensureLoaded();
+    final scopeId = await VanBusinessProfileScopeStorage.instance
+        .activeBusinessId();
+    String key(String baseKey) => _scopedKey(baseKey, scopeId);
 
     final resolved = settings.copyWith(
       logoPath: resolveSavedVanBusinessLogoPath(settings.logoPath),
@@ -515,61 +572,64 @@ class VanBusinessProfileStorage {
       await _preferences?.setString(key, normalized);
     }
 
-    await writeString(_settingsBusinessNameKey, resolved.businessName);
-    await writeString(_settingsOwnerNameKey, resolved.ownerName);
-    await writeString(_settingsBusinessTypeKey, resolved.businessType);
-    await writeString(_settingsPhoneNumberKey, resolved.phoneNumber);
-    await writeString(_settingsEmailAddressKey, resolved.emailAddress);
+    await writeString(key(_settingsBusinessNameKey), resolved.businessName);
+    await writeString(key(_settingsOwnerNameKey), resolved.ownerName);
+    await writeString(key(_settingsBusinessTypeKey), resolved.businessType);
+    await writeString(key(_settingsPhoneNumberKey), resolved.phoneNumber);
+    await writeString(key(_settingsEmailAddressKey), resolved.emailAddress);
     await writeString(
-      _settingsWebsiteOrSocialLinkKey,
+      key(_settingsWebsiteOrSocialLinkKey),
       resolved.websiteOrSocialLink,
     );
-    await writeString(_settingsAddressLine1Key, resolved.addressLine1);
-    await writeString(_settingsAddressLine2Key, resolved.addressLine2);
-    await writeString(_settingsTownOrCityKey, resolved.townOrCity);
-    await writeString(_settingsPostcodeKey, resolved.postcode);
-    await writeString(_settingsBankNameKey, resolved.bankName);
-    await writeString(_settingsAccountNameKey, resolved.accountName);
-    await writeString(_settingsSortCodeKey, resolved.sortCode);
-    await writeString(_settingsAccountNumberKey, resolved.accountNumber);
-    await writeString(_settingsPaymentNotesKey, resolved.paymentNotes);
+    await writeString(key(_settingsAddressLine1Key), resolved.addressLine1);
+    await writeString(key(_settingsAddressLine2Key), resolved.addressLine2);
+    await writeString(key(_settingsTownOrCityKey), resolved.townOrCity);
+    await writeString(key(_settingsPostcodeKey), resolved.postcode);
+    await writeString(key(_settingsBankNameKey), resolved.bankName);
+    await writeString(key(_settingsAccountNameKey), resolved.accountName);
+    await writeString(key(_settingsSortCodeKey), resolved.sortCode);
+    await writeString(key(_settingsAccountNumberKey), resolved.accountNumber);
+    await writeString(key(_settingsPaymentNotesKey), resolved.paymentNotes);
     await _preferences?.setBool(
-      _settingsVatRegisteredKey,
+      key(_settingsVatRegisteredKey),
       resolved.vatRegistered,
     );
-    await writeString(_settingsVatNumberKey, resolved.vatNumber);
+    await writeString(key(_settingsVatNumberKey), resolved.vatNumber);
     await writeString(
-      _settingsDefaultInvoiceNotesKey,
+      key(_settingsDefaultInvoiceNotesKey),
       resolved.defaultInvoiceNotes,
     );
     await writeString(
-      _settingsDefaultPaymentTermsKey,
+      key(_settingsDefaultPaymentTermsKey),
       resolved.defaultPaymentTerms,
     );
-    await writeString(_settingsThankYouMessageKey, resolved.thankYouMessage);
+    await writeString(
+      key(_settingsThankYouMessageKey),
+      resolved.thankYouMessage,
+    );
     await _preferences?.setDouble(
-      _settingsDefaultExtraHelperAmountKey,
+      key(_settingsDefaultExtraHelperAmountKey),
       resolved.defaultExtraHelperAmount,
     );
     await _preferences?.setDouble(
-      _settingsDefaultStairsAccessAmountKey,
+      key(_settingsDefaultStairsAccessAmountKey),
       resolved.defaultStairsAccessAmount,
     );
     await _preferences?.setDouble(
-      _settingsDefaultWaitingTimeAmountKey,
+      key(_settingsDefaultWaitingTimeAmountKey),
       resolved.defaultWaitingTimeAmount,
     );
     await _preferences?.setDouble(
-      _settingsDefaultCollectionDeliveryAmountKey,
+      key(_settingsDefaultCollectionDeliveryAmountKey),
       resolved.defaultCollectionDeliveryAmount,
     );
     await _preferences?.setDouble(
-      _settingsDefaultMileageRateKey,
+      key(_settingsDefaultMileageRateKey),
       resolved.defaultMileageRate,
     );
 
     final logoPath = resolveSavedVanBusinessLogoPath(resolved.logoPath);
-    await _preferences?.setString(_settingsLogoPathKey, logoPath ?? '');
+    await _preferences?.setString(key(_settingsLogoPathKey), logoPath ?? '');
     final resolvedLogoUrl = resolveSavedVanBusinessLogoUrl(logoUrl);
     final resolvedCloudLogoPath = _normalizeCloudLogoPath(cloudLogoPath);
     debugPrint(
@@ -629,33 +689,38 @@ class VanBusinessProfileStorage {
 
   Future<void> clearSettings() async {
     await ensureLoaded();
+    final scopeId = await VanBusinessProfileScopeStorage.instance
+        .activeBusinessId();
+    String key(String baseKey) => _scopedKey(baseKey, scopeId);
 
-    await _preferences?.remove(_settingsBusinessNameKey);
-    await _preferences?.remove(_settingsOwnerNameKey);
-    await _preferences?.remove(_settingsBusinessTypeKey);
-    await _preferences?.remove(_settingsPhoneNumberKey);
-    await _preferences?.remove(_settingsEmailAddressKey);
-    await _preferences?.remove(_settingsWebsiteOrSocialLinkKey);
-    await _preferences?.remove(_settingsAddressLine1Key);
-    await _preferences?.remove(_settingsAddressLine2Key);
-    await _preferences?.remove(_settingsTownOrCityKey);
-    await _preferences?.remove(_settingsPostcodeKey);
-    await _preferences?.remove(_settingsBankNameKey);
-    await _preferences?.remove(_settingsAccountNameKey);
-    await _preferences?.remove(_settingsSortCodeKey);
-    await _preferences?.remove(_settingsAccountNumberKey);
-    await _preferences?.remove(_settingsPaymentNotesKey);
-    await _preferences?.remove(_settingsVatRegisteredKey);
-    await _preferences?.remove(_settingsVatNumberKey);
-    await _preferences?.remove(_settingsDefaultInvoiceNotesKey);
-    await _preferences?.remove(_settingsDefaultPaymentTermsKey);
-    await _preferences?.remove(_settingsThankYouMessageKey);
-    await _preferences?.remove(_settingsDefaultExtraHelperAmountKey);
-    await _preferences?.remove(_settingsDefaultStairsAccessAmountKey);
-    await _preferences?.remove(_settingsDefaultWaitingTimeAmountKey);
-    await _preferences?.remove(_settingsDefaultCollectionDeliveryAmountKey);
-    await _preferences?.remove(_settingsDefaultMileageRateKey);
-    await _preferences?.remove(_settingsLogoPathKey);
+    await _preferences?.remove(key(_settingsBusinessNameKey));
+    await _preferences?.remove(key(_settingsOwnerNameKey));
+    await _preferences?.remove(key(_settingsBusinessTypeKey));
+    await _preferences?.remove(key(_settingsPhoneNumberKey));
+    await _preferences?.remove(key(_settingsEmailAddressKey));
+    await _preferences?.remove(key(_settingsWebsiteOrSocialLinkKey));
+    await _preferences?.remove(key(_settingsAddressLine1Key));
+    await _preferences?.remove(key(_settingsAddressLine2Key));
+    await _preferences?.remove(key(_settingsTownOrCityKey));
+    await _preferences?.remove(key(_settingsPostcodeKey));
+    await _preferences?.remove(key(_settingsBankNameKey));
+    await _preferences?.remove(key(_settingsAccountNameKey));
+    await _preferences?.remove(key(_settingsSortCodeKey));
+    await _preferences?.remove(key(_settingsAccountNumberKey));
+    await _preferences?.remove(key(_settingsPaymentNotesKey));
+    await _preferences?.remove(key(_settingsVatRegisteredKey));
+    await _preferences?.remove(key(_settingsVatNumberKey));
+    await _preferences?.remove(key(_settingsDefaultInvoiceNotesKey));
+    await _preferences?.remove(key(_settingsDefaultPaymentTermsKey));
+    await _preferences?.remove(key(_settingsThankYouMessageKey));
+    await _preferences?.remove(key(_settingsDefaultExtraHelperAmountKey));
+    await _preferences?.remove(key(_settingsDefaultStairsAccessAmountKey));
+    await _preferences?.remove(key(_settingsDefaultWaitingTimeAmountKey));
+    await _preferences?.remove(
+      key(_settingsDefaultCollectionDeliveryAmountKey),
+    );
+    await _preferences?.remove(key(_settingsDefaultMileageRateKey));
+    await _preferences?.remove(key(_settingsLogoPathKey));
   }
 
   String? _normalizeCloudLogoPath(String? value) {
@@ -675,5 +740,12 @@ class VanBusinessProfileStorage {
     }
 
     return normalized;
+  }
+
+  String _scopedKey(String baseKey, String scopeId) {
+    if (scopeId == VanBusinessProfileScopeStorage.defaultBusinessId) {
+      return baseKey;
+    }
+    return '${baseKey}_business_$scopeId';
   }
 }

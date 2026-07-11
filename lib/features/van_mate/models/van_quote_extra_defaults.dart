@@ -125,6 +125,7 @@ class VanQuoteExtraDefaults {
     this.customExtras = const <VanQuoteExtraDefault>[],
     this.extraOrder = const <String>[],
     this.deletedBuiltInKeys = const <String>{},
+    this.includedBuiltInKeys = const <String>{},
   });
 
   factory VanQuoteExtraDefaults.defaults() {
@@ -133,6 +134,13 @@ class VanQuoteExtraDefaults {
         for (final key in kVanQuoteExtraDefaultOrder)
           key: VanQuoteExtraDefault.fallback(key),
       },
+      includedBuiltInKeys: kVanQuoteExtraDefaultOrder.toSet(),
+    );
+  }
+
+  factory VanQuoteExtraDefaults.empty() {
+    return const VanQuoteExtraDefaults(
+      extras: <String, VanQuoteExtraDefault>{},
     );
   }
 
@@ -200,10 +208,13 @@ class VanQuoteExtraDefaults {
         ],
       );
     }
-    return VanQuoteExtraDefaults.defaults();
+    return VanQuoteExtraDefaults.empty();
   }
 
-  factory VanQuoteExtraDefaults.fromJson(Map<String, dynamic> json) {
+  factory VanQuoteExtraDefaults.fromJson(
+    Map<String, dynamic> json, {
+    Set<String>? legacyIncludedBuiltInKeys,
+  }) {
     final fallback = VanQuoteExtraDefaults.defaults();
     final rawExtras = json['extras'];
     final source = rawExtras is Map ? rawExtras : json;
@@ -222,11 +233,21 @@ class VanQuoteExtraDefaults {
     }
 
     final customExtras = _customExtrasFromJson(json, source);
+    final explicitIncludedBuiltIns = _includedBuiltInKeysFromJson(json, source);
+    final includedBuiltIns =
+        explicitIncludedBuiltIns ??
+        (legacyIncludedBuiltInKeys == null
+            ? kVanQuoteExtraDefaultOrder.toSet()
+            : _migrateLegacyIncludedBuiltIns(
+                source,
+                templateKeys: legacyIncludedBuiltInKeys,
+              ));
     return VanQuoteExtraDefaults(
       extras: extras,
       customExtras: customExtras,
       extraOrder: _extraOrderFromJson(json, source),
       deletedBuiltInKeys: _deletedBuiltInKeysFromJson(json, source),
+      includedBuiltInKeys: includedBuiltIns,
     );
   }
 
@@ -234,6 +255,7 @@ class VanQuoteExtraDefaults {
   final List<VanQuoteExtraDefault> customExtras;
   final List<String> extraOrder;
   final Set<String> deletedBuiltInKeys;
+  final Set<String> includedBuiltInKeys;
 
   VanQuoteExtraDefault extraForKey(String key) {
     final normalized = key.trim().toLowerCase();
@@ -255,6 +277,7 @@ class VanQuoteExtraDefaults {
         extraOrder,
         customExtras: customExtras,
         deletedBuiltInKeys: deletedBuiltInKeys,
+        includedBuiltInKeys: includedBuiltInKeys,
       ))
         extraForKey(key),
     ];
@@ -290,6 +313,8 @@ class VanQuoteExtraDefaults {
     final normalizedKey = _normalizeVanQuoteExtraKey(extra.key);
     final updatedDeletedKeys = <String>{...deletedBuiltInKeys}
       ..remove(normalizedKey);
+    final updatedIncludedKeys = <String>{...includedBuiltInKeys}
+      ..add(normalizedKey);
     final updatedExtras = <String, VanQuoteExtraDefault>{
       ...extras,
       normalizedKey: VanQuoteExtraDefault(
@@ -306,8 +331,10 @@ class VanQuoteExtraDefaults {
         extraOrder,
         customExtras: customExtras,
         deletedBuiltInKeys: updatedDeletedKeys,
+        includedBuiltInKeys: updatedIncludedKeys,
       ),
       deletedBuiltInKeys: updatedDeletedKeys,
+      includedBuiltInKeys: updatedIncludedKeys,
     );
   }
 
@@ -324,8 +351,10 @@ class VanQuoteExtraDefaults {
         extraOrder,
         customExtras: normalizedCustomExtras,
         deletedBuiltInKeys: deletedBuiltInKeys,
+        includedBuiltInKeys: includedBuiltInKeys,
       ),
       deletedBuiltInKeys: deletedBuiltInKeys,
+      includedBuiltInKeys: includedBuiltInKeys,
     );
   }
 
@@ -337,8 +366,10 @@ class VanQuoteExtraDefaults {
         updatedOrder,
         customExtras: customExtras,
         deletedBuiltInKeys: deletedBuiltInKeys,
+        includedBuiltInKeys: includedBuiltInKeys,
       ),
       deletedBuiltInKeys: deletedBuiltInKeys,
+      includedBuiltInKeys: includedBuiltInKeys,
     );
   }
 
@@ -360,8 +391,10 @@ class VanQuoteExtraDefaults {
         currentOrder,
         customExtras: customExtras,
         deletedBuiltInKeys: updatedDeletedKeys,
+        includedBuiltInKeys: includedBuiltInKeys,
       ),
       deletedBuiltInKeys: updatedDeletedKeys,
+      includedBuiltInKeys: includedBuiltInKeys,
     );
   }
 
@@ -380,8 +413,31 @@ class VanQuoteExtraDefaults {
         ],
         customExtras: customExtras,
         deletedBuiltInKeys: const <String>{},
+        includedBuiltInKeys: kVanQuoteExtraDefaultOrder.toSet(),
       ),
       deletedBuiltInKeys: const <String>{},
+      includedBuiltInKeys: kVanQuoteExtraDefaultOrder.toSet(),
+    );
+  }
+
+  VanQuoteExtraDefaults resetToStarter(VanQuoteExtraDefaults starter) {
+    final starterCustomKeys = starter.customExtras
+        .map((extra) => extra.key)
+        .toSet();
+    final userCustomExtras = customExtras
+        .where((extra) => !starterCustomKeys.contains(extra.key))
+        .toList(growable: false);
+    return VanQuoteExtraDefaults(
+      extras: starter.extras,
+      customExtras: <VanQuoteExtraDefault>[
+        ...starter.customExtras,
+        ...userCustomExtras,
+      ],
+      extraOrder: <String>[
+        ...starter.orderedExtras.map((extra) => extra.key),
+        ...userCustomExtras.map((extra) => extra.key),
+      ],
+      includedBuiltInKeys: starter.includedBuiltInKeys,
     );
   }
 
@@ -389,7 +445,7 @@ class VanQuoteExtraDefaults {
     return <String, dynamic>{
       'extras': <String, dynamic>{
         for (final key in kVanQuoteExtraDefaultOrder)
-          key: extraForKey(key).toJson(),
+          if (includedBuiltInKeys.contains(key)) key: extraForKey(key).toJson(),
       },
       'customExtras': <Map<String, dynamic>>[
         for (final extra in normalizeVanQuoteCustomExtras(customExtras))
@@ -400,6 +456,10 @@ class VanQuoteExtraDefaults {
         for (final key in kVanQuoteExtraDefaultOrder)
           if (deletedBuiltInKeys.contains(key)) key,
       ],
+      'includedBuiltInKeys': <String>[
+        for (final key in kVanQuoteExtraDefaultOrder)
+          if (includedBuiltInKeys.contains(key)) key,
+      ],
     };
   }
 }
@@ -408,13 +468,9 @@ VanQuoteExtraDefaults _serviceStarterDefaults({
   required Set<String> enabledBuiltInKeys,
   required List<VanQuoteExtraDefault> customExtras,
 }) {
-  var defaults = VanQuoteExtraDefaults.defaults();
-  for (final key in kVanQuoteExtraDefaultOrder) {
-    defaults = defaults.copyWithExtra(
-      defaults
-          .extraForKey(key)
-          .copyWith(enabled: enabledBuiltInKeys.contains(key)),
-    );
+  var defaults = VanQuoteExtraDefaults.empty();
+  for (final key in enabledBuiltInKeys) {
+    defaults = defaults.copyWithExtra(VanQuoteExtraDefault.fallback(key));
   }
   return defaults.copyWithCustomExtras(customExtras);
 }
@@ -504,9 +560,50 @@ Set<String> _deletedBuiltInKeysFromJson(
         source['deletedExtraKeys'] ??
         source['deleted_built_in_keys'] ??
         source['deleted_built_ins'],
-  )
-      .where(isVanQuoteBuiltInExtraKey)
-      .toSet();
+  ).where(isVanQuoteBuiltInExtraKey).toSet();
+}
+
+Set<String>? _includedBuiltInKeysFromJson(
+  Map<String, dynamic> json,
+  Map<dynamic, dynamic> source,
+) {
+  final raw =
+      json['includedBuiltInKeys'] ??
+      json['included_built_in_keys'] ??
+      source['includedBuiltInKeys'] ??
+      source['included_built_in_keys'];
+  if (raw == null) {
+    return null;
+  }
+  return _stringListFromJson(raw).where(isVanQuoteBuiltInExtraKey).toSet();
+}
+
+Set<String> _migrateLegacyIncludedBuiltIns(
+  Map<dynamic, dynamic> source, {
+  required Set<String> templateKeys,
+}) {
+  final included = <String>{...templateKeys.where(isVanQuoteBuiltInExtraKey)};
+  for (final key in kVanQuoteExtraDefaultOrder) {
+    if (included.contains(key)) {
+      continue;
+    }
+    final raw = source[key];
+    if (raw is! Map) {
+      continue;
+    }
+    final saved = VanQuoteExtraDefault.fromJson(
+      key,
+      Map<String, dynamic>.from(raw),
+    );
+    final fallback = VanQuoteExtraDefault.fallback(key);
+    final labelWasEdited =
+        saved.resolvedLabel.trim() != fallback.resolvedLabel.trim();
+    final priceWasEdited = saved.defaultPrice != fallback.defaultPrice;
+    if (labelWasEdited || priceWasEdited) {
+      included.add(key);
+    }
+  }
+  return included;
 }
 
 List<String> _stringListFromJson(Object? value) {
@@ -532,6 +629,7 @@ List<String> _normalizedExtraOrder(
   Iterable<String> requestedOrder, {
   required Iterable<VanQuoteExtraDefault> customExtras,
   required Set<String> deletedBuiltInKeys,
+  required Set<String> includedBuiltInKeys,
 }) {
   final customKeys = <String>{
     for (final extra in customExtras) _normalizeVanQuoteExtraKey(extra.key),
@@ -545,7 +643,8 @@ List<String> _normalizedExtraOrder(
       return;
     }
     if (isVanQuoteBuiltInExtraKey(key)) {
-      if (deletedBuiltInKeys.contains(key)) {
+      if (deletedBuiltInKeys.contains(key) ||
+          !includedBuiltInKeys.contains(key)) {
         return;
       }
       ordered.add(key);
@@ -561,7 +660,7 @@ List<String> _normalizedExtraOrder(
   for (final key in requestedOrder) {
     addIfActive(key);
   }
-  for (final key in kVanQuoteExtraDefaultOrder) {
+  for (final key in includedBuiltInKeys) {
     addIfActive(key);
   }
   for (final key in customKeys) {

@@ -19,13 +19,13 @@ import '../helpers/van_text_formatters.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
-import '../pages/van_custom_job_questions_page.dart';
+import '../models/van_job_service.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
 import '../models/van_exact_pin_source.dart';
 import '../services/van_job_request_cloud_service.dart';
 import '../services/van_business_profile_storage.dart';
-import '../services/van_default_new_job_questions_storage.dart';
 import '../services/van_custom_job_questions_storage.dart';
+import '../services/van_job_services_storage.dart';
 import '../services/van_premium_service.dart';
 import '../widgets/van_duration_picker_sheet.dart';
 import '../widgets/van_form_field_styles.dart';
@@ -54,12 +54,7 @@ String? validateVanJobRequestDraftForSend(VanJobRequestDraft draft) {
 }
 
 class CreateJobRequestPage extends StatefulWidget {
-  const CreateJobRequestPage({
-    super.key,
-    this.initialCustomQuestions = const <String>[],
-  });
-
-  final List<String> initialCustomQuestions;
+  const CreateJobRequestPage({super.key});
 
   @override
   State<CreateJobRequestPage> createState() => _CreateJobRequestPageState();
@@ -69,8 +64,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
   final VanMatePremiumService _premiumService = VanMatePremiumService.instance;
   final VanCustomJobQuestionsStorage _customJobQuestionsStorage =
       VanCustomJobQuestionsStorage.instance;
-  final VanDefaultNewJobQuestionsStorage _defaultQuestionStorage =
-      VanDefaultNewJobQuestionsStorage.instance;
+  final VanJobServicesStorage _servicesStorage = VanJobServicesStorage.instance;
   final String _jobId = 'job_${DateTime.now().microsecondsSinceEpoch}';
   final TextEditingController _customerNameController = TextEditingController(
     text: '',
@@ -90,8 +84,6 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
   final TextEditingController _postcodeController = TextEditingController(
     text: '',
   );
-  final TextEditingController _customQuestionController =
-      TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _jobDateController = TextEditingController();
   final TextEditingController _jobTimeController = TextEditingController();
@@ -106,19 +98,13 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
   Map<String, VanCustomJobQuestion> _questionLookup =
       const <String, VanCustomJobQuestion>{};
   final Set<String> _selectedQuestionIds = <String>{};
-  final List<String> _manualQuestions = <String>[];
-  bool _defaultQuestionsLoaded = false;
+  List<VanJobService> _services = const <VanJobService>[];
+  VanJobService? _selectedService;
 
   @override
   void initState() {
     super.initState();
     DriverReplyMockState.instance.resetTransientWorkflowState();
-    for (final question in widget.initialCustomQuestions) {
-      final cleaned = sanitizeVanText(question).trim();
-      if (cleaned.isNotEmpty && !_manualQuestions.contains(cleaned)) {
-        _manualQuestions.add(cleaned);
-      }
-    }
     _syncDateTimeControllers();
     unawaited(_loadPremiumAndQuestions());
   }
@@ -131,7 +117,6 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     _jobTitleController.dispose();
     _addressController.dispose();
     _postcodeController.dispose();
-    _customQuestionController.dispose();
     _notesController.dispose();
     _jobDateController.dispose();
     _jobTimeController.dispose();
@@ -142,16 +127,17 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
   Future<void> _loadPremiumAndQuestions() async {
     await _premiumService.ensureLoaded();
     List<VanCustomJobQuestion> customQuestions = const <VanCustomJobQuestion>[];
-    List<String> defaultQuestionTexts = const <String>[];
+    List<VanJobService> services = const <VanJobService>[];
     try {
       customQuestions =
           await _customJobQuestionsStorage.loadFromCloud() ??
           await _customJobQuestionsStorage.loadAll();
-      await _defaultQuestionStorage.loadFromCloud();
-      defaultQuestionTexts = await _defaultQuestionStorage.loadSavedQuestions();
+      services =
+          await _servicesStorage.loadFromCloud() ??
+          await _servicesStorage.loadAll();
     } catch (_) {
       customQuestions = await _customJobQuestionsStorage.loadAll();
-      defaultQuestionTexts = await _defaultQuestionStorage.loadSavedQuestions();
+      services = await _servicesStorage.loadAll();
     }
     final questionLookup = buildVanCustomerRequestQuestionLookup(
       customQuestions,
@@ -162,34 +148,32 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     setState(() {
       _premiumLoaded = true;
       _questionLookup = questionLookup;
+      _services = services
+          .where((service) => service.isActive && !service.isArchived)
+          .toList(growable: false);
       if (!_premiumService.isPremium) {
         _requestPhotos = false;
       }
     });
-    _applyDefaultQuestionSet(defaultQuestionTexts);
+    if (_services.length == 1) {
+      _selectService(_services.single.id);
+    }
   }
 
-  void _applyDefaultQuestionSet(List<String> defaultQuestionTexts) {
-    if (_defaultQuestionsLoaded) {
-      return;
-    }
-
-    final resolved = resolveVanQuestionTextsForSelection(
-      defaultQuestionTexts,
-      _questionLookup,
-    );
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _selectedQuestionIds.addAll(resolved.selectedQuestionIds);
-      for (final question in resolved.manualQuestions) {
-        if (!_manualQuestions.contains(question)) {
-          _manualQuestions.add(question);
-        }
+  void _selectService(String? serviceId) {
+    final normalizedId = serviceId?.trim() ?? '';
+    VanJobService? selected;
+    for (final service in _services) {
+      if (service.id == normalizedId) {
+        selected = service;
+        break;
       }
-      _defaultQuestionsLoaded = true;
+    }
+    setState(() {
+      _selectedService = selected;
+      _selectedQuestionIds
+        ..clear()
+        ..addAll(buildVanServiceDefaultQuestionIds(selected, _questionLookup));
     });
   }
 
@@ -278,7 +262,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     );
     final answers = buildVanRequestAnswersFromSelection(
       selectedQuestionIds: _selectedQuestionIds.toList(growable: false),
-      manualQuestions: _manualQuestions,
+      manualQuestions: const <String>[],
       questionLookup: _questionLookup,
     );
     final resolvedJobTitle = _jobTitleController.text.trim();
@@ -305,8 +289,8 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
       requestPhotos: _requestPhotos && _premiumService.isPremium,
       requiresExactPinAfterQuoteAccepted: _requestExactPin,
       locationPending: locationPending,
-      selectedServiceId: '',
-      selectedServiceName: '',
+      selectedServiceId: _selectedService?.id ?? '',
+      selectedServiceName: _selectedService?.name ?? '',
       selectedQuestionIds: List<String>.unmodifiable(
         _selectedQuestionIds.toList(growable: false),
       ),
@@ -373,47 +357,6 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     });
   }
 
-  void _addCustomQuestion() {
-    final value = _customQuestionController.text.trim();
-    if (value.isEmpty) {
-      return;
-    }
-
-    setState(() {
-      if (!_manualQuestions.contains(value)) {
-        _manualQuestions.add(value);
-      }
-      _customQuestionController.clear();
-    });
-  }
-
-  Future<void> _openQuestionSetup() async {
-    await openVanCustomJobQuestionsPage(context);
-    if (!mounted) {
-      return;
-    }
-
-    final customQuestions = await _customJobQuestionsStorage.loadAll();
-    final defaultQuestionTexts = await _defaultQuestionStorage
-        .loadSavedQuestions();
-    final questionLookup = buildVanCustomerRequestQuestionLookup(
-      customQuestions,
-    );
-    final resolved = resolveVanQuestionTextsForSelection(
-      defaultQuestionTexts,
-      questionLookup,
-    );
-    setState(() {
-      _questionLookup = questionLookup;
-      _selectedQuestionIds
-        ..clear()
-        ..addAll(resolved.selectedQuestionIds);
-      _manualQuestions
-        ..clear()
-        ..addAll(resolved.manualQuestions);
-    });
-  }
-
   Future<void> _openPreview() async {
     FocusScope.of(context).unfocus();
     final draft = _buildDraft();
@@ -426,6 +369,15 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
   }
 
   bool _validateMainFields() {
+    if (_selectedService == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select a service before creating the request.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
     final draft = _buildDraft();
     final validationMessage = validateVanJobRequestDraftForSend(draft);
 
@@ -990,7 +942,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                       const SizedBox(height: 8),
                       Text(
                         _requestExactPin
-                            ? 'Send a customer request powered by your shared service questions, then collect the exact pin after quote acceptance.'
+                            ? "Send a customer request using the selected service's questions, then collect the exact pin after quote acceptance."
                             : 'Send a customer request now and collect the exact pin after quote acceptance.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.76),
@@ -1157,74 +1109,57 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: _openQuestionSetup,
-                              icon: const Icon(Icons.tune),
-                              label: Text(
-                                'Question setup (${_selectedQuestionIds.length + _manualQuestions.length})',
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                ),
-                                minimumSize: const Size.fromHeight(50),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedService?.id,
+                              dropdownColor: const Color(0xFF17253A),
+                              iconEnabledColor: Colors.white70,
+                              decoration: vanMateFieldDecoration(
+                                label: 'Service',
+                                hintText: _services.isEmpty
+                                    ? 'Add a service in Business Hub first'
+                                    : 'Select a service',
+                                prefixIcon: const Icon(
+                                  Icons.design_services_outlined,
                                 ),
                               ),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              items: [
+                                for (final service in _services)
+                                  DropdownMenuItem<String>(
+                                    value: service.id,
+                                    child: Text(service.name),
+                                  ),
+                              ],
+                              onChanged: _services.isEmpty
+                                  ? null
+                                  : _selectService,
                             ),
-                            if (_manualQuestions.isNotEmpty) ...[
+                            if (_selectedService != null) ...[
                               const SizedBox(height: 12),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    for (final question in _manualQuestions)
-                                      Chip(
-                                        label: Text(question),
-                                        backgroundColor: Colors.white
-                                            .withValues(alpha: 0.10),
-                                        side: BorderSide(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.10,
-                                          ),
-                                        ),
-                                        labelStyle: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                  ],
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                  ),
                                 ),
-                              ),
-                            ],
-                            const SizedBox(height: 12),
-                            _JobRequestInputField(
-                              controller: _customQuestionController,
-                              icon: Icons.question_answer_outlined,
-                              label: 'Add a one-off question',
-                              hintText: 'Anything else you want to ask?',
-                            ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: _addCustomQuestion,
-                                icon: const Icon(Icons.add),
-                                label: const Text('Add custom question'),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF4A7DFF),
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size.fromHeight(50),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(18),
+                                child: Text(
+                                  _selectedQuestionIds.isEmpty
+                                      ? 'This service has no questions.'
+                                      : '${_selectedQuestionIds.length} linked question${_selectedQuestionIds.length == 1 ? '' : 's'} will be included.',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.76),
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                             const SizedBox(height: 12),
                             _JobRequestInputField(
                               controller: _notesController,

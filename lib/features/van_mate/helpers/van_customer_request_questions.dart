@@ -1,7 +1,6 @@
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_request_record.dart';
 import '../models/van_job_service.dart';
-import '../models/van_prefilled_job_questions.dart';
 import 'van_text_formatters.dart';
 
 const String kVanManualQuestionIdPrefix = 'new_job_manual_';
@@ -26,11 +25,7 @@ Map<String, VanCustomJobQuestion> buildVanCustomerRequestQuestionLookup(
   List<VanCustomJobQuestion> customQuestions,
 ) {
   return <String, VanCustomJobQuestion>{
-    for (final question in <VanCustomJobQuestion>[
-      ...VanPrefilledJobQuestions.all,
-      ...customQuestions,
-    ])
-      question.id: question,
+    for (final question in customQuestions) question.id: question,
   };
 }
 
@@ -43,11 +38,16 @@ List<String> buildVanServiceDefaultQuestionIds(
   }
 
   final selected = <String>[];
+  final disabledIds = service.disabledLinkedQuestionIds.toSet();
   for (final rawId in service.linkedQuestionIds) {
     final id = rawId.trim();
     if (id.isEmpty ||
-        VanPrefilledJobQuestions.isDeprecatedDuplicatePresetId(id) ||
-        !questionLookup.containsKey(id)) {
+        !questionLookup.containsKey(id) ||
+        disabledIds.contains(id)) {
+      continue;
+    }
+    final question = questionLookup[id]!;
+    if (!question.isActive || question.isArchived) {
       continue;
     }
     if (!selected.contains(id)) {
@@ -129,10 +129,7 @@ List<VanJobRequestAnswer> buildVanRequestAnswersFromSelection({
       continue;
     }
     final question = questionLookup[id];
-    if (question == null ||
-        !question.isActive ||
-        question.isArchived ||
-        VanPrefilledJobQuestions.isDeprecatedDuplicatePresetId(id)) {
+    if (question == null || !question.isActive || question.isArchived) {
       continue;
     }
     usedIds.add(id);

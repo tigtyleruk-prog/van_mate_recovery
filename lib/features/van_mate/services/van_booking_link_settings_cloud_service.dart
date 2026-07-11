@@ -12,16 +12,25 @@ class VanBookingLinkSettingsCloudService {
 
   final FirebaseFirestore _firestore;
 
-  DocumentReference<Map<String, dynamic>> _settingsDoc(String ownerUid) {
+  DocumentReference<Map<String, dynamic>> _settingsDoc(
+    String ownerUid,
+    String businessProfileId,
+  ) {
+    final docId =
+        businessProfileId.trim().isEmpty ||
+            businessProfileId.trim() == 'default_business'
+        ? 'settings'
+        : businessProfileId.trim();
     return _firestore
         .collection('users')
         .doc(ownerUid.trim())
         .collection('van_booking_link_settings')
-        .doc('settings');
+        .doc(docId);
   }
 
   Future<Map<String, dynamic>?> loadSettings({
     required String ownerUid,
+    required String businessProfileId,
     String source = 'van_mate.booking_link_settings_load',
   }) async {
     final normalizedOwnerUid = ownerUid.trim();
@@ -29,15 +38,24 @@ class VanBookingLinkSettingsCloudService {
       return null;
     }
 
-    final collectionPath = 'users/$normalizedOwnerUid/van_booking_link_settings';
+    final docId =
+        businessProfileId.trim().isEmpty ||
+            businessProfileId.trim() == 'default_business'
+        ? 'settings'
+        : businessProfileId.trim();
+    final collectionPath =
+        'users/$normalizedOwnerUid/van_booking_link_settings';
     logVanFirebaseWriteStart(
       collectionPath: collectionPath,
-      docId: 'settings',
+      docId: docId,
       uid: normalizedOwnerUid,
       source: source,
     );
 
-    final snapshot = await _settingsDoc(normalizedOwnerUid).get();
+    final snapshot = await _settingsDoc(
+      normalizedOwnerUid,
+      businessProfileId,
+    ).get();
     if (!snapshot.exists) {
       logVanFirebaseSkip(
         reason: 'booking link settings load empty',
@@ -53,7 +71,7 @@ class VanBookingLinkSettingsCloudService {
 
     logVanFirebaseWriteSuccess(
       collectionPath: collectionPath,
-      docId: 'settings',
+      docId: docId,
       uid: normalizedOwnerUid,
       source: source,
     );
@@ -62,6 +80,7 @@ class VanBookingLinkSettingsCloudService {
 
   Future<void> saveSettings({
     required String ownerUid,
+    required String businessProfileId,
     required String title,
     required bool isActive,
     String source = 'van_mate.booking_link_settings_save',
@@ -75,10 +94,16 @@ class VanBookingLinkSettingsCloudService {
       return;
     }
 
-    final collectionPath = 'users/$normalizedOwnerUid/van_booking_link_settings';
+    final docId =
+        businessProfileId.trim().isEmpty ||
+            businessProfileId.trim() == 'default_business'
+        ? 'settings'
+        : businessProfileId.trim();
+    final collectionPath =
+        'users/$normalizedOwnerUid/van_booking_link_settings';
     logVanFirebaseWriteStart(
       collectionPath: collectionPath,
-      docId: 'settings',
+      docId: docId,
       uid: normalizedOwnerUid,
       source: source,
     );
@@ -89,9 +114,13 @@ class VanBookingLinkSettingsCloudService {
         authType: 'anonymous',
         source: source,
       );
-      await _settingsDoc(normalizedOwnerUid).set(<String, dynamic>{
-        'id': 'settings',
+      await _settingsDoc(
+        normalizedOwnerUid,
+        businessProfileId,
+      ).set(<String, dynamic>{
+        'id': docId,
         'ownerUid': normalizedOwnerUid,
+        'businessProfileId': businessProfileId.trim(),
         'source': source,
         'updatedAt': DateTime.now().toIso8601String(),
         'title': title.trim(),
@@ -99,14 +128,14 @@ class VanBookingLinkSettingsCloudService {
       }, SetOptions(merge: true));
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,
-        docId: 'settings',
+        docId: docId,
         uid: normalizedOwnerUid,
         source: source,
       );
     } catch (error) {
       logVanFirebaseWriteFailure(
         collectionPath: collectionPath,
-        docId: 'settings',
+        docId: docId,
         uid: normalizedOwnerUid,
         error: error,
         source: source,

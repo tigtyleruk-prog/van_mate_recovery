@@ -11,12 +11,14 @@ class VanQuoteExtraDefaultsSheet extends StatefulWidget {
     this.description =
         'Set the quick extra labels and amounts used when building quotes.',
     this.saveLabel = 'Save extras',
+    this.resetDefaults,
   });
 
   final VanQuoteExtraDefaults initialDefaults;
   final String title;
   final String description;
   final String saveLabel;
+  final VanQuoteExtraDefaults? resetDefaults;
 
   @override
   State<VanQuoteExtraDefaultsSheet> createState() =>
@@ -38,8 +40,27 @@ class _VanQuoteExtraDefaultsSheetState
   @override
   void initState() {
     super.initState();
-    _deletedBuiltInKeys.addAll(widget.initialDefaults.deletedBuiltInKeys);
-    for (final extra in widget.initialDefaults.orderedExtras) {
+    _loadEditableDefaults(widget.initialDefaults);
+  }
+
+  void _loadEditableDefaults(VanQuoteExtraDefaults defaults) {
+    for (final controller in _labelControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _priceControllers.values) {
+      controller.dispose();
+    }
+    for (final row in _customRows) {
+      row.dispose();
+    }
+    _labelControllers.clear();
+    _priceControllers.clear();
+    _enabledValues.clear();
+    _customRows.clear();
+    _extraOrder.clear();
+    _deletedBuiltInKeys.clear();
+    _deletedBuiltInKeys.addAll(defaults.deletedBuiltInKeys);
+    for (final extra in defaults.orderedExtras) {
       _extraOrder.add(extra.key);
       if (isVanQuoteBuiltInExtraKey(extra.key)) {
         _ensureBuiltInControllers(extra.key, extra: extra);
@@ -47,7 +68,7 @@ class _VanQuoteExtraDefaultsSheetState
         _customRows.add(_EditableCustomExtra.fromExtra(extra));
       }
     }
-    _nextCustomIndex = widget.initialDefaults.customExtras.length;
+    _nextCustomIndex = defaults.customExtras.length;
   }
 
   @override
@@ -77,10 +98,7 @@ class _VanQuoteExtraDefaultsSheetState
     return double.tryParse(cleaned) ?? 0;
   }
 
-  void _ensureBuiltInControllers(
-    String key, {
-    VanQuoteExtraDefault? extra,
-  }) {
+  void _ensureBuiltInControllers(String key, {VanQuoteExtraDefault? extra}) {
     final defaults = extra ?? widget.initialDefaults.extraForKey(key);
     _labelControllers.putIfAbsent(
       key,
@@ -133,12 +151,8 @@ class _VanQuoteExtraDefaultsSheetState
   }
 
   VanQuoteExtraDefaults _buildDefaults() {
-    var defaults = VanQuoteExtraDefaults.defaults();
-    for (final key in kVanQuoteExtraDefaultOrder) {
-      if (_deletedBuiltInKeys.contains(key)) {
-        defaults = defaults.deleteBuiltInExtra(key);
-        continue;
-      }
+    var defaults = VanQuoteExtraDefaults.empty();
+    for (final key in _extraOrder.where(isVanQuoteBuiltInExtraKey)) {
       _ensureBuiltInControllers(key);
       final existing = VanQuoteExtraDefault.fallback(key);
       final label = _labelControllers[key]?.text.trim() ?? '';
@@ -153,19 +167,13 @@ class _VanQuoteExtraDefaultsSheetState
       );
     }
     defaults = defaults.copyWithCustomExtras(_orderedCustomExtras());
-    for (final key in _deletedBuiltInKeys) {
-      defaults = defaults.deleteBuiltInExtra(key);
-    }
     return defaults.copyWithOrder(_extraOrder);
   }
 
   void _addCustomExtra() {
     setState(() {
       final row = _EditableCustomExtra.blank(
-        key: buildVanQuoteCustomExtraKey(
-          label: '',
-          index: _nextCustomIndex++,
-        ),
+        key: buildVanQuoteCustomExtraKey(label: '', index: _nextCustomIndex++),
       );
       _customRows.add(row);
       _extraOrder.add(row.key);
@@ -189,6 +197,11 @@ class _VanQuoteExtraDefaultsSheetState
 
   void _resetDefaults() {
     setState(() {
+      final serviceDefaults = widget.resetDefaults;
+      if (serviceDefaults != null) {
+        _loadEditableDefaults(_buildDefaults().resetToStarter(serviceDefaults));
+        return;
+      }
       _deletedBuiltInKeys.clear();
       for (final key in kVanQuoteExtraDefaultOrder) {
         final fallback = VanQuoteExtraDefault.fallback(key);
@@ -213,9 +226,6 @@ class _VanQuoteExtraDefaultsSheetState
 
   void _reorderExtra(int oldIndex, int newIndex) {
     setState(() {
-      if (newIndex > oldIndex) {
-        newIndex -= 1;
-      }
       final item = _extraOrder.removeAt(oldIndex);
       _extraOrder.insert(newIndex, item);
     });
@@ -308,11 +318,13 @@ class _VanQuoteExtraDefaultsSheetState
                     physics: const NeverScrollableScrollPhysics(),
                     buildDefaultDragHandles: false,
                     itemCount: _extraOrder.length,
-                    onReorder: _reorderExtra,
+                    onReorderItem: _reorderExtra,
                     itemBuilder: (context, index) {
                       final key = _extraOrder[index];
                       final isBuiltIn = isVanQuoteBuiltInExtraKey(key);
-                      final customRow = isBuiltIn ? null : _customRowForKey(key);
+                      final customRow = isBuiltIn
+                          ? null
+                          : _customRowForKey(key);
                       if (!isBuiltIn && customRow == null) {
                         return const SizedBox.shrink(
                           key: ValueKey('missing-quote-extra-row'),
@@ -395,7 +407,6 @@ class _VanQuoteExtraDefaultsSheetState
 
 class _SavedExtraEditorRow extends StatefulWidget {
   const _SavedExtraEditorRow({
-    super.key,
     required this.title,
     required this.labelController,
     required this.priceController,

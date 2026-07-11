@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/van_invoice_history_entry.dart';
+import 'van_business_profile_scope_storage.dart';
 import 'van_firestore_payload_builder.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
@@ -29,6 +30,10 @@ class VanInvoicesCloudService {
   Future<List<VanInvoiceHistoryEntry>> loadInvoices({
     required String ownerUid,
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return const <VanInvoiceHistoryEntry>[];
+    }
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty) {
       return const <VanInvoiceHistoryEntry>[];
@@ -95,6 +100,10 @@ class VanInvoicesCloudService {
     required VanInvoiceHistoryEntry invoice,
     String source = 'van_mate',
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return;
+    }
     final normalizedOwnerUid = ownerUid.trim();
     final normalizedJobKey = invoice.jobKey.trim();
     if (normalizedOwnerUid.isEmpty || normalizedJobKey.isEmpty) {
@@ -152,6 +161,10 @@ class VanInvoicesCloudService {
     required List<VanInvoiceHistoryEntry> invoices,
     String source = 'van_mate',
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return;
+    }
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty || invoices.isEmpty) {
       logVanFirebaseSkip(

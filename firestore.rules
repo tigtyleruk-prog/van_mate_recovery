@@ -381,12 +381,17 @@ service cloud.firestore {
       allow delete: if isPublicJobRequestOwner();
     }
 
-    match /public_booking_links/{ownerUid} {
+    match /public_booking_links/{publicConfigId} {
       allow get: if request.auth == null
-        || (signedIn() && request.auth.uid == ownerUid);
-      allow list: if signedIn() && request.auth.uid == ownerUid;
-      allow create, update, delete: if signedIn()
-        && request.auth.uid == ownerUid;
+        || (signedIn() && resource.data.ownerUid == request.auth.uid);
+      allow list: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.ownerUid == request.auth.uid;
     }
 
     match /public_quote_responses/{quoteId} {

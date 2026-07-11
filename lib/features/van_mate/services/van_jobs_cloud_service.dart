@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../pages/driver_customer_reply_mock_page.dart';
+import 'van_business_profile_scope_storage.dart';
 import 'van_firestore_payload_builder.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
@@ -27,6 +28,10 @@ class VanJobsCloudService {
     required String ownerUid,
     Source source = Source.serverAndCache,
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return const <DriverCustomerReplyMockData>[];
+    }
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty) {
       return const <DriverCustomerReplyMockData>[];
@@ -108,6 +113,10 @@ class VanJobsCloudService {
     required DriverCustomerReplyMockData job,
     String source = 'van_mate',
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return;
+    }
     final normalizedOwnerUid = ownerUid.trim();
     final normalizedJobId = job.jobId.trim();
     if (normalizedOwnerUid.isEmpty || normalizedJobId.isEmpty) {
@@ -176,6 +185,10 @@ class VanJobsCloudService {
     required Map<String, dynamic> fields,
     String source = 'van_mate.jobs',
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return;
+    }
     final normalizedOwnerUid = ownerUid.trim();
     final normalizedJobId = jobId.trim();
     if (normalizedOwnerUid.isEmpty || normalizedJobId.isEmpty) {
@@ -231,6 +244,10 @@ class VanJobsCloudService {
     required List<DriverCustomerReplyMockData> jobs,
     String source = 'van_mate',
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return;
+    }
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty || jobs.isEmpty) {
       logVanFirebaseSkip(
@@ -333,6 +350,10 @@ class VanJobsCloudService {
     String source = 'van_mate.jobs',
     bool testCleanup = false,
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return;
+    }
     final normalizedOwnerUid = ownerUid.trim();
     final normalizedJobId = jobId.trim();
     if (normalizedOwnerUid.isEmpty || normalizedJobId.isEmpty) {
@@ -391,6 +412,10 @@ class VanJobsCloudService {
     required String ownerUid,
     String source = 'van_mate.debug_clear_saved_jobs',
   }) async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return 0;
+    }
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty) {
       return 0;

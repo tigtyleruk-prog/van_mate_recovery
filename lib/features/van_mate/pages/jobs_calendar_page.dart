@@ -21,7 +21,6 @@ import 'create_job_request_flow.dart';
 import 'job_detail_page.dart';
 import 'jobs_calendar_schedule_page.dart';
 import 'van_business_profile_page.dart';
-import 'van_custom_job_questions_page.dart';
 import 'van_completed_jobs_page.dart';
 import 'van_invoice_history_page.dart';
 import 'van_invoice_preview_page.dart';
@@ -1986,15 +1985,6 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
     setState(() {});
   }
 
-  Future<void> _openCustomJobQuestions() async {
-    await openVanCustomJobQuestionsPage(context);
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -2061,12 +2051,6 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                                       icon: Icons.badge_outlined,
                                       label: 'Business Profile',
                                       onTap: _openBusinessProfile,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _JobsGlassActionButton(
-                                      icon: Icons.quiz_outlined,
-                                      label: 'Custom Job Questions',
-                                      onTap: _openCustomJobQuestions,
                                     ),
                                     const SizedBox(height: 10),
                                     Row(

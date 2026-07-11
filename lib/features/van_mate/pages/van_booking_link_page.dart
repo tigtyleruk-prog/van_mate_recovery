@@ -14,10 +14,10 @@ import '../helpers/van_text_formatters.dart';
 import '../models/van_business_profile.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
-import '../models/van_prefilled_job_questions.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
 import '../services/van_booking_link_cloud_service.dart';
 import '../services/van_booking_link_settings_storage.dart';
+import '../services/van_business_profile_scope_storage.dart';
 import '../services/van_business_profile_storage.dart';
 import '../services/van_custom_job_questions_storage.dart';
 import '../services/van_firebase_auth_service.dart';
@@ -63,6 +63,8 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
   Map<String, VanCustomJobQuestion> _questionLookup =
       const <String, VanCustomJobQuestion>{};
   String _ownerUid = '';
+  String _publicConfigId = '';
+  bool _publicSyncSucceeded = false;
   String? _errorMessage;
   Timer? _saveTitleDebounce;
 
@@ -163,10 +165,7 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
     final sanitizedServices = activeServices
         .map((service) {
           final filteredIds = service.linkedQuestionIds
-              .where(
-                (id) =>
-                    !VanPrefilledJobQuestions.isDeprecatedDuplicatePresetId(id),
-              )
+              .where((id) => !service.disabledLinkedQuestionIds.contains(id))
               .toList(growable: false);
           if (filteredIds.length == service.linkedQuestionIds.length) {
             return service;
@@ -177,12 +176,8 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
         })
         .toList(growable: false);
 
-    final allQuestions = <VanCustomJobQuestion>[
-      ...VanPrefilledJobQuestions.all,
-      ...customQuestions,
-    ];
     final questionLookup = <String, VanCustomJobQuestion>{
-      for (final question in allQuestions) question.id: question,
+      for (final question in customQuestions) question.id: question,
     };
     final resolvedTitle = _resolveBookingLinkTitle(
       linkTitle: linkTitle,
@@ -216,19 +211,27 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
           .ensureCurrentUid(source: 'van_mate.booking_link_setup')
           .timeout(_loadTimeout);
       final linkSeed = ownerUid?.trim() ?? '';
+      final activeBusinessId = await VanBusinessProfileScopeStorage.instance
+          .activeBusinessId()
+          .timeout(_loadTimeout);
+      final publicConfigId = await VanBusinessProfileScopeStorage.instance
+          .bookingLinkPublicConfigId(linkSeed)
+          .timeout(_loadTimeout);
       debugPrint(
-        '[BookingLinkPage] auth resolved uid=${linkSeed.isEmpty ? '(none)' : linkSeed}',
+        '[BookingLinkPage] identity resolved uid=${linkSeed.isEmpty ? '(none)' : linkSeed} businessProfileId=$activeBusinessId publicConfigId=${publicConfigId.isEmpty ? '(none)' : publicConfigId}',
       );
       final shareLink = linkSeed.isEmpty
           ? 'https://vanmate-56eac.web.app/booking_link.html'
-          : 'https://vanmate-56eac.web.app/booking_link.html?owner=$linkSeed';
+          : 'https://vanmate-56eac.web.app/booking_link.html?owner=$publicConfigId';
 
       if (!mounted) {
         return;
       }
       setState(() {
         _ownerUid = linkSeed;
+        _publicConfigId = publicConfigId;
         _shareLink = shareLink;
+        _publicSyncSucceeded = false;
       });
 
       if (linkSeed.isEmpty) {
@@ -237,11 +240,13 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
       }
 
       debugPrint(
-        '[BookingLinkPage] publish start uid=$linkSeed path=public_booking_links/$linkSeed activeServices=${_activeServices.length}',
+        '[BookingLinkPage] publish start uid=$linkSeed path=public_booking_links/$publicConfigId activeServices=${_activeServices.length}',
       );
       await _cloudService
           .savePublicConfig(
             ownerUid: linkSeed,
+            publicConfigId: publicConfigId,
+            businessProfileId: activeBusinessId,
             title: _titleController.text.trim(),
             isActive: _linkActive,
             profile: _profile,
@@ -250,12 +255,19 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
           )
           .timeout(_loadTimeout);
       debugPrint('[BookingLinkPage] publish success uid=$linkSeed');
+      if (mounted) {
+        setState(() {
+          _publicSyncSucceeded = true;
+          _errorMessage = null;
+        });
+      }
     } catch (error) {
       debugPrint('[BookingLinkPage] publish error error=$error');
       if (!mounted) {
         return;
       }
       setState(() {
+        _publicSyncSucceeded = false;
         _errorMessage =
             'Could not sync your Booking Link to Firestore. You can still review setup and retry.';
       });
@@ -310,13 +322,19 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
       debugPrint('[BookingLinkPage] publish skipped uid=(none)');
       return;
     }
+    final normalizedPublicConfigId = _publicConfigId.trim().isEmpty
+        ? normalizedOwnerUid
+        : _publicConfigId.trim();
     try {
       debugPrint(
-        '[BookingLinkPage] publish retry uid=$normalizedOwnerUid path=public_booking_links/$normalizedOwnerUid activeServices=${_activeServices.length}',
+        '[BookingLinkPage] publish retry uid=$normalizedOwnerUid path=public_booking_links/$normalizedPublicConfigId activeServices=${_activeServices.length}',
       );
       await _cloudService
           .savePublicConfig(
             ownerUid: normalizedOwnerUid,
+            publicConfigId: normalizedPublicConfigId,
+            businessProfileId: await VanBusinessProfileScopeStorage.instance
+                .activeBusinessId(),
             title: _titleController.text.trim(),
             isActive: _linkActive,
             profile: _profile,
@@ -328,6 +346,7 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
         return;
       }
       setState(() {
+        _publicSyncSucceeded = true;
         _errorMessage = null;
       });
     } catch (error) {
@@ -336,6 +355,7 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
         return;
       }
       setState(() {
+        _publicSyncSucceeded = false;
         _errorMessage =
             'Could not sync your Booking Link to Firestore. Please try again.';
       });
@@ -559,8 +579,10 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
                               value: _linkActive,
                               onChanged: _setLinkActive,
                               title: Text(
-                                _linkActive
+                                _linkActive && _publicSyncSucceeded
                                     ? 'Booking Link is active'
+                                    : _linkActive
+                                    ? 'Booking Link is not live yet'
                                     : 'Booking Link is inactive',
                                 style: const TextStyle(
                                   color: Colors.white,
@@ -568,8 +590,10 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
                                 ),
                               ),
                               subtitle: Text(
-                                _linkActive
+                                _linkActive && _publicSyncSucceeded
                                     ? 'Customers can submit new requests.'
+                                    : _linkActive
+                                    ? 'Your setup is saved locally, but customers cannot use the public link until Firestore sync succeeds.'
                                     : 'Disable intake while you update services or questions.',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.72),
@@ -778,9 +802,6 @@ class _VanBookingLinkCustomerFormPageState
     }
     final questions = <VanCustomJobQuestion>[];
     for (final id in service.linkedQuestionIds) {
-      if (VanPrefilledJobQuestions.isDeprecatedDuplicatePresetId(id)) {
-        continue;
-      }
       final question = widget.questionLookup[id];
       if (question != null && question.isActive && !question.isArchived) {
         questions.add(question);

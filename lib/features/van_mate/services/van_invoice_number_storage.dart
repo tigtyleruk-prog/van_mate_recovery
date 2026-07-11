@@ -1,10 +1,11 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'van_business_profile_scope_storage.dart';
+
 class VanInvoiceNumberStorage {
   VanInvoiceNumberStorage._();
 
-  static final VanInvoiceNumberStorage instance =
-      VanInvoiceNumberStorage._();
+  static final VanInvoiceNumberStorage instance = VanInvoiceNumberStorage._();
 
   static const String _nextNumberKey = 'van_invoice_next_number';
 
@@ -27,7 +28,9 @@ class VanInvoiceNumberStorage {
 
   Future<int> peekNextNumber() async {
     await ensureLoaded();
-    final value = _preferences?.getInt(_nextNumberKey) ?? 1;
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_nextNumberKey);
+    final value = _preferences?.getInt(storageKey) ?? 1;
     return value < 1 ? 1 : value;
   }
 
@@ -37,18 +40,24 @@ class VanInvoiceNumberStorage {
 
   Future<String> nextInvoiceNumber() async {
     final nextNumber = await peekNextNumber();
-    await _preferences?.setInt(_nextNumberKey, nextNumber + 1);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_nextNumberKey);
+    await _preferences?.setInt(storageKey, nextNumber + 1);
     return formatInvoiceNumber(nextNumber);
   }
 
   Future<void> consumeNextNumber() async {
     final nextNumber = await peekNextNumber();
-    await _preferences?.setInt(_nextNumberKey, nextNumber + 1);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_nextNumberKey);
+    await _preferences?.setInt(storageKey, nextNumber + 1);
   }
 
   Future<void> resetNextNumber() async {
     await ensureLoaded();
-    await _preferences?.setInt(_nextNumberKey, 1);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_nextNumberKey);
+    await _preferences?.setInt(storageKey, 1);
   }
 
   String formatInvoiceNumber(int number) {

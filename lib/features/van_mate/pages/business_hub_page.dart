@@ -4,11 +4,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../helpers/app_theme.dart';
+import '../models/van_business_profile.dart';
+import '../services/van_business_profile_scope_storage.dart';
+import '../services/van_business_profile_storage.dart';
 import 'van_expenses_page.dart';
 import 'van_payments_earnings_page.dart';
 import 'van_business_profile_page.dart';
 import 'van_booking_link_page.dart';
-import 'van_custom_job_questions_page.dart';
 import 'van_completed_jobs_page.dart';
 import 'van_incoming_requests_page.dart';
 import 'van_invoice_history_page.dart';
@@ -23,8 +25,143 @@ Future<void> openVanBusinessHubPage(BuildContext context) {
   ).push(MaterialPageRoute<void>(builder: (_) => const VanBusinessHubPage()));
 }
 
-class VanBusinessHubPage extends StatelessWidget {
+class VanBusinessHubPage extends StatefulWidget {
   const VanBusinessHubPage({super.key});
+
+  @override
+  State<VanBusinessHubPage> createState() => _VanBusinessHubPageState();
+}
+
+class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
+  final VanBusinessProfileScopeStorage _profileScopeStorage =
+      VanBusinessProfileScopeStorage.instance;
+
+  List<VanBusinessProfileSummary> _profiles =
+      const <VanBusinessProfileSummary>[];
+  VanBusinessProfileSummary? _activeProfile;
+  bool _loadingProfiles = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileScopeStorage.addListener(_handleProfilesChanged);
+    unawaited(_loadProfiles());
+  }
+
+  @override
+  void dispose() {
+    _profileScopeStorage.removeListener(_handleProfilesChanged);
+    super.dispose();
+  }
+
+  void _handleProfilesChanged() {
+    unawaited(_loadProfiles(showLoader: false));
+  }
+
+  Future<void> _loadProfiles({bool showLoader = true}) async {
+    if (showLoader && mounted) {
+      setState(() {
+        _loadingProfiles = true;
+      });
+    }
+    final profiles = await _profileScopeStorage.loadProfiles();
+    final active = await _profileScopeStorage.activeProfile();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _profiles = profiles;
+      _activeProfile = active;
+      _loadingProfiles = false;
+    });
+  }
+
+  Future<void> _switchBusiness(String profileId) async {
+    await _profileScopeStorage.switchProfile(profileId);
+    await _loadProfiles(showLoader: false);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Business switched.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _addBusiness() async {
+    final name = await _showBusinessNameDialog(
+      title: 'Add business',
+      actionLabel: 'Add',
+    );
+    final cleanedName = name?.trim() ?? '';
+    if (cleanedName.isEmpty) {
+      return;
+    }
+
+    final profile = await _profileScopeStorage.addProfile(
+      cleanedName,
+      activate: false,
+      notify: false,
+    );
+    await VanBusinessProfileStorage.instance.save(
+      const VanBusinessProfile.defaults().copyWith(businessName: profile.name),
+      syncCloud: false,
+      scopeIdOverride: profile.id,
+    );
+    await _waitForDialogDismissalFrame();
+    if (!mounted) {
+      return;
+    }
+    await _profileScopeStorage.switchProfile(profile.id);
+    if (!mounted) {
+      return;
+    }
+    await _loadProfiles(showLoader: false);
+  }
+
+  Future<void> _waitForDialogDismissalFrame() async {
+    await Future<void>.delayed(Duration.zero);
+    await WidgetsBinding.instance.endOfFrame;
+  }
+
+  Future<void> _renameActiveBusiness() async {
+    final active = _activeProfile;
+    if (active == null) {
+      return;
+    }
+    final name = await _showBusinessNameDialog(
+      title: 'Rename business',
+      actionLabel: 'Save',
+      initialValue: active.name,
+    );
+    if (name == null || name.trim().isEmpty) {
+      return;
+    }
+    await _profileScopeStorage.renameProfile(profileId: active.id, name: name);
+    final currentProfile = await VanBusinessProfileStorage.instance.load();
+    await VanBusinessProfileStorage.instance.save(
+      currentProfile.copyWith(businessName: name.trim()),
+      syncCloud: active.id == VanBusinessProfileScopeStorage.defaultBusinessId,
+    );
+    await _loadProfiles(showLoader: false);
+  }
+
+  Future<String?> _showBusinessNameDialog({
+    required String title,
+    required String actionLabel,
+    String initialValue = '',
+  }) async {
+    return showDialog<String>(
+      context: context,
+      builder: (_) => _BusinessNameDialog(
+        title: title,
+        actionLabel: actionLabel,
+        initialValue: initialValue,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +214,15 @@ class VanBusinessHubPage extends StatelessWidget {
                   subtitle: 'Bookings, payments, invoices and business tools.',
                 ),
                 const SizedBox(height: 12),
+                _BusinessProfileSwitcherCard(
+                  profiles: _profiles,
+                  activeProfile: _activeProfile,
+                  loading: _loadingProfiles,
+                  onSwitch: _switchBusiness,
+                  onAdd: _addBusiness,
+                  onRename: _renameActiveBusiness,
+                ),
+                const SizedBox(height: 12),
                 _BusinessHubSectionCard(
                   title: 'Work & Bookings',
                   subtitle:
@@ -89,10 +235,6 @@ class VanBusinessHubPage extends StatelessWidget {
                     _BusinessHubActionItem(
                       title: 'Job Types / Services',
                       icon: Icons.design_services_outlined,
-                    ),
-                    _BusinessHubActionItem(
-                      title: 'Custom Job Questions',
-                      icon: Icons.quiz_outlined,
                     ),
                     _BusinessHubActionItem(
                       title: 'Booking Link',
@@ -145,6 +287,84 @@ class VanBusinessHubPage extends StatelessWidget {
   }
 }
 
+class _BusinessNameDialog extends StatefulWidget {
+  const _BusinessNameDialog({
+    required this.title,
+    required this.actionLabel,
+    required this.initialValue,
+  });
+
+  final String title;
+  final String actionLabel;
+  final String initialValue;
+
+  @override
+  State<_BusinessNameDialog> createState() => _BusinessNameDialogState();
+}
+
+class _BusinessNameDialogState extends State<_BusinessNameDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final cleaned = _controller.text.trim();
+    if (cleaned.isEmpty) {
+      setState(() {
+        _errorText = 'Enter a business name.';
+      });
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop(cleaned);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        decoration: InputDecoration(
+          labelText: 'Business name',
+          errorText: _errorText,
+        ),
+        onChanged: (_) {
+          if (_errorText == null) {
+            return;
+          }
+          setState(() {
+            _errorText = null;
+          });
+        },
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: Text(widget.actionLabel)),
+      ],
+    );
+  }
+}
+
 class _BusinessHubHeroCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -177,6 +397,122 @@ class _BusinessHubHeroCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: Colors.white.withValues(alpha: 0.76),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BusinessProfileSwitcherCard extends StatelessWidget {
+  const _BusinessProfileSwitcherCard({
+    required this.profiles,
+    required this.activeProfile,
+    required this.loading,
+    required this.onSwitch,
+    required this.onAdd,
+    required this.onRename,
+  });
+
+  final List<VanBusinessProfileSummary> profiles;
+  final VanBusinessProfileSummary? activeProfile;
+  final bool loading;
+  final ValueChanged<String> onSwitch;
+  final VoidCallback onAdd;
+  final VoidCallback onRename;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = activeProfile;
+    return _BusinessHubGlassCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFF4A7DFF).withValues(alpha: 0.18),
+                  border: Border.all(
+                    color: const Color(0xFF4A7DFF).withValues(alpha: 0.30),
+                  ),
+                ),
+                child: const Icon(Icons.business_center, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      loading
+                          ? 'Loading business...'
+                          : active?.name ?? 'Default business',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Current active business',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.66),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Rename business',
+                onPressed: loading ? null : onRename,
+                icon: const Icon(Icons.edit_outlined, color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final profile in profiles)
+                ChoiceChip(
+                  selected: profile.id == active?.id,
+                  onSelected: loading ? null : (_) => onSwitch(profile.id),
+                  label: Text(profile.name),
+                  selectedColor: const Color(0xFF4A7DFF),
+                  backgroundColor: Colors.white.withValues(alpha: 0.08),
+                  side: BorderSide(
+                    color: profile.id == active?.id
+                        ? const Color(0xFF4A7DFF)
+                        : Colors.white.withValues(alpha: 0.16),
+                  ),
+                  labelStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ActionChip(
+                onPressed: loading ? null : onAdd,
+                avatar: const Icon(Icons.add, color: Colors.white, size: 18),
+                label: const Text('Add another business'),
+                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+                labelStyle: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -240,11 +576,6 @@ class _BusinessHubSectionCard extends StatelessWidget {
                     onTap: () {
                       if (item.title == 'Business Profile') {
                         unawaited(openVanBusinessProfilePage(context));
-                        return;
-                      }
-
-                      if (item.title == 'Custom Job Questions') {
-                        unawaited(openVanCustomJobQuestionsPage(context));
                         return;
                       }
 

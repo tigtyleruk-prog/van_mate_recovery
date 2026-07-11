@@ -2538,7 +2538,12 @@ async function sendBookingRequestReceivedNotification({
 exports.submitBookingLinkRequest = onCall(async (request) => {
   console.info('[BookingLinkSubmit] callable request start');
   const data = request.data || {};
-  const ownerUid = readString(data.ownerUid);
+  let ownerUid = readString(data.ownerUid);
+  const publicConfigId = firstNonEmpty([
+    data.publicConfigId,
+    data.bookingLinkId,
+    data.ownerUid,
+  ]);
   const serviceId = readString(data.serviceId);
   const requestedServiceName = readString(data.serviceName);
   const customerName = readString(data.customerName);
@@ -2599,7 +2604,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     `[BookingLinkSubmit] tapped ownerUid=${ownerUid || '(missing)'} serviceId=${serviceId || '(missing)'} customerName=${customerName || '(missing)'} phone=${phoneNumber || '(missing)'} answersCollected=${answers.length} selectedPhotoCount=${requestedPhotos.length}`,
   );
 
-  if (!ownerUid || !serviceId) {
+  if (!publicConfigId || !serviceId) {
     throw new HttpsError(
       'invalid-argument',
       'Booking Link owner and selected service are required.',
@@ -2615,16 +2620,21 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const bookingLinkSnap = await admin
     .firestore()
     .collection(PUBLIC_BOOKING_LINK_COLLECTION)
-    .doc(ownerUid)
+    .doc(publicConfigId)
     .get();
   if (!bookingLinkSnap.exists) {
     throw new HttpsError('not-found', 'Booking Link not found.');
   }
 
   const bookingLink = bookingLinkSnap.data() || {};
+  ownerUid = firstNonEmpty([bookingLink.ownerUid, ownerUid, publicConfigId]);
   if (bookingLink.isActive === false) {
     throw new HttpsError('failed-precondition', 'Booking Link is inactive.');
   }
+  const businessProfileId = firstNonEmpty([
+    data.businessProfileId,
+    bookingLink.businessProfileId,
+  ]);
 
   const services = Array.isArray(bookingLink.services) ? bookingLink.services : [];
   const selectedService = services.find((item) => readString(item && item.id) === serviceId);
@@ -2804,6 +2814,8 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const payload = {
     requestId,
     ownerUid,
+    publicConfigId,
+    businessProfileId,
     jobId,
     linkedJobId: jobId,
     status: 'request_received',

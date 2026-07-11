@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/van_job_service.dart';
+import 'van_business_profile_scope_storage.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
 import 'van_job_services_cloud_service.dart';
@@ -33,7 +34,9 @@ class VanJobServicesStorage extends ChangeNotifier {
 
   Future<List<VanJobService>> loadAll() async {
     await ensureLoaded();
-    final raw = _preferences?.getString(_servicesKey);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_servicesKey);
+    final raw = _preferences?.getString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return const <VanJobService>[];
     }
@@ -53,6 +56,10 @@ class VanJobServicesStorage extends ChangeNotifier {
   }
 
   Future<List<VanJobService>?> loadFromCloud() async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return loadAll();
+    }
     logVanFirebaseHydration(
       stage: 'started',
       target: 'job services cloud load',
@@ -114,9 +121,11 @@ class VanJobServicesStorage extends ChangeNotifier {
     bool syncCloud = true,
   }) async {
     await ensureLoaded();
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_servicesKey);
     final sorted = List<VanJobService>.from(services)..sort(_sortServices);
     await _preferences?.setString(
-      _servicesKey,
+      storageKey,
       jsonEncode(
         sorted.map((service) => service.toJson()).toList(growable: false),
       ),
@@ -124,7 +133,9 @@ class VanJobServicesStorage extends ChangeNotifier {
     debugPrint('[JobServices] saved count=${sorted.length}');
     notifyListeners();
 
-    if (!syncCloud) {
+    if (!syncCloud ||
+        !await VanBusinessProfileScopeStorage.instance
+            .isDefaultBusinessActive()) {
       return;
     }
 
@@ -192,8 +203,15 @@ class VanJobServicesStorage extends ChangeNotifier {
 
   Future<void> clear() async {
     await ensureLoaded();
-    await _preferences?.remove(_servicesKey);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_servicesKey);
+    await _preferences?.remove(storageKey);
     notifyListeners();
+
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return;
+    }
 
     try {
       final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(

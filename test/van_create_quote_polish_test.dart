@@ -310,4 +310,65 @@ void main() {
 
     expect(_amountText(tester), '122.00');
   });
+
+  testWidgets('Create Quote reflects saved service extras immediately', (
+    tester,
+  ) async {
+    final reply = _reply(jobId: 'immediate-service-extra-refresh');
+    final now = DateTime(2026, 7, 10);
+    DriverReplyMockState.instance.debugAddJobForTest(reply);
+    DriverReplyMockState.instance.debugAddRequestForTest(
+      VanJobRequestRecord(
+        requestId: 'immediate-service-extra-request',
+        ownerUid: 'owner-1',
+        jobId: reply.jobId,
+        linkedJobId: reply.jobId,
+        status: 'reply_received',
+        createdAt: now,
+        updatedAt: now,
+        expiresAt: now.add(const Duration(days: 7)),
+        publicJobTitle: reply.jobTitle,
+        publicCustomerName: reply.customerName,
+        publicAddressSummary: reply.address,
+        checklistItems: const <String>[],
+        customQuestions: const <String>[],
+        exactPinRequested: false,
+        selectedServiceId: 'cleaning-request-service',
+        selectedServiceName: 'Cleaning',
+      ),
+    );
+    await VanQuoteExtraDefaultsStorage.instance.saveForService(
+      serviceKey: 'cleaning-request-service',
+      serviceName: 'Cleaning',
+      defaults: VanQuoteExtraDefaults.starterForServiceName('Cleaning'),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: CreateQuotePage(reply: reply)));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byTooltip('Saved extras'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byTooltip('Saved extras'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add custom extra'));
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(
+      fields.at(fields.evaluate().length - 2),
+      'Eco products',
+    );
+    await tester.enterText(fields.at(fields.evaluate().length - 1), '8');
+    await tester.scrollUntilVisible(
+      find.text('Save extras'),
+      120,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Save extras'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Eco products'), findsOneWidget);
+  });
 }

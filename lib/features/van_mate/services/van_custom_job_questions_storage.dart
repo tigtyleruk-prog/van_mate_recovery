@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/van_custom_job_question.dart';
+import 'van_business_profile_scope_storage.dart';
 import 'van_custom_job_questions_cloud_service.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
@@ -34,7 +35,9 @@ class VanCustomJobQuestionsStorage extends ChangeNotifier {
 
   Future<List<VanCustomJobQuestion>> loadAll() async {
     await ensureLoaded();
-    final raw = _preferences?.getString(_questionsKey);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_questionsKey);
+    final raw = _preferences?.getString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return const <VanCustomJobQuestion>[];
     }
@@ -71,6 +74,10 @@ class VanCustomJobQuestionsStorage extends ChangeNotifier {
   }
 
   Future<List<VanCustomJobQuestion>?> loadFromCloud() async {
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return loadAll();
+    }
     logVanFirebaseHydration(
       stage: 'started',
       target: 'custom questions cloud load',
@@ -131,10 +138,12 @@ class VanCustomJobQuestionsStorage extends ChangeNotifier {
     bool syncCloud = true,
   }) async {
     await ensureLoaded();
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_questionsKey);
     final sorted = List<VanCustomJobQuestion>.from(questions)
       ..sort(_sortQuestions);
     await _preferences?.setString(
-      _questionsKey,
+      storageKey,
       jsonEncode(
         sorted.map((question) => question.toJson()).toList(growable: false),
       ),
@@ -142,7 +151,9 @@ class VanCustomJobQuestionsStorage extends ChangeNotifier {
     debugPrint('[CustomQuestions] saved count=${sorted.length}');
     notifyListeners();
 
-    if (!syncCloud) {
+    if (!syncCloud ||
+        !await VanBusinessProfileScopeStorage.instance
+            .isDefaultBusinessActive()) {
       return;
     }
 
@@ -223,8 +234,15 @@ class VanCustomJobQuestionsStorage extends ChangeNotifier {
 
   Future<void> clear() async {
     await ensureLoaded();
-    await _preferences?.remove(_questionsKey);
+    final storageKey = await VanBusinessProfileScopeStorage.instance
+        .scopedLocalKey(_questionsKey);
+    await _preferences?.remove(storageKey);
     notifyListeners();
+
+    if (!await VanBusinessProfileScopeStorage.instance
+        .isDefaultBusinessActive()) {
+      return;
+    }
 
     try {
       final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
