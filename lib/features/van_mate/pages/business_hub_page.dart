@@ -18,6 +18,96 @@ import 'van_job_types_services_page.dart';
 import 'van_quick_invoice_page.dart';
 import 'van_job_reports_page.dart';
 import 'jobs_calendar_page.dart';
+import 'driver_customer_reply_mock_page.dart';
+
+class VanIncomingJobsAttention {
+  const VanIncomingJobsAttention({
+    required this.actionTokens,
+    required this.newIncomingRequestCount,
+    required this.readyForCalendarCount,
+  });
+
+  final Set<String> actionTokens;
+  final int newIncomingRequestCount;
+  final int readyForCalendarCount;
+
+  int get count => actionTokens.length;
+  bool get hasAttention => count > 0;
+
+  String get label {
+    if (!hasAttention) {
+      return '';
+    }
+    if (newIncomingRequestCount > 0) {
+      return '$newIncomingRequestCount new';
+    }
+    if (readyForCalendarCount > 0) {
+      return 'Ready for Calendar';
+    }
+    return 'Action needed';
+  }
+}
+
+String incomingJobsAttentionToken(DriverCustomerReplyMockData job) {
+  final changedAt =
+      job.updatedAt ??
+      job.quoteRespondedAt ??
+      job.quoteAcceptedAt ??
+      job.replyReceivedAt ??
+      job.requestSubmittedAt;
+  return [
+    job.jobId.trim(),
+    job.status.trim().toLowerCase(),
+    job.requestStatus.trim().toLowerCase(),
+    job.quoteStatus.trim().toLowerCase(),
+    job.schedulingStatus.trim().toLowerCase(),
+    changedAt?.toIso8601String() ?? '',
+  ].join('|');
+}
+
+VanIncomingJobsAttention buildVanIncomingJobsAttention(
+  Iterable<DriverCustomerReplyMockData> jobs, {
+  Set<String> viewedTokens = const <String>{},
+}) {
+  final actionTokens = <String>{};
+  var newIncomingRequestCount = 0;
+  var readyForCalendarCount = 0;
+
+  for (final job in jobs) {
+    if (job.isHiddenFromNormalLists ||
+        job.isCompletedJob ||
+        job.isCancelled ||
+        job.isScheduledInCalendarState) {
+      continue;
+    }
+    final needsAttention =
+        job.hasRequest ||
+        job.hasCustomerReply ||
+        job.isQuoteAwaitingCustomerResponse ||
+        job.isQuoteAccepted ||
+        job.isQuoteDeclined;
+    if (!needsAttention) {
+      continue;
+    }
+    final token = incomingJobsAttentionToken(job);
+    if (viewedTokens.contains(token)) {
+      continue;
+    }
+    actionTokens.add(token);
+    if (job.hasRequest && !job.hasQuote) {
+      newIncomingRequestCount += 1;
+    }
+    if (job.shouldPromptAddToCalendar || job.isReadyToAddToCalendar) {
+      readyForCalendarCount += 1;
+    }
+  }
+
+  return VanIncomingJobsAttention(
+    actionTokens: Set<String>.unmodifiable(actionTokens),
+    newIncomingRequestCount: newIncomingRequestCount,
+    readyForCalendarCount: readyForCalendarCount,
+  );
+}
 
 Future<void> openVanBusinessHubPage(BuildContext context) {
   return Navigator.of(
@@ -35,27 +125,74 @@ class VanBusinessHubPage extends StatefulWidget {
 class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
   final VanBusinessProfileScopeStorage _profileScopeStorage =
       VanBusinessProfileScopeStorage.instance;
+  final DriverReplyMockState _driverState = DriverReplyMockState.instance;
 
   List<VanBusinessProfileSummary> _profiles =
       const <VanBusinessProfileSummary>[];
   VanBusinessProfileSummary? _activeProfile;
   bool _loadingProfiles = true;
+  final Set<String> _viewedIncomingActionTokens = <String>{};
 
   @override
   void initState() {
     super.initState();
     _profileScopeStorage.addListener(_handleProfilesChanged);
+    _driverState.addListener(_handleIncomingJobsChanged);
     unawaited(_loadProfiles());
+    unawaited(_refreshIncomingJobs());
   }
 
   @override
   void dispose() {
     _profileScopeStorage.removeListener(_handleProfilesChanged);
+    _driverState.removeListener(_handleIncomingJobsChanged);
     super.dispose();
   }
 
   void _handleProfilesChanged() {
+    _viewedIncomingActionTokens.clear();
     unawaited(_loadProfiles(showLoader: false));
+    unawaited(_refreshIncomingJobs());
+  }
+
+  void _handleIncomingJobsChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _refreshIncomingJobs() async {
+    try {
+      await _driverState.loadFromStorage();
+      await _driverState.refreshJobsFromCloud(forceServer: true);
+    } catch (error) {
+      debugPrint(
+        '[BusinessHub] incoming jobs attention refresh failed: $error',
+      );
+    }
+  }
+
+  VanIncomingJobsAttention get _incomingJobsAttention =>
+      buildVanIncomingJobsAttention(
+        _driverState.pendingJobs,
+        viewedTokens: _viewedIncomingActionTokens,
+      );
+
+  void _markIncomingJobsViewed() {
+    _viewedIncomingActionTokens.addAll(_incomingJobsAttention.actionTokens);
+  }
+
+  Future<void> _openIncomingJobs() async {
+    _markIncomingJobsViewed();
+    if (mounted) {
+      setState(() {});
+    }
+    await openVanIncomingRequestsPage(context);
+    if (!mounted) {
+      return;
+    }
+    _markIncomingJobsViewed();
+    setState(() {});
   }
 
   Future<void> _loadProfiles({bool showLoader = true}) async {
@@ -166,6 +303,7 @@ class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final incomingJobsAttention = _incomingJobsAttention;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -227,6 +365,8 @@ class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
                   title: 'Work & Bookings',
                   subtitle:
                       'Set up your business tools and manage customer work.',
+                  incomingJobsAttention: incomingJobsAttention,
+                  onOpenIncomingJobs: () => unawaited(_openIncomingJobs()),
                   items: const <_BusinessHubActionItem>[
                     _BusinessHubActionItem(
                       title: 'Business Profile',
@@ -524,11 +664,15 @@ class _BusinessHubSectionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<_BusinessHubActionItem> items;
+  final VanIncomingJobsAttention? incomingJobsAttention;
+  final VoidCallback? onOpenIncomingJobs;
 
   const _BusinessHubSectionCard({
     required this.title,
     required this.subtitle,
     required this.items,
+    this.incomingJobsAttention,
+    this.onOpenIncomingJobs,
   });
 
   @override
@@ -573,6 +717,9 @@ class _BusinessHubSectionCard extends StatelessWidget {
                   final item = items[index];
                   return _BusinessHubActionTile(
                     item: item,
+                    attention: item.title == 'Incoming Jobs'
+                        ? incomingJobsAttention
+                        : null,
                     onTap: () {
                       if (item.title == 'Business Profile') {
                         unawaited(openVanBusinessProfilePage(context));
@@ -590,7 +737,7 @@ class _BusinessHubSectionCard extends StatelessWidget {
                       }
 
                       if (item.title == 'Incoming Jobs') {
-                        unawaited(openVanIncomingRequestsPage(context));
+                        onOpenIncomingJobs?.call();
                         return;
                       }
 
@@ -645,11 +792,17 @@ class _BusinessHubSectionCard extends StatelessWidget {
 class _BusinessHubActionTile extends StatelessWidget {
   final _BusinessHubActionItem item;
   final VoidCallback onTap;
+  final VanIncomingJobsAttention? attention;
 
-  const _BusinessHubActionTile({required this.item, required this.onTap});
+  const _BusinessHubActionTile({
+    required this.item,
+    required this.onTap,
+    this.attention,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hasAttention = attention?.hasAttention ?? false;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -659,8 +812,23 @@ class _BusinessHubActionTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: Colors.white.withValues(alpha: 0.06),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            color: hasAttention
+                ? const Color(0xFF4A7DFF).withValues(alpha: 0.18)
+                : Colors.white.withValues(alpha: 0.06),
+            border: Border.all(
+              color: hasAttention
+                  ? const Color(0xFF85A8FF).withValues(alpha: 0.80)
+                  : Colors.white.withValues(alpha: 0.12),
+            ),
+            boxShadow: hasAttention
+                ? <BoxShadow>[
+                    BoxShadow(
+                      color: const Color(0xFF4A7DFF).withValues(alpha: 0.22),
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
@@ -696,6 +864,10 @@ class _BusinessHubActionTile extends StatelessWidget {
                   ],
                 ),
               ),
+              if (hasAttention) ...[
+                const SizedBox(width: 8),
+                _IncomingJobsAttentionBadge(label: attention!.label),
+              ],
               const SizedBox(width: 8),
               Icon(
                 Icons.chevron_right_rounded,
@@ -703,6 +875,37 @@ class _BusinessHubActionTile extends StatelessWidget {
                 size: 18,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _IncomingJobsAttentionBadge extends StatelessWidget {
+  const _IncomingJobsAttentionBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 112),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: Colors.white.withValues(alpha: 0.16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10.4,
+            fontWeight: FontWeight.w900,
           ),
         ),
       ),
