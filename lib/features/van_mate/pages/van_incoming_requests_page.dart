@@ -207,6 +207,24 @@ VanQuoteUiStatus deriveVanIncomingJobDisplayQuoteUiStatus(
   VanJobRequestRecord? request,
 }) {
   final status = job.quoteUiStatus;
+  final requestType = request?.requestType.trim().isNotEmpty == true
+      ? request!.requestType.trim()
+      : job.requestType.trim();
+  if (job.isQuoteAccepted && requestType == 'orderRequest') {
+    return VanQuoteUiStatus(
+      primaryChipLabel: 'Order accepted',
+      secondaryChipLabel: status.secondaryChipLabel == 'Quote accepted'
+          ? 'Order accepted'
+          : status.secondaryChipLabel,
+      statusLabel: status.statusLabel == 'Quote accepted'
+          ? 'Order accepted'
+          : status.statusLabel,
+      summary: status.summary.replaceFirst('Quote accepted', 'Order accepted'),
+      nextActionText: status.nextActionText,
+      showExactPinReceivedChip: status.showExactPinReceivedChip,
+      exactPinChipLabel: status.exactPinChipLabel,
+    );
+  }
   if (!vanIncomingJobIsBookingLinkRequest(request) ||
       job.hasQuote ||
       vanIncomingJobHasGenuineCustomerReplyForStatus(job, request: request) ||
@@ -859,6 +877,9 @@ class _IncomingRequestCard extends StatelessWidget {
     final requiresExactPinAfterQuoteAccepted =
         request?.requiresExactPinAfterQuoteAccepted == true ||
         job.requiresExactPinAfterQuoteAccepted;
+    final isCollectionOrder =
+        request?.requestType.trim() == 'orderRequest' &&
+        request?.fulfilmentType.trim().toLowerCase() == 'collection';
     final normalizedPostcode =
         _addressAlreadyContainsPostcode(address: address, postcode: postcode)
         ? ''
@@ -1026,14 +1047,15 @@ class _IncomingRequestCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                locationSummary,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.68),
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
+              if (!isCollectionOrder)
+                Text(
+                  locationSummary,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
                 ),
-              ),
               if (showLocationPendingNote) ...[
                 const SizedBox(height: 4),
                 Text(

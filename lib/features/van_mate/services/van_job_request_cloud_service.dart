@@ -7,10 +7,27 @@ import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_job_request_state.dart';
 import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
+import 'van_business_profile_scope_storage.dart';
 import 'van_firestore_payload_builder.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
 import 'van_user_cloud_service.dart';
+
+bool vanJobRequestMatchesBusinessProfile(
+  Map<String, dynamic> data, {
+  required String activeBusinessProfileId,
+}) {
+  final activeId = activeBusinessProfileId.trim().isEmpty
+      ? VanBusinessProfileScopeStorage.defaultBusinessId
+      : activeBusinessProfileId.trim();
+  final requestProfileId = data['businessProfileId']?.toString().trim() ?? '';
+  if (requestProfileId.isEmpty) {
+    // Requests created before profile scoping belong to the original/default
+    // business. This preserves them without leaking them into newer profiles.
+    return activeId == VanBusinessProfileScopeStorage.defaultBusinessId;
+  }
+  return requestProfileId == activeId;
+}
 
 class VanJobRequestDeleteResult {
   const VanJobRequestDeleteResult({
@@ -239,6 +256,9 @@ class VanJobRequestCloudService {
     if (normalizedOwnerUid.isEmpty) {
       return const <VanJobRequestRecord>[];
     }
+    final activeBusinessProfileId = await VanBusinessProfileScopeStorage
+        .instance
+        .activeBusinessId();
 
     if (kDebugMode) {
       debugPrint(
@@ -256,8 +276,16 @@ class VanJobRequestCloudService {
     }
     final requests = <VanJobRequestRecord>[];
     var hiddenCount = 0;
+    var otherProfileCount = 0;
     for (final doc in snapshot.docs) {
       try {
+        if (!vanJobRequestMatchesBusinessProfile(
+          doc.data(),
+          activeBusinessProfileId: activeBusinessProfileId,
+        )) {
+          otherProfileCount += 1;
+          continue;
+        }
         final request = VanJobRequestRecord.fromFirestore(doc);
         if (kDebugMode) {
           final parsedAnswerCount = request.answers
@@ -289,7 +317,7 @@ class VanJobRequestCloudService {
           .where((request) => !request.deleted && !request.archived)
           .length;
       debugPrint(
-        '[VanJobRequestCloud] showing $visibleCount request mirrors uid=$normalizedOwnerUid hidden=$hiddenCount totalLoaded=${requests.length}',
+        '[VanJobRequestCloud] showing $visibleCount request mirrors uid=$normalizedOwnerUid businessProfileId=$activeBusinessProfileId hidden=$hiddenCount otherProfile=$otherProfileCount totalLoaded=${requests.length}',
       );
     }
     return requests;
@@ -354,6 +382,7 @@ class VanJobRequestCloudService {
       customQuestions: List<String>.unmodifiable(draft.customQuestions),
       selectedServiceId: draft.selectedServiceId.trim(),
       selectedServiceName: draft.selectedServiceName.trim(),
+      requestType: draft.requestType.trim(),
       exactPinRequested: draft.requestExactPin,
       requestPhotos: draft.requestPhotos,
       requiresExactPinAfterQuoteAccepted:
@@ -738,6 +767,7 @@ class VanJobRequestCloudService {
       sourceLabel: existing.sourceLabel,
       selectedServiceId: existing.selectedServiceId,
       selectedServiceName: existing.selectedServiceName,
+      requestType: existing.requestType,
       driverMessagePreview: existing.driverMessagePreview,
       submittedAt: now,
       customerSubmittedAt: now,

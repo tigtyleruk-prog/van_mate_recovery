@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/van_business_profile.dart';
+import '../models/van_customer_request_flow.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
 import 'van_firestore_payload_builder.dart';
@@ -71,6 +72,9 @@ class VanBookingLinkCloudService {
                 'id': service.id,
                 'name': service.name.trim(),
                 'description': service.description.trim(),
+                'requestType': service.requestType.storageKey,
+                'requestFlowOptions': service.effectiveRequestFlowOptions
+                    .toJson(),
                 'requireAddress': service.requireAddress,
                 'requestPhotos': service.requestPhotos,
                 'requestExactPinAfterQuoteAccepted':

@@ -1,3 +1,4 @@
+import 'van_customer_request_flow.dart';
 import 'van_quote_extra_defaults.dart';
 import 'van_service_template.dart';
 
@@ -10,6 +11,8 @@ class VanJobService {
     required this.requestPhotos,
     required this.requireAddress,
     required this.requestExactPinAfterQuoteAccepted,
+    this.requestType = VanCustomerRequestType.quoteRequest,
+    this.requestFlowOptions,
     required this.linkedQuestionIds,
     this.disabledLinkedQuestionIds = const <String>[],
     required this.quoteExtraDefaults,
@@ -25,6 +28,8 @@ class VanJobService {
   final bool requestPhotos;
   final bool requireAddress;
   final bool requestExactPinAfterQuoteAccepted;
+  final VanCustomerRequestType requestType;
+  final VanCustomerRequestFlowOptions? requestFlowOptions;
   final List<String> linkedQuestionIds;
   final List<String> disabledLinkedQuestionIds;
   final VanQuoteExtraDefaults quoteExtraDefaults;
@@ -35,6 +40,9 @@ class VanJobService {
   bool get hasDescription => description.trim().isNotEmpty;
   int get linkedQuestionCount => linkedQuestionIds.length;
   int get enabledQuoteExtraCount => quoteExtraDefaults.enabledExtras.length;
+  VanCustomerRequestFlowOptions get effectiveRequestFlowOptions =>
+      requestFlowOptions ??
+      VanCustomerRequestFlowOptions.defaultsFor(requestType);
 
   VanJobService copyWith({
     String? id,
@@ -44,6 +52,8 @@ class VanJobService {
     bool? requestPhotos,
     bool? requireAddress,
     bool? requestExactPinAfterQuoteAccepted,
+    VanCustomerRequestType? requestType,
+    VanCustomerRequestFlowOptions? requestFlowOptions,
     List<String>? linkedQuestionIds,
     List<String>? disabledLinkedQuestionIds,
     VanQuoteExtraDefaults? quoteExtraDefaults,
@@ -61,6 +71,8 @@ class VanJobService {
       requestExactPinAfterQuoteAccepted:
           requestExactPinAfterQuoteAccepted ??
           this.requestExactPinAfterQuoteAccepted,
+      requestType: requestType ?? this.requestType,
+      requestFlowOptions: requestFlowOptions ?? this.requestFlowOptions,
       linkedQuestionIds: linkedQuestionIds ?? this.linkedQuestionIds,
       disabledLinkedQuestionIds:
           disabledLinkedQuestionIds ?? this.disabledLinkedQuestionIds,
@@ -80,6 +92,8 @@ class VanJobService {
       'requestPhotos': requestPhotos,
       'requireAddress': requireAddress,
       'requestExactPinAfterQuoteAccepted': requestExactPinAfterQuoteAccepted,
+      'requestType': requestType.storageKey,
+      'requestFlowOptions': effectiveRequestFlowOptions.toJson(),
       'linkedQuestionIds': linkedQuestionIds,
       'disabledLinkedQuestionIds': disabledLinkedQuestionIds,
       'quoteExtraDefaults': quoteExtraDefaults.toJson(),
@@ -120,6 +134,11 @@ class VanJobService {
     final createdAt = readDate('createdAt', fallback: now);
     final updatedAt = readDate('updatedAt', fallback: createdAt);
     final name = readText('name', fallback: 'Service');
+    final id = readText('id', fallback: now.microsecondsSinceEpoch.toString());
+    final requestTypeFallback = defaultVanCustomerRequestTypeForService(
+      serviceId: id,
+      serviceName: name,
+    );
     VanQuoteExtraDefaults readQuoteExtraDefaults() {
       final raw =
           json['quoteExtraDefaults'] ??
@@ -145,7 +164,7 @@ class VanJobService {
     }
 
     return VanJobService(
-      id: readText('id', fallback: now.microsecondsSinceEpoch.toString()),
+      id: id,
       name: name,
       description: readText('description'),
       isActive: json['isActive'] == false ? false : true,
@@ -153,6 +172,17 @@ class VanJobService {
       requireAddress: json['requireAddress'] == false ? false : true,
       requestExactPinAfterQuoteAccepted:
           json['requestExactPinAfterQuoteAccepted'] == true,
+      requestType: vanCustomerRequestTypeFromStorage(
+        json['requestType'],
+        fallback: requestTypeFallback,
+      ),
+      requestFlowOptions: VanCustomerRequestFlowOptions.fromJson(
+        json['requestFlowOptions'],
+        requestType: vanCustomerRequestTypeFromStorage(
+          json['requestType'],
+          fallback: requestTypeFallback,
+        ),
+      ),
       linkedQuestionIds: readStringList('linkedQuestionIds'),
       disabledLinkedQuestionIds: readStringList('disabledLinkedQuestionIds'),
       quoteExtraDefaults: readQuoteExtraDefaults(),

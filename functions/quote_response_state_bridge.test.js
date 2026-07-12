@@ -3,6 +3,61 @@ const assert = require('node:assert/strict');
 
 const { __test__ } = require('./index.js');
 
+test('collection Order Requests suppress exact pin after quote acceptance', () => {
+  assert.equal(
+    __test__.shouldRequireExactPinAfterQuoteAccepted({
+      configured: true,
+      requestType: 'orderRequest',
+      fulfilmentType: 'collection',
+    }),
+    false,
+  );
+  assert.equal(
+    __test__.shouldRequireExactPinAfterQuoteAccepted({
+      configured: true,
+      requestType: 'orderRequest',
+      fulfilmentType: 'delivery',
+    }),
+    true,
+  );
+  assert.equal(
+    __test__.shouldRequireExactPinAfterQuoteAccepted({
+      configured: true,
+      requestType: 'orderRequest',
+      fulfilmentType: '',
+    }),
+    true,
+  );
+
+  const payload = __test__.buildDriverJobQuoteResponsePayload({
+    quoteData: {
+      ownerUid: 'driver-1',
+      jobId: 'collection-job',
+      requestId: 'collection-request',
+      requestType: 'orderRequest',
+      fulfilmentType: 'collection',
+      requiresExactPinAfterQuoteAccepted: true,
+      proposedDate: '2026-07-15',
+      proposedStartTime: '10:00',
+      quoteStatus: 'sent',
+      requestStatus: 'quote_sent',
+    },
+    existingJob: {
+      requestId: 'collection-request',
+      requiresExactPinAfterQuoteAccepted: true,
+    },
+    action: 'accept_proposed_time',
+    quoteId: 'collection-quote',
+    ownerUid: 'driver-1',
+    jobId: 'collection-job',
+    requestId: 'collection-request',
+  });
+
+  assert.equal(payload.requestType, 'orderRequest');
+  assert.equal(payload.fulfilmentType, 'collection');
+  assert.equal(payload.requiresExactPinAfterQuoteAccepted, false);
+});
+
 test('acceptQuoteProposedTime writes accepted and agreed-time fields for the driver job', () => {
   const payload = __test__.buildDriverJobQuoteResponsePayload({
     quoteData: {

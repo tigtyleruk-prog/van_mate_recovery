@@ -504,6 +504,8 @@ class DriverCustomerReplyMockData {
     this.requestSubmittedAt,
     this.requestExpiresAt,
     this.requestLink = '',
+    this.requestType = '',
+    this.fulfilmentType = '',
     this.proposedDate = '',
     this.proposedStartTime = '',
     this.proposedAppointmentNote = '',
@@ -597,6 +599,8 @@ class DriverCustomerReplyMockData {
   final DateTime? requestSubmittedAt;
   final DateTime? requestExpiresAt;
   final String requestLink;
+  final String requestType;
+  final String fulfilmentType;
   final String proposedDate;
   final String proposedStartTime;
   final String proposedAppointmentNote;
@@ -1177,6 +1181,7 @@ class DriverCustomerReplyMockData {
       requestExactPin: requestExactPin,
       requestPhotos: requestPhotos,
       requiresExactPinAfterQuoteAccepted: requiresExactPinAfterQuoteAccepted,
+      requestType: requestType,
       selectedQuestionIds: const <String>[],
       answers: const <VanJobRequestAnswer>[],
       checklistItems: checklistItems,
@@ -1341,6 +1346,8 @@ class DriverCustomerReplyMockData {
     DateTime? requestSubmittedAt,
     DateTime? requestExpiresAt,
     String? requestLink,
+    String? requestType,
+    String? fulfilmentType,
     String? proposedDate,
     String? proposedStartTime,
     String? proposedAppointmentNote,
@@ -1448,6 +1455,8 @@ class DriverCustomerReplyMockData {
           : (requestSubmittedAt ?? this.requestSubmittedAt),
       requestExpiresAt: requestExpiresAt ?? this.requestExpiresAt,
       requestLink: requestLink ?? this.requestLink,
+      requestType: requestType ?? this.requestType,
+      fulfilmentType: fulfilmentType ?? this.fulfilmentType,
       proposedDate: proposedDate ?? this.proposedDate,
       proposedStartTime: proposedStartTime ?? this.proposedStartTime,
       proposedAppointmentNote:
@@ -1587,6 +1596,8 @@ class DriverCustomerReplyMockData {
       'requestSubmittedAt': requestSubmittedAt?.toIso8601String(),
       'requestExpiresAt': requestExpiresAt?.toIso8601String(),
       'requestLink': requestLink,
+      'requestType': requestType,
+      'fulfilmentType': fulfilmentType,
       'proposedDate': proposedDate,
       'proposedStartTime': proposedStartTime,
       'proposedAppointmentNote': proposedAppointmentNote,
@@ -1967,6 +1978,8 @@ class DriverCustomerReplyMockData {
       requestSubmittedAt: _jsonDateTime(effectiveJson['requestSubmittedAt']),
       requestExpiresAt: _jsonDateTime(effectiveJson['requestExpiresAt']),
       requestLink: _jsonText(effectiveJson['requestLink']),
+      requestType: _jsonText(effectiveJson['requestType']),
+      fulfilmentType: _jsonText(effectiveJson['fulfilmentType']),
       proposedDate: _jsonIsoDateText(effectiveJson['proposedDate']),
       proposedStartTime: _jsonTimeText(effectiveJson['proposedStartTime']),
       proposedAppointmentNote: _jsonText(
@@ -3100,12 +3113,9 @@ class DriverReplyMockState extends ChangeNotifier {
             continue;
           }
           if (linkedJobId.isEmpty ||
-              linkedJob == null ||
-              linkedJob.isHiddenFromNormalLists) {
+              linkedJob?.isHiddenFromNormalLists == true) {
             ignoredWarnings += 1;
             final orphanReason = linkedJobId.isEmpty
-                ? 'missing_linked_job'
-                : linkedJob == null
                 ? 'missing_linked_job'
                 : 'hidden_linked_job';
             debugPrint(
@@ -3980,6 +3990,8 @@ class DriverReplyMockState extends ChangeNotifier {
       requestPhotos: request.requestPhotos,
       requiresExactPinAfterQuoteAccepted:
           request.requiresExactPinAfterQuoteAccepted,
+      requestType: request.requestType,
+      fulfilmentType: request.fulfilmentType,
       status: normalizeVanJobRequestStatus(request.status) == 'request_sent'
           ? 'requestSent'
           : 'replyReceived',
@@ -4337,8 +4349,7 @@ class DriverReplyMockState extends ChangeNotifier {
           job.status.trim().toLowerCase() == 'scheduled' ||
           job.schedulingStatus.trim().toLowerCase() == 'scheduled';
       final shouldShow =
-          hasCloudBackedJob &&
-          (hasLinkedRequest || job.hasRequest) &&
+          (hasLinkedRequest || (hasCloudBackedJob && job.hasRequest)) &&
           !isQuoteOnlySource &&
           !isAlreadyScheduled &&
           decision.bucket == VanJobBucket.pendingCustomerRequest;
@@ -4794,6 +4805,8 @@ class DriverReplyMockState extends ChangeNotifier {
       requestSubmittedAt: existing?.requestSubmittedAt,
       requestExpiresAt: existing?.requestExpiresAt,
       requestLink: existing?.requestLink ?? '',
+      requestType: draft.requestType,
+      fulfilmentType: existing?.fulfilmentType ?? '',
       scheduledDate: draft.scheduledDate,
       scheduledStartTime: draft.scheduledStartTime,
       estimatedDurationMinutes: draft.estimatedDurationMinutes,
@@ -5042,6 +5055,8 @@ class DriverReplyMockState extends ChangeNotifier {
           DateTime.now(),
       requestExpiresAt: existing?.requestExpiresAt ?? reply.requestExpiresAt,
       requestLink: existing?.requestLink ?? reply.requestLink,
+      requestType: existing?.requestType ?? reply.requestType,
+      fulfilmentType: existing?.fulfilmentType ?? reply.fulfilmentType,
     );
     _jobsById[jobId] = updated;
     _jobSourceById[jobId] = 'local_cache';
@@ -7953,7 +7968,9 @@ class DriverReplyMockState extends ChangeNotifier {
           current: mergedCloudJob,
         );
         _jobsById[cloudJob.jobId] = mergedCloudJob;
-        _jobSourceById[cloudJob.jobId] = sourceLabel;
+        if (!isPublicQuoteSource) {
+          _jobSourceById[cloudJob.jobId] = sourceLabel;
+        }
       }
     }
 
@@ -8106,9 +8123,22 @@ class DriverReplyMockState extends ChangeNotifier {
         existing: linkedJob,
       );
       if (linkedJob == null) {
+        if (resolvedLinkedJobId.isEmpty) {
+          if (kDebugMode) {
+            debugPrint(
+              '[VanJobRequestSync] request ignored without job id requestId=${request.requestId}',
+            );
+          }
+          continue;
+        }
+        _jobsById[resolvedLinkedJobId] = requestReply.copyWith(
+          jobId: resolvedLinkedJobId,
+        );
+        _jobSourceById[resolvedLinkedJobId] = 'van_job_requests';
+        _cloudVanJobIds.add(resolvedLinkedJobId);
         if (kDebugMode) {
           debugPrint(
-            '[VanJobRequestSync] orphan request ignored requestId=${request.requestId} jobId=${request.jobId} linkedJobId=${request.linkedJobId} source=public_job_requests/private_request_mirror',
+            '[VanJobRequestSync] request-only job created requestId=${request.requestId} jobId=$resolvedLinkedJobId source=public_job_requests/private_request_mirror',
           );
         }
         continue;
@@ -8539,6 +8569,8 @@ class DriverReplyMockState extends ChangeNotifier {
       requestPhotos: job.requestPhotos,
       requiresExactPinAfterQuoteAccepted:
           job.requiresExactPinAfterQuoteAccepted,
+      requestType: job.requestType,
+      fulfilmentType: job.fulfilmentType,
       driverMessagePreview: job.notesMessage,
       submittedAt: submittedAt,
       customerSubmittedAt: customerSubmittedAt,
@@ -8674,6 +8706,8 @@ class DriverReplyMockState extends ChangeNotifier {
               requestPhotos: request.requestPhotos,
               requiresExactPinAfterQuoteAccepted:
                   request.requiresExactPinAfterQuoteAccepted,
+              requestType: request.requestType,
+              fulfilmentType: request.fulfilmentType,
               checklistItems: request.checklistItems,
               customQuestions: request.customQuestions,
               status: status,
@@ -8773,6 +8807,8 @@ class DriverReplyMockState extends ChangeNotifier {
           requestPhotos: request.requestPhotos,
           requiresExactPinAfterQuoteAccepted:
               request.requiresExactPinAfterQuoteAccepted,
+          requestType: request.requestType,
+          fulfilmentType: request.fulfilmentType,
           checklistItems: request.checklistItems,
           customQuestions: request.customQuestions,
           status: status,

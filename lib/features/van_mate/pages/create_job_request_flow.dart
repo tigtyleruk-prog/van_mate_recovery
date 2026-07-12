@@ -16,6 +16,7 @@ import '../helpers/van_customer_request_questions.dart';
 import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_job_request_state.dart';
 import '../helpers/van_text_formatters.dart';
+import '../models/van_customer_request_flow.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
@@ -177,6 +178,27 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
     });
   }
 
+  String _customerRequestPreviewMessage() {
+    final type =
+        _selectedService?.requestType ?? VanCustomerRequestType.quoteRequest;
+    final requestText = switch (type) {
+      VanCustomerRequestType.quoteRequest =>
+        'Hi, please fill in this quick request so I can prepare your quote.',
+      VanCustomerRequestType.bookingRequest =>
+        'Hi, please fill in this quick booking request so I can confirm the details.',
+      VanCustomerRequestType.orderRequest =>
+        'Hi, please fill in this quick order request so I can confirm your order.',
+      VanCustomerRequestType.dropOffPickupRequest =>
+        'Hi, please fill in this quick booking request with your drop-off and pick-up details.',
+      VanCustomerRequestType.pickupDeliveryRequest =>
+        'Hi, please fill in this quick pickup and delivery request so I can prepare the details.',
+    };
+    if (!_requestExactPin) {
+      return requestText;
+    }
+    return '$requestText If a quote is needed and accepted later, I\'ll ask for the exact pickup/drop-off pin.';
+  }
+
   Future<void> _toggleRequestPhotos(bool value) async {
     if (!_premiumLoaded) {
       return;
@@ -291,6 +313,9 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
       locationPending: locationPending,
       selectedServiceId: _selectedService?.id ?? '',
       selectedServiceName: _selectedService?.name ?? '',
+      requestType:
+          (_selectedService?.requestType ?? VanCustomerRequestType.quoteRequest)
+              .storageKey,
       selectedQuestionIds: List<String>.unmodifiable(
         _selectedQuestionIds.toList(growable: false),
       ),
@@ -1150,9 +1175,8 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                   ),
                                 ),
                                 child: Text(
-                                  _selectedQuestionIds.isEmpty
-                                      ? 'This service has no questions.'
-                                      : '${_selectedQuestionIds.length} linked question${_selectedQuestionIds.length == 1 ? '' : 's'} will be included.',
+                                  '${_selectedService!.requestType.label}. '
+                                  '${_selectedQuestionIds.isEmpty ? 'This service has no questions.' : '${_selectedQuestionIds.length} linked question${_selectedQuestionIds.length == 1 ? '' : 's'} will be included.'}',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.76),
                                     fontWeight: FontWeight.w700,
@@ -1192,9 +1216,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                 ),
                               ),
                               child: Text(
-                                _requestExactPin
-                                    ? 'Hi, please fill in this quick job request so I can prepare your quote. If you accept the quote later, I\'ll ask for the exact pickup/drop-off pin.'
-                                    : 'Hi, please fill in this quick job request so I can prepare your quote.',
+                                _customerRequestPreviewMessage(),
                                 style: theme.textTheme.bodyLarge?.copyWith(
                                   color: Colors.white,
                                   height: 1.5,
@@ -1462,6 +1484,33 @@ class _CustomerRequestPreviewPageState
 
   VanJobRequestDraft get _draft => _loadedRequest?.toDraft() ?? widget.draft;
   String get _resolvedJobId => _loadedRequest?.jobId ?? widget.jobId;
+
+  VanCustomerRequestType get _requestType => vanCustomerRequestTypeFromStorage(
+    _draft.requestType,
+    fallback: defaultVanCustomerRequestTypeForService(
+      serviceId: _draft.selectedServiceId,
+      serviceName: _draft.selectedServiceName,
+    ),
+  );
+
+  String get _detailsHeading => switch (_requestType) {
+    VanCustomerRequestType.quoteRequest => 'Fill in quote details',
+    VanCustomerRequestType.bookingRequest => 'Fill in booking details',
+    VanCustomerRequestType.orderRequest => 'Fill in order details',
+    VanCustomerRequestType.dropOffPickupRequest =>
+      'Fill in drop-off and pick-up details',
+    VanCustomerRequestType.pickupDeliveryRequest =>
+      'Fill in pickup and delivery details',
+  };
+
+  String get _summaryHeading => switch (_requestType) {
+    VanCustomerRequestType.quoteRequest => 'Quote summary',
+    VanCustomerRequestType.bookingRequest ||
+    VanCustomerRequestType.dropOffPickupRequest => 'Booking summary',
+    VanCustomerRequestType.orderRequest => 'Order summary',
+    VanCustomerRequestType.pickupDeliveryRequest =>
+      'Pickup and delivery summary',
+  };
 
   String _introName() {
     final loadedName = _draft.customerName.trim();
@@ -2655,7 +2704,7 @@ class _CustomerRequestPreviewPageState
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Fill in job details',
+                        _detailsHeading,
                         style: theme.textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
@@ -2693,9 +2742,9 @@ class _CustomerRequestPreviewPageState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const _JobRequestSectionHeader(
+                            _JobRequestSectionHeader(
                               icon: Icons.work_outline,
-                              title: 'Job summary',
+                              title: _summaryHeading,
                             ),
                             const SizedBox(height: 12),
                             Text(

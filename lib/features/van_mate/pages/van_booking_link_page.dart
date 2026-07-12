@@ -179,11 +179,6 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
     final questionLookup = <String, VanCustomJobQuestion>{
       for (final question in customQuestions) question.id: question,
     };
-    final resolvedTitle = _resolveBookingLinkTitle(
-      linkTitle: linkTitle,
-      businessName: profile.businessName,
-    );
-
     debugPrint(
       '[BookingLinkPage] apply state source=$source activeServices=${activeServices.length} questionLookup=${questionLookup.length}',
     );
@@ -192,7 +187,9 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
       return;
     }
 
-    _titleController.text = resolvedTitle;
+    // Keep the controller as the profile-scoped override only. Business Profile
+    // branding is the public fallback when this value is empty.
+    _titleController.text = linkTitle.trim();
     setState(() {
       _profile = profile;
       _activeServices = sanitizedServices;
@@ -282,21 +279,6 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
     await _publishBookingLinkConfig();
   }
 
-  String _resolveBookingLinkTitle({
-    required String linkTitle,
-    required String businessName,
-  }) {
-    final cleanedTitle = linkTitle.trim();
-    if (cleanedTitle.isNotEmpty) {
-      return cleanedTitle;
-    }
-    final cleanedBusinessName = _effectiveBusinessName(businessName);
-    if (cleanedBusinessName.isNotEmpty) {
-      return cleanedBusinessName;
-    }
-    return 'Booking Link';
-  }
-
   String _effectiveBusinessName(String rawName) {
     final cleaned = rawName.trim();
     if (cleaned.isEmpty) {
@@ -309,6 +291,10 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
   }
 
   String get _visibleBookingLinkLabel {
+    final customHeading = _titleController.text.trim();
+    if (customHeading.isNotEmpty) {
+      return 'Booking link for $customHeading';
+    }
     final businessName = _effectiveBusinessName(_profile.businessName);
     if (businessName.isEmpty) {
       return 'Your booking link is ready';
@@ -363,6 +349,7 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
   }
 
   void _handleTitleChanged(String value) {
+    setState(() {});
     _saveTitleDebounce?.cancel();
     _saveTitleDebounce = Timer(const Duration(milliseconds: 350), () {
       unawaited(_settingsStorage.saveTitle(value));
@@ -542,7 +529,7 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Custom heading (optional)',
+                              'Custom public heading (optional)',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w900,
@@ -552,10 +539,20 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
                             const SizedBox(height: 12),
                             _BookingTextField(
                               controller: _titleController,
-                              label: 'Custom heading',
-                              hint: 'Optional subtitle shown to customers',
+                              label: 'Custom public heading',
+                              hint: 'Optional heading shown to customers',
                               icon: Icons.title_rounded,
                               onChanged: _handleTitleChanged,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Leave blank to use your Business Profile name.',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.68),
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                height: 1.35,
+                              ),
                             ),
                           ],
                         ),

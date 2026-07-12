@@ -3,6 +3,53 @@ import 'package:van_mate_app/features/van_mate/helpers/van_quote_decline.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_request_record.dart';
 
 void main() {
+  test(
+    'collection Order Request suppresses location and deferred exact pin',
+    () {
+      final base = <String, dynamic>{
+        'requestId': 'order-request',
+        'ownerUid': 'owner-1',
+        'jobId': 'order-job',
+        'linkedJobId': 'order-job',
+        'status': 'request_received',
+        'createdAt': '2026-07-11T10:00:00.000Z',
+        'updatedAt': '2026-07-11T10:00:00.000Z',
+        'expiresAt': '2026-07-18T10:00:00.000Z',
+        'publicJobTitle': 'Cake Orders',
+        'publicCustomerName': 'Customer',
+        'publicAddressSummary': '',
+        'checklistItems': <String>[],
+        'customQuestions': <String>[],
+        'exactPinRequested': true,
+        'requestType': 'orderRequest',
+        'locationPending': true,
+        'requiresExactPinAfterQuoteAccepted': true,
+      };
+
+      final collection = VanJobRequestRecord.fromJson(<String, dynamic>{
+        ...base,
+        'fulfilmentType': 'collection',
+      });
+      final delivery = VanJobRequestRecord.fromJson(<String, dynamic>{
+        ...base,
+        'fulfilmentType': 'delivery',
+      });
+      final legacy = VanJobRequestRecord.fromJson(base);
+
+      expect(collection.locationPending, isFalse);
+      expect(collection.fulfilmentType, 'collection');
+      expect(collection.exactPinRequested, isFalse);
+      expect(collection.requiresExactPinAfterQuoteAccepted, isFalse);
+      expect(collection.toDraft().requiresExactPinAfterQuoteAccepted, isFalse);
+      expect(delivery.locationPending, isTrue);
+      expect(delivery.exactPinRequested, isTrue);
+      expect(delivery.requiresExactPinAfterQuoteAccepted, isTrue);
+      expect(legacy.locationPending, isTrue);
+      expect(legacy.exactPinRequested, isTrue);
+      expect(legacy.requiresExactPinAfterQuoteAccepted, isTrue);
+    },
+  );
+
   test('request record preserves manual agreed time fields', () {
     final request = VanJobRequestRecord.fromJson(<String, dynamic>{
       'requestId': 'request-1',
@@ -34,6 +81,7 @@ void main() {
       'calendarStatus': 'unscheduled',
       'estimatedDurationMinutes': 90,
       'publicPhoneNumber': '07123456789',
+      'requestType': 'pickupDeliveryRequest',
     });
 
     expect(
@@ -46,12 +94,15 @@ void main() {
     );
     expect(request.hasAgreedSchedulingTime, isTrue);
     expect(request.isReadyForCalendar, isTrue);
+    expect(request.requestType, 'pickupDeliveryRequest');
+    expect(request.toDraft().requestType, 'pickupDeliveryRequest');
 
     final publicMap = request.toPublicFirestore();
     expect(publicMap['agreedStartAt'], isNotNull);
     expect(publicMap['agreedEndAt'], isNotNull);
     expect(publicMap['readyForCalendar'], isTrue);
     expect(publicMap['timeStatus'], 'ready_for_calendar');
+    expect(publicMap['requestType'], 'pickupDeliveryRequest');
   });
 
   test('request record preserves decline reason fields', () {

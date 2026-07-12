@@ -252,6 +252,8 @@ class VanPublicQuoteCloudService {
         'ownerUid': normalizedOwnerUid,
         'jobId': job.jobId.trim(),
         'requestId': job.requestId?.trim() ?? '',
+        'requestType': job.requestType.trim(),
+        'fulfilmentType': job.fulfilmentType.trim(),
         'quoteResponseId': docId,
         'quoteResponseToken': quoteResponseToken,
         'quoteResponseLink': quoteResponseLink,

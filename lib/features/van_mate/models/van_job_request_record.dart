@@ -226,6 +226,28 @@ bool _readVanRequestBool(dynamic value) {
   return normalized == 'true';
 }
 
+bool vanJobRequestIsCollectionOrder(Map<String, dynamic> data) {
+  final requestType = _readVanRequestText(
+    data['requestType'],
+  ).trim().toLowerCase();
+  final fulfilmentType = _readVanRequestText(
+    data['fulfilmentType'],
+  ).trim().toLowerCase();
+  return requestType == 'orderrequest' && fulfilmentType == 'collection';
+}
+
+bool vanJobRequestRequiresExactPinAfterQuoteAccepted(
+  Map<String, dynamic> data,
+) {
+  if (vanJobRequestIsCollectionOrder(data)) {
+    return false;
+  }
+  return _readVanRequestBool(data['requiresExactPinAfterQuoteAccepted']) ||
+      _readVanRequestBool(data['exactPinRequestedAfterQuote']) ||
+      _readVanRequestBool(data['exactPinRequiredAfterQuoteAccepted']) ||
+      _readVanRequestBool(data['requiresExactPinAfterQuoteAcceptance']);
+}
+
 double? _readVanRequestDouble(dynamic value) {
   if (value is double) return value;
   if (value is int) return value.toDouble();
@@ -476,6 +498,8 @@ class VanJobRequestRecord {
     this.sourceLabel = '',
     this.selectedServiceId = '',
     this.selectedServiceName = '',
+    this.requestType = 'quoteRequest',
+    this.fulfilmentType = '',
     this.driverMessagePreview = '',
     this.submittedAt,
     this.customerSubmittedAt,
@@ -552,6 +576,8 @@ class VanJobRequestRecord {
   final String sourceLabel;
   final String selectedServiceId;
   final String selectedServiceName;
+  final String requestType;
+  final String fulfilmentType;
   final List<String> checklistItems;
   final List<String> customQuestions;
   final bool exactPinRequested;
@@ -740,6 +766,8 @@ class VanJobRequestRecord {
     String? sourceLabel,
     String? selectedServiceId,
     String? selectedServiceName,
+    String? requestType,
+    String? fulfilmentType,
     List<String>? checklistItems,
     List<String>? customQuestions,
     bool? exactPinRequested,
@@ -823,6 +851,8 @@ class VanJobRequestRecord {
       sourceLabel: sourceLabel ?? this.sourceLabel,
       selectedServiceId: selectedServiceId ?? this.selectedServiceId,
       selectedServiceName: selectedServiceName ?? this.selectedServiceName,
+      requestType: requestType ?? this.requestType,
+      fulfilmentType: fulfilmentType ?? this.fulfilmentType,
       checklistItems: checklistItems ?? this.checklistItems,
       customQuestions: customQuestions ?? this.customQuestions,
       exactPinRequested: exactPinRequested ?? this.exactPinRequested,
@@ -876,6 +906,7 @@ class VanJobRequestRecord {
       requiresExactPinAfterQuoteAccepted: requiresExactPinAfterQuoteAccepted,
       selectedServiceId: selectedServiceId,
       selectedServiceName: selectedServiceName,
+      requestType: requestType,
       selectedQuestionIds: List<String>.unmodifiable(
         answers
             .map((item) => item.questionId.trim())
@@ -967,6 +998,8 @@ class VanJobRequestRecord {
       'sourceLabel': sourceLabel,
       'selectedServiceId': selectedServiceId,
       'selectedServiceName': selectedServiceName,
+      'requestType': requestType,
+      'fulfilmentType': fulfilmentType,
       'checklistItems': checklistItems,
       'customQuestions': customQuestions,
       'exactPinRequested': exactPinRequested,
@@ -1086,6 +1119,8 @@ class VanJobRequestRecord {
       'sourceLabel': sourceLabel,
       'selectedServiceId': selectedServiceId,
       'selectedServiceName': selectedServiceName,
+      'requestType': requestType,
+      'fulfilmentType': fulfilmentType,
       'checklistItems': checklistItems,
       'customQuestions': customQuestions,
       'exactPinRequested': exactPinRequested,
@@ -1214,6 +1249,8 @@ class VanJobRequestRecord {
       'sourceLabel': sourceLabel,
       'selectedServiceId': selectedServiceId,
       'selectedServiceName': selectedServiceName,
+      'requestType': requestType,
+      'fulfilmentType': fulfilmentType,
       'exactPinRequested': exactPinRequested,
       'requestPhotos': requestPhotos,
       'requiresExactPinAfterQuoteAccepted': requiresExactPinAfterQuoteAccepted,
@@ -1303,6 +1340,8 @@ class VanJobRequestRecord {
       'sourceLabel': sourceLabel,
       'selectedServiceId': selectedServiceId,
       'selectedServiceName': selectedServiceName,
+      'requestType': requestType,
+      'fulfilmentType': fulfilmentType,
       'exactPinRequested': exactPinRequested,
       'requestPhotos': requestPhotos,
       'requiresExactPinAfterQuoteAccepted': requiresExactPinAfterQuoteAccepted,
@@ -1469,7 +1508,9 @@ class VanJobRequestRecord {
         data['calendarStatus'],
         fallback: 'unscheduled',
       ),
-      locationPending: _readVanRequestBool(data['locationPending']),
+      locationPending:
+          !vanJobRequestIsCollectionOrder(data) &&
+          _readVanRequestBool(data['locationPending']),
       quoteTimingChoice: parsedQuoteTimingChoice.trim().isNotEmpty
           ? parsedQuoteTimingChoice
           : parsedTimeAccepted
@@ -1615,15 +1656,19 @@ class VanJobRequestRecord {
       sourceLabel: _readVanRequestText(data['sourceLabel']),
       selectedServiceId: _readVanRequestText(data['selectedServiceId']),
       selectedServiceName: _readVanRequestText(data['selectedServiceName']),
+      requestType: _readVanRequestText(
+        data['requestType'],
+        fallback: 'quoteRequest',
+      ),
+      fulfilmentType: _readVanRequestText(data['fulfilmentType']),
       checklistItems: _readVanRequestStringList(data['checklistItems']),
       customQuestions: _readVanRequestStringList(data['customQuestions']),
-      exactPinRequested: _readVanRequestBool(data['exactPinRequested']),
+      exactPinRequested:
+          !vanJobRequestIsCollectionOrder(data) &&
+          _readVanRequestBool(data['exactPinRequested']),
       requestPhotos: _readVanRequestBool(data['requestPhotos']),
       requiresExactPinAfterQuoteAccepted:
-          _readVanRequestBool(data['requiresExactPinAfterQuoteAccepted']) ||
-          _readVanRequestBool(data['exactPinRequestedAfterQuote']) ||
-          _readVanRequestBool(data['exactPinRequiredAfterQuoteAccepted']) ||
-          _readVanRequestBool(data['requiresExactPinAfterQuoteAcceptance']),
+          vanJobRequestRequiresExactPinAfterQuoteAccepted(data),
       driverMessagePreview: _readVanRequestText(data['driverMessagePreview']),
       submittedAt:
           _readVanRequestDateTime(data['submittedAt']) ??

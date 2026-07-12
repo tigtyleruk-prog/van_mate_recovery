@@ -684,7 +684,7 @@
           id="preferredTimingNoteInput"
           class="field"
           maxlength="240"
-          placeholder="Optional note for the driver..."
+          placeholder="Optional note for the business..."
         ></textarea>
         <div class="actions" style="margin-top: 14px;">
           <button id="confirmArrangeTimeButton" type="button" class="success">Accept quote and send time</button>
@@ -696,7 +696,7 @@
       <article id="pinCard" class="card hidden">
         <h2 class="section-title">Final step</h2>
         <p id="pinIntro" class="section-text">
-          Please show the driver the exact collection or delivery point.
+          Please confirm the exact collection or delivery point.
         </p>
         <div id="pinChoiceActions" class="actions">
           <button id="shareCurrentPinButton" type="button">I'm at the exact spot now</button>
@@ -704,12 +704,12 @@
         </div>
         <p id="pinCapturedStatus" class="pin-captured-status hidden" aria-live="polite">✓ Current location captured</p>
         <div class="panel" style="margin-top: 14px;">
-          <div class="panel-title">Anything the driver should know? (optional)</div>
+          <div class="panel-title">Any access details to add? (optional)</div>
           <textarea
             id="pinNoteInputInline"
             class="field"
             maxlength="240"
-            placeholder="Gate code, parking, loading bay, apartment number, ring bell or anything else the driver should know."
+            placeholder="Gate code, parking, loading bay, apartment number, ring bell or other useful access details."
           ></textarea>
         </div>
         <div class="actions" style="margin-top: 14px;">
@@ -766,7 +766,7 @@
       <div class="decline-modal-header">
         <div class="eyebrow">Van Mate</div>
         <h2 id="declineModalTitle" class="modal-title">Decline quote?</h2>
-        <p class="modal-text">Optional: let the driver know why.</p>
+        <p class="modal-text">Optional: let the business know why.</p>
       </div>
       <div id="declineModalBody" class="decline-modal-body">
         <div id="declineReasonGrid" class="reason-grid" role="radiogroup" aria-label="Decline reason">
@@ -1198,7 +1198,7 @@
       } else if (!String(state.declineReasonCode || "").trim() && noteText.length === 0) {
         helperText = "Choose a reason or add a short note.";
       } else if (String(state.declineReasonLabel || "").trim() || noteText.length > 0) {
-        helperText = "Optional note for the driver.";
+        helperText = "Optional note for the business.";
       }
       declineNoteHelper.textContent = helperText;
       declineNoteHelper.style.color = isError ? "var(--error)" : "var(--subtle)";
@@ -1279,11 +1279,82 @@
       );
     }
 
+    function normaliseRequestFlowValue(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function isOrderRequest(quote) {
+      return normaliseRequestFlowValue(quote && quote.requestType) === "orderrequest";
+    }
+
+    function isCollectionOrder(quote) {
+      return Boolean(
+        isOrderRequest(quote) &&
+        normaliseRequestFlowValue(quote.fulfilmentType) === "collection",
+      );
+    }
+
+    function isDeliveryOrder(quote) {
+      return Boolean(
+        isOrderRequest(quote) &&
+        normaliseRequestFlowValue(quote.fulfilmentType) === "delivery",
+      );
+    }
+
+    function isPickupDeliveryRequest(quote) {
+      return normaliseRequestFlowValue(quote && quote.requestType) === "pickupdeliveryrequest";
+    }
+
+    function quoteNeedsCustomerLocation(quote) {
+      if (!quote) {
+        return false;
+      }
+      if (isCollectionOrder(quote)) {
+        return false;
+      }
+      const requestType = normaliseRequestFlowValue(quote.requestType);
+      if (requestType === "dropoffpickuprequest") {
+        return false;
+      }
+      return true;
+    }
+
     function quoteNeedsExactPin(quote) {
       return Boolean(
         quote &&
+        quote.requiresExactPinAfterQuoteAccepted &&
+        quoteNeedsCustomerLocation(quote) &&
         !quoteHasExactPin(quote),
       );
+    }
+
+    function quoteContactNoun(quote) {
+      return isPickupDeliveryRequest(quote) ? "driver" : "business";
+    }
+
+    function proposedTimeLabel(quote) {
+      if (isCollectionOrder(quote)) {
+        return "Proposed collection time";
+      }
+      if (isDeliveryOrder(quote)) {
+        return "Proposed delivery time";
+      }
+      if (isOrderRequest(quote)) {
+        return "Proposed date/time";
+      }
+      return "Proposed appointment";
+    }
+
+    function exactPinPrompt(quote, awaitingAgreedTime = false) {
+      let prompt = "Please confirm the exact collection or delivery point.";
+      if (isDeliveryOrder(quote)) {
+        prompt = "Please confirm the exact delivery point.";
+      } else if (isPickupDeliveryRequest(quote)) {
+        prompt = "Please confirm the exact pickup or delivery point for the driver.";
+      }
+      return awaitingAgreedTime
+        ? `${prompt.replace(/\.$/, "")} while the time is being arranged.`
+        : prompt;
     }
 
     function getSelectedExactPinMessage() {
@@ -1354,13 +1425,12 @@
         ownerUid: text(data.ownerUid),
         jobId: text(data.jobId),
         requestId: text(data.requestId),
+        requestType: String(data.requestType || "").trim(),
+        fulfilmentType: String(data.fulfilmentType || "").trim(),
         customerName: text(data.customerName || data.publicCustomerName, "Customer"),
         businessName: text(data.businessName || data.companyName, "Van Mate"),
         jobTitle: text(data.jobTitle || data.publicJobTitle || data.jobDescription, "Job"),
-        address: text(
-          data.address || data.publicAddressSummary || data.jobDescription || data.publicJobTitle,
-          "Address not set",
-        ),
+        address: text(data.address || data.publicAddressSummary, ""),
         proposedDate: String(data.proposedDate || "").trim(),
         proposedStartTime: String(data.proposedStartTime || "").trim(),
         proposedAppointmentNote: String(data.proposedAppointmentNote || "").trim(),
@@ -1507,6 +1577,9 @@
       const awaitingAgreedTime = quote.schedulingStatus === "awaiting_agreed_time";
       const needsExactPin = quoteNeedsExactPin(quote);
       const hasExactPin = quoteHasExactPin(quote);
+      const needsCustomerLocation = quoteNeedsCustomerLocation(quote);
+      const contactNoun = quoteContactNoun(quote);
+      const collectionOrder = isCollectionOrder(quote);
       const hasSelectedExactPin = Boolean(state.selectedExactPin);
       const currentLocationCaptured =
         state.selectedExactPin &&
@@ -1519,7 +1592,9 @@
       statusPill.textContent = accepted
         ? (needsExactPin
             ? "Quote accepted, exact location needed"
-            : (awaitingAgreedTime ? "Quote accepted, time to arrange" : "Quote accepted"))
+            : (collectionOrder
+                ? "Order accepted"
+                : (awaitingAgreedTime ? "Quote accepted, time to arrange" : "Quote accepted")))
         : (declined ? "Quote declined" : "Quote ready");
 
       if (pending) {
@@ -1530,13 +1605,17 @@
       } else {
         title.classList.remove("hidden");
         description.classList.remove("hidden");
-        title.textContent = accepted ? "Quote accepted" : "Quote declined";
+        title.textContent = accepted
+          ? (collectionOrder ? "Order accepted" : "Quote accepted")
+          : "Quote declined";
         description.textContent = accepted
           ? (needsExactPin
-              ? "Please show the driver the exact collection or delivery point."
+              ? exactPinPrompt(quote)
               : (awaitingAgreedTime
-                  ? "The driver will contact you to arrange the time."
-                  : "Your response has been sent to the driver."))
+                  ? `The ${contactNoun} will contact you to arrange the time.`
+                  : (collectionOrder
+                      ? "Your order has been accepted."
+                      : `Your response has been sent to the ${contactNoun}.`)))
           : "This quote has been declined.";
       }
 
@@ -1545,7 +1624,7 @@
       renderRow("Customer", quote.customerName);
       renderRow("Job", quote.jobTitle);
       renderRow(
-        "Proposed appointment",
+        proposedTimeLabel(quote),
         proposedAppointment || formatDate(quote.scheduledAt, `${quote.jobDateLabel} ${quote.jobTimeLabel}`.trim()),
       );
       if (Number.isFinite(quote.estimatedDurationMinutes) && quote.estimatedDurationMinutes > 0) {
@@ -1554,7 +1633,9 @@
       if (quote.proposedAppointmentNote) {
         renderRow("Appointment note", formatDetails(quote.proposedAppointmentNote));
       }
-      renderRow("Job location", quote.address);
+      if (needsCustomerLocation && quote.address) {
+        renderRow(isDeliveryOrder(quote) ? "Delivery location" : "Job location", quote.address);
+      }
       renderRow("Quote amount", formatMoney(quote.quoteAmount), "quote-amount-row");
       if (quote.quoteExtras.length) {
         renderRow("Included extras", quote.quoteExtras.join("\n"));
@@ -1648,35 +1729,40 @@
       );
 
       if (accepted || declined) {
-        heroTitle.textContent = accepted ? "Quote accepted" : "Quote declined";
+        heroTitle.textContent = accepted
+          ? (collectionOrder ? "Order accepted" : "Quote accepted")
+          : "Quote declined";
         if (accepted && needsExactPin) {
-          heroLede.textContent = "Please show the driver the exact collection or delivery point.";
+          const pinPrompt = exactPinPrompt(quote);
+          heroLede.textContent = pinPrompt;
           clearBanner();
-          setBanner("Quote accepted. Please show the driver the exact collection or delivery point.");
+          setBanner(`Quote accepted. ${pinPrompt}`);
           content.classList.remove("hidden");
-        respondCard.classList.add("hidden");
-        arrangeTimeCard.classList.add("hidden");
-        pinCard.classList.remove("hidden");
-          pinIntro.textContent = awaitingAgreedTime
-            ? "Please show the driver the exact collection or delivery point while the time is being arranged."
-            : "Please show the driver the exact collection or delivery point.";
+          respondCard.classList.add("hidden");
+          arrangeTimeCard.classList.add("hidden");
+          pinCard.classList.remove("hidden");
+          pinIntro.textContent = exactPinPrompt(quote, awaitingAgreedTime);
           return;
         }
 
         heroLede.textContent = accepted
-          ? (hasExactPin
+          ? (collectionOrder
+              ? "Your order has been accepted.\nThe business will confirm collection details if needed.\n\nYou can close this page now."
+              : hasExactPin
               ? (awaitingAgreedTime
-                  ? "Your exact location has been sent to the driver.\nThe driver will contact you to arrange the time.\n\nYou can close this page now."
-                  : "Your exact location has been sent to the driver.\n\nYou can close this page now.")
-              : "Your response has been sent to the driver.\n\nYou can close this page now.")
-          : "Your response has been sent to the driver.\n\nYou can close this page now.";
+                  ? `Your exact location has been sent to the ${contactNoun}.\nThe ${contactNoun} will contact you to arrange the time.\n\nYou can close this page now.`
+                  : `Your exact location has been sent to the ${contactNoun}.\n\nYou can close this page now.`)
+              : `Your response has been sent to the ${contactNoun}.\n\nYou can close this page now.`)
+          : `Your response has been sent to the ${contactNoun}.\n\nYou can close this page now.`;
         respondCard.classList.add("hidden");
         arrangeTimeCard.classList.add("hidden");
         pinCard.classList.add("hidden");
         content.classList.add("hidden");
         setBanner(
           accepted
-            ? (hasExactPin
+            ? (collectionOrder
+                ? "Your order has been accepted. The business will confirm collection details if needed."
+                : hasExactPin
                 ? (awaitingAgreedTime
                     ? "Quote accepted. Exact location sent. Time still to arrange."
                     : "Quote accepted. Exact location sent.")
@@ -1696,7 +1782,7 @@
         pinCard.classList.add("hidden");
         content.classList.remove("hidden");
         setBanner(
-          "Need a different time? Accept the quote and arrange another time with the driver.",
+          `Need a different time? Accept the quote and arrange another time with the ${contactNoun}.`,
           "success",
         );
       }
@@ -1964,7 +2050,7 @@
         state.saveError = error && error.message
           ? error.message
           : "Could not update the quote. Please try again.";
-        setBanner("Sorry, we couldn’t save your response. Please try again or contact the driver.", "error");
+        setBanner("Sorry, we couldn’t save your response. Please try again or contact the business.", "error");
         state.declineSubmitting = false;
         setBusy(false);
       }
@@ -2148,7 +2234,7 @@
       }
 
       if (!state.selectedExactPin || !isValidLatLng(state.selectedExactPin)) {
-        state.pinError = "Choose the exact spot first, then send it to the driver.";
+        state.pinError = "Choose the exact spot first, then send it to the business.";
         renderQuote();
         return;
       }
@@ -2221,7 +2307,7 @@
         state.pinError = error && error.message
           ? error.message
           : "Could not save the exact location. Please try again.";
-        setBanner("Sorry, we couldn’t save your response. Please try again or contact the driver.", "error");
+        setBanner("Sorry, we couldn’t save your response. Please try again or contact the business.", "error");
         setPinBusy(false);
       }
     }

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:van_mate_app/features/van_mate/helpers/van_customer_request_questions.dart';
+import 'package:van_mate_app/features/van_mate/models/van_customer_request_flow.dart';
 import 'package:van_mate_app/features/van_mate/models/van_custom_job_question.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.dart';
@@ -37,6 +38,109 @@ void main() {
   test('custom service starts with no linked questions', () {
     final service = _service(id: 'custom-service', linkedIds: const <String>[]);
     expect(service.linkedQuestionIds, isEmpty);
+  });
+
+  test('service request flow uses template-aware safe defaults', () {
+    expect(
+      defaultVanCustomerRequestTypeForService(
+        serviceId: 'bakery',
+        serviceName: 'Bakery',
+      ),
+      VanCustomerRequestType.orderRequest,
+    );
+    expect(
+      defaultVanCustomerRequestTypeForService(
+        serviceId: 'courier',
+        serviceName: 'Courier',
+      ),
+      VanCustomerRequestType.pickupDeliveryRequest,
+    );
+    expect(
+      defaultVanCustomerRequestTypeForService(
+        serviceId: 'cleaning',
+        serviceName: 'Cleaning',
+      ),
+      VanCustomerRequestType.bookingRequest,
+    );
+    expect(
+      defaultVanCustomerRequestTypeForService(
+        serviceId: 'custom-service',
+        serviceName: 'My custom work',
+      ),
+      VanCustomerRequestType.quoteRequest,
+    );
+  });
+
+  test('request type survives serialization and old services get fallback', () {
+    final orderService = _service(
+      id: 'bakery',
+      linkedIds: const <String>[],
+    ).copyWith(requestType: VanCustomerRequestType.orderRequest);
+    expect(
+      VanJobService.fromJson(orderService.toJson()).requestType,
+      VanCustomerRequestType.orderRequest,
+    );
+
+    final legacyJson = orderService.toJson()..remove('requestType');
+    expect(
+      VanJobService.fromJson(legacyJson).requestType,
+      VanCustomerRequestType.orderRequest,
+    );
+  });
+
+  test(
+    'flow options survive serialization and missing options use defaults',
+    () {
+      final options = VanCustomerRequestFlowOptions.defaultsFor(
+        VanCustomerRequestType.orderRequest,
+      ).copyWith(askPreferredTime: false);
+      final restored = VanJobService.fromJson(
+        _service(id: 'bakery', linkedIds: const <String>[])
+            .copyWith(
+              requestType: VanCustomerRequestType.orderRequest,
+              requestFlowOptions: options,
+            )
+            .toJson(),
+      );
+
+      expect(restored.effectiveRequestFlowOptions.showFulfilmentChoice, isTrue);
+      expect(restored.effectiveRequestFlowOptions.askPreferredTime, isFalse);
+
+      final legacyJson = restored.toJson()..remove('requestFlowOptions');
+      final legacyRestored = VanJobService.fromJson(legacyJson);
+      expect(
+        legacyRestored.effectiveRequestFlowOptions.showFulfilmentChoice,
+        isTrue,
+      );
+      expect(
+        legacyRestored.effectiveRequestFlowOptions.askPreferredDate,
+        isTrue,
+      );
+    },
+  );
+
+  test('new template services skip questions covered by built-in blocks', () {
+    expect(
+      isVanCustomerRequestBuiltInQuestion(
+        VanCustomerRequestType.orderRequest,
+        'Collection or delivery?',
+      ),
+      isTrue,
+    );
+    expect(
+      isVanCustomerRequestBuiltInQuestion(
+        VanCustomerRequestType.pickupDeliveryRequest,
+        'Delivery address',
+      ),
+      isTrue,
+    );
+    expect(
+      isVanCustomerRequestBuiltInQuestion(
+        VanCustomerRequestType.orderRequest,
+        'Allergies or dietary notes?',
+      ),
+      isFalse,
+    );
   });
 
   test('New Job selection uses only ordered enabled service links', () {
@@ -129,6 +233,19 @@ void main() {
       ).existsSync(),
       isFalse,
     );
+  });
+
+  test('service settings expose one simple customer request flow selector', () {
+    final source = File(
+      'lib/features/van_mate/pages/van_job_types_services_page.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("'Customer request flow'"));
+    expect(source, contains("label: 'Request type'"));
+    expect(source, contains("'Flow options'"));
+    expect(source, contains("'Collection / delivery choice'"));
+    expect(source, contains('VanCustomerRequestType.values'));
+    expect(source, isNot(contains('ReorderableListView<CustomerRequest')));
   });
 }
 

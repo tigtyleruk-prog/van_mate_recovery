@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../helpers/app_theme.dart';
 import '../helpers/van_text_formatters.dart';
+import '../models/van_customer_request_flow.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
 import '../models/van_quote_extra_defaults.dart';
@@ -165,11 +166,18 @@ class _VanJobTypesServicesPageState extends State<VanJobTypesServicesPage> {
     final existingQuestions = await _questionsStorage.loadAll();
     final nextQuestions = <VanCustomJobQuestion>[...existingQuestions];
     final linkedQuestionIds = <String>[];
+    final requestType = defaultVanCustomerRequestTypeForService(
+      serviceId: template.id,
+      serviceName: template.name,
+    );
 
     for (var index = 0; index < template.questions.length; index++) {
       final templateQuestion = template.questions[index];
       final questionText = sanitizeVanText(templateQuestion.text).trim();
-      if (questionText.isEmpty) {
+      if (questionText.isEmpty ||
+          templateQuestion.answerType ==
+              VanCustomQuestionAnswerType.photoUploadRequest ||
+          isVanCustomerRequestBuiltInQuestion(requestType, questionText)) {
         continue;
       }
       final question = VanCustomJobQuestion(
@@ -200,6 +208,10 @@ class _VanJobTypesServicesPageState extends State<VanJobTypesServicesPage> {
       ),
       requireAddress: true,
       requestExactPinAfterQuoteAccepted: true,
+      requestType: requestType,
+      requestFlowOptions: VanCustomerRequestFlowOptions.defaultsFor(
+        requestType,
+      ),
       linkedQuestionIds: List<String>.unmodifiable(linkedQuestionIds),
       quoteExtraDefaults: template.quoteExtraDefaults(),
       createdAt: now,
@@ -985,6 +997,170 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     return '$answerLabel - $categoryLabel';
   }
 
+  void _updateRequestFlowOptions(
+    VanJobService service,
+    VanCustomerRequestFlowOptions options,
+  ) {
+    setState(() {
+      _service = service.copyWith(
+        requestFlowOptions: options,
+        updatedAt: DateTime.now(),
+      );
+      _changed = true;
+    });
+  }
+
+  Widget _flowOptionSwitch({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return SwitchListTile.adaptive(
+      contentPadding: EdgeInsets.zero,
+      value: value,
+      onChanged: _saving ? null : onChanged,
+      title: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _requestFlowOptionTiles(VanJobService service) {
+    final options = service.effectiveRequestFlowOptions;
+    final tiles = <Widget>[];
+
+    void addOption(
+      String label,
+      bool value,
+      VanCustomerRequestFlowOptions Function(bool value) update,
+    ) {
+      tiles.add(
+        _flowOptionSwitch(
+          label: label,
+          value: value,
+          onChanged: (enabled) =>
+              _updateRequestFlowOptions(service, update(enabled)),
+        ),
+      );
+    }
+
+    switch (service.requestType) {
+      case VanCustomerRequestType.quoteRequest:
+        tiles.add(
+          _flowOptionSwitch(
+            label: 'Customer address',
+            value: service.requireAddress,
+            onChanged: (enabled) {
+              setState(() {
+                _service = service.copyWith(
+                  requireAddress: enabled,
+                  updatedAt: DateTime.now(),
+                );
+                _changed = true;
+              });
+            },
+          ),
+        );
+        break;
+      case VanCustomerRequestType.bookingRequest:
+        tiles.add(
+          _flowOptionSwitch(
+            label: 'Customer address',
+            value: service.requireAddress,
+            onChanged: (enabled) {
+              setState(() {
+                _service = service.copyWith(
+                  requireAddress: enabled,
+                  updatedAt: DateTime.now(),
+                );
+                _changed = true;
+              });
+            },
+          ),
+        );
+        break;
+      case VanCustomerRequestType.orderRequest:
+        addOption(
+          'Collection / delivery choice',
+          options.showFulfilmentChoice,
+          (enabled) => options.copyWith(showFulfilmentChoice: enabled),
+        );
+        break;
+      case VanCustomerRequestType.pickupDeliveryRequest:
+        addOption(
+          'Pickup address',
+          options.showPickupAddress,
+          (enabled) => options.copyWith(showPickupAddress: enabled),
+        );
+        addOption(
+          'Delivery address',
+          options.showDeliveryAddress,
+          (enabled) => options.copyWith(showDeliveryAddress: enabled),
+        );
+        break;
+      case VanCustomerRequestType.dropOffPickupRequest:
+        addOption(
+          'Drop-off date',
+          options.showDropOffDate,
+          (enabled) => options.copyWith(showDropOffDate: enabled),
+        );
+        addOption(
+          'Drop-off time',
+          options.showDropOffTime,
+          (enabled) => options.copyWith(showDropOffTime: enabled),
+        );
+        addOption(
+          'Pick-up date',
+          options.showPickUpDate,
+          (enabled) => options.copyWith(showPickUpDate: enabled),
+        );
+        addOption(
+          'Pick-up time',
+          options.showPickUpTime,
+          (enabled) => options.copyWith(showPickUpTime: enabled),
+        );
+        break;
+    }
+
+    if (service.requestType != VanCustomerRequestType.dropOffPickupRequest) {
+      addOption(
+        'Preferred date',
+        options.askPreferredDate,
+        (enabled) => options.copyWith(askPreferredDate: enabled),
+      );
+      addOption(
+        'Preferred time',
+        options.askPreferredTime,
+        (enabled) => options.copyWith(askPreferredTime: enabled),
+      );
+    }
+    addOption(
+      'Notes',
+      options.showNotes,
+      (enabled) => options.copyWith(showNotes: enabled),
+    );
+    tiles.add(
+      _flowOptionSwitch(
+        label: 'Photos',
+        value: service.requestPhotos,
+        onChanged: (enabled) {
+          setState(() {
+            _service = service.copyWith(
+              requestPhotos: enabled,
+              updatedAt: DateTime.now(),
+            );
+            _changed = true;
+          });
+        },
+      ),
+    );
+    return tiles;
+  }
+
   Future<void> _deleteService() async {
     final service = _service;
     if (service == null) {
@@ -1154,6 +1330,99 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
+                              'Customer request flow',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Choose how customers request this service.',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.72),
+                                height: 1.4,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<VanCustomerRequestType>(
+                              key: ValueKey<VanCustomerRequestType>(
+                                service.requestType,
+                              ),
+                              initialValue: service.requestType,
+                              dropdownColor: const Color(0xFF17253A),
+                              iconEnabledColor: Colors.white70,
+                              decoration: vanMateFieldDecoration(
+                                label: 'Request type',
+                                prefixIcon: const Icon(Icons.alt_route_rounded),
+                              ),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              items: [
+                                for (final type
+                                    in VanCustomerRequestType.values)
+                                  DropdownMenuItem<VanCustomerRequestType>(
+                                    value: type,
+                                    child: Text(type.label),
+                                  ),
+                              ],
+                              onChanged: _saving
+                                  ? null
+                                  : (value) {
+                                      if (value == null) {
+                                        return;
+                                      }
+                                      setState(() {
+                                        _service = service.copyWith(
+                                          requestType: value,
+                                          requestFlowOptions:
+                                              VanCustomerRequestFlowOptions.defaultsFor(
+                                                value,
+                                              ),
+                                          requireAddress:
+                                              value ==
+                                              VanCustomerRequestType
+                                                  .quoteRequest,
+                                          updatedAt: DateTime.now(),
+                                        );
+                                        _changed = true;
+                                      });
+                                    },
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              service.requestType.description,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.66),
+                                height: 1.4,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              'Flow options',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.90),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14.5,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            ..._requestFlowOptionTiles(service),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _GlassCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
                               'Settings',
                               style: TextStyle(
                                 fontSize: 17,
@@ -1162,46 +1431,6 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: service.requestPhotos,
-                              onChanged: (value) {
-                                setState(() {
-                                  _service = service.copyWith(
-                                    requestPhotos: value,
-                                    updatedAt: DateTime.now(),
-                                  );
-                                  _changed = true;
-                                });
-                              },
-                              title: const Text(
-                                'Request photos',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: service.requireAddress,
-                              onChanged: (value) {
-                                setState(() {
-                                  _service = service.copyWith(
-                                    requireAddress: value,
-                                    updatedAt: DateTime.now(),
-                                  );
-                                  _changed = true;
-                                });
-                              },
-                              title: const Text(
-                                'Require address',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
                             SwitchListTile.adaptive(
                               contentPadding: EdgeInsets.zero,
                               value: service.requestExactPinAfterQuoteAccepted,
@@ -1659,6 +1888,12 @@ class _VanJobServiceEditorPageState extends State<VanJobServiceEditorPage> {
     final now = DateTime.now();
     final existing = widget.initialService;
     final quoteExtraDefaults = _quoteExtraDefaults;
+    final requestType =
+        existing?.requestType ??
+        defaultVanCustomerRequestTypeForService(
+          serviceId: '',
+          serviceName: name,
+        );
     final service = VanJobService(
       id: existing?.id ?? now.microsecondsSinceEpoch.toString(),
       name: name,
@@ -1667,6 +1902,10 @@ class _VanJobServiceEditorPageState extends State<VanJobServiceEditorPage> {
       requestPhotos: _requestPhotos,
       requireAddress: _requireAddress,
       requestExactPinAfterQuoteAccepted: _requestExactPinAfterQuoteAccepted,
+      requestType: requestType,
+      requestFlowOptions:
+          existing?.requestFlowOptions ??
+          VanCustomerRequestFlowOptions.defaultsFor(requestType),
       linkedQuestionIds: existing?.linkedQuestionIds ?? const <String>[],
       quoteExtraDefaults: quoteExtraDefaults,
       createdAt: existing?.createdAt ?? now,
@@ -2042,6 +2281,7 @@ class _ServiceListCard extends StatelessWidget {
             children: [
               _InfoChip(label: '${service.linkedQuestionIds.length} questions'),
               _InfoChip(label: '${service.enabledQuoteExtraCount} extras'),
+              _InfoChip(label: service.requestType.label),
               for (final item in settingsSummary) _InfoChip(label: item),
             ],
           ),

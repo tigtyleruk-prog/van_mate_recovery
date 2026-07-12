@@ -198,22 +198,20 @@ class VanBusinessProfileScopeStorage extends ChangeNotifier {
     final businessId = await activeBusinessId();
     final storageKey = await scopedLocalKey(_publicConfigIdKey);
     final saved = _preferences?.getString(storageKey)?.trim() ?? '';
-    if (saved.isNotEmpty &&
-        (saved == normalizedOwnerUid ||
-            saved.startsWith('${normalizedOwnerUid}_'))) {
+    final expected = businessId == defaultBusinessId
+        ? normalizedOwnerUid
+        : '${normalizedOwnerUid}_$businessId';
+    if (saved == expected) {
       debugPrint(
         '[BusinessProfiles] Booking Link identity loaded businessProfileId=$businessId publicConfigId=$saved',
       );
       return saved;
     }
-    final generated = businessId == defaultBusinessId
-        ? normalizedOwnerUid
-        : '${normalizedOwnerUid}_$businessId';
-    await _preferences?.setString(storageKey, generated);
+    await _preferences?.setString(storageKey, expected);
     debugPrint(
-      '[BusinessProfiles] Booking Link identity created businessProfileId=$businessId publicConfigId=$generated',
+      '[BusinessProfiles] Booking Link identity created businessProfileId=$businessId publicConfigId=$expected',
     );
-    return generated;
+    return expected;
   }
 
   List<VanBusinessProfileSummary> _readProfiles() {

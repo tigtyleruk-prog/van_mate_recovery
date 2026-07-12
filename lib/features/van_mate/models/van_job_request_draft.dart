@@ -88,6 +88,7 @@ class VanJobRequestDraft {
     this.locationPending = false,
     this.selectedServiceId = '',
     this.selectedServiceName = '',
+    this.requestType = 'quoteRequest',
     this.exactPinLatitude,
     this.exactPinLongitude,
     this.exactPinSource = 'none',
@@ -108,6 +109,7 @@ class VanJobRequestDraft {
   final bool requiresExactPinAfterQuoteAccepted;
   final String selectedServiceId;
   final String selectedServiceName;
+  final String requestType;
   final List<String> selectedQuestionIds;
   final List<VanJobRequestAnswer> answers;
   final List<String> checklistItems;

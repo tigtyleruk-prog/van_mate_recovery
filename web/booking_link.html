@@ -422,10 +422,58 @@
 
         <div id="addressSection" class="section hidden">
           <div>
-            <h2>Address or postcode</h2>
+            <h2 id="addressHeading">Address or postcode</h2>
             <textarea id="address" class="field" placeholder="Address" autocomplete="off"></textarea>
             <div style="height: 10px;"></div>
             <input id="postcode" class="field" type="text" placeholder="Postcode" autocomplete="off" inputmode="text" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+          </div>
+        </div>
+
+        <div id="fulfilmentSection" class="section hidden">
+          <div>
+            <h2>Collection or delivery?</h2>
+            <input id="fulfilmentType" type="hidden" value="" />
+            <div class="choice-row" role="group" aria-label="Collection or delivery">
+              <button id="collectionChoice" type="button" class="choice-btn" aria-pressed="false">Collection</button>
+              <button id="deliveryChoice" type="button" class="choice-btn" aria-pressed="false">Delivery</button>
+            </div>
+            <div id="orderDeliveryAddressWrap" class="hidden" style="margin-top: 10px;">
+              <textarea id="orderDeliveryAddress" class="field" placeholder="Delivery address" autocomplete="off"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div id="pickupDeliverySection" class="section hidden">
+          <div>
+            <h2>Pickup and delivery</h2>
+            <div id="pickupAddressWrap">
+              <textarea id="pickupAddress" class="field" placeholder="Pickup address" autocomplete="off"></textarea>
+            </div>
+            <div id="deliveryAddressWrap" style="margin-top: 10px;">
+              <textarea id="deliveryAddress" class="field" placeholder="Delivery address" autocomplete="off"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div id="dropOffPickupSection" class="section hidden">
+          <div>
+            <h2>Drop-off and pick-up</h2>
+            <div id="dropOffDateWrap">
+              <label class="helper" for="dropOffDate">Drop-off date</label>
+              <input id="dropOffDate" class="field" type="date" />
+            </div>
+            <div id="dropOffTimeWrap" style="margin-top: 10px;">
+              <label class="helper" for="dropOffTime">Drop-off time</label>
+              <input id="dropOffTime" class="field" type="time" />
+            </div>
+            <div id="pickUpDateWrap" style="margin-top: 14px;">
+              <label class="helper" for="pickUpDate">Pick-up date</label>
+              <input id="pickUpDate" class="field" type="date" />
+            </div>
+            <div id="pickUpTimeWrap" style="margin-top: 10px;">
+              <label class="helper" for="pickUpTime">Pick-up time</label>
+              <input id="pickUpTime" class="field" type="time" />
+            </div>
           </div>
         </div>
 
@@ -445,18 +493,23 @@
           </div>
         </div>
 
-        <div class="section">
+        <div id="preferredTimingSection" class="section">
           <div>
-            <h2>Preferred time (optional)</h2>
-            <input id="preferredDate" class="field" type="date" />
-            <div style="height: 10px;"></div>
-            <select id="preferredTimeWindow" class="select">
-              <option value="morning">Morning</option>
-              <option value="afternoon">Afternoon</option>
-              <option value="evening">Evening</option>
-              <option value="anytime" selected>Anytime / Flexible</option>
-            </select>
-            <label class="toggle-row" for="preferredIsFlexible">
+            <h2 id="preferredTimingHeading">Preferred date and time (optional)</h2>
+            <div id="preferredDateWrap">
+              <label id="preferredDateLabel" class="helper" for="preferredDate">Preferred date</label>
+              <input id="preferredDate" class="field" type="date" />
+            </div>
+            <div id="preferredTimeWrap" style="margin-top: 10px;">
+              <label id="preferredTimeLabel" class="helper" for="preferredTimeWindow">Preferred time</label>
+              <select id="preferredTimeWindow" class="select">
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+                <option value="anytime" selected>Anytime / Flexible</option>
+              </select>
+            </div>
+            <label id="preferredFlexibleWrap" class="toggle-row" for="preferredIsFlexible">
               <input id="preferredIsFlexible" type="checkbox" />
               <span>Timing is flexible</span>
             </label>
@@ -465,9 +518,9 @@
 
         <div id="questionsSection" class="section"></div>
 
-        <div class="section">
+        <div id="notesSection" class="section">
           <div>
-            <h2>Anything else we should know?</h2>
+            <h2 id="notesHeading">Anything else we should know?</h2>
             <textarea
               id="preferredTimingNote"
               class="field"
@@ -486,7 +539,7 @@
     <section id="successCard" class="card strong hidden">
       <h1 style="font-size: clamp(28px, 4.2vw, 40px);">Request sent</h1>
       <div style="height: 12px;"></div>
-      <p class="body-text">Thank you. We've received your request and will get back to you with a quote as soon as possible.</p>
+      <p id="successMessage" class="body-text">Thank you. We've received your request.</p>
       <div id="successRequestId" class="helper" style="margin-top: 12px;"></div>
     </section>
 
@@ -526,8 +579,29 @@
     const phoneNumber = document.getElementById("phoneNumber");
     const customerEmail = document.getElementById("customerEmail");
     const addressSection = document.getElementById("addressSection");
+    const addressHeading = document.getElementById("addressHeading");
     const address = document.getElementById("address");
     const postcode = document.getElementById("postcode");
+    const fulfilmentSection = document.getElementById("fulfilmentSection");
+    const fulfilmentType = document.getElementById("fulfilmentType");
+    const collectionChoice = document.getElementById("collectionChoice");
+    const deliveryChoice = document.getElementById("deliveryChoice");
+    const orderDeliveryAddressWrap = document.getElementById("orderDeliveryAddressWrap");
+    const orderDeliveryAddress = document.getElementById("orderDeliveryAddress");
+    const pickupDeliverySection = document.getElementById("pickupDeliverySection");
+    const pickupAddressWrap = document.getElementById("pickupAddressWrap");
+    const pickupAddress = document.getElementById("pickupAddress");
+    const deliveryAddressWrap = document.getElementById("deliveryAddressWrap");
+    const deliveryAddress = document.getElementById("deliveryAddress");
+    const dropOffPickupSection = document.getElementById("dropOffPickupSection");
+    const dropOffDateWrap = document.getElementById("dropOffDateWrap");
+    const dropOffDate = document.getElementById("dropOffDate");
+    const dropOffTimeWrap = document.getElementById("dropOffTimeWrap");
+    const dropOffTime = document.getElementById("dropOffTime");
+    const pickUpDateWrap = document.getElementById("pickUpDateWrap");
+    const pickUpDate = document.getElementById("pickUpDate");
+    const pickUpTimeWrap = document.getElementById("pickUpTimeWrap");
+    const pickUpTime = document.getElementById("pickUpTime");
     const photosSection = document.getElementById("photosSection");
     const takePhotoButton = document.getElementById("takePhotoButton");
     const choosePhotosButton = document.getElementById("choosePhotosButton");
@@ -538,10 +612,20 @@
     const preferredDate = document.getElementById("preferredDate");
     const preferredTimeWindow = document.getElementById("preferredTimeWindow");
     const preferredIsFlexible = document.getElementById("preferredIsFlexible");
+    const preferredTimingSection = document.getElementById("preferredTimingSection");
+    const preferredTimingHeading = document.getElementById("preferredTimingHeading");
+    const preferredDateWrap = document.getElementById("preferredDateWrap");
+    const preferredDateLabel = document.getElementById("preferredDateLabel");
+    const preferredTimeWrap = document.getElementById("preferredTimeWrap");
+    const preferredTimeLabel = document.getElementById("preferredTimeLabel");
+    const preferredFlexibleWrap = document.getElementById("preferredFlexibleWrap");
     const preferredTimingNote = document.getElementById("preferredTimingNote");
+    const notesSection = document.getElementById("notesSection");
+    const notesHeading = document.getElementById("notesHeading");
     const questionsSection = document.getElementById("questionsSection");
     const submitButton = document.getElementById("submitButton");
     const successCard = document.getElementById("successCard");
+    const successMessage = document.getElementById("successMessage");
     const successRequestId = document.getElementById("successRequestId");
 
     const state = {
@@ -618,6 +702,150 @@
       return String(value || "").trim();
     }
 
+    const REQUEST_TYPES = new Set([
+      "quoteRequest",
+      "bookingRequest",
+      "orderRequest",
+      "dropOffPickupRequest",
+      "pickupDeliveryRequest",
+    ]);
+
+    function inferredRequestType(service) {
+      const saved = readText(service && service.requestType);
+      if (REQUEST_TYPES.has(saved)) {
+        return saved;
+      }
+      const value = `${readText(service && service.id)} ${readText(service && service.name)}`
+        .toLowerCase()
+        .replace(/[_-]+/g, " ");
+      if (/(cake|cupcake|bakery|meal prep|farm shop|catering|balloon|florist|gift)/.test(value)) {
+        return "orderRequest";
+      }
+      if (/(pet sitting|dog sitting|childmind|ironing|alteration)/.test(value)) {
+        return "dropOffPickupRequest";
+      }
+      if (/(courier|delivery|man van|man & van|removal|transport|store collection)/.test(value)) {
+        return "pickupDeliveryRequest";
+      }
+      if (/(cleaning|dog walking|hairdresser|beautician|groom|appointment)/.test(value)) {
+        return "bookingRequest";
+      }
+      return "quoteRequest";
+    }
+
+    function requestFlowForService(service) {
+      const requestType = inferredRequestType(service);
+      const flows = {
+        quoteRequest: {
+          requestType,
+          heading: "Request a quote",
+          submitLabel: "Send quote request",
+          sendingLabel: "Sending quote request...",
+          intro: "Tell us what you need and we'll get back to you with a quote.",
+          notesHeading: "Anything else we should know?",
+          preferredHeading: "Preferred date and time (optional)",
+          success: "Thank you. We've received your quote request and will get back to you soon.",
+        },
+        bookingRequest: {
+          requestType,
+          heading: "Request a booking",
+          submitLabel: "Send booking request",
+          sendingLabel: "Sending booking request...",
+          intro: "Choose your preferred time and tell us what you need.",
+          notesHeading: "Anything else about the booking?",
+          preferredHeading: "Preferred booking date and time",
+          success: "Thank you. We've received your booking request and will confirm the details soon.",
+        },
+        orderRequest: {
+          requestType,
+          heading: "Place an order",
+          submitLabel: "Send order request",
+          sendingLabel: "Sending order request...",
+          intro: "Tell us what you'd like to order and how you'd like to receive it.",
+          notesHeading: "Anything else about your order?",
+          preferredHeading: "Preferred collection / delivery",
+          success: "Thank you. We've received your order request and will confirm it soon.",
+        },
+        dropOffPickupRequest: {
+          requestType,
+          heading: "Request a booking",
+          submitLabel: "Send booking request",
+          sendingLabel: "Sending booking request...",
+          intro: "Add your drop-off and pick-up details for this service.",
+          notesHeading: "Anything else about the booking?",
+          preferredHeading: "Preferred date and time",
+          success: "Thank you. We've received your booking request and will confirm the details soon.",
+        },
+        pickupDeliveryRequest: {
+          requestType,
+          heading: "Request pickup / delivery",
+          submitLabel: "Send pickup / delivery request",
+          sendingLabel: "Sending pickup / delivery request...",
+          intro: "Add the pickup and delivery details so we can prepare your request.",
+          notesHeading: "Anything else about the pickup or delivery?",
+          preferredHeading: "Preferred pickup date and time",
+          success: "Thank you. We've received your pickup and delivery request and will get back to you soon.",
+        },
+      };
+      return flows[requestType] || flows.quoteRequest;
+    }
+
+    function flowOptionsForService(service, requestType) {
+      const saved = service && service.requestFlowOptions && typeof service.requestFlowOptions === "object"
+        ? service.requestFlowOptions
+        : {};
+      const defaults = {
+        showFulfilmentChoice: requestType === "orderRequest",
+        askPreferredDate: requestType !== "dropOffPickupRequest",
+        askPreferredTime: requestType !== "dropOffPickupRequest",
+        showPickupAddress: requestType === "pickupDeliveryRequest",
+        showDeliveryAddress: requestType === "pickupDeliveryRequest",
+        showDropOffDate: requestType === "dropOffPickupRequest",
+        showDropOffTime: requestType === "dropOffPickupRequest",
+        showPickUpDate: requestType === "dropOffPickupRequest",
+        showPickUpTime: requestType === "dropOffPickupRequest",
+        showNotes: true,
+      };
+      return Object.fromEntries(
+        Object.entries(defaults).map(([key, fallback]) => [
+          key,
+          typeof saved[key] === "boolean" ? saved[key] : fallback,
+        ]),
+      );
+    }
+
+    function setFulfilmentChoice(value) {
+      const selected = value === "collection" || value === "delivery" ? value : "";
+      fulfilmentType.value = selected;
+      for (const [button, option] of [
+        [collectionChoice, "collection"],
+        [deliveryChoice, "delivery"],
+      ]) {
+        const active = selected === option;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      }
+      orderDeliveryAddressWrap.classList.toggle("hidden", selected !== "delivery");
+      if (selected !== "delivery") {
+        orderDeliveryAddress.value = "";
+      }
+    }
+
+    function resetFlowFields() {
+      setFulfilmentChoice("");
+      orderDeliveryAddress.value = "";
+      pickupAddress.value = "";
+      deliveryAddress.value = "";
+      dropOffDate.value = "";
+      dropOffTime.value = "";
+      pickUpDate.value = "";
+      pickUpTime.value = "";
+      preferredDate.value = "";
+      preferredTimeWindow.value = "anytime";
+      preferredIsFlexible.checked = false;
+      preferredTimingNote.value = "";
+    }
+
     function normalizePostcode(value) {
       const upper = String(value || "").toUpperCase();
       return upper.replace(/[^A-Z0-9 ]/g, "").trim();
@@ -645,6 +873,53 @@
       return (state.config.services || []).find((item) => readText(item.id) === state.selectedServiceId) || null;
     }
 
+    function isSeededQuestionCoveredByFlow(service, question) {
+      const id = readText(question && question.id);
+      if (!id.startsWith("service_template_")) {
+        return false;
+      }
+      const requestType = inferredRequestType(service);
+      const options = flowOptionsForService(service, requestType);
+      const text = readText(question && question.questionText)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (options.askPreferredDate && text === "preferred date") {
+        return true;
+      }
+      if (options.askPreferredTime && text === "preferred time") {
+        return true;
+      }
+      if (
+        requestType === "orderRequest" &&
+        options.showFulfilmentChoice &&
+        (text === "collection or delivery" || text === "delivery address")
+      ) {
+        return true;
+      }
+      if (requestType === "pickupDeliveryRequest") {
+        if (
+          options.showPickupAddress &&
+          (text === "pickup address" || text === "collection address")
+        ) {
+          return true;
+        }
+        if (options.showDeliveryAddress && text === "delivery address") {
+          return true;
+        }
+      }
+      if (requestType === "dropOffPickupRequest") {
+        return (
+          (options.showDropOffDate && text === "drop off date") ||
+          (options.showDropOffTime && text === "drop off time") ||
+          (options.showPickUpDate && text === "pick up date") ||
+          (options.showPickUpTime && text === "pick up time")
+        );
+      }
+      return false;
+    }
+
     function linkedQuestionsForService(service) {
       if (!service || !Array.isArray(service.linkedQuestions)) {
         return [];
@@ -652,6 +927,9 @@
       return service.linkedQuestions.filter((question) => {
         const id = readText(question && question.id);
         if (!id || DEPRECATED_DUPLICATE_PRESET_IDS.has(id)) {
+          return false;
+        }
+        if (isSeededQuestionCoveredByFlow(service, question)) {
           return false;
         }
         return true;
@@ -913,6 +1191,9 @@
 
       if (!service) {
         addressSection.classList.add("hidden");
+        fulfilmentSection.classList.add("hidden");
+        pickupDeliverySection.classList.add("hidden");
+        dropOffPickupSection.classList.add("hidden");
         photosSection.classList.add("hidden");
         serviceDescription.textContent = "";
         state.selectedPhotos.forEach((photo) => {
@@ -925,9 +1206,63 @@
         return;
       }
 
+      const flow = requestFlowForService(service);
+      const flowOptions = flowOptionsForService(service, flow.requestType);
       serviceDescription.textContent = readText(service.description);
-      addressSection.classList.toggle("hidden", !service.requireAddress);
+      const showStandardAddress =
+        Boolean(service.requireAddress) &&
+        flow.requestType !== "orderRequest" &&
+        flow.requestType !== "pickupDeliveryRequest";
+      addressSection.classList.toggle("hidden", !showStandardAddress);
+      addressHeading.textContent = flow.requestType === "bookingRequest"
+        ? "Service address or postcode"
+        : "Address or postcode";
+      fulfilmentSection.classList.toggle(
+        "hidden",
+        flow.requestType !== "orderRequest" || !flowOptions.showFulfilmentChoice,
+      );
+      const showPickupDelivery =
+        flow.requestType === "pickupDeliveryRequest" &&
+        (flowOptions.showPickupAddress || flowOptions.showDeliveryAddress);
+      pickupDeliverySection.classList.toggle("hidden", !showPickupDelivery);
+      pickupAddressWrap.classList.toggle("hidden", !flowOptions.showPickupAddress);
+      deliveryAddressWrap.classList.toggle("hidden", !flowOptions.showDeliveryAddress);
+      const showDropOffPickup =
+        flow.requestType === "dropOffPickupRequest" &&
+        (flowOptions.showDropOffDate ||
+          flowOptions.showDropOffTime ||
+          flowOptions.showPickUpDate ||
+          flowOptions.showPickUpTime);
+      dropOffPickupSection.classList.toggle("hidden", !showDropOffPickup);
+      dropOffDateWrap.classList.toggle("hidden", !flowOptions.showDropOffDate);
+      dropOffTimeWrap.classList.toggle("hidden", !flowOptions.showDropOffTime);
+      pickUpDateWrap.classList.toggle("hidden", !flowOptions.showPickUpDate);
+      pickUpTimeWrap.classList.toggle("hidden", !flowOptions.showPickUpTime);
+      const showPreferredTiming =
+        flowOptions.askPreferredDate || flowOptions.askPreferredTime;
+      preferredTimingSection.classList.toggle("hidden", !showPreferredTiming);
+      preferredDateWrap.classList.toggle("hidden", !flowOptions.askPreferredDate);
+      preferredTimeWrap.classList.toggle("hidden", !flowOptions.askPreferredTime);
+      preferredFlexibleWrap.classList.toggle("hidden", !showPreferredTiming);
+      notesSection.classList.toggle("hidden", !flowOptions.showNotes);
       photosSection.classList.toggle("hidden", !service.requestPhotos);
+      preferredTimingHeading.textContent = flow.preferredHeading;
+      preferredDateLabel.textContent = flow.requestType === "orderRequest"
+        ? "Preferred collection / delivery date"
+        : "Preferred date";
+      preferredTimeLabel.textContent = flow.requestType === "orderRequest"
+        ? "Preferred collection / delivery time"
+        : "Preferred time";
+      notesHeading.textContent = flow.notesHeading;
+      preferredTimingNote.placeholder = flow.requestType === "orderRequest"
+        ? "Allergies, personalisation, access or anything else that may help..."
+        : "Access notes, parking information, timing preferences or anything else that may help...";
+      pageTitle.textContent = flow.heading;
+      pageIntro.classList.remove("hidden");
+      pageIntro.textContent = flow.intro;
+      updatePageMetadata(flow.heading, flow.intro);
+      submitButton.textContent = flow.submitLabel;
+      successMessage.textContent = flow.success;
       const linkedQuestions = linkedQuestionsForService(service);
       console.log("[BookingLink] linked questions loaded", {
         serviceId: readText(service.id),
@@ -1040,11 +1375,90 @@
           serviceId: service.id,
         });
       }
-      if (service.requireAddress && !readText(address.value) && !normalizePostcode(postcode.value)) {
+      const flow = requestFlowForService(service);
+      const flowOptions = flowOptionsForService(service, flow.requestType);
+      const requiresStandardAddress =
+        Boolean(service.requireAddress) &&
+        flow.requestType !== "orderRequest" &&
+        flow.requestType !== "pickupDeliveryRequest";
+      if (requiresStandardAddress && !readText(address.value) && !normalizePostcode(postcode.value)) {
         return failValidation({
           message: "Please add an address or postcode for this service.",
           field: address,
           reason: "missing_address_or_postcode",
+          serviceId: service.id,
+        });
+      }
+      if (
+        flow.requestType === "orderRequest" &&
+        flowOptions.showFulfilmentChoice &&
+        !readText(fulfilmentType.value)
+      ) {
+        return failValidation({
+          message: "Please choose collection or delivery.",
+          field: collectionChoice,
+          reason: "missing_fulfilment_type",
+          serviceId: service.id,
+        });
+      }
+      if (
+        flow.requestType === "orderRequest" &&
+        flowOptions.showFulfilmentChoice &&
+        readText(fulfilmentType.value) === "delivery" &&
+        !readText(orderDeliveryAddress.value)
+      ) {
+        return failValidation({
+          message: "Please add the delivery address.",
+          field: orderDeliveryAddress,
+          reason: "missing_order_delivery_address",
+          serviceId: service.id,
+        });
+      }
+      if (
+        flow.requestType === "pickupDeliveryRequest" &&
+        flowOptions.showPickupAddress &&
+        !readText(pickupAddress.value)
+      ) {
+        return failValidation({
+          message: "Please add the pickup address.",
+          field: pickupAddress,
+          reason: "missing_pickup_address",
+          serviceId: service.id,
+        });
+      }
+      if (
+        flow.requestType === "pickupDeliveryRequest" &&
+        flowOptions.showDeliveryAddress &&
+        !readText(deliveryAddress.value)
+      ) {
+        return failValidation({
+          message: "Please add the delivery address.",
+          field: deliveryAddress,
+          reason: "missing_delivery_address",
+          serviceId: service.id,
+        });
+      }
+      if (
+        flow.requestType === "dropOffPickupRequest" &&
+        flowOptions.showDropOffDate &&
+        !readText(dropOffDate.value)
+      ) {
+        return failValidation({
+          message: "Please choose a drop-off date.",
+          field: dropOffDate,
+          reason: "missing_drop_off_date",
+          serviceId: service.id,
+        });
+      }
+      if (
+        flow.requestType === "dropOffPickupRequest" &&
+        flowOptions.showPickUpDate &&
+        !readText(pickUpDate.value)
+      ) {
+        return failValidation({
+          message: "Please choose a pick-up date.",
+          field: pickUpDate,
+          reason: "missing_pick_up_date",
           serviceId: service.id,
         });
       }
@@ -1091,6 +1505,8 @@
         console.warn("[BookingLink] submit blocked", { reason: "missing_service_after_validation" });
         return;
       }
+      const flow = requestFlowForService(service);
+      const flowOptions = flowOptionsForService(service, flow.requestType);
 
       const collectedAnswers = linkedQuestionsForService(service)
         .map((question, index) => ({
@@ -1129,7 +1545,7 @@
 
       state.submitting = true;
       submitButton.disabled = true;
-      submitButton.textContent = "Sending request...";
+      submitButton.textContent = flow.sendingLabel;
       submitButton.setAttribute("aria-busy", "true");
 
       try {
@@ -1138,10 +1554,18 @@
           serviceId: readText(service.id),
           answersCount: collectedAnswers.length,
           selectedPhotoCount: (state.selectedPhotos || []).length,
-          preferredDate: readText(preferredDate.value) || null,
-          preferredTimeWindow: readText(preferredTimeWindow.value),
-          preferredIsFlexible: Boolean(preferredIsFlexible.checked),
-          additionalNotes: readText(preferredTimingNote.value),
+          preferredDate: flowOptions.askPreferredDate
+            ? readText(preferredDate.value) || null
+            : null,
+          preferredTimeWindow: flowOptions.askPreferredTime
+            ? readText(preferredTimeWindow.value)
+            : "",
+          preferredIsFlexible:
+            (flowOptions.askPreferredDate || flowOptions.askPreferredTime) &&
+            Boolean(preferredIsFlexible.checked),
+          additionalNotes: flowOptions.showNotes
+            ? readText(preferredTimingNote.value)
+            : "",
         });
         const response = await submitBookingLinkRequest({
           ownerUid: state.driverOwnerUid || ownerUid,
@@ -1149,20 +1573,65 @@
           businessProfileId: state.businessProfileId || "",
           serviceId: readText(service.id),
           serviceName: readText(service.name),
+          requestType: flow.requestType,
           customerName: readText(customerName.value),
           phoneNumber: readText(phoneNumber.value),
           customerEmail: readText(customerEmail.value),
-          address: readText(address.value),
-          postcode: normalizePostcode(postcode.value),
-          preferredDate: readText(preferredDate.value) || null,
-          preferredDateAt: readText(preferredDate.value) || null,
-          preferredTimeWindow: readText(preferredTimeWindow.value),
-          preferredWindow: readText(preferredTimeWindow.value),
-          preferredIsFlexible: Boolean(preferredIsFlexible.checked),
-          timingFlexible: Boolean(preferredIsFlexible.checked),
+          address:
+            flow.requestType === "orderRequest" || flow.requestType === "pickupDeliveryRequest"
+              ? ""
+              : readText(address.value),
+          postcode:
+            flow.requestType === "orderRequest" || flow.requestType === "pickupDeliveryRequest"
+              ? ""
+              : normalizePostcode(postcode.value),
+          fulfilmentType: flowOptions.showFulfilmentChoice
+            ? readText(fulfilmentType.value)
+            : "",
+          pickupAddress: flowOptions.showPickupAddress
+            ? readText(pickupAddress.value)
+            : "",
+          deliveryAddress:
+            flow.requestType === "orderRequest" && flowOptions.showFulfilmentChoice
+              ? readText(orderDeliveryAddress.value)
+              : flowOptions.showDeliveryAddress
+                ? readText(deliveryAddress.value)
+                : "",
+          dropOffDate: flowOptions.showDropOffDate
+            ? readText(dropOffDate.value) || null
+            : null,
+          dropOffTime: flowOptions.showDropOffTime
+            ? readText(dropOffTime.value)
+            : "",
+          pickUpDate: flowOptions.showPickUpDate
+            ? readText(pickUpDate.value) || null
+            : null,
+          pickUpTime: flowOptions.showPickUpTime
+            ? readText(pickUpTime.value)
+            : "",
+          preferredDate: flowOptions.askPreferredDate
+            ? readText(preferredDate.value) || null
+            : null,
+          preferredDateAt: flowOptions.askPreferredDate
+            ? readText(preferredDate.value) || null
+            : null,
+          preferredTimeWindow: flowOptions.askPreferredTime
+            ? readText(preferredTimeWindow.value)
+            : "",
+          preferredWindow: flowOptions.askPreferredTime
+            ? readText(preferredTimeWindow.value)
+            : "",
+          preferredIsFlexible:
+            (flowOptions.askPreferredDate || flowOptions.askPreferredTime) &&
+            Boolean(preferredIsFlexible.checked),
+          timingFlexible:
+            (flowOptions.askPreferredDate || flowOptions.askPreferredTime) &&
+            Boolean(preferredIsFlexible.checked),
           preferredTimingNote: "",
           timingNote: "",
-          additionalNotes: readText(preferredTimingNote.value),
+          additionalNotes: flowOptions.showNotes
+            ? readText(preferredTimingNote.value)
+            : "",
           photoFileNames: (state.selectedPhotos || []).map((photo) => readText(photo.fileName)).filter(Boolean),
           photos: (state.selectedPhotos || []).map((photo) => ({
             fileName: readText(photo.fileName),
@@ -1202,7 +1671,7 @@
         });
         state.submitting = false;
         submitButton.disabled = false;
-        submitButton.textContent = "Submit request";
+        submitButton.textContent = flow.submitLabel;
         submitButton.removeAttribute("aria-busy");
         if (mergedError.toLowerCase().includes("photo")) {
           showBanner("Could not upload photos, please remove photos and try again.");
@@ -1273,8 +1742,15 @@
     }
 
     serviceSelect.addEventListener("change", () => {
+      resetFlowFields();
       state.selectedServiceId = readText(serviceSelect.value);
       renderServiceFields();
+    });
+    collectionChoice.addEventListener("click", () => {
+      setFulfilmentChoice("collection");
+    });
+    deliveryChoice.addEventListener("click", () => {
+      setFulfilmentChoice("delivery");
     });
     postcode.addEventListener("input", () => {
       const normalized = normalizePostcode(postcode.value);

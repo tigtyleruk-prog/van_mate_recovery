@@ -514,6 +514,248 @@ void main() {
     expect(displayStatus.statusLabel, 'Request received');
   });
 
+  test('request-only Order Request appears in Incoming Jobs', () {
+    final state = DriverReplyMockState.instance;
+    state.debugResetStateForTest();
+    try {
+      final submittedAt = DateTime.parse('2026-07-11T10:00:00.000Z');
+      final request = VanJobRequestRecord(
+        requestId: 'cake-order-request',
+        ownerUid: 'owner-1',
+        jobId: 'cake-order-job',
+        linkedJobId: 'cake-order-job',
+        status: 'request_received',
+        createdAt: submittedAt,
+        updatedAt: submittedAt,
+        expiresAt: submittedAt.add(const Duration(days: 7)),
+        publicJobTitle: 'Cake Orders',
+        publicCustomerName: 'Fat Bast',
+        publicAddressSummary: '',
+        publicPhoneNumber: '07123456789',
+        source: 'booking_link',
+        sourceLabel: 'Booking Link',
+        selectedServiceId: 'cake-orders',
+        selectedServiceName: 'Cake Orders',
+        requestType: 'orderRequest',
+        fulfilmentType: 'collection',
+        checklistItems: const <String>[],
+        customQuestions: const <String>['Quantity'],
+        exactPinRequested: false,
+        requestSubmittedAt: submittedAt,
+        customerSubmittedAt: submittedAt,
+        additionalNotes: 'Fulfilment: collection',
+      );
+
+      state.debugMergeCloudRequestsForTest(<VanJobRequestRecord>[request]);
+
+      expect(state.pendingJobs, hasLength(1));
+      expect(state.pendingJobs.single.jobId, 'cake-order-job');
+      expect(state.pendingJobs.single.jobTitle, 'Cake Orders');
+      expect(state.pendingJobs.single.customerName, 'Fat Bast');
+      expect(state.pendingJobs.single.requestType, 'orderRequest');
+      expect(state.pendingJobs.single.fulfilmentType, 'collection');
+      expect(
+        state.requestForJob('cake-order-job')?.requestType,
+        'orderRequest',
+      );
+    } finally {
+      state.debugResetStateForTest();
+    }
+  });
+
+  test('accepted collection order remains visible in Incoming Jobs', () {
+    final state = DriverReplyMockState.instance;
+    state.debugResetStateForTest();
+    try {
+      final submittedAt = DateTime.parse('2026-07-11T10:00:00.000Z');
+      final request = VanJobRequestRecord(
+        requestId: 'accepted-cake-order-request',
+        ownerUid: 'owner-1',
+        jobId: 'accepted-cake-order-job',
+        linkedJobId: 'accepted-cake-order-job',
+        status: 'request_received',
+        createdAt: submittedAt,
+        updatedAt: submittedAt,
+        expiresAt: submittedAt.add(const Duration(days: 7)),
+        publicJobTitle: 'Cake Orders',
+        publicCustomerName: 'Collection Customer',
+        publicAddressSummary: '',
+        publicPhoneNumber: '07123456789',
+        source: 'booking_link',
+        sourceLabel: 'Booking Link',
+        selectedServiceId: 'cake-orders',
+        selectedServiceName: 'Cake Orders',
+        requestType: 'orderRequest',
+        fulfilmentType: 'collection',
+        checklistItems: const <String>[],
+        customQuestions: const <String>[],
+        exactPinRequested: false,
+        requiresExactPinAfterQuoteAccepted: false,
+        requestSubmittedAt: submittedAt,
+        customerSubmittedAt: submittedAt,
+      );
+
+      state.debugMergeCloudRequestsForTest(<VanJobRequestRecord>[request]);
+      final pendingOrder = state.jobById(request.jobId)!;
+      final acceptedPublicQuote = pendingOrder.copyWith(
+        status: 'quoteAccepted',
+        requestStatus: 'quote_accepted',
+        quoteStatus: 'accepted',
+        quoteResponseStatus: 'accepted',
+        quoteAccepted: true,
+        quoteAmount: 42,
+        quoteResponseId: 'accepted-cake-order-quote',
+        quoteAcceptedAt: submittedAt.add(const Duration(hours: 1)),
+        quoteRespondedAt: submittedAt.add(const Duration(hours: 1)),
+        updatedAt: submittedAt.add(const Duration(hours: 1)),
+      );
+
+      state.debugMergeCloudJobsForTest(<DriverCustomerReplyMockData>[
+        acceptedPublicQuote,
+      ], sourceLabel: 'public_quote_responses');
+
+      expect(state.debugSourceForJob(request.jobId), 'van_job_requests');
+      expect(state.pendingJobs, hasLength(1));
+      expect(state.pendingJobs.single.jobId, request.jobId);
+      expect(state.pendingJobs.single.isQuoteAccepted, isTrue);
+      expect(
+        deriveVanIncomingJobDisplayQuoteUiStatus(
+          state.pendingJobs.single,
+          request: state.requestForJob(request.jobId),
+        ).primaryChipLabel,
+        'Order accepted',
+      );
+      expect(state.pendingJobs.single.isHiddenFromNormalLists, isFalse);
+
+      state.debugResetStateForTest();
+      final deliveryRequest = request.copyWith(
+        requestId: 'accepted-cake-delivery-request',
+        jobId: 'accepted-cake-delivery-job',
+        linkedJobId: 'accepted-cake-delivery-job',
+        fulfilmentType: 'delivery',
+        exactPinRequested: true,
+        requiresExactPinAfterQuoteAccepted: true,
+      );
+      state.debugMergeCloudRequestsForTest(<VanJobRequestRecord>[
+        deliveryRequest,
+      ]);
+      final deliveryOrder = state.jobById(deliveryRequest.jobId)!;
+      state.debugMergeCloudJobsForTest(<DriverCustomerReplyMockData>[
+        deliveryOrder.copyWith(
+          status: 'quoteAccepted',
+          requestStatus: 'quote_accepted',
+          quoteStatus: 'accepted',
+          quoteResponseStatus: 'accepted',
+          quoteAccepted: true,
+          quoteAmount: 48,
+          quoteResponseId: 'accepted-cake-delivery-quote',
+          quoteAcceptedAt: submittedAt.add(const Duration(hours: 2)),
+          quoteRespondedAt: submittedAt.add(const Duration(hours: 2)),
+          updatedAt: submittedAt.add(const Duration(hours: 2)),
+        ),
+      ], sourceLabel: 'public_quote_responses');
+
+      expect(
+        state.debugSourceForJob(deliveryRequest.jobId),
+        'van_job_requests',
+      );
+      expect(state.pendingJobs, hasLength(1));
+      expect(state.pendingJobs.single.jobId, deliveryRequest.jobId);
+      expect(state.pendingJobs.single.isQuoteAccepted, isTrue);
+      expect(state.pendingJobs.single.isAwaitingRequiredExactPin, isTrue);
+      expect(
+        deriveVanIncomingJobDisplayQuoteUiStatus(
+          state.pendingJobs.single,
+          request: state.requestForJob(deliveryRequest.jobId),
+        ).primaryChipLabel,
+        'Order accepted',
+      );
+    } finally {
+      state.debugResetStateForTest();
+    }
+  });
+
+  test(
+    'profile-scoped accepted request remains visible without default-business job query',
+    () {
+      final state = DriverReplyMockState.instance;
+      state.debugResetStateForTest();
+      try {
+        final acceptedAt = DateTime.parse('2026-07-12T09:30:00.000Z');
+        final request = VanJobRequestRecord(
+          requestId: 'profile-order-request',
+          ownerUid: 'owner-1',
+          jobId: 'profile-order-job',
+          linkedJobId: 'profile-order-job',
+          status: 'quote_accepted',
+          createdAt: acceptedAt.subtract(const Duration(hours: 2)),
+          updatedAt: acceptedAt,
+          expiresAt: acceptedAt.add(const Duration(days: 7)),
+          publicJobTitle: 'Cake Orders',
+          publicCustomerName: 'Profile Customer',
+          publicAddressSummary: '',
+          source: 'booking_link',
+          sourceLabel: 'Booking Link',
+          requestType: 'orderRequest',
+          fulfilmentType: 'collection',
+          quoteTimingChoice: 'accepted_proposed_time',
+          acceptedProposedTime: true,
+          timeAgreed: true,
+          checklistItems: const <String>[],
+          customQuestions: const <String>[],
+          exactPinRequested: false,
+          requiresExactPinAfterQuoteAccepted: false,
+          requestSubmittedAt: acceptedAt.subtract(const Duration(hours: 2)),
+          customerSubmittedAt: acceptedAt.subtract(const Duration(hours: 2)),
+        );
+        final cachedAcceptedJob = DriverCustomerReplyMockData(
+          jobId: request.jobId,
+          customerName: request.publicCustomerName,
+          jobTitle: request.publicJobTitle,
+          scheduledAt: null,
+          jobDateLabel: '',
+          jobTimeLabel: '',
+          address: '',
+          phoneNumber: '',
+          requestId: request.requestId,
+          requestType: request.requestType,
+          fulfilmentType: request.fulfilmentType,
+          status: 'quoteAccepted',
+          requestStatus: 'quote_accepted',
+          quoteStatus: 'accepted',
+          quoteResponseStatus: 'accepted',
+          quoteAccepted: true,
+          quoteAmount: 42,
+          quoteResponseId: 'profile-order-quote',
+          quoteAcceptedAt: acceptedAt,
+          quoteRespondedAt: acceptedAt,
+          exactPinShared: false,
+          checklistResponses: const <DriverChecklistResponse>[],
+          customQuestionResponses: const <DriverCustomQuestionResponse>[],
+          additionalNotes: '',
+        );
+
+        state.debugAddJobForTest(
+          cachedAcceptedJob,
+          source: 'local_cache',
+          cloudBacked: false,
+        );
+        state.debugMergeCloudRequestsForTest(<VanJobRequestRecord>[request]);
+
+        expect(state.debugSourceForJob(request.jobId), 'van_job_requests');
+        expect(state.pendingJobs, hasLength(1));
+        expect(state.pendingJobs.single.jobId, request.jobId);
+        expect(state.pendingJobs.single.isQuoteAccepted, isTrue);
+        expect(
+          state.requestForJob(request.jobId)?.requestId,
+          request.requestId,
+        );
+      } finally {
+        state.debugResetStateForTest();
+      }
+    },
+  );
+
   testWidgets(
     'pressing Create quote from detail opens Create Quote with reply answers',
     (tester) async {

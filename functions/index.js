@@ -1205,6 +1205,114 @@ function normalizePreferredTimeWindow(value) {
   }
 }
 
+function normalizeCustomerRequestType(value, fallback = 'quoteRequest') {
+  const normalized = readString(value);
+  switch (normalized) {
+    case 'quoteRequest':
+    case 'bookingRequest':
+    case 'orderRequest':
+    case 'dropOffPickupRequest':
+    case 'pickupDeliveryRequest':
+      return normalized;
+    default:
+      return fallback;
+  }
+}
+
+function normalizeFulfilmentType(value) {
+  const normalized = readString(value).toLowerCase();
+  return normalized === 'collection' || normalized === 'delivery'
+    ? normalized
+    : '';
+}
+
+function shouldRequireExactPinAfterQuoteAccepted({
+  configured,
+  requestType,
+  fulfilmentType,
+}) {
+  if (!readBool(configured)) {
+    return false;
+  }
+  const normalizedRequestType = readString(requestType).toLowerCase();
+  const normalizedFulfilmentType = normalizeFulfilmentType(fulfilmentType);
+  return !(
+    normalizedRequestType === 'orderrequest' &&
+    normalizedFulfilmentType === 'collection'
+  );
+}
+
+function normalizeRequestFlowOptions(value, requestType) {
+  const source = value && typeof value === 'object' ? value : {};
+  const defaults = {
+    showFulfilmentChoice: requestType === 'orderRequest',
+    askPreferredDate: requestType !== 'dropOffPickupRequest',
+    askPreferredTime: requestType !== 'dropOffPickupRequest',
+    showPickupAddress: requestType === 'pickupDeliveryRequest',
+    showDeliveryAddress: requestType === 'pickupDeliveryRequest',
+    showDropOffDate: requestType === 'dropOffPickupRequest',
+    showDropOffTime: requestType === 'dropOffPickupRequest',
+    showPickUpDate: requestType === 'dropOffPickupRequest',
+    showPickUpTime: requestType === 'dropOffPickupRequest',
+    showNotes: true,
+  };
+  return Object.fromEntries(
+    Object.entries(defaults).map(([key, fallback]) => [
+      key,
+      typeof source[key] === 'boolean' ? source[key] : fallback,
+    ]),
+  );
+}
+
+function isSeededQuestionCoveredByRequestFlow(
+  question,
+  requestType,
+  options,
+) {
+  const id = readString(question && question.id);
+  if (!id.startsWith('service_template_')) {
+    return false;
+  }
+  const text = readString(question && question.questionText)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (options.askPreferredDate && text === 'preferred date') {
+    return true;
+  }
+  if (options.askPreferredTime && text === 'preferred time') {
+    return true;
+  }
+  if (
+    requestType === 'orderRequest' &&
+    options.showFulfilmentChoice &&
+    (text === 'collection or delivery' || text === 'delivery address')
+  ) {
+    return true;
+  }
+  if (requestType === 'pickupDeliveryRequest') {
+    if (
+      options.showPickupAddress &&
+      (text === 'pickup address' || text === 'collection address')
+    ) {
+      return true;
+    }
+    if (options.showDeliveryAddress && text === 'delivery address') {
+      return true;
+    }
+  }
+  if (requestType === 'dropOffPickupRequest') {
+    return (
+      (options.showDropOffDate && text === 'drop off date') ||
+      (options.showDropOffTime && text === 'drop off time') ||
+      (options.showPickUpDate && text === 'pick up date') ||
+      (options.showPickUpTime && text === 'pick up time')
+    );
+  }
+  return false;
+}
+
 function bookingPastDateMessage() {
   return "You can't book a job in the past. Please choose today or a future date.";
 }
@@ -1491,10 +1599,24 @@ function buildRequestJobMirror({
     normalizedRequestStatus,
     hasReply,
   );
-  const requiresExactPinAfterQuoteAccepted =
+  const configuredExactPinAfterQuoteAccepted =
     readBool(after.requiresExactPinAfterQuoteAccepted) ||
     readBool(after.exactPinRequiredAfterQuoteAccepted) ||
     readBool(existingJob.requiresExactPinAfterQuoteAccepted);
+  const requestType = firstNonEmpty([
+    readString(after.requestType),
+    readString(existingJob.requestType),
+  ]);
+  const fulfilmentType = firstNonEmpty([
+    readString(after.fulfilmentType),
+    readString(existingJob.fulfilmentType),
+  ]);
+  const requiresExactPinAfterQuoteAccepted =
+    shouldRequireExactPinAfterQuoteAccepted({
+      configured: configuredExactPinAfterQuoteAccepted,
+      requestType,
+      fulfilmentType,
+    });
 
   return {
     id: jobId,
@@ -1543,6 +1665,8 @@ function buildRequestJobMirror({
     preferredTimingDecision,
     suggestedDate: suggestedDate || null,
     suggestedTimeWindow,
+    requestType,
+    fulfilmentType,
     requestExactPin: readBool(after.exactPinRequested) || readBool(existingJob.requestExactPin),
     requestPhotos: readBool(after.requestPhotos) || readBool(existingJob.requestPhotos),
     requiresExactPinAfterQuoteAccepted,
@@ -1777,10 +1901,24 @@ function buildQuoteJobMirror({
     toIsoStringOrNull(after[QUOTE_NOTIFICATION_SENT_AT_FIELD]),
     toIsoStringOrNull(existingJob[QUOTE_NOTIFICATION_SENT_AT_FIELD]),
   ]);
-  const requiresExactPinAfterQuoteAccepted =
+  const configuredExactPinAfterQuoteAccepted =
     readBool(after.requiresExactPinAfterQuoteAccepted) ||
     readBool(after.exactPinRequiredAfterQuoteAccepted) ||
     readBool(existingJob.requiresExactPinAfterQuoteAccepted);
+  const requestType = firstNonEmpty([
+    readString(after.requestType),
+    readString(existingJob.requestType),
+  ]);
+  const fulfilmentType = firstNonEmpty([
+    readString(after.fulfilmentType),
+    readString(existingJob.fulfilmentType),
+  ]);
+  const requiresExactPinAfterQuoteAccepted =
+    shouldRequireExactPinAfterQuoteAccepted({
+      configured: configuredExactPinAfterQuoteAccepted,
+      requestType,
+      fulfilmentType,
+    });
   const exactPinLatitude =
     readNullableNumber(after.exactPinLatitude) ??
     readNullableNumber(after.exactPinLat) ??
@@ -1887,6 +2025,8 @@ function buildQuoteJobMirror({
     estimatedDurationMinutes:
       readNullableInt(after.estimatedDurationMinutes) ??
       readNullableInt(existingJob.estimatedDurationMinutes),
+    requestType,
+    fulfilmentType,
     requestExactPin: readBool(after.requestExactPin) || readBool(existingJob.requestExactPin),
     requiresExactPinAfterQuoteAccepted,
     calendarStatus: normalizeCalendarStatus(
@@ -2551,18 +2691,30 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const customerEmail = readString(data.customerEmail);
   const address = readString(data.address);
   const postcode = readString(data.postcode);
-  const additionalNotes = readString(data.additionalNotes);
+  const requestedRequestTypeRaw = readString(data.requestType);
+  const supportsStructuredRequestFlow = requestedRequestTypeRaw.length > 0;
+  const requestedRequestType = normalizeCustomerRequestType(
+    requestedRequestTypeRaw,
+  );
+  let fulfilmentType = normalizeFulfilmentType(data.fulfilmentType);
+  let pickupAddress = readString(data.pickupAddress);
+  let deliveryAddress = readString(data.deliveryAddress);
+  let dropOffDate = toDateOrNull(data.dropOffDate);
+  let dropOffTime = readString(data.dropOffTime);
+  let pickUpDate = toDateOrNull(data.pickUpDate);
+  let pickUpTime = readString(data.pickUpTime);
+  let additionalNotes = readString(data.additionalNotes);
   const preferredDateInput = firstNonEmpty([
     data.preferredDate,
     data.preferredDateAt,
   ]);
-  const preferredDate = toDateOrNull(preferredDateInput);
-  const preferredTimeWindow = normalizePreferredTimeWindow(
+  let preferredDate = toDateOrNull(preferredDateInput);
+  let preferredTimeWindow = normalizePreferredTimeWindow(
     data.preferredTimeWindow || data.preferredWindow,
   );
-  const preferredIsFlexible =
+  let preferredIsFlexible =
     readBool(data.preferredIsFlexible) || readBool(data.timingFlexible);
-  const preferredTimingNote = readString(
+  let preferredTimingNote = readString(
     firstNonEmpty([data.preferredTimingNote, data.timingNote]),
   );
   console.info(
@@ -2632,8 +2784,8 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     throw new HttpsError('failed-precondition', 'Booking Link is inactive.');
   }
   const businessProfileId = firstNonEmpty([
-    data.businessProfileId,
     bookingLink.businessProfileId,
+    data.businessProfileId,
   ]);
 
   const services = Array.isArray(bookingLink.services) ? bookingLink.services : [];
@@ -2646,14 +2798,99 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     readString(selectedService.name) ||
     requestedServiceName ||
     'Service request';
+  const requestType = normalizeCustomerRequestType(
+    selectedService.requestType,
+    requestedRequestType,
+  );
+  const requestFlowOptions = normalizeRequestFlowOptions(
+    selectedService.requestFlowOptions,
+    requestType,
+  );
+  if (supportsStructuredRequestFlow) {
+    if (
+      requestType !== 'orderRequest' ||
+      !requestFlowOptions.showFulfilmentChoice
+    ) {
+      fulfilmentType = '';
+    }
+    if (
+      requestType !== 'pickupDeliveryRequest' ||
+      !requestFlowOptions.showPickupAddress
+    ) {
+      pickupAddress = '';
+    }
+    const keepsDeliveryAddress =
+      (requestType === 'orderRequest' &&
+        requestFlowOptions.showFulfilmentChoice &&
+        fulfilmentType === 'delivery') ||
+      (requestType === 'pickupDeliveryRequest' &&
+        requestFlowOptions.showDeliveryAddress);
+    if (!keepsDeliveryAddress) {
+      deliveryAddress = '';
+    }
+    if (
+      requestType !== 'dropOffPickupRequest' ||
+      !requestFlowOptions.showDropOffDate
+    ) {
+      dropOffDate = null;
+    }
+    if (
+      requestType !== 'dropOffPickupRequest' ||
+      !requestFlowOptions.showDropOffTime
+    ) {
+      dropOffTime = '';
+    }
+    if (
+      requestType !== 'dropOffPickupRequest' ||
+      !requestFlowOptions.showPickUpDate
+    ) {
+      pickUpDate = null;
+    }
+    if (
+      requestType !== 'dropOffPickupRequest' ||
+      !requestFlowOptions.showPickUpTime
+    ) {
+      pickUpTime = '';
+    }
+    if (!requestFlowOptions.askPreferredDate) {
+      preferredDate = null;
+    }
+    if (!requestFlowOptions.askPreferredTime) {
+      preferredTimeWindow = '';
+    }
+    if (
+      !requestFlowOptions.askPreferredDate &&
+      !requestFlowOptions.askPreferredTime
+    ) {
+      preferredIsFlexible = false;
+      preferredTimingNote = '';
+    }
+    if (!requestFlowOptions.showNotes) {
+      additionalNotes = '';
+    }
+  }
   const requireAddress = readBool(selectedService.requireAddress);
   const requestPhotos = readBool(selectedService.requestPhotos);
-  const requiresExactPinAfterQuoteAccepted =
+  const configuredExactPinAfterQuoteAccepted =
     readBool(selectedService.requestExactPinAfterQuoteAccepted) ||
     readBool(selectedService.requiresExactPinAfterQuoteAccepted);
-  const linkedQuestions = Array.isArray(selectedService.linkedQuestions)
+  const requiresExactPinAfterQuoteAccepted =
+    shouldRequireExactPinAfterQuoteAccepted({
+      configured: configuredExactPinAfterQuoteAccepted,
+      requestType,
+      fulfilmentType,
+    });
+  const rawLinkedQuestions = Array.isArray(selectedService.linkedQuestions)
     ? selectedService.linkedQuestions
     : [];
+  const linkedQuestions = rawLinkedQuestions.filter(
+    (question) =>
+      !isSeededQuestionCoveredByRequestFlow(
+        question,
+        requestType,
+        requestFlowOptions,
+      ),
+  );
   const linkedQuestionIndex = new Map(
     linkedQuestions
       .map((item, index) => [readString(item && item.id), index])
@@ -2661,7 +2898,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   );
 
   console.info(
-    `[BookingLinkSubmit] ownerUid=${ownerUid} serviceId=${serviceId} serviceName=${serviceName} requireAddress=${requireAddress} requiresExactPinAfterQuoteAccepted=${requiresExactPinAfterQuoteAccepted} linkedQuestions=${linkedQuestions.length}`,
+    `[BookingLinkSubmit] ownerUid=${ownerUid} serviceId=${serviceId} serviceName=${serviceName} requestType=${requestType} requireAddress=${requireAddress} requiresExactPinAfterQuoteAccepted=${requiresExactPinAfterQuoteAccepted} linkedQuestions=${linkedQuestions.length}`,
   );
   console.info(
     `[BookingLinkSubmit] linkedQuestions loaded serviceId=${serviceId} ids=${linkedQuestions.map((item) => readString(item && item.id)).filter(Boolean).join(', ') || '(none)'}`,
@@ -2672,11 +2909,95 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     );
   });
 
-  if (requireAddress && !address && !postcode) {
+  const requiresStandardAddress =
+    requireAddress &&
+    (!supportsStructuredRequestFlow ||
+      (requestType !== 'orderRequest' &&
+        requestType !== 'pickupDeliveryRequest'));
+  if (requiresStandardAddress && !address && !postcode) {
     throw new HttpsError(
       'invalid-argument',
       'Address or postcode is required for this service.',
     );
+  }
+  if (
+    supportsStructuredRequestFlow &&
+    requestType === 'orderRequest' &&
+    requestFlowOptions.showFulfilmentChoice &&
+    !fulfilmentType
+  ) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Please choose collection or delivery.',
+    );
+  }
+  if (
+    supportsStructuredRequestFlow &&
+    requestType === 'orderRequest' &&
+    requestFlowOptions.showFulfilmentChoice &&
+    fulfilmentType === 'delivery' &&
+    !deliveryAddress
+  ) {
+    throw new HttpsError('invalid-argument', 'Delivery address is required.');
+  }
+  if (
+    supportsStructuredRequestFlow &&
+    requestType === 'pickupDeliveryRequest' &&
+    requestFlowOptions.showPickupAddress &&
+    !pickupAddress
+  ) {
+    throw new HttpsError('invalid-argument', 'Pickup address is required.');
+  }
+  if (
+    supportsStructuredRequestFlow &&
+    requestType === 'pickupDeliveryRequest' &&
+    requestFlowOptions.showDeliveryAddress &&
+    !deliveryAddress
+  ) {
+    throw new HttpsError('invalid-argument', 'Delivery address is required.');
+  }
+  if (
+    supportsStructuredRequestFlow &&
+    requestType === 'dropOffPickupRequest' &&
+    requestFlowOptions.showDropOffDate &&
+    !dropOffDate
+  ) {
+    throw new HttpsError('invalid-argument', 'Drop-off date is required.');
+  }
+  if (
+    supportsStructuredRequestFlow &&
+    requestType === 'dropOffPickupRequest' &&
+    requestFlowOptions.showPickUpDate &&
+    !pickUpDate
+  ) {
+    throw new HttpsError('invalid-argument', 'Pick-up date is required.');
+  }
+  if (
+    dropOffDate &&
+    pickUpDate &&
+    pickUpDate.getTime() < dropOffDate.getTime()
+  ) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Pick-up date must be on or after the drop-off date.',
+    );
+  }
+  for (const [label, date] of [
+    ['Drop-off', dropOffDate],
+    ['Pick-up', pickUpDate],
+  ]) {
+    const dateValidationMessage = validatePreferredBookingWindow({
+      preferredDate: date,
+      preferredTimeWindow: 'anytime',
+      preferredIsFlexible: true,
+      now: new Date(),
+    });
+    if (dateValidationMessage) {
+      throw new HttpsError(
+        'invalid-argument',
+        `${label} date must be today or in the future.`,
+      );
+    }
   }
 
   const preferredTimingValidationMessage = validatePreferredBookingWindow({
@@ -2755,13 +3076,21 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const requestId = admin.firestore().collection(PUBLIC_JOB_REQUEST_COLLECTION).doc().id;
   const jobId = `booking_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const addressSummary = [address, postcode].filter(Boolean).join(' ').trim();
+  const addressSummary =
+    supportsStructuredRequestFlow && requestType === 'pickupDeliveryRequest'
+      ? [pickupAddress, deliveryAddress].filter(Boolean).join(' → ')
+      : supportsStructuredRequestFlow &&
+          requestType === 'orderRequest' &&
+          fulfilmentType === 'delivery'
+        ? deliveryAddress
+        : [address, postcode].filter(Boolean).join(' ').trim();
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const effectiveSchedule = preferredDate || now;
+  const effectiveSchedule =
+    (supportsStructuredRequestFlow ? dropOffDate : null) || preferredDate || now;
   const jobDateLabel =
     `${effectiveSchedule.getDate()} ${monthNames[effectiveSchedule.getMonth()]} ${effectiveSchedule.getFullYear()}`;
-  const jobTimeLabel = preferredTimeWindow
-    ? preferredTimeWindow
+  const jobTimeLabel = dropOffTime || preferredTimeWindow
+    ? (dropOffTime || preferredTimeWindow)
     : `${String(effectiveSchedule.getHours()).padStart(2, '0')}:${String(effectiveSchedule.getMinutes()).padStart(2, '0')}`;
   let uploadedPhotos = [];
   let photoUploadFailed = false;
@@ -2792,6 +3121,15 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     `[BookingLinkSubmit] photo upload summary ownerUid=${ownerUid} requestId=${requestId} requested=${requestedPhotos.length} uploaded=${uploadedPhotos.length} failed=${photoUploadFailed}`,
   );
   const compiledNotes = [
+    fulfilmentType ? `Fulfilment: ${fulfilmentType}` : '',
+    pickupAddress ? `Pickup address: ${pickupAddress}` : '',
+    deliveryAddress ? `Delivery address: ${deliveryAddress}` : '',
+    dropOffDate
+      ? `Drop-off: ${dropOffDate.toISOString().slice(0, 10)}${dropOffTime ? ` at ${dropOffTime}` : ''}`
+      : '',
+    pickUpDate
+      ? `Pick-up: ${pickUpDate.toISOString().slice(0, 10)}${pickUpTime ? ` at ${pickUpTime}` : ''}`
+      : '',
     additionalNotes,
     requestPhotos
       ? (uploadedPhotos.length > 0
@@ -2816,6 +3154,19 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     ownerUid,
     publicConfigId,
     businessProfileId,
+    requestType,
+    requestFlowOptions,
+    fulfilmentType,
+    pickupAddress,
+    deliveryAddress,
+    dropOffDate: dropOffDate
+      ? admin.firestore.Timestamp.fromDate(dropOffDate)
+      : null,
+    dropOffTime,
+    pickUpDate: pickUpDate
+      ? admin.firestore.Timestamp.fromDate(pickUpDate)
+      : null,
+    pickUpTime,
     jobId,
     linkedJobId: jobId,
     status: 'request_received',
@@ -4605,4 +4956,5 @@ exports.__test__ = {
   buildVanQuoteResponseToken,
   listChangedKeys,
   listDesiredChangedKeys,
+  shouldRequireExactPinAfterQuoteAccepted,
 };
