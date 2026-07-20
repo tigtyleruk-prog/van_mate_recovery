@@ -8,12 +8,14 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../helpers/app_theme.dart';
+import '../helpers/van_calendar_job_presentation.dart';
 import '../helpers/van_block_customer_dialog.dart';
 import '../models/van_invoice_draft.dart';
 import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_job_completion_actions.dart';
 import '../helpers/van_job_request_state.dart';
 import '../models/van_exact_pin_source.dart';
+import '../models/van_customer_journey.dart';
 import '../helpers/van_job_navigation.dart';
 import '../helpers/van_quote_decline.dart';
 import '../helpers/van_quote_ui_status.dart';
@@ -325,6 +327,14 @@ class _JobDetailPageState extends State<JobDetailPage>
   String get _jobId => widget.reply.jobId;
   VanJobRequestRecord? get _requestRecord =>
       DriverReplyMockState.instance.requestForJob(_jobId);
+  bool get _isDropOffPickupRequest =>
+      (_requestRecord?.requestType.trim().toLowerCase() ??
+          reply.requestType.trim().toLowerCase()) ==
+      'dropoffpickuprequest';
+  DateTime? get _dropOffDateTime =>
+      _requestRecord?.dropOffDateTime ?? reply.dropOffDateTime;
+  DateTime? get _pickUpDateTime =>
+      _requestRecord?.pickUpDateTime ?? reply.pickUpDateTime;
   DateTime? get _effectiveScheduledAt =>
       reply.scheduledAtOrParsed ?? _requestRecord?.scheduledAt;
   String get _normalizedSchedulingStatus =>
@@ -346,6 +356,7 @@ class _JobDetailPageState extends State<JobDetailPage>
           .trim()
           .toLowerCase();
   DateTime? get _persistedAgreedDateTime =>
+      _dropOffDateTime ??
       reply.agreedDateTime ??
       _requestRecord?.agreedStartAt ??
       _requestRecord?.agreedDateTime;
@@ -425,11 +436,19 @@ class _JobDetailPageState extends State<JobDetailPage>
     if (_addressAlreadyIncludesPostcode(address, postcode)) {
       postcode = '';
     }
-    final locationPending =
-        _requestRecord?.locationPending == true || reply.locationPending;
-    final requiresExactPinAfterQuoteAccepted =
-        _requestRecord?.requiresExactPinAfterQuoteAccepted == true ||
-        reply.requiresExactPinAfterQuoteAccepted;
+    final requiresExactPinAfterQuoteAccepted = _requestRecord != null
+        ? _requestRecord!.requiresExactPinAfterQuoteAccepted
+        : reply.requiresExactPinAfterQuoteAccepted;
+    final locationPending = _isDropOffPickupRequest
+        ? requiresExactPinAfterQuoteAccepted &&
+              (_requestRecord?.locationPending == true || reply.locationPending)
+        : _requestRecord?.locationPending == true || reply.locationPending;
+    if (_isDropOffPickupRequest &&
+        address.isEmpty &&
+        postcode.isEmpty &&
+        !requiresExactPinAfterQuoteAccepted) {
+      return '';
+    }
     final summary = buildVanJobLocationSummary(
       address: address,
       postcode: postcode,
@@ -445,7 +464,9 @@ class _JobDetailPageState extends State<JobDetailPage>
       address: address,
       postcode: postcode,
     )) {
-      return '$summary\nExact pin will be requested after quote acceptance.';
+      return _isDropOffPickupRequest
+          ? '$summary\nAn exact drop-off location pin will be requested after quote acceptance.'
+          : '$summary\nExact pin will be requested after quote acceptance.';
     }
     return summary;
   }
@@ -629,6 +650,13 @@ class _JobDetailPageState extends State<JobDetailPage>
   }
 
   int? get _estimatedDurationMinutes {
+    if (_isDropOffPickupRequest) {
+      final dropOff = _dropOffDateTime;
+      final pickUp = _pickUpDateTime;
+      if (dropOff != null && pickUp != null && pickUp.isAfter(dropOff)) {
+        return pickUp.difference(dropOff).inMinutes;
+      }
+    }
     return reply.estimatedDurationMinutes ??
         _requestRecord?.estimatedDurationMinutes;
   }
@@ -646,9 +674,13 @@ class _JobDetailPageState extends State<JobDetailPage>
       _isBookingLinkSubmission && (reply.isQuoteAccepted || reply.isConfirmed);
 
   DateTime? get _confirmedAppointmentAt =>
-      _effectiveScheduledAt ?? _acceptedOrProposedScheduledAt;
+      _dropOffDateTime ??
+      _effectiveScheduledAt ??
+      _acceptedOrProposedScheduledAt;
 
-  bool get _hasConfirmedAppointmentData => _confirmedAppointmentAt != null;
+  bool get _hasConfirmedAppointmentData => _isDropOffPickupRequest
+      ? _dropOffDateTime != null && _pickUpDateTime != null
+      : _confirmedAppointmentAt != null;
 
   bool get _showConfirmedAppointmentSection =>
       _showAcceptedCustomerRequestSummary && _hasConfirmedAppointmentData;
@@ -1807,7 +1839,9 @@ class _JobDetailPageState extends State<JobDetailPage>
   Future<void> _openAddToCalendarFlow({bool addToCalendar = true}) async {
     final now = DateTime.now();
     final baseScheduledAt =
-        _effectiveScheduledAt ?? _acceptedOrProposedScheduledAt;
+        _dropOffDateTime ??
+        _effectiveScheduledAt ??
+        _acceptedOrProposedScheduledAt;
     var selectedDate = DateUtils.dateOnly(
       baseScheduledAt ?? _preferredDate ?? now,
     );
@@ -2717,6 +2751,39 @@ class _JobDetailPageState extends State<JobDetailPage>
       return const SizedBox.shrink();
     }
 
+    if (_isDropOffPickupRequest) {
+      final dropOff = _dropOffDateTime;
+      final pickUp = _pickUpDateTime;
+      if (dropOff == null || pickUp == null) {
+        return const SizedBox.shrink();
+      }
+      return _buildShellCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Confirmed Drop-off / Pick-up',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildSmallInfoCard(
+              'Drop-off',
+              formatDateTime(dropOff, TimeOfDay.fromDateTime(dropOff)),
+            ),
+            const SizedBox(height: 10),
+            _buildSmallInfoCard(
+              'Pick-up',
+              formatDateTime(pickUp, TimeOfDay.fromDateTime(pickUp)),
+            ),
+          ],
+        ),
+      );
+    }
+
     return _buildShellCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3012,7 +3079,7 @@ class _JobDetailPageState extends State<JobDetailPage>
       child: FilledButton.icon(
         onPressed: _openQuote,
         icon: const Icon(Icons.request_quote_outlined),
-        label: const Text('Send quote'),
+        label: Text(widget.reply.customerJourney.copy.businessAction),
         style: FilledButton.styleFrom(
           backgroundColor: vanStatusToneColor(VanStatusTone.primary),
           foregroundColor: Colors.white,
@@ -3280,7 +3347,7 @@ class _JobDetailPageState extends State<JobDetailPage>
         key: const ValueKey('job_detail_bottom_create_quote_button'),
         onPressed: _openQuote,
         icon: const Icon(Icons.request_quote_outlined),
-        label: const Text('Create quote'),
+        label: Text(widget.reply.customerJourney.copy.businessAction),
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF58D0A4),
           foregroundColor: Colors.white,
@@ -3608,6 +3675,7 @@ class _JobDetailPageState extends State<JobDetailPage>
   }
 
   Future<void> _markCompleted() async {
+    final completionAction = vanCalendarCompletionActionLabel(reply);
     final scheduledAt = _effectiveScheduledAt ?? _acceptedOrProposedScheduledAt;
     final shouldComplete =
         await showDialog<bool>(
@@ -3619,9 +3687,9 @@ class _JobDetailPageState extends State<JobDetailPage>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
-              title: const Text(
-                'Mark this job as completed?',
-                style: TextStyle(
+              title: Text(
+                '$completionAction?',
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
                 ),
@@ -3650,7 +3718,7 @@ class _JobDetailPageState extends State<JobDetailPage>
                     backgroundColor: const Color(0xFF58D0A4),
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Mark complete'),
+                  child: Text(completionAction),
                 ),
               ],
             );
@@ -4089,7 +4157,13 @@ class _JobDetailPageState extends State<JobDetailPage>
         _bookingLinkPhotoUrls().isNotEmpty ||
         _bookingLinkPhotoStatus().isNotEmpty;
     final scheduledAt = _effectiveScheduledAt;
-    final scheduledLabel = scheduledAt == null
+    final scheduledLabel =
+        _isDropOffPickupRequest &&
+            _dropOffDateTime != null &&
+            _pickUpDateTime != null
+        ? 'Drop-off ${formatDateTime(_dropOffDateTime!, TimeOfDay.fromDateTime(_dropOffDateTime!))}\n'
+              'Pick-up ${formatDateTime(_pickUpDateTime!, TimeOfDay.fromDateTime(_pickUpDateTime!))}'
+        : scheduledAt == null
         ? '${sanitizeVanText(reply.jobDateLabel).trim()} at ${sanitizeVanText(reply.jobTimeLabel).trim()}'
         : formatDateTime(scheduledAt, TimeOfDay.fromDateTime(scheduledAt));
     final displayJobTitle = _displayJobTitle.isEmpty
@@ -4262,8 +4336,10 @@ class _JobDetailPageState extends State<JobDetailPage>
                               const SizedBox(height: 10),
                               _buildSmallInfoCard('Date/time', scheduledLabel),
                               const SizedBox(height: 10),
-                              _buildSmallInfoCard('Address', displayAddress),
-                              const SizedBox(height: 10),
+                              if (displayAddress.isNotEmpty) ...[
+                                _buildSmallInfoCard('Address', displayAddress),
+                                const SizedBox(height: 10),
+                              ],
                               _buildSmallInfoCard(
                                 'Phone',
                                 displayPhone.isEmpty
@@ -4330,7 +4406,9 @@ class _JobDetailPageState extends State<JobDetailPage>
                             child: FilledButton.icon(
                               onPressed: _markCompleted,
                               icon: const Icon(Icons.task_alt),
-                              label: const Text('Complete job'),
+                              label: Text(
+                                vanCalendarCompletionActionLabel(reply),
+                              ),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF58D0A4),
                                 foregroundColor: Colors.white,

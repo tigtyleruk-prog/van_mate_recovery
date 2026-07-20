@@ -17,10 +17,12 @@ import '../helpers/van_customer_request_actions.dart';
 import '../helpers/van_job_request_state.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_customer_request_flow.dart';
+import '../models/van_customer_journey.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
 import '../models/van_job_service.dart';
+import '../models/van_service_handover.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
 import '../models/van_exact_pin_source.dart';
 import '../services/van_job_request_cloud_service.dart';
@@ -179,19 +181,15 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
   }
 
   String _customerRequestPreviewMessage() {
-    final type =
-        _selectedService?.requestType ?? VanCustomerRequestType.quoteRequest;
-    final requestText = switch (type) {
-      VanCustomerRequestType.quoteRequest =>
+    final journey =
+        _selectedService?.customerJourneyType ?? VanCustomerJourneyType.quote;
+    final requestText = switch (journey) {
+      VanCustomerJourneyType.quote =>
         'Hi, please fill in this quick request so I can prepare your quote.',
-      VanCustomerRequestType.bookingRequest =>
+      VanCustomerJourneyType.booking =>
         'Hi, please fill in this quick booking request so I can confirm the details.',
-      VanCustomerRequestType.orderRequest =>
+      VanCustomerJourneyType.order =>
         'Hi, please fill in this quick order request so I can confirm your order.',
-      VanCustomerRequestType.dropOffPickupRequest =>
-        'Hi, please fill in this quick booking request with your drop-off and pick-up details.',
-      VanCustomerRequestType.pickupDeliveryRequest =>
-        'Hi, please fill in this quick pickup and delivery request so I can prepare the details.',
     };
     if (!_requestExactPin) {
       return requestText;
@@ -316,6 +314,26 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
       requestType:
           (_selectedService?.requestType ?? VanCustomerRequestType.quoteRequest)
               .storageKey,
+      customerJourneyType:
+          (_selectedService?.customerJourneyType ??
+                  VanCustomerJourneyType.quote)
+              .storageKey,
+      startHandover: _selectedService?.effectiveHandover.start.storageKey ?? '',
+      endHandover: _selectedService?.effectiveHandover.end.storageKey ?? '',
+      allowedStartHandoverOptions:
+          _selectedService?.effectiveHandover.allowedStarts
+              .map((value) => value.storageKey)
+              .toList(growable: false) ??
+          const <String>[],
+      allowedEndHandoverOptions:
+          _selectedService?.effectiveHandover.allowedEnds
+              .map((value) => value.storageKey)
+              .toList(growable: false) ??
+          const <String>[],
+      businessDropOffInstructions:
+          _selectedService?.businessDropOffInstructions ?? '',
+      businessCollectionInstructions:
+          _selectedService?.businessCollectionInstructions ?? '',
       selectedQuestionIds: List<String>.unmodifiable(
         _selectedQuestionIds.toList(growable: false),
       ),
@@ -494,12 +512,14 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
       businessName: businessName,
       address: job.address,
       exactPinRequestedAfterQuoteAccepted: _requestExactPin,
+      customerJourneyType: job.customerJourneyType,
     );
     final emailBody = buildRequestEmailBody(
       link: requestLink,
       jobTitle: job.jobTitle,
       address: job.address,
       exactPinRequestedAfterQuoteAccepted: _requestExactPin,
+      customerJourneyType: job.customerJourneyType,
     );
     final customerPhone = sanitizeVanCustomerPhoneNumber(job.phoneNumber);
     final customerEmail = job.customerEmail.trim();
@@ -967,8 +987,8 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                       const SizedBox(height: 8),
                       Text(
                         _requestExactPin
-                            ? "Send a customer request using the selected service's questions, then collect the exact pin after quote acceptance."
-                            : 'Send a customer request now and collect the exact pin after quote acceptance.',
+                            ? 'Send a customer request now and collect the exact pin after quote acceptance.'
+                            : 'Send a customer request now and prepare a quote from their details.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: Colors.white.withValues(alpha: 0.76),
                           height: 1.45,
@@ -1175,7 +1195,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                   ),
                                 ),
                                 child: Text(
-                                  '${_selectedService!.requestType.label}. '
+                                  '${_selectedService!.customerJourneyType.selectorLabel} · ${_selectedService!.serviceFlow.label}. '
                                   '${_selectedQuestionIds.isEmpty ? 'This service has no questions.' : '${_selectedQuestionIds.length} linked question${_selectedQuestionIds.length == 1 ? '' : 's'} will be included.'}',
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.76),
@@ -1260,7 +1280,7 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
                                   ? _sendRequest
                                   : null,
                               icon: const Icon(Icons.send),
-                              label: const Text('Send Request'),
+                              label: const Text('Send customer request'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF58D0A4),
                                 foregroundColor: Colors.white,
@@ -1485,32 +1505,13 @@ class _CustomerRequestPreviewPageState
   VanJobRequestDraft get _draft => _loadedRequest?.toDraft() ?? widget.draft;
   String get _resolvedJobId => _loadedRequest?.jobId ?? widget.jobId;
 
-  VanCustomerRequestType get _requestType => vanCustomerRequestTypeFromStorage(
-    _draft.requestType,
-    fallback: defaultVanCustomerRequestTypeForService(
-      serviceId: _draft.selectedServiceId,
-      serviceName: _draft.selectedServiceName,
-    ),
-  );
+  VanCustomerJourneyCopy get _journeyCopy =>
+      vanCustomerJourneyTypeFromStorage(_draft.customerJourneyType).copy;
 
-  String get _detailsHeading => switch (_requestType) {
-    VanCustomerRequestType.quoteRequest => 'Fill in quote details',
-    VanCustomerRequestType.bookingRequest => 'Fill in booking details',
-    VanCustomerRequestType.orderRequest => 'Fill in order details',
-    VanCustomerRequestType.dropOffPickupRequest =>
-      'Fill in drop-off and pick-up details',
-    VanCustomerRequestType.pickupDeliveryRequest =>
-      'Fill in pickup and delivery details',
-  };
+  String get _detailsHeading =>
+      'Fill in ${_journeyCopy.requestNoun.toLowerCase()} details';
 
-  String get _summaryHeading => switch (_requestType) {
-    VanCustomerRequestType.quoteRequest => 'Quote summary',
-    VanCustomerRequestType.bookingRequest ||
-    VanCustomerRequestType.dropOffPickupRequest => 'Booking summary',
-    VanCustomerRequestType.orderRequest => 'Order summary',
-    VanCustomerRequestType.pickupDeliveryRequest =>
-      'Pickup and delivery summary',
-  };
+  String get _summaryHeading => '${_journeyCopy.requestNoun} summary';
 
   String _introName() {
     final loadedName = _draft.customerName.trim();
@@ -2297,7 +2298,7 @@ class _CustomerRequestPreviewPageState
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Request Sent',
+                                      _journeyCopy.receivedHeading,
                                       style: Theme.of(sheetContext)
                                           .textTheme
                                           .titleLarge
@@ -2308,7 +2309,7 @@ class _CustomerRequestPreviewPageState
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Thank you for your interest. We\'ve received your request and will get back to you with a quote as soon as possible.',
+                                      _journeyCopy.successMessage,
                                       style: Theme.of(sheetContext)
                                           .textTheme
                                           .bodyMedium

@@ -355,20 +355,41 @@ void main() {
     await tester.tap(find.text('Add custom extra'));
     await tester.pumpAndSettle();
 
-    final fields = find.byType(TextField);
-    await tester.enterText(
-      fields.at(fields.evaluate().length - 2),
-      'Eco products',
-    );
-    await tester.enterText(fields.at(fields.evaluate().length - 1), '8');
-    await tester.scrollUntilVisible(
-      find.text('Save extras'),
-      120,
-      scrollable: find.byType(Scrollable).last,
-    );
+    const labelKey = ValueKey('quote-extra-label-custom_extra_item_4');
+    const priceKey = ValueKey('quote-extra-price-custom_extra_item_4');
+    await _scrollExtrasUntilBuilt(tester, find.byKey(labelKey));
+    await tester.enterText(find.byKey(labelKey), 'Eco products');
+    await tester.enterText(find.byKey(priceKey), '8');
+    await _scrollExtrasUntilBuilt(tester, find.text('Save extras'));
     await tester.tap(find.text('Save extras'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Eco products'), findsOneWidget);
   });
+}
+
+Future<void> _scrollExtrasUntilBuilt(WidgetTester tester, Finder finder) async {
+  for (var attempt = 0; attempt < 20 && finder.evaluate().isEmpty; attempt++) {
+    final position = _extrasScrollPosition(tester);
+    position.jumpTo(
+      (position.pixels + 300).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+    await tester.pump();
+  }
+  expect(finder, findsOneWidget);
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
+  await tester.pump();
+}
+
+ScrollPosition _extrasScrollPosition(WidgetTester tester) {
+  final scrollable = find
+      .descendant(
+        of: find.byType(ReorderableListView),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+  return tester.state<ScrollableState>(scrollable).position;
 }

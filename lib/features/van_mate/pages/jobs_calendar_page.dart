@@ -8,13 +8,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../helpers/app_theme.dart';
+import '../helpers/van_calendar_job_presentation.dart';
 import '../helpers/van_completed_job_status_pills.dart';
 import '../helpers/van_customer_request_actions.dart';
+import '../helpers/van_customer_journey_theme.dart';
 import '../helpers/van_job_completion_actions.dart';
 import '../helpers/van_job_navigation.dart';
 import '../helpers/van_job_request_state.dart';
 import '../helpers/van_status_tone.dart';
 import '../models/van_job_request_record.dart';
+import '../models/van_customer_journey.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'create_invoice_page.dart';
 import 'create_job_request_flow.dart';
@@ -582,7 +585,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
       persisted = await DriverReplyMockState.instance.persistScheduledJob(
         jobId: job.jobId,
         scheduledAt: scheduledAt,
-        estimatedDurationMinutes: job.estimatedDurationMinutes ?? 60,
+        estimatedDurationMinutes: job.effectiveCalendarDurationMinutes ?? 60,
         schedulingStatus: job.schedulingStatus.trim().isNotEmpty
             ? job.schedulingStatus
             : 'accepted_time',
@@ -729,9 +732,18 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
       requiresExactPinAfterQuoteAccepted:
           job.requiresExactPinAfterQuoteAccepted,
       hasExactPin: job.exactPinSaved,
+      emptyFallback: job.isDropOffPickupRequest && !job.requiresAnyExactPin
+          ? ''
+          : 'No address added yet.',
     );
     final timeText = _jobTimeText(job);
     final dateText = _jobDateText(job);
+    final dropOffPickupTiming = vanCalendarDropOffPickupTimingText(job);
+    if (dropOffPickupTiming.isNotEmpty) {
+      return location.trim().isEmpty
+          ? dropOffPickupTiming
+          : '$dropOffPickupTiming\n$location';
+    }
     return '$dateText • $timeText\n$location';
   }
 
@@ -770,9 +782,9 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
     if (_isAcceptedQuoteAwaitingExactPin(job)) {
       return <_JobsStatusChip>[
         _JobsStatusChip(
-          label: 'Quote accepted',
-          color: vanStatusToneColor(VanStatusTone.positive),
-          icon: Icons.request_quote_outlined,
+          label: job.customerJourney.copy.acceptedLabel,
+          color: job.customerJourney.journeyTheme.accent,
+          icon: job.customerJourney.journeyTheme.icon,
           filled: true,
           onTap: enableShortcuts
               ? () => _openJobFor(
@@ -793,9 +805,9 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
     if (_isAcceptedQuotePendingTimeAgreement(job)) {
       return <_JobsStatusChip>[
         _JobsStatusChip(
-          label: 'Quote accepted',
-          color: Color(0xFF58D0A4),
-          icon: Icons.request_quote_outlined,
+          label: job.customerJourney.copy.acceptedLabel,
+          color: job.customerJourney.journeyTheme.accent,
+          icon: job.customerJourney.journeyTheme.icon,
           filled: true,
           onTap: enableShortcuts
               ? () => _openJobFor(
@@ -823,9 +835,9 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
     if (_isAcceptedQuoteCalendarReady(job)) {
       return <_JobsStatusChip>[
         _JobsStatusChip(
-          label: 'Quote accepted',
-          color: Color(0xFF58D0A4),
-          icon: Icons.request_quote_outlined,
+          label: job.customerJourney.copy.acceptedLabel,
+          color: job.customerJourney.journeyTheme.accent,
+          icon: job.customerJourney.journeyTheme.icon,
           filled: true,
           onTap: enableShortcuts
               ? () => _openJobFor(
@@ -960,8 +972,8 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
       } else if (!job.hasCustomerRequestAttached) {
         actions.add(
           _JobsInlineActionButton(
-            label: 'Create quote',
-            icon: Icons.request_quote_outlined,
+            label: job.customerJourney.copy.businessAction,
+            icon: job.customerJourney.journeyTheme.icon,
             onTap: () => _createQuoteFor(job),
             tone: VanStatusTone.primary,
           ),
@@ -989,8 +1001,8 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
           !actionState.hasRealQuote) {
         actions.add(
           _JobsInlineActionButton(
-            label: 'Create quote',
-            icon: Icons.request_quote_outlined,
+            label: job.customerJourney.copy.businessAction,
+            icon: job.customerJourney.journeyTheme.icon,
             onTap: () => _createQuoteFor(job),
             tone: VanStatusTone.primary,
           ),
@@ -1232,6 +1244,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
   }
 
   Future<bool> _confirmCompleteEarly(DriverCustomerReplyMockData job) async {
+    final completionAction = vanCalendarCompletionActionLabel(job);
     final scheduledAt = job.scheduledAtOrParsed;
     final scheduledLabel = scheduledAt == null
         ? 'this scheduled time'
@@ -1244,9 +1257,9 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
-            title: const Text(
-              'Complete this job early?',
-              style: TextStyle(
+            title: Text(
+              '$completionAction early?',
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
               ),
@@ -1271,7 +1284,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                   backgroundColor: const Color(0xFF58D0A4),
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Complete early'),
+                child: Text(completionAction),
               ),
             ],
           ),
@@ -1310,7 +1323,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
       return;
     }
     setState(() {});
-    _showSnack('Job completed.');
+    _showSnack(vanCalendarCompletionPastTenseLabel(job));
   }
 
   bool _isBookingLinkPendingRequest(DriverCustomerReplyMockData job) {
@@ -1368,15 +1381,15 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
               children: [
                 for (var index = 0; index < jobs.length; index++) ...[
                   _JobsMockJobCard(
-                    accent: jobs[index].isCompleted
-                        ? const Color(0xFF58D0A4)
+                    accent: completed || jobs[index].isScheduledInCalendarState
+                        ? vanCalendarAccentForJob(jobs[index])
                         : jobs[index].isConfirmed
                         ? const Color(0xFF4A7DFF)
                         : jobs[index].isQuoteSent
                         ? const Color(0xFFB48CFF)
                         : const Color(0xFFFFC38C),
-                    icon: jobs[index].isCompleted
-                        ? Icons.check_circle
+                    icon: completed || jobs[index].isScheduledInCalendarState
+                        ? vanCalendarIconForJob(jobs[index])
                         : jobs[index].isConfirmed
                         ? Icons.verified
                         : jobs[index].isQuoteSent
@@ -1384,7 +1397,10 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                         : Icons.calendar_month,
                     eyebrow: _jobDateText(jobs[index]),
                     title: jobs[index].customerName,
-                    subtitle: jobs[index].jobTitle,
+                    subtitle:
+                        completed || jobs[index].isScheduledInCalendarState
+                        ? vanCalendarDisplayJobTitle(jobs[index])
+                        : jobs[index].jobTitle,
                     body: _jobBodyText(jobs[index]),
                     debugSource: _debugSourceFor(jobs[index]),
                     debugDocId: jobs[index].jobId,
@@ -1693,11 +1709,11 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
           ] else ...[
             for (var index = 0; index < jobs.length; index++) ...[
               _JobsMockJobCard(
-                accent: const Color(0xFF4A7DFF),
-                icon: Icons.today,
+                accent: vanCalendarAccentForJob(jobs[index]),
+                icon: vanCalendarIconForJob(jobs[index]),
                 eyebrow: _selectedDateLabel(_selectedDate),
                 title: jobs[index].customerName,
-                subtitle: jobs[index].jobTitle,
+                subtitle: vanCalendarDisplayJobTitle(jobs[index]),
                 body: _jobBodyText(jobs[index]),
                 debugSource: _debugSourceFor(jobs[index]),
                 debugDocId: jobs[index].jobId,
@@ -1920,11 +1936,11 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
           ),
           const SizedBox(height: 12),
           _JobsMockJobCard(
-            accent: const Color(0xFF58D0A4),
-            icon: Icons.check_circle,
+            accent: vanCalendarAccentForJob(job),
+            icon: vanCalendarIconForJob(job),
             eyebrow: 'Completed',
             title: job.customerName,
-            subtitle: job.jobTitle,
+            subtitle: vanCalendarDisplayJobTitle(job),
             body: bodyText,
             debugSource: _debugSourceFor(job),
             debugDocId: job.jobId,

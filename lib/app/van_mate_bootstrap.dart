@@ -8,6 +8,7 @@ import '../features/van_mate/pages/driver_customer_reply_mock_page.dart';
 import '../features/van_mate/services/van_firebase_auth_service.dart';
 import '../features/van_mate/services/van_firebase_debug_logging.dart';
 import '../features/van_mate/services/van_invoice_reminder_service.dart';
+import '../features/van_mate/services/van_pickup_reminder_service.dart';
 import '../features/van_mate/services/van_user_cloud_service.dart';
 import '../features/van_mate/services/van_premium_service.dart';
 import '../features/van_mate/services/van_push_notification_service.dart';
@@ -72,6 +73,8 @@ Future<void> runVanMateApp() async {
       scaffoldMessengerKey: _rootScaffoldMessengerKey,
     );
     await VanInvoiceReminderService.instance.initialize();
+    VanPickupReminderService.instance.initialize();
+    await DriverReplyMockState.instance.syncPickupReminders();
     await VanInvoiceReminderService.instance.runReminderCheck(
       invoices: DriverReplyMockState.instance.savedInvoiceHistory,
       onReminderSent: (jobKey, stageDays, sentAt) async {

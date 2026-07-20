@@ -7,11 +7,13 @@ import 'package:url_launcher/url_launcher.dart';
 import '../helpers/app_theme.dart';
 import '../helpers/van_block_customer_dialog.dart';
 import '../helpers/van_customer_request_actions.dart';
+import '../helpers/van_customer_journey_theme.dart';
 import '../helpers/van_job_request_state.dart';
 import '../helpers/van_quote_decline.dart';
 import '../helpers/van_quote_ui_status.dart';
 import '../helpers/van_status_tone.dart';
 import '../models/van_job_request_record.dart';
+import '../models/van_customer_journey.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'job_detail_page.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
@@ -97,6 +99,23 @@ IncomingJobTimingDisplay buildIncomingJobTimingDisplay(
   DriverCustomerReplyMockData job, {
   VanJobRequestRecord? request,
 }) {
+  final isDropOffPickup =
+      (request?.requestType.trim().toLowerCase() ??
+          job.requestType.trim().toLowerCase()) ==
+      'dropoffpickuprequest';
+  final dropOffAt = request?.dropOffDateTime ?? job.dropOffDateTime;
+  final pickUpAt = request?.pickUpDateTime ?? job.pickUpDateTime;
+  if (isDropOffPickup &&
+      job.isQuoteAccepted &&
+      dropOffAt != null &&
+      pickUpAt != null) {
+    return IncomingJobTimingDisplay(
+      label: 'Drop-off / Pick-up',
+      value:
+          'Drop-off: ${_formatIncomingJobDate(dropOffAt)} at ${_formatIncomingJobTime(dropOffAt)}\n'
+          'Pick-up: ${_formatIncomingJobDate(pickUpAt)} at ${_formatIncomingJobTime(pickUpAt)}',
+    );
+  }
   final confirmedDateTime = job.agreedDateTime ?? job.scheduledAtOrParsed;
   final shouldShowConfirmedAppointment =
       job.isQuoteAccepted &&
@@ -207,19 +226,25 @@ VanQuoteUiStatus deriveVanIncomingJobDisplayQuoteUiStatus(
   VanJobRequestRecord? request,
 }) {
   final status = job.quoteUiStatus;
-  final requestType = request?.requestType.trim().isNotEmpty == true
-      ? request!.requestType.trim()
-      : job.requestType.trim();
-  if (job.isQuoteAccepted && requestType == 'orderRequest') {
+  final journey = vanCustomerJourneyTypeFromStorage(
+    request?.customerJourneyType.trim().isNotEmpty == true
+        ? request!.customerJourneyType
+        : job.customerJourneyType,
+  );
+  final journeyCopy = journey.copy;
+  if (job.isQuoteAccepted && journey != VanCustomerJourneyType.quote) {
     return VanQuoteUiStatus(
-      primaryChipLabel: 'Order accepted',
+      primaryChipLabel: journeyCopy.acceptedLabel,
       secondaryChipLabel: status.secondaryChipLabel == 'Quote accepted'
-          ? 'Order accepted'
+          ? journeyCopy.acceptedLabel
           : status.secondaryChipLabel,
       statusLabel: status.statusLabel == 'Quote accepted'
-          ? 'Order accepted'
+          ? journeyCopy.acceptedLabel
           : status.statusLabel,
-      summary: status.summary.replaceFirst('Quote accepted', 'Order accepted'),
+      summary: status.summary.replaceFirst(
+        'Quote accepted',
+        journeyCopy.acceptedLabel,
+      ),
       nextActionText: status.nextActionText,
       showExactPinReceivedChip: status.showExactPinReceivedChip,
       exactPinChipLabel: status.exactPinChipLabel,
@@ -233,12 +258,13 @@ VanQuoteUiStatus deriveVanIncomingJobDisplayQuoteUiStatus(
     return status;
   }
 
-  return const VanQuoteUiStatus(
-    primaryChipLabel: 'Request received',
-    secondaryChipLabel: 'Request received',
-    statusLabel: 'Request received',
-    summary: 'Request received.',
-    nextActionText: 'Open to review details and send a quote.',
+  return VanQuoteUiStatus(
+    primaryChipLabel: journeyCopy.receivedHeading,
+    secondaryChipLabel: journeyCopy.receivedHeading,
+    statusLabel: journeyCopy.receivedHeading,
+    summary: '${journeyCopy.receivedHeading}.',
+    nextActionText:
+        'Open to review details and ${journeyCopy.businessAction.toLowerCase()}.',
   );
 }
 
@@ -667,16 +693,26 @@ class _IncomingEmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _IncomingGlassCard(
+    return _IncomingGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'No incoming jobs yet.',
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,
               fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'New booking link requests and quote replies will appear here.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.74),
+              fontWeight: FontWeight.normal,
+              fontSize: 14,
+              height: 1.4,
             ),
           ),
         ],
@@ -872,11 +908,17 @@ class _IncomingRequestCard extends StatelessWidget {
               ? job.customerName.trim()
               : 'No customer name');
     final postcode = _postcode();
-    final locationPending =
-        request?.locationPending == true || job.locationPending;
-    final requiresExactPinAfterQuoteAccepted =
-        request?.requiresExactPinAfterQuoteAccepted == true ||
-        job.requiresExactPinAfterQuoteAccepted;
+    final isDropOffPickup =
+        (request?.requestType.trim().toLowerCase() ??
+            job.requestType.trim().toLowerCase()) ==
+        'dropoffpickuprequest';
+    final requiresExactPinAfterQuoteAccepted = request != null
+        ? request!.requiresExactPinAfterQuoteAccepted
+        : job.requiresExactPinAfterQuoteAccepted;
+    final locationPending = isDropOffPickup
+        ? requiresExactPinAfterQuoteAccepted &&
+              (request?.locationPending == true || job.locationPending)
+        : request?.locationPending == true || job.locationPending;
     final isCollectionOrder =
         request?.requestType.trim() == 'orderRequest' &&
         request?.fulfilmentType.trim().toLowerCase() == 'collection';
@@ -884,6 +926,12 @@ class _IncomingRequestCard extends StatelessWidget {
         _addressAlreadyContainsPostcode(address: address, postcode: postcode)
         ? ''
         : postcode;
+    final showLocation =
+        !isCollectionOrder &&
+        (!isDropOffPickup ||
+            address.isNotEmpty ||
+            normalizedPostcode.isNotEmpty ||
+            requiresExactPinAfterQuoteAccepted);
     final locationSummary = buildVanJobLocationSummary(
       address: address,
       postcode: normalizedPostcode,
@@ -1047,7 +1095,7 @@ class _IncomingRequestCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              if (!isCollectionOrder)
+              if (showLocation)
                 Text(
                   locationSummary,
                   style: TextStyle(
@@ -1056,7 +1104,7 @@ class _IncomingRequestCard extends StatelessWidget {
                     height: 1.35,
                   ),
                 ),
-              if (showLocationPendingNote) ...[
+              if (showLocation && showLocationPendingNote) ...[
                 const SizedBox(height: 4),
                 Text(
                   'Exact pin will be requested after quote acceptance.',
@@ -1093,8 +1141,8 @@ class _IncomingRequestCard extends StatelessWidget {
                   children: [
                     if (actionState.canCreateQuote)
                       _IncomingActionButton(
-                        label: 'Create quote',
-                        icon: Icons.request_quote_outlined,
+                        label: job.customerJourney.copy.businessAction,
+                        icon: job.customerJourney.journeyTheme.icon,
                         filled: true,
                         onPressed: onReviseQuote,
                       )

@@ -89,6 +89,20 @@ class VanJobRequestDraft {
     this.selectedServiceId = '',
     this.selectedServiceName = '',
     this.requestType = 'quoteRequest',
+    this.customerJourneyType = 'quote',
+    this.startHandover = '',
+    this.endHandover = '',
+    this.allowedStartHandoverOptions = const <String>[],
+    this.allowedEndHandoverOptions = const <String>[],
+    this.collectionAddress = '',
+    this.returnAddress = '',
+    this.returnAddressSameAsCollection = false,
+    this.businessDropOffInstructions = '',
+    this.businessCollectionInstructions = '',
+    this.dropOffDate,
+    this.dropOffTime = '',
+    this.pickUpDate,
+    this.pickUpTime = '',
     this.exactPinLatitude,
     this.exactPinLongitude,
     this.exactPinSource = 'none',
@@ -110,6 +124,20 @@ class VanJobRequestDraft {
   final String selectedServiceId;
   final String selectedServiceName;
   final String requestType;
+  final String customerJourneyType;
+  final String startHandover;
+  final String endHandover;
+  final List<String> allowedStartHandoverOptions;
+  final List<String> allowedEndHandoverOptions;
+  final String collectionAddress;
+  final String returnAddress;
+  final bool returnAddressSameAsCollection;
+  final String businessDropOffInstructions;
+  final String businessCollectionInstructions;
+  final DateTime? dropOffDate;
+  final String dropOffTime;
+  final DateTime? pickUpDate;
+  final String pickUpTime;
   final List<String> selectedQuestionIds;
   final List<VanJobRequestAnswer> answers;
   final List<String> checklistItems;

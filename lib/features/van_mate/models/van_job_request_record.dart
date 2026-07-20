@@ -236,6 +236,10 @@ bool vanJobRequestIsCollectionOrder(Map<String, dynamic> data) {
   return requestType == 'orderrequest' && fulfilmentType == 'collection';
 }
 
+bool vanJobRequestIsDropOffPickup(Map<String, dynamic> data) =>
+    _readVanRequestText(data['requestType']).trim().toLowerCase() ==
+    'dropoffpickuprequest';
+
 bool vanJobRequestRequiresExactPinAfterQuoteAccepted(
   Map<String, dynamic> data,
 ) {
@@ -264,6 +268,22 @@ DateTime? _readVanRequestDateTime(dynamic value) {
   if (value is Timestamp) return value.toDate();
   if (value is DateTime) return value;
   return DateTime.tryParse(value?.toString().trim() ?? '');
+}
+
+DateTime? _combineVanRequestDateAndTime(DateTime? date, String time) {
+  if (date == null) {
+    return null;
+  }
+  final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(time.trim());
+  if (match == null) {
+    return null;
+  }
+  final hour = int.tryParse(match.group(1) ?? '');
+  final minute = int.tryParse(match.group(2) ?? '');
+  if (hour == null || minute == null || hour > 23 || minute > 59) {
+    return null;
+  }
+  return DateTime(date.year, date.month, date.day, hour, minute);
 }
 
 List<String> _readVanRequestStringList(dynamic value) {
@@ -499,7 +519,21 @@ class VanJobRequestRecord {
     this.selectedServiceId = '',
     this.selectedServiceName = '',
     this.requestType = 'quoteRequest',
+    this.customerJourneyType = 'quote',
+    this.startHandover = '',
+    this.endHandover = '',
+    this.allowedStartHandoverOptions = const <String>[],
+    this.allowedEndHandoverOptions = const <String>[],
+    this.collectionAddress = '',
+    this.returnAddress = '',
+    this.returnAddressSameAsCollection = false,
+    this.businessDropOffInstructions = '',
+    this.businessCollectionInstructions = '',
     this.fulfilmentType = '',
+    this.dropOffDate,
+    this.dropOffTime = '',
+    this.pickUpDate,
+    this.pickUpTime = '',
     this.driverMessagePreview = '',
     this.submittedAt,
     this.customerSubmittedAt,
@@ -577,7 +611,21 @@ class VanJobRequestRecord {
   final String selectedServiceId;
   final String selectedServiceName;
   final String requestType;
+  final String customerJourneyType;
+  final String startHandover;
+  final String endHandover;
+  final List<String> allowedStartHandoverOptions;
+  final List<String> allowedEndHandoverOptions;
+  final String collectionAddress;
+  final String returnAddress;
+  final bool returnAddressSameAsCollection;
+  final String businessDropOffInstructions;
+  final String businessCollectionInstructions;
   final String fulfilmentType;
+  final DateTime? dropOffDate;
+  final String dropOffTime;
+  final DateTime? pickUpDate;
+  final String pickUpTime;
   final List<String> checklistItems;
   final List<String> customQuestions;
   final bool exactPinRequested;
@@ -677,8 +725,12 @@ class VanJobRequestRecord {
   bool get hasExactPin =>
       hasCustomerReply && exactPinLat != null && exactPinLng != null;
 
-  bool get requiresAnyExactPin =>
-      exactPinRequested || requiresExactPinAfterQuoteAccepted;
+  bool get isDropOffPickupRequest =>
+      requestType.trim().toLowerCase() == 'dropoffpickuprequest';
+
+  bool get requiresAnyExactPin => isDropOffPickupRequest
+      ? requiresExactPinAfterQuoteAccepted
+      : exactPinRequested || requiresExactPinAfterQuoteAccepted;
 
   bool get hasLocationDetails =>
       publicAddressSummary.trim().isNotEmpty ||
@@ -690,7 +742,27 @@ class VanJobRequestRecord {
 
   DateTime? get agreedEndAtOrParsed => agreedEndAt;
 
+  DateTime? get dropOffDateTime =>
+      _combineVanRequestDateAndTime(dropOffDate, dropOffTime);
+
+  DateTime? get pickUpDateTime =>
+      _combineVanRequestDateAndTime(pickUpDate, pickUpTime);
+
+  int? get dropOffPickupDurationMinutes {
+    final start = dropOffDateTime;
+    final end = pickUpDateTime;
+    if (start == null || end == null || !end.isAfter(start)) {
+      return null;
+    }
+    return end.difference(start).inMinutes;
+  }
+
   bool get hasAgreedSchedulingTime {
+    if (isDropOffPickupRequest &&
+        dropOffDateTime != null &&
+        pickUpDateTime != null) {
+      return true;
+    }
     final explicitAgreedTime = agreedStartAt ?? agreedDateTime;
     if (explicitAgreedTime != null) {
       return true;
@@ -767,7 +839,21 @@ class VanJobRequestRecord {
     String? selectedServiceId,
     String? selectedServiceName,
     String? requestType,
+    String? customerJourneyType,
+    String? startHandover,
+    String? endHandover,
+    List<String>? allowedStartHandoverOptions,
+    List<String>? allowedEndHandoverOptions,
+    String? collectionAddress,
+    String? returnAddress,
+    bool? returnAddressSameAsCollection,
+    String? businessDropOffInstructions,
+    String? businessCollectionInstructions,
     String? fulfilmentType,
+    DateTime? dropOffDate,
+    String? dropOffTime,
+    DateTime? pickUpDate,
+    String? pickUpTime,
     List<String>? checklistItems,
     List<String>? customQuestions,
     bool? exactPinRequested,
@@ -852,7 +938,26 @@ class VanJobRequestRecord {
       selectedServiceId: selectedServiceId ?? this.selectedServiceId,
       selectedServiceName: selectedServiceName ?? this.selectedServiceName,
       requestType: requestType ?? this.requestType,
+      customerJourneyType: customerJourneyType ?? this.customerJourneyType,
+      startHandover: startHandover ?? this.startHandover,
+      endHandover: endHandover ?? this.endHandover,
+      allowedStartHandoverOptions:
+          allowedStartHandoverOptions ?? this.allowedStartHandoverOptions,
+      allowedEndHandoverOptions:
+          allowedEndHandoverOptions ?? this.allowedEndHandoverOptions,
+      collectionAddress: collectionAddress ?? this.collectionAddress,
+      returnAddress: returnAddress ?? this.returnAddress,
+      returnAddressSameAsCollection:
+          returnAddressSameAsCollection ?? this.returnAddressSameAsCollection,
+      businessDropOffInstructions:
+          businessDropOffInstructions ?? this.businessDropOffInstructions,
+      businessCollectionInstructions:
+          businessCollectionInstructions ?? this.businessCollectionInstructions,
       fulfilmentType: fulfilmentType ?? this.fulfilmentType,
+      dropOffDate: dropOffDate ?? this.dropOffDate,
+      dropOffTime: dropOffTime ?? this.dropOffTime,
+      pickUpDate: pickUpDate ?? this.pickUpDate,
+      pickUpTime: pickUpTime ?? this.pickUpTime,
       checklistItems: checklistItems ?? this.checklistItems,
       customQuestions: customQuestions ?? this.customQuestions,
       exactPinRequested: exactPinRequested ?? this.exactPinRequested,
@@ -907,6 +1012,20 @@ class VanJobRequestRecord {
       selectedServiceId: selectedServiceId,
       selectedServiceName: selectedServiceName,
       requestType: requestType,
+      customerJourneyType: customerJourneyType,
+      startHandover: startHandover,
+      endHandover: endHandover,
+      allowedStartHandoverOptions: allowedStartHandoverOptions,
+      allowedEndHandoverOptions: allowedEndHandoverOptions,
+      collectionAddress: collectionAddress,
+      returnAddress: returnAddress,
+      returnAddressSameAsCollection: returnAddressSameAsCollection,
+      businessDropOffInstructions: businessDropOffInstructions,
+      businessCollectionInstructions: businessCollectionInstructions,
+      dropOffDate: dropOffDate,
+      dropOffTime: dropOffTime,
+      pickUpDate: pickUpDate,
+      pickUpTime: pickUpTime,
       selectedQuestionIds: List<String>.unmodifiable(
         answers
             .map((item) => item.questionId.trim())
@@ -999,7 +1118,21 @@ class VanJobRequestRecord {
       'selectedServiceId': selectedServiceId,
       'selectedServiceName': selectedServiceName,
       'requestType': requestType,
+      'customerJourneyType': customerJourneyType,
+      'startHandover': startHandover,
+      'endHandover': endHandover,
+      'allowedStartHandoverOptions': allowedStartHandoverOptions,
+      'allowedEndHandoverOptions': allowedEndHandoverOptions,
+      'collectionAddress': collectionAddress,
+      'returnAddress': returnAddress,
+      'returnAddressSameAsCollection': returnAddressSameAsCollection,
+      'businessDropOffInstructions': businessDropOffInstructions,
+      'businessCollectionInstructions': businessCollectionInstructions,
       'fulfilmentType': fulfilmentType,
+      'dropOffDate': dropOffDate?.toIso8601String(),
+      'dropOffTime': dropOffTime,
+      'pickUpDate': pickUpDate?.toIso8601String(),
+      'pickUpTime': pickUpTime,
       'checklistItems': checklistItems,
       'customQuestions': customQuestions,
       'exactPinRequested': exactPinRequested,
@@ -1120,8 +1253,24 @@ class VanJobRequestRecord {
       'selectedServiceId': selectedServiceId,
       'selectedServiceName': selectedServiceName,
       'requestType': requestType,
+      'customerJourneyType': customerJourneyType,
+      'startHandover': startHandover,
+      'endHandover': endHandover,
+      'allowedStartHandoverOptions': allowedStartHandoverOptions,
+      'allowedEndHandoverOptions': allowedEndHandoverOptions,
+      'collectionAddress': collectionAddress,
+      'returnAddress': returnAddress,
+      'returnAddressSameAsCollection': returnAddressSameAsCollection,
+      'businessDropOffInstructions': businessDropOffInstructions,
+      'businessCollectionInstructions': businessCollectionInstructions,
       'fulfilmentType': fulfilmentType,
       'checklistItems': checklistItems,
+      'dropOffDate': dropOffDate == null
+          ? null
+          : Timestamp.fromDate(dropOffDate!),
+      'dropOffTime': dropOffTime,
+      'pickUpDate': pickUpDate == null ? null : Timestamp.fromDate(pickUpDate!),
+      'pickUpTime': pickUpTime,
       'customQuestions': customQuestions,
       'exactPinRequested': exactPinRequested,
       'requestPhotos': requestPhotos,
@@ -1250,7 +1399,23 @@ class VanJobRequestRecord {
       'selectedServiceId': selectedServiceId,
       'selectedServiceName': selectedServiceName,
       'requestType': requestType,
+      'customerJourneyType': customerJourneyType,
+      'startHandover': startHandover,
+      'endHandover': endHandover,
+      'allowedStartHandoverOptions': allowedStartHandoverOptions,
+      'allowedEndHandoverOptions': allowedEndHandoverOptions,
+      'collectionAddress': collectionAddress,
+      'returnAddress': returnAddress,
+      'returnAddressSameAsCollection': returnAddressSameAsCollection,
+      'businessDropOffInstructions': businessDropOffInstructions,
+      'businessCollectionInstructions': businessCollectionInstructions,
       'fulfilmentType': fulfilmentType,
+      'dropOffDate': dropOffDate == null
+          ? null
+          : Timestamp.fromDate(dropOffDate!),
+      'dropOffTime': dropOffTime,
+      'pickUpDate': pickUpDate == null ? null : Timestamp.fromDate(pickUpDate!),
+      'pickUpTime': pickUpTime,
       'exactPinRequested': exactPinRequested,
       'requestPhotos': requestPhotos,
       'requiresExactPinAfterQuoteAccepted': requiresExactPinAfterQuoteAccepted,
@@ -1341,9 +1506,25 @@ class VanJobRequestRecord {
       'selectedServiceId': selectedServiceId,
       'selectedServiceName': selectedServiceName,
       'requestType': requestType,
+      'customerJourneyType': customerJourneyType,
+      'startHandover': startHandover,
+      'endHandover': endHandover,
+      'allowedStartHandoverOptions': allowedStartHandoverOptions,
+      'allowedEndHandoverOptions': allowedEndHandoverOptions,
+      'collectionAddress': collectionAddress,
+      'returnAddress': returnAddress,
+      'returnAddressSameAsCollection': returnAddressSameAsCollection,
+      'businessDropOffInstructions': businessDropOffInstructions,
+      'businessCollectionInstructions': businessCollectionInstructions,
       'fulfilmentType': fulfilmentType,
       'exactPinRequested': exactPinRequested,
       'requestPhotos': requestPhotos,
+      'dropOffDate': dropOffDate == null
+          ? null
+          : Timestamp.fromDate(dropOffDate!),
+      'dropOffTime': dropOffTime,
+      'pickUpDate': pickUpDate == null ? null : Timestamp.fromDate(pickUpDate!),
+      'pickUpTime': pickUpTime,
       'requiresExactPinAfterQuoteAccepted': requiresExactPinAfterQuoteAccepted,
       'exactPinRequestedAfterQuote': requiresExactPinAfterQuoteAccepted,
       'driverMessagePreview': driverMessagePreview,
@@ -1510,6 +1691,8 @@ class VanJobRequestRecord {
       ),
       locationPending:
           !vanJobRequestIsCollectionOrder(data) &&
+          (!vanJobRequestIsDropOffPickup(data) ||
+              vanJobRequestRequiresExactPinAfterQuoteAccepted(data)) &&
           _readVanRequestBool(data['locationPending']),
       quoteTimingChoice: parsedQuoteTimingChoice.trim().isNotEmpty
           ? parsedQuoteTimingChoice
@@ -1660,11 +1843,45 @@ class VanJobRequestRecord {
         data['requestType'],
         fallback: 'quoteRequest',
       ),
+      customerJourneyType: _readVanRequestText(
+        data['customerJourneyType'],
+        fallback: 'quote',
+      ),
+      startHandover: _readVanRequestText(data['startHandover']),
+      endHandover: _readVanRequestText(data['endHandover']),
+      allowedStartHandoverOptions: _readVanRequestStringList(
+        data['allowedStartHandoverOptions'],
+      ),
+      allowedEndHandoverOptions: _readVanRequestStringList(
+        data['allowedEndHandoverOptions'],
+      ),
+      collectionAddress: _readVanRequestText(
+        data['collectionAddress'],
+        fallback: _readVanRequestText(data['pickupAddress']),
+      ),
+      returnAddress: _readVanRequestText(
+        data['returnAddress'],
+        fallback: _readVanRequestText(data['deliveryAddress']),
+      ),
+      returnAddressSameAsCollection: _readVanRequestBool(
+        data['returnAddressSameAsCollection'],
+      ),
+      businessDropOffInstructions: _readVanRequestText(
+        data['businessDropOffInstructions'],
+      ),
+      businessCollectionInstructions: _readVanRequestText(
+        data['businessCollectionInstructions'],
+      ),
       fulfilmentType: _readVanRequestText(data['fulfilmentType']),
+      dropOffDate: _readVanRequestDateTime(data['dropOffDate']),
+      dropOffTime: _readVanRequestText(data['dropOffTime']),
+      pickUpDate: _readVanRequestDateTime(data['pickUpDate']),
+      pickUpTime: _readVanRequestText(data['pickUpTime']),
       checklistItems: _readVanRequestStringList(data['checklistItems']),
       customQuestions: _readVanRequestStringList(data['customQuestions']),
       exactPinRequested:
           !vanJobRequestIsCollectionOrder(data) &&
+          !vanJobRequestIsDropOffPickup(data) &&
           _readVanRequestBool(data['exactPinRequested']),
       requestPhotos: _readVanRequestBool(data['requestPhotos']),
       requiresExactPinAfterQuoteAccepted:

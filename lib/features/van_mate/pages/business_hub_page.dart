@@ -364,7 +364,7 @@ class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
                 _BusinessHubSectionCard(
                   title: 'Work & Bookings',
                   subtitle:
-                      'Set up your business tools and manage customer work.',
+                      'Manage your profile, services, booking link and customer jobs.',
                   incomingJobsAttention: incomingJobsAttention,
                   onOpenIncomingJobs: () => unawaited(_openIncomingJobs()),
                   items: const <_BusinessHubActionItem>[

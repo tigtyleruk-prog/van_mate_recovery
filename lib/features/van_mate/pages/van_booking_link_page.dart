@@ -10,10 +10,14 @@ import 'package:share_plus/share_plus.dart';
 
 import '../helpers/app_theme.dart';
 import '../helpers/van_business_logo_support.dart';
+import '../helpers/van_customer_request_questions.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_business_profile.dart';
+import '../models/van_customer_journey.dart';
+import '../models/van_customer_request_flow.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
+import '../models/van_service_handover.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
 import '../services/van_booking_link_cloud_service.dart';
 import '../services/van_booking_link_settings_storage.dart';
@@ -379,8 +383,7 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
     final leadLine = hasBusinessName
         ? '$businessName has sent you a booking link.'
         : 'You have received a booking request.';
-    const descriptionLine =
-        "Choose a service and tell us what you need. We'll get back to you with a quote.";
+    const descriptionLine = 'Choose a service and tell us what you need.';
     final sharedUrl = _appendShareVersionParam(_shareLink);
     await SharePlus.instance.share(
       ShareParams(
@@ -505,7 +508,7 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Customers choose a service, answer your questions, and submit a request.',
+                              'Share this link with customers so they can choose a service, answer your questions and send a request.',
                               style: TextStyle(
                                 fontSize: 13.2,
                                 height: 1.45,
@@ -762,6 +765,8 @@ class _VanBookingLinkCustomerFormPageState
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _returnAddressController =
+      TextEditingController();
   final TextEditingController _postcodeController = TextEditingController();
   final TextEditingController _preferredDateController =
       TextEditingController();
@@ -777,6 +782,9 @@ class _VanBookingLinkCustomerFormPageState
   bool _preferredIsFlexible = false;
   bool _submitting = false;
   bool _submitted = false;
+  bool _returnAddressSameAsCollection = false;
+  VanStartHandover? _selectedStartHandover;
+  VanEndHandover? _selectedEndHandover;
   String _confirmationRequestId = '';
 
   VanJobService? get _selectedService {
@@ -792,6 +800,28 @@ class _VanBookingLinkCustomerFormPageState
     return null;
   }
 
+  VanCustomerJourneyCopy get _journeyCopy =>
+      (_selectedService?.customerJourneyType ?? VanCustomerJourneyType.quote)
+          .copy;
+
+  VanStartHandover? get _effectiveStartHandover {
+    final service = _selectedService;
+    if (service == null ||
+        !vanRequestTypeSupportsHandover(service.requestType)) {
+      return null;
+    }
+    return _selectedStartHandover ?? service.effectiveHandover.start;
+  }
+
+  VanEndHandover? get _effectiveEndHandover {
+    final service = _selectedService;
+    if (service == null ||
+        !vanRequestTypeSupportsHandover(service.requestType)) {
+      return null;
+    }
+    return _selectedEndHandover ?? service.effectiveHandover.end;
+  }
+
   List<VanCustomJobQuestion> get _selectedServiceQuestions {
     final service = _selectedService;
     if (service == null) {
@@ -800,7 +830,13 @@ class _VanBookingLinkCustomerFormPageState
     final questions = <VanCustomJobQuestion>[];
     for (final id in service.linkedQuestionIds) {
       final question = widget.questionLookup[id];
-      if (question != null && question.isActive && !question.isArchived) {
+      if (question != null &&
+          question.isActive &&
+          !question.isArchived &&
+          !isVanSeededQuestionCoveredByBuiltInFlow(
+            service: service,
+            question: question,
+          )) {
         questions.add(question);
       }
     }
@@ -876,6 +912,7 @@ class _VanBookingLinkCustomerFormPageState
     _phoneController.dispose();
     _emailController.dispose();
     _addressController.dispose();
+    _returnAddressController.dispose();
     _postcodeController.dispose();
     _preferredDateController.dispose();
     _timingNoteController.dispose();
@@ -966,6 +1003,7 @@ class _VanBookingLinkCustomerFormPageState
     }
 
     if (service.requireAddress &&
+        !vanRequestTypeSupportsHandover(service.requestType) &&
         _addressController.text.trim().isEmpty &&
         _postcodeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -977,7 +1015,36 @@ class _VanBookingLinkCustomerFormPageState
       return false;
     }
 
+    final startHandover = _effectiveStartHandover;
+    final endHandover = _effectiveEndHandover;
+    if (startHandover?.needsCustomerAddress == true &&
+        _addressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add the business collection address.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+    final effectiveReturnAddress = _returnAddressSameAsCollection
+        ? _addressController.text.trim()
+        : _returnAddressController.text.trim();
+    if (endHandover?.needsCustomerAddress == true &&
+        effectiveReturnAddress.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add the business return address.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
     for (final question in _selectedServiceQuestions) {
+      if (service.optionalQuestionIds.contains(question.id)) {
+        continue;
+      }
       if (_readQuestionAnswer(question).isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1319,6 +1386,15 @@ class _VanBookingLinkCustomerFormPageState
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
+      builder: (pickerContext, child) {
+        final mediaQuery = MediaQuery.of(pickerContext);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: mediaQuery.textScaler.clamp(maxScaleFactor: 1.1),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
     if (picked == null) {
       return;
@@ -1359,6 +1435,11 @@ class _VanBookingLinkCustomerFormPageState
 
     final address = sanitizeVanText(_addressController.text).trim();
     final postcode = _normalizePostcode(_postcodeController.text);
+    final startHandover = _effectiveStartHandover;
+    final endHandover = _effectiveEndHandover;
+    final returnAddress = _returnAddressSameAsCollection
+        ? address
+        : sanitizeVanText(_returnAddressController.text).trim();
     final selectedQuestions = _selectedServiceQuestions;
     final collectedAnswers = selectedQuestions
         .asMap()
@@ -1420,10 +1501,22 @@ class _VanBookingLinkCustomerFormPageState
         'ownerUid': normalizedOwnerUid,
         'serviceId': service.id.trim(),
         'serviceName': service.name.trim(),
+        'requestType': service.serviceFlow.requestType.storageKey,
+        'serviceFlow': service.serviceFlow.storageKey,
+        'customerJourneyType': service.customerJourneyType.storageKey,
         'customerName': sanitizeVanText(_nameController.text).trim(),
         'phoneNumber': sanitizeVanText(_phoneController.text).trim(),
         'customerEmail': sanitizeVanText(_emailController.text).trim(),
         'address': address,
+        'startHandover': startHandover?.storageKey ?? '',
+        'endHandover': endHandover?.storageKey ?? '',
+        'collectionAddress': startHandover?.needsCustomerAddress == true
+            ? address
+            : '',
+        'returnAddress': endHandover?.needsCustomerAddress == true
+            ? returnAddress
+            : '',
+        'returnAddressSameAsCollection': _returnAddressSameAsCollection,
         'postcode': postcode,
         'additionalNotes': additionalNotes,
         'preferredDate': _preferredDate?.toIso8601String(),
@@ -1462,6 +1555,20 @@ class _VanBookingLinkCustomerFormPageState
             'requestStatusLabel': 'Request Received',
             'selectedServiceId': service.id,
             'selectedServiceName': service.name.trim(),
+            'customerJourneyType': service.customerJourneyType.storageKey,
+            'serviceFlow': service.serviceFlow.storageKey,
+            'startHandover': startHandover?.storageKey ?? '',
+            'endHandover': endHandover?.storageKey ?? '',
+            'collectionAddress': startHandover?.needsCustomerAddress == true
+                ? address
+                : '',
+            'returnAddress': endHandover?.needsCustomerAddress == true
+                ? returnAddress
+                : '',
+            'returnAddressSameAsCollection': _returnAddressSameAsCollection,
+            'businessDropOffInstructions': service.businessDropOffInstructions,
+            'businessCollectionInstructions':
+                service.businessCollectionInstructions,
             'customerPostcode': postcode,
             'preferredDate': _preferredDate?.toIso8601String(),
             'preferredTimeWindow': _preferredTimeWindow,
@@ -1677,8 +1784,8 @@ class _VanBookingLinkCustomerFormPageState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Request Sent',
+                            Text(
+                              _journeyCopy.receivedHeading,
                               style: TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w900,
@@ -1688,7 +1795,7 @@ class _VanBookingLinkCustomerFormPageState
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              "Thank you for your interest. We've received your request and will get back to you with a quote as soon as possible.",
+                              _journeyCopy.successMessage,
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.78),
                                 height: 1.45,
@@ -1776,7 +1883,11 @@ class _VanBookingLinkCustomerFormPageState
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    "Choose a service and tell us what you need. We'll get back to you with a quote.",
+                                    service == null
+                                        ? 'Choose a service and tell us what you need.'
+                                        : _journeyCopy.headingForService(
+                                            service.name,
+                                          ),
                                     style: TextStyle(
                                       color: Colors.white.withValues(
                                         alpha: 0.74,
@@ -1853,6 +1964,11 @@ class _VanBookingLinkCustomerFormPageState
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedServiceId = value;
+                                    _selectedStartHandover = null;
+                                    _selectedEndHandover = null;
+                                    _returnAddressSameAsCollection = false;
+                                    _addressController.clear();
+                                    _returnAddressController.clear();
                                     _syncQuestionControllers();
                                   });
                                 },
@@ -1937,7 +2053,152 @@ class _VanBookingLinkCustomerFormPageState
                           ),
                         ),
                       ],
-                      if (service?.requireAddress == true) ...[
+                      if (service != null &&
+                          vanRequestTypeSupportsHandover(
+                            service.requestType,
+                          )) ...[
+                        const SizedBox(height: 12),
+                        _GlassCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Handover arrangement',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                vanCustomerHandoverSummary(
+                                  _effectiveStartHandover!,
+                                  _effectiveEndHandover!,
+                                ),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.76),
+                                  height: 1.4,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (service
+                                  .effectiveHandover
+                                  .customerChoosesStart) ...[
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<VanStartHandover>(
+                                  initialValue: _effectiveStartHandover,
+                                  decoration: vanMateFieldDecoration(
+                                    label: 'Start of service',
+                                  ),
+                                  dropdownColor: const Color(0xFF13233A),
+                                  items: service.effectiveHandover.allowedStarts
+                                      .map(
+                                        (value) => DropdownMenuItem(
+                                          value: value,
+                                          child: Text(value.label),
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                  onChanged: (value) => setState(
+                                    () => _selectedStartHandover = value,
+                                  ),
+                                ),
+                              ],
+                              if (service
+                                  .effectiveHandover
+                                  .customerChoosesEnd) ...[
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<VanEndHandover>(
+                                  initialValue: _effectiveEndHandover,
+                                  decoration: vanMateFieldDecoration(
+                                    label: 'End of service',
+                                  ),
+                                  dropdownColor: const Color(0xFF13233A),
+                                  items: service.effectiveHandover.allowedEnds
+                                      .map(
+                                        (value) => DropdownMenuItem(
+                                          value: value,
+                                          child: Text(value.label),
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                  onChanged: (value) => setState(
+                                    () => _selectedEndHandover = value,
+                                  ),
+                                ),
+                              ],
+                              if (_effectiveStartHandover ==
+                                  VanStartHandover.customerDropsOff) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  service.businessDropOffInstructions
+                                          .trim()
+                                          .isEmpty
+                                      ? 'The business will confirm the drop-off location.'
+                                      : service.businessDropOffInstructions,
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              ] else ...[
+                                const SizedBox(height: 12),
+                                _BookingTextField(
+                                  controller: _addressController,
+                                  label: 'Collection address',
+                                  hint:
+                                      'Where should the business collect from?',
+                                  icon: Icons.location_on_outlined,
+                                  minLines: 2,
+                                  maxLines: 3,
+                                  autofillHints: const <String>[],
+                                ),
+                              ],
+                              if (_effectiveEndHandover ==
+                                  VanEndHandover.customerCollects) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  service.businessCollectionInstructions
+                                          .trim()
+                                          .isEmpty
+                                      ? 'The business will confirm where to collect when ready.'
+                                      : service.businessCollectionInstructions,
+                                  style: const TextStyle(color: Colors.white70),
+                                ),
+                              ] else ...[
+                                const SizedBox(height: 12),
+                                if (_effectiveStartHandover ==
+                                    VanStartHandover.businessCollects)
+                                  CheckboxListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    value: _returnAddressSameAsCollection,
+                                    onChanged: (value) => setState(
+                                      () => _returnAddressSameAsCollection =
+                                          value == true,
+                                    ),
+                                    title: const Text(
+                                      'Same as collection address',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ),
+                                if (!_returnAddressSameAsCollection)
+                                  _BookingTextField(
+                                    controller: _returnAddressController,
+                                    label: 'Return address',
+                                    hint:
+                                        'Where should the business return it?',
+                                    icon: Icons.keyboard_return_rounded,
+                                    minLines: 2,
+                                    maxLines: 3,
+                                    autofillHints: const <String>[],
+                                  ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (service?.requireAddress == true &&
+                          !vanRequestTypeSupportsHandover(
+                            service!.requestType,
+                          )) ...[
                         const SizedBox(height: 12),
                         _GlassCard(
                           child: Column(
@@ -2006,7 +2267,7 @@ class _VanBookingLinkCustomerFormPageState
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Add photos if you want to show the job or items.',
+                                vanBookingPhotoHelperText(service!.requestType),
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.74),
                                   height: 1.35,
@@ -2266,7 +2527,7 @@ class _VanBookingLinkCustomerFormPageState
                                     ),
                                   )
                                 : const Icon(Icons.send_rounded),
-                            label: const Text('Submit request'),
+                            label: Text(_journeyCopy.submitAction),
                           ),
                         ),
                       ],

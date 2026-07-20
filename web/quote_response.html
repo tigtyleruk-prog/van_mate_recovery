@@ -657,10 +657,10 @@
 
       <article id="respondCard" class="card">
         <h2 class="section-title">Respond</h2>
-        <p class="section-text">Use the buttons below to confirm your choice.</p>
+        <p id="respondHelperText" class="section-text">Use the buttons below to confirm your choice.</p>
         <div class="actions">
           <button id="acceptButton" type="button" class="success">Accept &amp; book</button>
-          <button id="arrangeTimeButton" type="button" class="secondary">Accept, arrange another time</button>
+          <button id="arrangeTimeButton" type="button" class="secondary">Accept quote – rearrange appointment</button>
           <button id="declineButton" type="button" class="warning">Decline quote</button>
         </div>
         <p id="respondStatus" class="footer hidden" aria-live="polite"></p>
@@ -668,7 +668,7 @@
       </article>
 
       <article id="arrangeTimeCard" class="card hidden">
-        <h2 class="section-title">Suggest another time</h2>
+        <h2 class="section-title">Accept quote – rearrange appointment</h2>
         <p class="section-text">Choose the date and time you prefer before accepting the quote.</p>
         <div class="field-grid">
           <label class="field-label">
@@ -888,6 +888,7 @@
     const acceptButton = document.getElementById("acceptButton");
     const arrangeTimeButton = document.getElementById("arrangeTimeButton");
     const declineButton = document.getElementById("declineButton");
+    const respondHelperText = document.getElementById("respondHelperText");
     const preferredDateInput = document.getElementById("preferredDateInput");
     const preferredTimeInput = document.getElementById("preferredTimeInput");
     const preferredTimingNoteInput = document.getElementById("preferredTimingNoteInput");
@@ -1305,6 +1306,71 @@
       return normaliseRequestFlowValue(quote && quote.requestType) === "pickupdeliveryrequest";
     }
 
+    function isDropOffPickupRequest(quote) {
+      return normaliseRequestFlowValue(quote && quote.requestType) === "dropoffpickuprequest";
+    }
+
+    function handoverForQuote(quote) {
+      const requestType = normaliseRequestFlowValue(quote && quote.requestType);
+      if (requestType !== "dropoffpickuprequest" && requestType !== "pickupdeliveryrequest") {
+        return null;
+      }
+      const legacyBusinessMoves = requestType === "pickupdeliveryrequest";
+      const rawStart = normaliseRequestFlowValue(quote && quote.startHandover);
+      const rawEnd = normaliseRequestFlowValue(quote && quote.endHandover);
+      const start = rawStart === "businesscollects" || rawStart === "customerdropsoff"
+        ? rawStart
+        : (legacyBusinessMoves ? "businesscollects" : "customerdropsoff");
+      const end = rawEnd === "businessreturns" || rawEnd === "customercollects"
+        ? rawEnd
+        : (legacyBusinessMoves ? "businessreturns" : "customercollects");
+      return { start, end };
+    }
+
+    function customerHandoverSummary(quote) {
+      const handover = handoverForQuote(quote);
+      if (!handover) {
+        return "";
+      }
+      if (handover.start === "customerdropsoff" && handover.end === "customercollects") {
+        return "You will drop off and collect.";
+      }
+      if (handover.start === "customerdropsoff") {
+        return "You will drop off; we will return it to you.";
+      }
+      if (handover.end === "customercollects") {
+        return "We will collect; you will collect when ready.";
+      }
+      return "We will collect and return.";
+    }
+
+    function customerJourneyType(quote) {
+      const value = normaliseRequestFlowValue(quote && quote.customerJourneyType);
+      if (value === "quote" || value === "booking" || value === "order") return value;
+      const legacy = normaliseRequestFlowValue(quote && quote.requestType);
+      return legacy === "bookingrequest" ? "booking" : (legacy === "orderrequest" ? "order" : "quote");
+    }
+
+    function quoteResponseCopy(quote) {
+      const journey = customerJourneyType(quote);
+      return {
+        helper: "Use the buttons below to confirm your choice.",
+        accept: "Accept & book",
+        arrange: "Accept quote – rearrange appointment",
+        decline: journey === "booking" ? "Decline booking" : (journey === "order" ? "Decline order" : "Decline quote"),
+      };
+    }
+
+    function journeyStatusCopy(quote) {
+      const journey = customerJourneyType(quote);
+      const copies = {
+        quote: { ready: "Quote ready", accepted: "Quote accepted", declined: "Quote declined", amount: "Quote amount" },
+        booking: { ready: "Booking ready to confirm", accepted: "Booking confirmed", declined: "Booking declined", amount: "Booking price" },
+        order: { ready: "Order ready to confirm", accepted: "Order confirmed", declined: "Order declined", amount: "Order total" },
+      };
+      return copies[journey] || copies.quote;
+    }
+
     function quoteNeedsCustomerLocation(quote) {
       if (!quote) {
         return false;
@@ -1312,9 +1378,8 @@
       if (isCollectionOrder(quote)) {
         return false;
       }
-      const requestType = normaliseRequestFlowValue(quote.requestType);
-      if (requestType === "dropoffpickuprequest") {
-        return false;
+      if (isDropOffPickupRequest(quote)) {
+        return Boolean(quote.requiresExactPinAfterQuoteAccepted);
       }
       return true;
     }
@@ -1339,7 +1404,7 @@
       if (isDeliveryOrder(quote)) {
         return "Proposed delivery time";
       }
-      if (isOrderRequest(quote)) {
+      if (customerJourneyType(quote) === "order") {
         return "Proposed date/time";
       }
       return "Proposed appointment";
@@ -1350,7 +1415,25 @@
       if (isDeliveryOrder(quote)) {
         prompt = "Please confirm the exact delivery point.";
       } else if (isPickupDeliveryRequest(quote)) {
-        prompt = "Please confirm the exact pickup or delivery point for the driver.";
+        const handover = handoverForQuote(quote);
+        if (handover && handover.start === "businesscollects" && handover.end === "businessreturns") {
+          prompt = "Please confirm the exact collection or return point for the driver.";
+        } else if (handover && handover.start === "businesscollects") {
+          prompt = "Please confirm the exact collection point for the driver.";
+        } else if (handover && handover.end === "businessreturns") {
+          prompt = "Please confirm the exact return point for the driver.";
+        } else {
+          prompt = "Please confirm the exact pickup or delivery point for the driver.";
+        }
+      } else if (isDropOffPickupRequest(quote)) {
+        const handover = handoverForQuote(quote);
+        if (handover && handover.start === "businesscollects") {
+          prompt = "Please confirm the exact collection location.";
+        } else if (handover && handover.end === "businessreturns") {
+          prompt = "Please confirm the exact return location.";
+        } else {
+          prompt = "Please confirm the exact drop-off location.";
+        }
       }
       return awaitingAgreedTime
         ? `${prompt.replace(/\.$/, "")} while the time is being arranged.`
@@ -1426,7 +1509,14 @@
         jobId: text(data.jobId),
         requestId: text(data.requestId),
         requestType: String(data.requestType || "").trim(),
+        customerJourneyType: String(data.customerJourneyType || "").trim(),
         fulfilmentType: String(data.fulfilmentType || "").trim(),
+        startHandover: String(data.startHandover || "").trim(),
+        endHandover: String(data.endHandover || "").trim(),
+        collectionAddress: text(data.collectionAddress),
+        returnAddress: text(data.returnAddress),
+        returnAddressSameAsCollection: asBool(data.returnAddressSameAsCollection),
+        handoverSummary: text(data.handoverSummary),
         customerName: text(data.customerName || data.publicCustomerName, "Customer"),
         businessName: text(data.businessName || data.companyName, "Van Mate"),
         jobTitle: text(data.jobTitle || data.publicJobTitle || data.jobDescription, "Job"),
@@ -1434,6 +1524,10 @@
         proposedDate: String(data.proposedDate || "").trim(),
         proposedStartTime: String(data.proposedStartTime || "").trim(),
         proposedAppointmentNote: String(data.proposedAppointmentNote || "").trim(),
+        dropOffDate: asDate(data.dropOffDate),
+        dropOffTime: String(data.dropOffTime || "").trim(),
+        pickUpDate: asDate(data.pickUpDate),
+        pickUpTime: String(data.pickUpTime || "").trim(),
         schedulingStatus: String(data.schedulingStatus || "").trim().toLowerCase(),
         estimatedDurationMinutes:
           typeof data.estimatedDurationMinutes === "number"
@@ -1569,7 +1663,17 @@
         return;
       }
 
-      document.title = "Van Mate quote";
+      document.title = `${journeyStatusCopy(quote).ready} | Van Mate`;
+      const journey = customerJourneyType(quote);
+      const journeyAccent = journey === "booking" ? "#9b7cff" : (journey === "order" ? "#ffa24c" : "#4a7dff");
+      document.documentElement.style.setProperty("--accent", journeyAccent);
+      const metadataTitle = `${journeyStatusCopy(quote).ready} | Van Mate`;
+      const metadataDescription = `Review and respond to this ${journey}.`;
+      document.querySelector('meta[property="og:title"]')?.setAttribute("content", metadataTitle);
+      document.querySelector('meta[property="og:description"]')?.setAttribute("content", metadataDescription);
+      document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", metadataTitle);
+      document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", metadataDescription);
+      document.querySelector('meta[name="description"]')?.setAttribute("content", metadataDescription);
       ogUrl.setAttribute("content", window.location.href);
 
       const accepted = quote.quoteAccepted;
@@ -1580,6 +1684,8 @@
       const needsCustomerLocation = quoteNeedsCustomerLocation(quote);
       const contactNoun = quoteContactNoun(quote);
       const collectionOrder = isCollectionOrder(quote);
+      const responseCopy = quoteResponseCopy(quote);
+      const journeyCopy = journeyStatusCopy(quote);
       const hasSelectedExactPin = Boolean(state.selectedExactPin);
       const currentLocationCaptured =
         state.selectedExactPin &&
@@ -1594,8 +1700,8 @@
             ? "Quote accepted, exact location needed"
             : (collectionOrder
                 ? "Order accepted"
-                : (awaitingAgreedTime ? "Quote accepted, time to arrange" : "Quote accepted")))
-        : (declined ? "Quote declined" : "Quote ready");
+                : (awaitingAgreedTime ? `${journeyCopy.accepted}, time to arrange` : journeyCopy.accepted)))
+        : (declined ? journeyCopy.declined : journeyCopy.ready);
 
       if (pending) {
         title.classList.add("hidden");
@@ -1606,13 +1712,13 @@
         title.classList.remove("hidden");
         description.classList.remove("hidden");
         title.textContent = accepted
-          ? (collectionOrder ? "Order accepted" : "Quote accepted")
-          : "Quote declined";
+          ? journeyCopy.accepted
+          : journeyCopy.declined;
         description.textContent = accepted
           ? (needsExactPin
               ? exactPinPrompt(quote)
               : (awaitingAgreedTime
-                  ? `The ${contactNoun} will contact you to arrange the time.`
+                  ? "Quote accepted. The business will contact you to arrange the appointment."
                   : (collectionOrder
                       ? "Your order has been accepted."
                       : `Your response has been sent to the ${contactNoun}.`)))
@@ -1621,14 +1727,33 @@
 
       summaryGrid.innerHTML = "";
       const proposedAppointment = formatProposedAppointmentLabel(quote.proposedDate, quote.proposedStartTime);
+      const handover = handoverForQuote(quote);
       renderRow("Customer", quote.customerName);
       renderRow("Job", quote.jobTitle);
-      renderRow(
-        proposedTimeLabel(quote),
-        proposedAppointment || formatDate(quote.scheduledAt, `${quote.jobDateLabel} ${quote.jobTimeLabel}`.trim()),
-      );
-      if (Number.isFinite(quote.estimatedDurationMinutes) && quote.estimatedDurationMinutes > 0) {
-        renderRow("Estimated duration", `${quote.estimatedDurationMinutes} minutes`);
+      if (handover) {
+        renderRow("Handover", customerHandoverSummary(quote));
+        renderRow(
+          handover.start === "businesscollects" ? "Business collection" : "Your drop-off",
+          formatProposedAppointmentLabel(quote.dropOffDate, quote.dropOffTime) || "Not set",
+        );
+        renderRow(
+          handover.end === "businessreturns" ? "Business return" : "Your collection",
+          formatProposedAppointmentLabel(quote.pickUpDate, quote.pickUpTime) || "Not set",
+        );
+        if (handover.start === "businesscollects" && quote.collectionAddress) {
+          renderRow("Collection address", quote.collectionAddress);
+        }
+        if (handover.end === "businessreturns" && quote.returnAddress) {
+          renderRow("Return address", quote.returnAddress);
+        }
+      } else {
+        renderRow(
+          proposedTimeLabel(quote),
+          proposedAppointment || formatDate(quote.scheduledAt, `${quote.jobDateLabel} ${quote.jobTimeLabel}`.trim()),
+        );
+        if (Number.isFinite(quote.estimatedDurationMinutes) && quote.estimatedDurationMinutes > 0) {
+          renderRow("Estimated duration", `${quote.estimatedDurationMinutes} minutes`);
+        }
       }
       if (quote.proposedAppointmentNote) {
         renderRow("Appointment note", formatDetails(quote.proposedAppointmentNote));
@@ -1636,7 +1761,7 @@
       if (needsCustomerLocation && quote.address) {
         renderRow(isDeliveryOrder(quote) ? "Delivery location" : "Job location", quote.address);
       }
-      renderRow("Quote amount", formatMoney(quote.quoteAmount), "quote-amount-row");
+      renderRow(journeyCopy.amount, formatMoney(quote.quoteAmount), "quote-amount-row");
       if (quote.quoteExtras.length) {
         renderRow("Included extras", quote.quoteExtras.join("\n"));
       }
@@ -1688,11 +1813,11 @@
       acceptButton.textContent =
         state.saving && state.selectedDecision === "accept_time"
           ? "Saving acceptance..."
-          : "Accept & book";
+          : responseCopy.accept;
       arrangeTimeButton.textContent =
         state.saving && state.selectedDecision === "accept_arrange"
           ? "Saving acceptance..."
-          : "Accept, arrange another time";
+          : responseCopy.arrange;
       confirmArrangeTimeButton.textContent =
         state.saving && state.selectedDecision === "accept_arrange"
           ? "Saving acceptance..."
@@ -1700,7 +1825,8 @@
       declineButton.textContent =
         state.saving && state.selectedDecision === "decline"
           ? "Saving response..."
-          : "Decline quote";
+          : responseCopy.decline;
+      respondHelperText.textContent = responseCopy.helper;
       shareCurrentPinButton.textContent =
         state.pinSelecting
           ? "Capturing current location..."
@@ -1730,13 +1856,17 @@
 
       if (accepted || declined) {
         heroTitle.textContent = accepted
-          ? (collectionOrder ? "Order accepted" : "Quote accepted")
-          : "Quote declined";
+          ? journeyCopy.accepted
+          : journeyCopy.declined;
         if (accepted && needsExactPin) {
           const pinPrompt = exactPinPrompt(quote);
           heroLede.textContent = pinPrompt;
           clearBanner();
-          setBanner(`Quote accepted. ${pinPrompt}`);
+          setBanner(
+            awaitingAgreedTime
+              ? `Quote accepted. The business will contact you to arrange the appointment. ${pinPrompt}`
+              : `Quote accepted. ${pinPrompt}`,
+          );
           content.classList.remove("hidden");
           respondCard.classList.add("hidden");
           arrangeTimeCard.classList.add("hidden");
@@ -1750,7 +1880,7 @@
               ? "Your order has been accepted.\nThe business will confirm collection details if needed.\n\nYou can close this page now."
               : hasExactPin
               ? (awaitingAgreedTime
-                  ? `Your exact location has been sent to the ${contactNoun}.\nThe ${contactNoun} will contact you to arrange the time.\n\nYou can close this page now.`
+                  ? `Quote accepted. The business will contact you to arrange the appointment.\nYour exact location has been sent to the ${contactNoun}.\n\nYou can close this page now.`
                   : `Your exact location has been sent to the ${contactNoun}.\n\nYou can close this page now.`)
               : `Your response has been sent to the ${contactNoun}.\n\nYou can close this page now.`)
           : `Your response has been sent to the ${contactNoun}.\n\nYou can close this page now.`;
@@ -1764,16 +1894,16 @@
                 ? "Your order has been accepted. The business will confirm collection details if needed."
                 : hasExactPin
                 ? (awaitingAgreedTime
-                    ? "Quote accepted. Exact location sent. Time still to arrange."
+                    ? "Quote accepted. The business will contact you to arrange the appointment. Exact location sent."
                     : "Quote accepted. Exact location sent.")
                 : (awaitingAgreedTime
-                    ? "Quote accepted. Time still to arrange."
-                    : "Quote accepted."))
-            : "Quote declined.",
+                    ? "Quote accepted. The business will contact you to arrange the appointment."
+                    : `${journeyCopy.accepted}.`))
+            : `${journeyCopy.declined}.`,
           "success",
         );
       } else {
-        heroTitle.textContent = "Review your quote";
+        heroTitle.textContent = `Review your ${customerJourneyType(quote)}`;
         heroLede.textContent =
           "Check the quote details below, then choose an option.";
         clearBanner();

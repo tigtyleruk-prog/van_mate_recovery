@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../helpers/app_theme.dart';
 import '../helpers/van_customer_request_actions.dart';
+import '../helpers/van_customer_journey_theme.dart';
 import '../helpers/van_invoice_extra_suggestions.dart';
 import '../helpers/van_job_request_state.dart';
 import '../helpers/van_quote_decline.dart';
@@ -18,6 +19,9 @@ import '../helpers/van_request_delete_key.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_exact_pin_source.dart';
 import '../models/van_business_profile.dart';
+import '../models/van_customer_journey.dart';
+import '../models/van_customer_request_flow.dart';
+import '../models/van_service_handover.dart';
 import '../models/van_job_service.dart';
 import '../models/van_job_request_draft.dart';
 import '../models/van_job_request_record.dart';
@@ -34,6 +38,7 @@ import '../services/van_job_request_cloud_service.dart';
 import '../services/van_job_services_storage.dart';
 import '../services/van_jobs_cloud_service.dart';
 import '../services/van_public_quote_cloud_service.dart';
+import '../services/van_pickup_reminder_service.dart';
 import '../services/van_quotes_cloud_service.dart';
 import '../services/van_invoices_cloud_service.dart';
 import '../services/van_invoice_number_storage.dart';
@@ -434,6 +439,14 @@ class VanQuoteHistoryEntry {
   }
 }
 
+enum VanCalendarJobKind {
+  standard,
+  collectionOrder,
+  deliveryOrder,
+  dropOffPickup,
+  pickupDelivery,
+}
+
 @immutable
 class DriverCustomerReplyMockData {
   const DriverCustomerReplyMockData({
@@ -505,7 +518,21 @@ class DriverCustomerReplyMockData {
     this.requestExpiresAt,
     this.requestLink = '',
     this.requestType = '',
+    this.customerJourneyType = 'quote',
+    this.startHandover = '',
+    this.endHandover = '',
+    this.allowedStartHandoverOptions = const <String>[],
+    this.allowedEndHandoverOptions = const <String>[],
+    this.collectionAddress = '',
+    this.returnAddress = '',
+    this.returnAddressSameAsCollection = false,
+    this.businessDropOffInstructions = '',
+    this.businessCollectionInstructions = '',
     this.fulfilmentType = '',
+    this.dropOffDate,
+    this.dropOffTime = '',
+    this.pickUpDate,
+    this.pickUpTime = '',
     this.proposedDate = '',
     this.proposedStartTime = '',
     this.proposedAppointmentNote = '',
@@ -600,7 +627,21 @@ class DriverCustomerReplyMockData {
   final DateTime? requestExpiresAt;
   final String requestLink;
   final String requestType;
+  final String customerJourneyType;
+  final String startHandover;
+  final String endHandover;
+  final List<String> allowedStartHandoverOptions;
+  final List<String> allowedEndHandoverOptions;
+  final String collectionAddress;
+  final String returnAddress;
+  final bool returnAddressSameAsCollection;
+  final String businessDropOffInstructions;
+  final String businessCollectionInstructions;
   final String fulfilmentType;
+  final DateTime? dropOffDate;
+  final String dropOffTime;
+  final DateTime? pickUpDate;
+  final String pickUpTime;
   final String proposedDate;
   final String proposedStartTime;
   final String proposedAppointmentNote;
@@ -625,6 +666,28 @@ class DriverCustomerReplyMockData {
   final bool testMode;
   final bool deleted;
   final bool archived;
+
+  VanCustomerJourneyType get customerJourney =>
+      vanCustomerJourneyTypeFromStorage(customerJourneyType);
+  VanCustomerRequestType get customerRequestType =>
+      vanCustomerRequestTypeFromStorage(
+        requestType,
+        fallback: VanCustomerRequestType.quoteRequest,
+      );
+  bool get hasServiceHandover =>
+      vanRequestTypeSupportsHandover(customerRequestType);
+  VanServiceHandoverConfig get effectiveHandover =>
+      VanServiceHandoverConfig.resolve(
+        requestType: customerRequestType,
+        startValue: startHandover,
+        endValue: endHandover,
+        allowedStartValues: allowedStartHandoverOptions,
+        allowedEndValues: allowedEndHandoverOptions,
+      );
+  String get handoverSummary => vanBusinessHandoverSummary(
+    effectiveHandover.start,
+    effectiveHandover.end,
+  );
 
   String get activeQuoteResponseLink => resolveVanQuoteResponseDisplayLink(
     quoteResponseLink: quoteResponseLink,
@@ -681,9 +744,11 @@ class DriverCustomerReplyMockData {
       return null;
     }
 
-    final resolvedDuration = estimatedDurationMinutes == null
+    final effectiveDuration =
+        dropOffPickupDurationMinutes ?? estimatedDurationMinutes;
+    final resolvedDuration = effectiveDuration == null
         ? 60
-        : estimatedDurationMinutes!.clamp(1, 24 * 60).toInt();
+        : effectiveDuration.clamp(1, 24 * 60).toInt();
 
     return VanBookedCalendarSlot(
       start: start,
@@ -703,8 +768,30 @@ class DriverCustomerReplyMockData {
   bool get hasLocationDetails =>
       address.trim().isNotEmpty || postcode.trim().isNotEmpty;
 
-  bool get requiresAnyExactPin =>
-      requestExactPin || requiresExactPinAfterQuoteAccepted;
+  bool get isDropOffPickupRequest =>
+      requestType.trim().toLowerCase() == 'dropoffpickuprequest';
+
+  bool get requiresAnyExactPin => isDropOffPickupRequest
+      ? requiresExactPinAfterQuoteAccepted
+      : requestExactPin || requiresExactPinAfterQuoteAccepted;
+
+  DateTime? get dropOffDateTime =>
+      _combineVanJobDateAndTime(dropOffDate, dropOffTime);
+
+  DateTime? get pickUpDateTime =>
+      _combineVanJobDateAndTime(pickUpDate, pickUpTime);
+
+  int? get dropOffPickupDurationMinutes {
+    final start = dropOffDateTime;
+    final end = pickUpDateTime;
+    if (start == null || end == null || !end.isAfter(start)) {
+      return null;
+    }
+    return end.difference(start).inMinutes;
+  }
+
+  int? get effectiveCalendarDurationMinutes =>
+      dropOffPickupDurationMinutes ?? estimatedDurationMinutes;
 
   bool get isAwaitingRequiredExactPin =>
       isQuoteAccepted && requiresAnyExactPin && !exactPinSaved;
@@ -714,6 +801,11 @@ class DriverCustomerReplyMockData {
       return true;
     }
     if (agreedDateTime != null) {
+      return true;
+    }
+    if (isDropOffPickupRequest &&
+        dropOffDateTime != null &&
+        pickUpDateTime != null) {
       return true;
     }
     final normalizedSchedulingStatus = schedulingStatus.trim().toLowerCase();
@@ -988,6 +1080,33 @@ class DriverCustomerReplyMockData {
 
   bool get hasRequest => requestId?.trim().isNotEmpty == true;
 
+  VanCalendarJobKind get calendarJobKind {
+    final normalizedRequestType = requestType.trim().toLowerCase();
+    final normalizedFulfilmentType = fulfilmentType.trim().toLowerCase();
+    if (normalizedRequestType == 'orderrequest') {
+      if (normalizedFulfilmentType == 'collection') {
+        return VanCalendarJobKind.collectionOrder;
+      }
+      if (normalizedFulfilmentType == 'delivery') {
+        return VanCalendarJobKind.deliveryOrder;
+      }
+    }
+    if (normalizedRequestType == 'dropoffpickuprequest') {
+      return VanCalendarJobKind.dropOffPickup;
+    }
+    if (normalizedRequestType == 'pickupdeliveryrequest') {
+      return VanCalendarJobKind.pickupDelivery;
+    }
+    return VanCalendarJobKind.standard;
+  }
+
+  bool get allowsParallelCalendarScheduling => switch (calendarJobKind) {
+    VanCalendarJobKind.collectionOrder ||
+    VanCalendarJobKind.dropOffPickup ||
+    VanCalendarJobKind.pickupDelivery => true,
+    VanCalendarJobKind.standard || VanCalendarJobKind.deliveryOrder => false,
+  };
+
   bool get _hasExplicitQuoteResponseLink =>
       quoteResponseId.trim().isNotEmpty ||
       quoteResponseToken.trim().isNotEmpty ||
@@ -1182,6 +1301,16 @@ class DriverCustomerReplyMockData {
       requestPhotos: requestPhotos,
       requiresExactPinAfterQuoteAccepted: requiresExactPinAfterQuoteAccepted,
       requestType: requestType,
+      customerJourneyType: customerJourneyType,
+      startHandover: startHandover,
+      endHandover: endHandover,
+      allowedStartHandoverOptions: allowedStartHandoverOptions,
+      allowedEndHandoverOptions: allowedEndHandoverOptions,
+      collectionAddress: collectionAddress,
+      returnAddress: returnAddress,
+      returnAddressSameAsCollection: returnAddressSameAsCollection,
+      businessDropOffInstructions: businessDropOffInstructions,
+      businessCollectionInstructions: businessCollectionInstructions,
       selectedQuestionIds: const <String>[],
       answers: const <VanJobRequestAnswer>[],
       checklistItems: checklistItems,
@@ -1347,7 +1476,21 @@ class DriverCustomerReplyMockData {
     DateTime? requestExpiresAt,
     String? requestLink,
     String? requestType,
+    String? customerJourneyType,
+    String? startHandover,
+    String? endHandover,
+    List<String>? allowedStartHandoverOptions,
+    List<String>? allowedEndHandoverOptions,
+    String? collectionAddress,
+    String? returnAddress,
+    bool? returnAddressSameAsCollection,
+    String? businessDropOffInstructions,
+    String? businessCollectionInstructions,
     String? fulfilmentType,
+    DateTime? dropOffDate,
+    String? dropOffTime,
+    DateTime? pickUpDate,
+    String? pickUpTime,
     String? proposedDate,
     String? proposedStartTime,
     String? proposedAppointmentNote,
@@ -1456,7 +1599,26 @@ class DriverCustomerReplyMockData {
       requestExpiresAt: requestExpiresAt ?? this.requestExpiresAt,
       requestLink: requestLink ?? this.requestLink,
       requestType: requestType ?? this.requestType,
+      customerJourneyType: customerJourneyType ?? this.customerJourneyType,
+      startHandover: startHandover ?? this.startHandover,
+      endHandover: endHandover ?? this.endHandover,
+      allowedStartHandoverOptions:
+          allowedStartHandoverOptions ?? this.allowedStartHandoverOptions,
+      allowedEndHandoverOptions:
+          allowedEndHandoverOptions ?? this.allowedEndHandoverOptions,
+      collectionAddress: collectionAddress ?? this.collectionAddress,
+      returnAddress: returnAddress ?? this.returnAddress,
+      returnAddressSameAsCollection:
+          returnAddressSameAsCollection ?? this.returnAddressSameAsCollection,
+      businessDropOffInstructions:
+          businessDropOffInstructions ?? this.businessDropOffInstructions,
+      businessCollectionInstructions:
+          businessCollectionInstructions ?? this.businessCollectionInstructions,
       fulfilmentType: fulfilmentType ?? this.fulfilmentType,
+      dropOffDate: dropOffDate ?? this.dropOffDate,
+      dropOffTime: dropOffTime ?? this.dropOffTime,
+      pickUpDate: pickUpDate ?? this.pickUpDate,
+      pickUpTime: pickUpTime ?? this.pickUpTime,
       proposedDate: proposedDate ?? this.proposedDate,
       proposedStartTime: proposedStartTime ?? this.proposedStartTime,
       proposedAppointmentNote:
@@ -1597,7 +1759,21 @@ class DriverCustomerReplyMockData {
       'requestExpiresAt': requestExpiresAt?.toIso8601String(),
       'requestLink': requestLink,
       'requestType': requestType,
+      'customerJourneyType': customerJourneyType,
+      'startHandover': startHandover,
+      'endHandover': endHandover,
+      'allowedStartHandoverOptions': allowedStartHandoverOptions,
+      'allowedEndHandoverOptions': allowedEndHandoverOptions,
+      'collectionAddress': collectionAddress,
+      'returnAddress': returnAddress,
+      'returnAddressSameAsCollection': returnAddressSameAsCollection,
+      'businessDropOffInstructions': businessDropOffInstructions,
+      'businessCollectionInstructions': businessCollectionInstructions,
       'fulfilmentType': fulfilmentType,
+      'dropOffDate': dropOffDate?.toIso8601String(),
+      'dropOffTime': dropOffTime,
+      'pickUpDate': pickUpDate?.toIso8601String(),
+      'pickUpTime': pickUpTime,
       'proposedDate': proposedDate,
       'proposedStartTime': proposedStartTime,
       'proposedAppointmentNote': proposedAppointmentNote,
@@ -1815,7 +1991,11 @@ class DriverCustomerReplyMockData {
         fallback: _jsonText(effectiveJson['customerPostcode']),
       ),
       notesMessage: _jsonText(effectiveJson['notesMessage']),
-      requestExactPin: _jsonBool(effectiveJson['requestExactPin']),
+      requestExactPin:
+          _jsonText(effectiveJson['requestType']).trim().toLowerCase() ==
+              'dropoffpickuprequest'
+          ? false
+          : _jsonBool(effectiveJson['requestExactPin']),
       requestPhotos: _jsonBool(effectiveJson['requestPhotos']),
       requiresExactPinAfterQuoteAccepted:
           _jsonBool(effectiveJson['requiresExactPinAfterQuoteAccepted']) ||
@@ -1979,7 +2159,44 @@ class DriverCustomerReplyMockData {
       requestExpiresAt: _jsonDateTime(effectiveJson['requestExpiresAt']),
       requestLink: _jsonText(effectiveJson['requestLink']),
       requestType: _jsonText(effectiveJson['requestType']),
+      customerJourneyType:
+          _jsonText(effectiveJson['customerJourneyType']).trim().isEmpty
+          ? 'quote'
+          : _jsonText(effectiveJson['customerJourneyType']),
+      startHandover: _jsonText(effectiveJson['startHandover']),
+      endHandover: _jsonText(effectiveJson['endHandover']),
+      allowedStartHandoverOptions:
+          (effectiveJson['allowedStartHandoverOptions'] as List?)
+              ?.map((item) => _jsonText(item))
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false) ??
+          const <String>[],
+      allowedEndHandoverOptions:
+          (effectiveJson['allowedEndHandoverOptions'] as List?)
+              ?.map((item) => _jsonText(item))
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false) ??
+          const <String>[],
+      collectionAddress: _jsonText(
+        effectiveJson['collectionAddress'] ?? effectiveJson['pickupAddress'],
+      ),
+      returnAddress: _jsonText(
+        effectiveJson['returnAddress'] ?? effectiveJson['deliveryAddress'],
+      ),
+      returnAddressSameAsCollection: _jsonBool(
+        effectiveJson['returnAddressSameAsCollection'],
+      ),
+      businessDropOffInstructions: _jsonText(
+        effectiveJson['businessDropOffInstructions'],
+      ),
+      businessCollectionInstructions: _jsonText(
+        effectiveJson['businessCollectionInstructions'],
+      ),
       fulfilmentType: _jsonText(effectiveJson['fulfilmentType']),
+      dropOffDate: _jsonDateTime(effectiveJson['dropOffDate']),
+      dropOffTime: _jsonText(effectiveJson['dropOffTime']),
+      pickUpDate: _jsonDateTime(effectiveJson['pickUpDate']),
+      pickUpTime: _jsonText(effectiveJson['pickUpTime']),
       proposedDate: _jsonIsoDateText(effectiveJson['proposedDate']),
       proposedStartTime: _jsonTimeText(effectiveJson['proposedStartTime']),
       proposedAppointmentNote: _jsonText(
@@ -1999,7 +2216,12 @@ class DriverCustomerReplyMockData {
           ).trim().toLowerCase().isEmpty
           ? 'unscheduled'
           : _jsonText(effectiveJson['calendarStatus']).trim().toLowerCase(),
-      locationPending: _jsonBool(effectiveJson['locationPending']),
+      locationPending:
+          _jsonText(effectiveJson['requestType']).trim().toLowerCase() ==
+              'dropoffpickuprequest'
+          ? (_jsonBool(effectiveJson['requiresExactPinAfterQuoteAccepted']) &&
+                _jsonBool(effectiveJson['locationPending']))
+          : _jsonBool(effectiveJson['locationPending']),
       exactPinSource:
           _jsonText(
             effectiveJson['exactPinSource'],
@@ -2038,6 +2260,16 @@ DateTime? effectiveAgreedSchedulingTimeForJob(
   DriverCustomerReplyMockData job, {
   VanJobRequestRecord? request,
 }) {
+  if (job.isDropOffPickupRequest &&
+      job.dropOffDateTime != null &&
+      job.pickUpDateTime != null) {
+    return job.dropOffDateTime;
+  }
+  if (request?.isDropOffPickupRequest == true &&
+      request?.dropOffDateTime != null &&
+      request?.pickUpDateTime != null) {
+    return request?.dropOffDateTime;
+  }
   if (job.isConfirmed || job.isCompletedJob || job.isScheduledInCalendarState) {
     return job.bookedCalendarSlot?.start ??
         job.agreedDateTime ??
@@ -2090,6 +2322,16 @@ bool hasCanonicalAgreedSchedulingTimeForJob(
   DriverCustomerReplyMockData job, {
   VanJobRequestRecord? request,
 }) {
+  if (job.isDropOffPickupRequest &&
+      job.dropOffDateTime != null &&
+      job.pickUpDateTime != null) {
+    return true;
+  }
+  if (request?.isDropOffPickupRequest == true &&
+      request?.dropOffDateTime != null &&
+      request?.pickUpDateTime != null) {
+    return true;
+  }
   if (job.isConfirmed || job.isCompletedJob || job.isScheduledInCalendarState) {
     return true;
   }
@@ -2408,6 +2650,17 @@ DateTime? _parseIsoDateAndTime(String dateValue, String timeValue) {
     parsedTime.hour,
     parsedTime.minute,
   );
+}
+
+DateTime? _combineVanJobDateAndTime(DateTime? date, String timeValue) {
+  if (date == null) {
+    return null;
+  }
+  final time = _parseJobTimeLabel(timeValue);
+  if (time == null) {
+    return null;
+  }
+  return DateTime(date.year, date.month, date.day, time.hour, time.minute);
 }
 
 DateTime? _parseJobDateLabel(String value) {
@@ -3991,6 +4244,16 @@ class DriverReplyMockState extends ChangeNotifier {
       requiresExactPinAfterQuoteAccepted:
           request.requiresExactPinAfterQuoteAccepted,
       requestType: request.requestType,
+      customerJourneyType: request.customerJourneyType,
+      startHandover: request.startHandover,
+      endHandover: request.endHandover,
+      allowedStartHandoverOptions: request.allowedStartHandoverOptions,
+      allowedEndHandoverOptions: request.allowedEndHandoverOptions,
+      collectionAddress: request.collectionAddress,
+      returnAddress: request.returnAddress,
+      returnAddressSameAsCollection: request.returnAddressSameAsCollection,
+      businessDropOffInstructions: request.businessDropOffInstructions,
+      businessCollectionInstructions: request.businessCollectionInstructions,
       fulfilmentType: request.fulfilmentType,
       status: normalizeVanJobRequestStatus(request.status) == 'request_sent'
           ? 'requestSent'
@@ -4806,6 +5069,16 @@ class DriverReplyMockState extends ChangeNotifier {
       requestExpiresAt: existing?.requestExpiresAt,
       requestLink: existing?.requestLink ?? '',
       requestType: draft.requestType,
+      customerJourneyType: draft.customerJourneyType,
+      startHandover: draft.startHandover,
+      endHandover: draft.endHandover,
+      allowedStartHandoverOptions: draft.allowedStartHandoverOptions,
+      allowedEndHandoverOptions: draft.allowedEndHandoverOptions,
+      collectionAddress: draft.collectionAddress,
+      returnAddress: draft.returnAddress,
+      returnAddressSameAsCollection: draft.returnAddressSameAsCollection,
+      businessDropOffInstructions: draft.businessDropOffInstructions,
+      businessCollectionInstructions: draft.businessCollectionInstructions,
       fulfilmentType: existing?.fulfilmentType ?? '',
       scheduledDate: draft.scheduledDate,
       scheduledStartTime: draft.scheduledStartTime,
@@ -5056,6 +5329,27 @@ class DriverReplyMockState extends ChangeNotifier {
       requestExpiresAt: existing?.requestExpiresAt ?? reply.requestExpiresAt,
       requestLink: existing?.requestLink ?? reply.requestLink,
       requestType: existing?.requestType ?? reply.requestType,
+      customerJourneyType:
+          existing?.customerJourneyType ?? reply.customerJourneyType,
+      startHandover: existing?.startHandover ?? reply.startHandover,
+      endHandover: existing?.endHandover ?? reply.endHandover,
+      allowedStartHandoverOptions:
+          existing?.allowedStartHandoverOptions ??
+          reply.allowedStartHandoverOptions,
+      allowedEndHandoverOptions:
+          existing?.allowedEndHandoverOptions ??
+          reply.allowedEndHandoverOptions,
+      collectionAddress: existing?.collectionAddress ?? reply.collectionAddress,
+      returnAddress: existing?.returnAddress ?? reply.returnAddress,
+      returnAddressSameAsCollection:
+          existing?.returnAddressSameAsCollection ??
+          reply.returnAddressSameAsCollection,
+      businessDropOffInstructions:
+          existing?.businessDropOffInstructions ??
+          reply.businessDropOffInstructions,
+      businessCollectionInstructions:
+          existing?.businessCollectionInstructions ??
+          reply.businessCollectionInstructions,
       fulfilmentType: existing?.fulfilmentType ?? reply.fulfilmentType,
     );
     _jobsById[jobId] = updated;
@@ -5199,6 +5493,63 @@ class DriverReplyMockState extends ChangeNotifier {
     _activeJobId = resolvedId;
     _scheduleSave();
     return updated;
+  }
+
+  bool _shouldScheduleHandoverReminder(
+    DriverCustomerReplyMockData job,
+    DateTime? handoverAt,
+  ) {
+    return shouldScheduleVanPickupReminder(
+      isDropOffPickup: job.hasServiceHandover,
+      isScheduled: job.isScheduledInCalendarState,
+      isCompleted: job.isCompletedJob,
+      isCancelled: job.isCancelled,
+      isHidden: job.isHiddenFromNormalLists,
+      pickUpAt: handoverAt,
+    );
+  }
+
+  Future<void> _syncPickupReminderForJob(
+    DriverCustomerReplyMockData job,
+  ) async {
+    final startAt = job.dropOffDateTime;
+    final endAt = job.pickUpDateTime;
+    final schedulesStart = _shouldScheduleHandoverReminder(job, startAt);
+    final schedulesEnd = _shouldScheduleHandoverReminder(job, endAt);
+    if (!schedulesStart && !schedulesEnd) {
+      await VanPickupReminderService.instance.cancel(job.jobId);
+      return;
+    }
+    if (schedulesStart) {
+      await VanPickupReminderService.instance.scheduleStart(
+        jobId: job.jobId,
+        customerName: job.customerName,
+        serviceName: job.jobTitle,
+        startAt: startAt!,
+        customerJourneyType: job.customerJourneyType,
+        startHandover: job.effectiveHandover.start.storageKey,
+      );
+    } else {
+      await VanPickupReminderService.instance.cancelStart(job.jobId);
+    }
+    if (schedulesEnd) {
+      await VanPickupReminderService.instance.schedule(
+        jobId: job.jobId,
+        customerName: job.customerName,
+        serviceName: job.jobTitle,
+        pickUpAt: endAt!,
+        customerJourneyType: job.customerJourneyType,
+        endHandover: job.effectiveHandover.end.storageKey,
+      );
+    } else {
+      await VanPickupReminderService.instance.cancelEnd(job.jobId);
+    }
+  }
+
+  Future<void> syncPickupReminders() async {
+    for (final job in _jobsById.values) {
+      await _syncPickupReminderForJob(job);
+    }
   }
 
   void _debugLogCalendarJobSnapshot(
@@ -5547,6 +5898,9 @@ class DriverReplyMockState extends ChangeNotifier {
     final normalizedDuration = estimatedDurationMinutes.clamp(1, 24 * 60);
     final proposedStart = scheduledAt;
     final proposedEnd = scheduledAt.add(Duration(minutes: normalizedDuration));
+    final proposedJob = normalizedIgnoredJobId.isEmpty
+        ? null
+        : _jobsById[normalizedIgnoredJobId];
 
     for (final job in _jobsById.values) {
       if (normalizedIgnoredJobId.isNotEmpty &&
@@ -5569,6 +5923,10 @@ class DriverReplyMockState extends ChangeNotifier {
           proposedStart.isBefore(existingEnd) &&
           proposedEnd.isAfter(existingStart);
       if (!overlaps) {
+        continue;
+      }
+      if (proposedJob?.allowsParallelCalendarScheduling == true &&
+          job.allowsParallelCalendarScheduling) {
         continue;
       }
 
@@ -5811,6 +6169,7 @@ class DriverReplyMockState extends ChangeNotifier {
         'calendarJobId=$scheduledJobId',
       );
       await saveToStorage(syncCloud: false);
+      await _syncPickupReminderForJob(updated);
       _debugLogCalendarJobSnapshot(
         'AddToCalendarSave:persistScheduledJob',
         updated,
@@ -6155,6 +6514,7 @@ class DriverReplyMockState extends ChangeNotifier {
         'jobId=${updated.jobId}',
       );
       await saveToStorage(syncCloud: false);
+      await VanPickupReminderService.instance.cancel(updated.jobId);
       notifyListeners();
       return true;
     } catch (error, stackTrace) {
@@ -6191,6 +6551,9 @@ class DriverReplyMockState extends ChangeNotifier {
     });
     if (updated != null && updated.requestId?.trim().isNotEmpty == true) {
       unawaited(cancelRequestForJob(jobId: updated.jobId, scheduleSave: false));
+    }
+    if (updated != null) {
+      unawaited(VanPickupReminderService.instance.cancel(updated.jobId));
     }
     return updated;
   }
@@ -6329,6 +6692,7 @@ class DriverReplyMockState extends ChangeNotifier {
       debugPrint(
         '[VanJobDelete] firestore soft delete success jobId=$resolvedId ownerUid=$normalizedOwnerUid requestDeleted=${requestBackup != null} invoicesRetained=${savedInvoiceHistory.where((entry) => entry.jobKey.trim() == resolvedId).length}',
       );
+      await VanPickupReminderService.instance.cancel(resolvedId);
       return true;
     } on FirebaseException catch (error, stackTrace) {
       debugPrint(
@@ -6624,6 +6988,11 @@ class DriverReplyMockState extends ChangeNotifier {
               ? IncomingRequestDeleteStatus.deleted
               : IncomingRequestDeleteStatus.removedFromDeviceOnly)
         : IncomingRequestDeleteStatus.failed;
+
+    if (status != IncomingRequestDeleteStatus.failed &&
+        linkedJobId.isNotEmpty) {
+      await VanPickupReminderService.instance.cancel(linkedJobId);
+    }
 
     debugPrint(
       '[IncomingRequestDelete] result requestId=${normalizedRequestId.isEmpty ? '(none)' : normalizedRequestId} linkedJobId=${linkedJobId.isEmpty ? '(none)' : linkedJobId} source=${resolvedSource.isEmpty ? '(none)' : resolvedSource} ownerUid=${ownerUid.isEmpty ? '(none)' : ownerUid} deleteKey=$deleteKey attemptedPaths=${attemptedPaths.isEmpty ? '(none)' : attemptedPaths.join(', ')} cloudDeleteSucceeded=$cloudDeleteSucceeded cloudNotFoundOnly=$cloudNotFoundOnly cloudPermissionDenied=$cloudPermissionDenied localDeleteSucceeded=$localDeleteSucceeded stillVisible=$stillVisible visibleCountBefore=$visibleCountBeforeDelete visibleCountAfter=$visibleCountAfterDelete finalStatus=${status.name}',
@@ -7197,7 +7566,7 @@ class DriverReplyMockState extends ChangeNotifier {
   }
 
   void setJobCompleted(bool value, {DateTime? completedAt, String? jobId}) {
-    _updateJob(jobId, (job) {
+    final updated = _updateJob(jobId, (job) {
       if (job.isCancelled) {
         return job;
       }
@@ -7210,6 +7579,9 @@ class DriverReplyMockState extends ChangeNotifier {
         calendarStatus: value ? 'completed' : job.calendarStatus,
       );
     });
+    if (value && updated != null) {
+      unawaited(VanPickupReminderService.instance.cancel(updated.jobId));
+    }
   }
 
   void setInvoiceCreated(bool value, {String? jobId}) {
@@ -8570,7 +8942,12 @@ class DriverReplyMockState extends ChangeNotifier {
       requiresExactPinAfterQuoteAccepted:
           job.requiresExactPinAfterQuoteAccepted,
       requestType: job.requestType,
+      customerJourneyType: job.customerJourneyType,
       fulfilmentType: job.fulfilmentType,
+      dropOffDate: job.dropOffDate,
+      dropOffTime: job.dropOffTime,
+      pickUpDate: job.pickUpDate,
+      pickUpTime: job.pickUpTime,
       driverMessagePreview: job.notesMessage,
       submittedAt: submittedAt,
       customerSubmittedAt: customerSubmittedAt,
@@ -8707,7 +9084,23 @@ class DriverReplyMockState extends ChangeNotifier {
               requiresExactPinAfterQuoteAccepted:
                   request.requiresExactPinAfterQuoteAccepted,
               requestType: request.requestType,
+              customerJourneyType: request.customerJourneyType,
+              startHandover: request.startHandover,
+              endHandover: request.endHandover,
+              allowedStartHandoverOptions: request.allowedStartHandoverOptions,
+              allowedEndHandoverOptions: request.allowedEndHandoverOptions,
+              collectionAddress: request.collectionAddress,
+              returnAddress: request.returnAddress,
+              returnAddressSameAsCollection:
+                  request.returnAddressSameAsCollection,
+              businessDropOffInstructions: request.businessDropOffInstructions,
+              businessCollectionInstructions:
+                  request.businessCollectionInstructions,
               fulfilmentType: request.fulfilmentType,
+              dropOffDate: request.dropOffDate,
+              dropOffTime: request.dropOffTime,
+              pickUpDate: request.pickUpDate,
+              pickUpTime: request.pickUpTime,
               checklistItems: request.checklistItems,
               customQuestions: request.customQuestions,
               status: status,
@@ -8766,7 +9159,9 @@ class DriverReplyMockState extends ChangeNotifier {
               ),
               scheduledDate: request.scheduledDate,
               scheduledStartTime: request.scheduledStartTime,
-              estimatedDurationMinutes: request.estimatedDurationMinutes,
+              estimatedDurationMinutes:
+                  request.dropOffPickupDurationMinutes ??
+                  request.estimatedDurationMinutes,
               calendarStatus: isCancelled
                   ? 'cancelled'
                   : existingIsCompleted
@@ -8775,7 +9170,9 @@ class DriverReplyMockState extends ChangeNotifier {
               locationPending: request.locationPending,
               quoteTimingChoice: request.quoteTimingChoice,
               agreedDateTime:
-                  request.agreedStartAtOrParsed ?? request.agreedDateTime,
+                  request.dropOffDateTime ??
+                  request.agreedStartAtOrParsed ??
+                  request.agreedDateTime,
               schedulingStatus: request.schedulingStatus,
               exactPinSource: request.exactPinSource,
               preferredDate: request.preferredDate,
@@ -8808,7 +9205,22 @@ class DriverReplyMockState extends ChangeNotifier {
           requiresExactPinAfterQuoteAccepted:
               request.requiresExactPinAfterQuoteAccepted,
           requestType: request.requestType,
+          customerJourneyType: request.customerJourneyType,
+          startHandover: request.startHandover,
+          endHandover: request.endHandover,
+          allowedStartHandoverOptions: request.allowedStartHandoverOptions,
+          allowedEndHandoverOptions: request.allowedEndHandoverOptions,
+          collectionAddress: request.collectionAddress,
+          returnAddress: request.returnAddress,
+          returnAddressSameAsCollection: request.returnAddressSameAsCollection,
+          businessDropOffInstructions: request.businessDropOffInstructions,
+          businessCollectionInstructions:
+              request.businessCollectionInstructions,
           fulfilmentType: request.fulfilmentType,
+          dropOffDate: request.dropOffDate,
+          dropOffTime: request.dropOffTime,
+          pickUpDate: request.pickUpDate,
+          pickUpTime: request.pickUpTime,
           checklistItems: request.checklistItems,
           customQuestions: request.customQuestions,
           status: status,
@@ -8878,7 +9290,9 @@ class DriverReplyMockState extends ChangeNotifier {
           ),
           scheduledDate: request.scheduledDate,
           scheduledStartTime: request.scheduledStartTime,
-          estimatedDurationMinutes: request.estimatedDurationMinutes,
+          estimatedDurationMinutes:
+              request.dropOffPickupDurationMinutes ??
+              request.estimatedDurationMinutes,
           calendarStatus: isCancelled
               ? 'cancelled'
               : existingIsCompleted
@@ -8887,7 +9301,9 @@ class DriverReplyMockState extends ChangeNotifier {
           locationPending: request.locationPending,
           quoteTimingChoice: request.quoteTimingChoice,
           agreedDateTime:
-              request.agreedStartAtOrParsed ?? request.agreedDateTime,
+              request.dropOffDateTime ??
+              request.agreedStartAtOrParsed ??
+              request.agreedDateTime,
           schedulingStatus: request.schedulingStatus,
           exactPinSource: request.exactPinSource,
           preferredDate: request.preferredDate,
@@ -10367,9 +10783,7 @@ class _DriverCustomerReplyPageState extends State<DriverCustomerReplyPage> {
     final hasExactPin =
         reply.exactPinSaved || (requestRecord?.hasExactPin ?? false);
     final readyToQuote = actionState.canCreateQuote;
-    final replyAccent = hasExactPin
-        ? const Color(0xFF58D0A4)
-        : const Color(0xFF4A7DFF);
+    final replyAccent = reply.customerJourney.journeyTheme.accent;
     final scheduledAt = reply.scheduledAtOrParsed;
     final dateTimeLabel = scheduledAt != null
         ? formatDateTime(scheduledAt, TimeOfDay.fromDateTime(scheduledAt))
@@ -10513,7 +10927,7 @@ class _DriverCustomerReplyPageState extends State<DriverCustomerReplyPage> {
                       const SizedBox(height: 18),
                       Text(
                         isBookingLinkSubmission
-                            ? 'Booking request received'
+                            ? reply.customerJourney.copy.receivedHeading
                             : 'Customer reply received',
                         style: theme.textTheme.headlineMedium?.copyWith(
                           color: Colors.white,
@@ -10587,9 +11001,15 @@ class _DriverCustomerReplyPageState extends State<DriverCustomerReplyPage> {
                                         children: [
                                           if (isBookingLinkSubmission)
                                             _buildStatusChip(
-                                              'Request received',
-                                              color: const Color(0xFF58D0A4),
-                                              icon: Icons.check_circle_outline,
+                                              reply
+                                                  .customerJourney
+                                                  .copy
+                                                  .receivedHeading,
+                                              color: replyAccent,
+                                              icon: reply
+                                                  .customerJourney
+                                                  .journeyTheme
+                                                  .icon,
                                               filled: true,
                                             ),
                                           if (hasExactPin)
@@ -10862,8 +11282,12 @@ class _DriverCustomerReplyPageState extends State<DriverCustomerReplyPage> {
                             if (actionState.canCreateQuote)
                               FilledButton.icon(
                                 onPressed: _createQuote,
-                                icon: const Icon(Icons.request_quote_outlined),
-                                label: const Text('Create quote'),
+                                icon: Icon(
+                                  reply.customerJourney.journeyTheme.icon,
+                                ),
+                                label: Text(
+                                  reply.customerJourney.copy.businessAction,
+                                ),
                                 style: FilledButton.styleFrom(
                                   backgroundColor: const Color(0xFF4A7DFF),
                                   foregroundColor: Colors.white,
@@ -12762,10 +13186,13 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     final customQuestionSummary = _currentJobCustomQuestionSummary();
     final request = _requestRecord;
     final actionState = deriveVanJobActionState(reply, request: request);
-    final pageTitle = _isRevisingQuote ? 'Revise quote' : 'Create quote';
+    final journeyCopy = reply.customerJourney.copy;
+    final pageTitle = _isRevisingQuote
+        ? 'Revise ${journeyCopy.requestNoun.toLowerCase()}'
+        : journeyCopy.businessAction;
     final pageSubtitle = _isRevisingQuote
         ? 'Update the previous quote and resend it to the customer.'
-        : 'Use the customer reply to price the job.';
+        : 'Review the customer request and send a quote.';
     final quoteAccepted = actionState.isQuoteAccepted;
     final quoteDeclined = reply.isQuoteDeclined;
     final awaitingCustomerResponse =
@@ -12850,6 +13277,17 @@ class _CreateQuotePageState extends State<CreateQuotePage>
           label: 'Custom',
           value: customQuestionSummary!,
           accent: const Color(0xFF4A7DFF),
+        ),
+      );
+    }
+
+    if (reply.hasServiceHandover) {
+      pricingSummary.add(
+        _QuoteSummaryItem(
+          icon: Icons.swap_vert_circle_outlined,
+          label: 'Handover',
+          value: reply.handoverSummary,
+          accent: const Color(0xFFFFA24C),
         ),
       );
     }
@@ -13458,7 +13896,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                 icon: Icons.send,
                                 label: _openingSendChannel
                                     ? 'Opening...'
-                                    : 'Send quote',
+                                    : journeyCopy.businessAction,
                               ),
                             if (quoteDeclined)
                               filledAction(
@@ -14109,7 +14547,10 @@ class _DriverQuoteMockPageState extends State<DriverQuoteMockPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final pageTitle = reply.isQuoteDeclined ? 'Revise quote' : 'Create quote';
+    final journeyCopy = reply.customerJourney.copy;
+    final pageTitle = reply.isQuoteDeclined
+        ? 'Revise ${journeyCopy.requestNoun.toLowerCase()}'
+        : journeyCopy.businessAction;
     final pageSubtitle = reply.isQuoteDeclined
         ? 'Update the previous quote and resend it to the customer.'
         : 'Quote and message preview, no payment handling.';
@@ -14420,7 +14861,9 @@ class _DriverQuoteMockPageState extends State<DriverQuoteMockPage> {
                               onPressed: _sendQuote,
                               icon: const Icon(Icons.send),
                               label: Text(
-                                _sent ? 'Resend quote' : 'Send quote',
+                                _sent
+                                    ? 'Resend ${journeyCopy.requestNoun.toLowerCase()}'
+                                    : journeyCopy.businessAction,
                               ),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF58D0A4),

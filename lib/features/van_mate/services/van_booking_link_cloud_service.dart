@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/van_business_profile.dart';
 import '../models/van_customer_request_flow.dart';
+import '../models/van_customer_journey.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
+import '../models/van_service_handover.dart';
 import 'van_firestore_payload_builder.dart';
 import 'van_firebase_debug_logging.dart';
 import 'van_user_cloud_service.dart';
@@ -64,15 +66,32 @@ class VanBookingLinkCloudService {
         'email': profile.email.trim(),
         'logoPath': profile.logoPath?.trim() ?? '',
         'logoUrl': profile.logoUrl?.trim() ?? '',
-        'introText':
-            "Choose a service and tell us what you need. We'll get back to you with a quote.",
+        'introText': 'Choose a service and tell us what you need.',
         'services': activeServices
             .map(
               (service) => <String, dynamic>{
                 'id': service.id,
                 'name': service.name.trim(),
                 'description': service.description.trim(),
-                'requestType': service.requestType.storageKey,
+                'requestType': service.serviceFlow.requestType.storageKey,
+                'serviceFlow': service.serviceFlow.storageKey,
+                'customerJourneyType': service.customerJourneyType.storageKey,
+                'startHandover': service.effectiveHandover.start.storageKey,
+                'endHandover': service.effectiveHandover.end.storageKey,
+                'allowedStartHandoverOptions': service
+                    .effectiveHandover
+                    .allowedStarts
+                    .map((value) => value.storageKey)
+                    .toList(growable: false),
+                'allowedEndHandoverOptions': service
+                    .effectiveHandover
+                    .allowedEnds
+                    .map((value) => value.storageKey)
+                    .toList(growable: false),
+                'businessDropOffInstructions':
+                    service.businessDropOffInstructions,
+                'businessCollectionInstructions':
+                    service.businessCollectionInstructions,
                 'requestFlowOptions': service.effectiveRequestFlowOptions
                     .toJson(),
                 'requireAddress': service.requireAddress,
@@ -97,6 +116,9 @@ class VanBookingLinkCloudService {
                         'answerType': question.answerType.storageKey,
                         'category': question.category?.storageKey ?? '',
                         'choiceOptions': question.choiceOptions,
+                        'optional': service.optionalQuestionIds.contains(
+                          question.id,
+                        ),
                       },
                     )
                     .toList(growable: false),

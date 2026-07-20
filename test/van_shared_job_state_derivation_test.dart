@@ -389,6 +389,189 @@ void main() {
     }
   });
 
+  test('calendar allows parallel collection and transfer-style jobs', () {
+    final state = DriverReplyMockState.instance;
+    state.debugResetStateForTest();
+    try {
+      final scheduledStart = DateTime.parse('2026-07-13T09:00:00.000');
+      final existingCollection =
+          _acceptedQuoteJob(
+            jobId: 'collection-0900',
+            status: 'scheduled',
+            requestStatus: 'confirmed',
+            schedulingStatus: 'scheduled',
+            calendarStatus: 'scheduled',
+            scheduledDate: '2026-07-13',
+            scheduledStartTime: '09:00',
+          ).copyWith(
+            scheduledAt: scheduledStart,
+            estimatedDurationMinutes: 60,
+            requestType: 'orderRequest',
+            fulfilmentType: 'collection',
+          );
+      final secondCollection = _acceptedQuoteJob(
+        jobId: 'collection-0900-second',
+      ).copyWith(requestType: 'orderRequest', fulfilmentType: 'collection');
+      final dropOffPickup = _acceptedQuoteJob(
+        jobId: 'drop-off-pick-up-0900',
+      ).copyWith(requestType: 'dropOffPickupRequest');
+      final delivery = _acceptedQuoteJob(
+        jobId: 'delivery-0900',
+      ).copyWith(requestType: 'orderRequest', fulfilmentType: 'delivery');
+
+      state.debugAddJobForTest(existingCollection);
+      state.debugAddJobForTest(secondCollection);
+      state.debugAddJobForTest(dropOffPickup);
+      state.debugAddJobForTest(delivery);
+
+      expect(
+        state.findScheduleOverlap(
+          ignoringJobId: secondCollection.jobId,
+          scheduledAt: scheduledStart,
+          estimatedDurationMinutes: 60,
+        ),
+        isNull,
+      );
+      expect(
+        state.findScheduleOverlap(
+          ignoringJobId: dropOffPickup.jobId,
+          scheduledAt: scheduledStart,
+          estimatedDurationMinutes: 60,
+        ),
+        isNull,
+      );
+      expect(
+        state.findScheduleOverlap(
+          ignoringJobId: delivery.jobId,
+          scheduledAt: scheduledStart,
+          estimatedDurationMinutes: 60,
+        ),
+        isNotNull,
+      );
+    } finally {
+      state.debugResetStateForTest();
+    }
+  });
+
+  test('accepted drop-off pickup is calendar-ready with both times', () {
+    final request = VanJobRequestRecord(
+      requestId: 'pet-sitting-request',
+      ownerUid: 'owner-1',
+      jobId: 'pet-sitting-job',
+      linkedJobId: 'pet-sitting-job',
+      status: 'quote_accepted',
+      createdAt: DateTime(2026, 7, 20, 9),
+      updatedAt: DateTime(2026, 7, 20, 10),
+      expiresAt: DateTime(2026, 7, 27, 9),
+      publicJobTitle: 'Pet Sitting',
+      publicCustomerName: 'Jamie',
+      publicAddressSummary: '',
+      checklistItems: const <String>[],
+      customQuestions: const <String>[],
+      exactPinRequested: false,
+      requiresExactPinAfterQuoteAccepted: false,
+      requestType: 'dropOffPickupRequest',
+      dropOffDate: DateTime(2026, 7, 22),
+      dropOffTime: '09:30',
+      pickUpDate: DateTime(2026, 7, 22),
+      pickUpTime: '17:30',
+      source: 'booking_link',
+    );
+    final job = _acceptedQuoteJob(jobId: request.jobId).copyWith(
+      requestType: request.requestType,
+      dropOffDate: request.dropOffDate,
+      dropOffTime: request.dropOffTime,
+      pickUpDate: request.pickUpDate,
+      pickUpTime: request.pickUpTime,
+      requestExactPin: true,
+      requiresExactPinAfterQuoteAccepted: false,
+    );
+
+    expect(job.requiresAnyExactPin, isFalse);
+    expect(job.isAwaitingRequiredExactPin, isFalse);
+    expect(job.hasAgreedSchedulingTime, isTrue);
+    expect(job.dropOffPickupDurationMinutes, 480);
+    expect(
+      effectiveAgreedSchedulingTimeForJob(job, request: request),
+      DateTime(2026, 7, 22, 9, 30),
+    );
+    expect(shouldPromptAddToCalendarForJob(job, request: request), isTrue);
+    expect(job.quoteUiStatus.statusLabel, 'Ready for Calendar');
+
+    final timing = buildIncomingJobTimingDisplay(job, request: request);
+    expect(timing.label, 'Drop-off / Pick-up');
+    expect(timing.value, contains('Drop-off: 22 Jul 2026 at 09:30'));
+    expect(timing.value, contains('Pick-up: 22 Jul 2026 at 17:30'));
+
+    final pinRequired = job.copyWith(requiresExactPinAfterQuoteAccepted: true);
+    expect(pinRequired.isAwaitingRequiredExactPin, isTrue);
+    expect(pinRequired.quoteUiStatus.statusLabel, 'Awaiting exact pin');
+    expect(
+      shouldPromptAddToCalendarForJob(
+        pinRequired,
+        request: request.copyWith(requiresExactPinAfterQuoteAccepted: true),
+      ),
+      isFalse,
+    );
+  });
+
+  testWidgets('job detail shows confirmed drop-off and pick-up times', (
+    tester,
+  ) async {
+    final state = DriverReplyMockState.instance;
+    state.debugResetStateForTest();
+    addTearDown(state.debugResetStateForTest);
+    final request = VanJobRequestRecord(
+      requestId: 'pet-detail-request',
+      ownerUid: 'owner-1',
+      jobId: 'pet-detail-job',
+      linkedJobId: 'pet-detail-job',
+      status: 'quote_accepted',
+      createdAt: DateTime(2026, 7, 20, 9),
+      updatedAt: DateTime(2026, 7, 20, 10),
+      expiresAt: DateTime(2026, 7, 27, 9),
+      publicJobTitle: 'Pet Sitting',
+      publicCustomerName: 'Jamie',
+      publicAddressSummary: '',
+      checklistItems: const <String>[],
+      customQuestions: const <String>[],
+      exactPinRequested: false,
+      requiresExactPinAfterQuoteAccepted: false,
+      requestType: 'dropOffPickupRequest',
+      dropOffDate: DateTime(2026, 7, 22),
+      dropOffTime: '09:30',
+      pickUpDate: DateTime(2026, 7, 22),
+      pickUpTime: '17:30',
+      source: 'booking_link',
+    );
+    final job = _acceptedQuoteJob(jobId: request.jobId).copyWith(
+      requestId: request.requestId,
+      requestType: request.requestType,
+      dropOffDate: request.dropOffDate,
+      dropOffTime: request.dropOffTime,
+      pickUpDate: request.pickUpDate,
+      pickUpTime: request.pickUpTime,
+      requestExactPin: false,
+      requiresExactPinAfterQuoteAccepted: false,
+    );
+    state.debugAddRequestForTest(request);
+    state.debugAddJobForTest(job);
+
+    await tester.pumpWidget(
+      MaterialApp(home: JobDetailPage(reply: job, completed: false)),
+    );
+    await tester.pump();
+
+    expect(find.text('Confirmed Drop-off / Pick-up'), findsOneWidget);
+    expect(find.text('22 Jul 2026 at 09:30'), findsWidgets);
+    expect(find.text('22 Jul 2026 at 17:30'), findsWidgets);
+    expect(find.text('Awaiting exact pin'), findsNothing);
+    expect(
+      find.text('Exact pin will be requested after quote acceptance.'),
+      findsNothing,
+    );
+  });
+
   test('no usable location hides navigate even when quote is accepted', () {
     final job = _acceptedQuoteJob(
       jobId: 'accepted-no-location',
@@ -509,9 +692,9 @@ void main() {
       request: request,
     );
 
-    expect(displayStatus.primaryChipLabel, 'Request received');
-    expect(displayStatus.secondaryChipLabel, 'Request received');
-    expect(displayStatus.statusLabel, 'Request received');
+    expect(displayStatus.primaryChipLabel, 'Quote request received');
+    expect(displayStatus.secondaryChipLabel, 'Quote request received');
+    expect(displayStatus.statusLabel, 'Quote request received');
   });
 
   test('request-only Order Request appears in Incoming Jobs', () {
@@ -537,6 +720,7 @@ void main() {
         selectedServiceId: 'cake-orders',
         selectedServiceName: 'Cake Orders',
         requestType: 'orderRequest',
+        customerJourneyType: 'order',
         fulfilmentType: 'collection',
         checklistItems: const <String>[],
         customQuestions: const <String>['Quantity'],
@@ -586,6 +770,7 @@ void main() {
         selectedServiceId: 'cake-orders',
         selectedServiceName: 'Cake Orders',
         requestType: 'orderRequest',
+        customerJourneyType: 'order',
         fulfilmentType: 'collection',
         checklistItems: const <String>[],
         customQuestions: const <String>[],
@@ -623,7 +808,7 @@ void main() {
           state.pendingJobs.single,
           request: state.requestForJob(request.jobId),
         ).primaryChipLabel,
-        'Order accepted',
+        'Order confirmed',
       );
       expect(state.pendingJobs.single.isHiddenFromNormalLists, isFalse);
 
@@ -668,7 +853,7 @@ void main() {
           state.pendingJobs.single,
           request: state.requestForJob(deliveryRequest.jobId),
         ).primaryChipLabel,
-        'Order accepted',
+        'Order confirmed',
       );
     } finally {
       state.debugResetStateForTest();
@@ -835,9 +1020,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Quote accepted'), findsWidgets);
-      expect(find.text('Exact pin received'), findsWidgets);
-      expect(find.text('Time needs arranging'), findsWidgets);
       expect(find.text('Ready for Calendar'), findsNothing);
       expect(find.text('Time agreed'), findsNothing);
       expect(find.text('Add job to Calendar'), findsNothing);

@@ -19,8 +19,7 @@ void main() {
         'What would you like to order?',
         'Quantity',
         'Allergies or dietary notes?',
-        'Collection or delivery?',
-        'Preferred date',
+        'Anything else about your order?',
       ]),
     );
     expect(
@@ -34,6 +33,29 @@ void main() {
       ]),
     );
   });
+
+  test(
+    'pet sitting template keeps care questions without logistics duplicates',
+    () {
+      final petSitting = findVanServiceTemplateById('pet_sitting')!;
+      final texts = petSitting.questions.map((question) => question.text);
+
+      expect(
+        texts,
+        containsAll(<String>[
+          'Pet or dog name',
+          'Breed or type',
+          'Feeding notes',
+          'Medication notes',
+          'Emergency contact',
+          'Any special requirements?',
+        ]),
+      );
+      expect(texts, isNot(contains('Event date')));
+      expect(texts, isNot(contains('Event time')));
+      expect(texts, isNot(contains('Location')));
+    },
+  );
 
   test('custom service starts with no linked questions', () {
     final service = _service(id: 'custom-service', linkedIds: const <String>[]);
@@ -71,20 +93,22 @@ void main() {
     );
   });
 
-  test('request type survives serialization and old services get fallback', () {
+  test('legacy journey request types serialize as standard service flow', () {
     final orderService = _service(
       id: 'bakery',
       linkedIds: const <String>[],
     ).copyWith(requestType: VanCustomerRequestType.orderRequest);
     expect(
       VanJobService.fromJson(orderService.toJson()).requestType,
-      VanCustomerRequestType.orderRequest,
+      VanCustomerRequestType.quoteRequest,
     );
 
-    final legacyJson = orderService.toJson()..remove('requestType');
+    final legacyJson = orderService.toJson()
+      ..remove('requestType')
+      ..remove('serviceFlow');
     expect(
       VanJobService.fromJson(legacyJson).requestType,
-      VanCustomerRequestType.orderRequest,
+      VanCustomerRequestType.quoteRequest,
     );
   });
 
@@ -103,14 +127,17 @@ void main() {
             .toJson(),
       );
 
-      expect(restored.effectiveRequestFlowOptions.showFulfilmentChoice, isTrue);
+      expect(
+        restored.effectiveRequestFlowOptions.showFulfilmentChoice,
+        isFalse,
+      );
       expect(restored.effectiveRequestFlowOptions.askPreferredTime, isFalse);
 
       final legacyJson = restored.toJson()..remove('requestFlowOptions');
       final legacyRestored = VanJobService.fromJson(legacyJson);
       expect(
         legacyRestored.effectiveRequestFlowOptions.showFulfilmentChoice,
-        isTrue,
+        isFalse,
       );
       expect(
         legacyRestored.effectiveRequestFlowOptions.askPreferredDate,
@@ -125,7 +152,7 @@ void main() {
         VanCustomerRequestType.orderRequest,
         'Collection or delivery?',
       ),
-      isTrue,
+      isFalse,
     );
     expect(
       isVanCustomerRequestBuiltInQuestion(
@@ -141,7 +168,95 @@ void main() {
       ),
       isFalse,
     );
+    expect(
+      isVanCustomerRequestBuiltInQuestion(
+        VanCustomerRequestType.dropOffPickupRequest,
+        'Event date',
+      ),
+      isTrue,
+    );
+    expect(
+      isVanCustomerRequestBuiltInQuestion(
+        VanCustomerRequestType.dropOffPickupRequest,
+        'Event time',
+      ),
+      isTrue,
+    );
+    expect(
+      isVanCustomerRequestBuiltInQuestion(
+        VanCustomerRequestType.dropOffPickupRequest,
+        'Location',
+      ),
+      isTrue,
+    );
   });
+
+  test('public flow hides only seeded drop-off logistics duplicates', () {
+    final service = _service(id: 'pet_sitting', linkedIds: const <String>[])
+        .copyWith(
+          requestType: VanCustomerRequestType.dropOffPickupRequest,
+          requestFlowOptions: VanCustomerRequestFlowOptions.defaultsFor(
+            VanCustomerRequestType.dropOffPickupRequest,
+          ),
+        );
+    final seededEventDate = _question(
+      'service_template_pet_sitting_1_seed',
+      'Event date?',
+    );
+    final customEventDate = _question('custom-event-date', 'Event date');
+    final usefulPetQuestion = _question(
+      'service_template_pet_sitting_2_seed',
+      'Medication notes',
+    );
+
+    expect(
+      isVanSeededQuestionCoveredByBuiltInFlow(
+        service: service,
+        question: seededEventDate,
+      ),
+      isTrue,
+    );
+    expect(
+      isVanSeededQuestionCoveredByBuiltInFlow(
+        service: service,
+        question: customEventDate,
+      ),
+      isFalse,
+    );
+    expect(
+      isVanSeededQuestionCoveredByBuiltInFlow(
+        service: service,
+        question: usefulPetQuestion,
+      ),
+      isFalse,
+    );
+  });
+
+  test('photo helper wording does not infer journey from service flow', () {
+    final labels = VanCustomerRequestType.values
+        .map(vanBookingPhotoHelperText)
+        .toSet();
+    expect(labels, hasLength(1));
+  });
+
+  test(
+    'hosted booking link mirrors seeded filtering and mobile time safety',
+    () {
+      final source = File('web/booking_link.html').readAsStringSync();
+      final functionsSource = File('functions/index.js').readAsStringSync();
+
+      expect(source, contains('text === "event date"'));
+      expect(source, contains('text === "event time"'));
+      expect(source, contains('text === "location"'));
+      expect(source, contains('id.startsWith("service_template_")'));
+      expect(source, contains('input[type="time"]'));
+      expect(source, contains('min-inline-size: 0'));
+      expect(source, contains('bookingPhotoHelperText'));
+      expect(functionsSource, contains("text === 'event date'"));
+      expect(functionsSource, contains("text === 'event time'"));
+      expect(functionsSource, contains("text === 'location'"));
+    },
+  );
 
   test('New Job selection uses only ordered enabled service links', () {
     final questions = <VanCustomJobQuestion>[
@@ -235,16 +350,20 @@ void main() {
     );
   });
 
-  test('service settings expose one simple customer request flow selector', () {
+  test('service settings expose independent journey and flow selectors', () {
     final source = File(
       'lib/features/van_mate/pages/van_job_types_services_page.dart',
     ).readAsStringSync();
 
-    expect(source, contains("'Customer request flow'"));
-    expect(source, contains("label: 'Request type'"));
+    expect(source, contains("'Customer journey'"));
+    expect(source, contains("label: 'Service flow'"));
+    expect(
+      source,
+      contains("'Choose how customers buy or request this service.'"),
+    );
+    expect(source, contains("'Choose how this service is carried out.'"));
     expect(source, contains("'Flow options'"));
-    expect(source, contains("'Collection / delivery choice'"));
-    expect(source, contains('VanCustomerRequestType.values'));
+    expect(source, contains('kVanServiceFlows'));
     expect(source, isNot(contains('ReorderableListView<CustomerRequest')));
   });
 }

@@ -1219,6 +1219,59 @@ function normalizeCustomerRequestType(value, fallback = 'quoteRequest') {
   }
 }
 
+function normalizeCustomerJourneyType(value, fallback = 'quote') {
+  const normalized = readString(value).toLowerCase();
+  return normalized === 'quote' || normalized === 'booking' || normalized === 'order'
+    ? normalized
+    : fallback;
+}
+
+function customerJourneyForLegacyRequestType(requestType) {
+  if (requestType === 'bookingRequest') return 'booking';
+  if (requestType === 'orderRequest') return 'order';
+  return 'quote';
+}
+
+function normalizeServiceFlow(value, legacyRequestType = 'quoteRequest') {
+  const normalized = readString(value).toLowerCase();
+  if (normalized === 'pickupdelivery' || normalized === 'pickupdeliveryrequest') {
+    return 'pickupDelivery';
+  }
+  if (normalized === 'dropoffpickup' || normalized === 'dropoffpickuprequest') {
+    return 'dropOffPickup';
+  }
+  if (normalized === 'standard') return 'standard';
+  if (legacyRequestType === 'pickupDeliveryRequest') return 'pickupDelivery';
+  if (legacyRequestType === 'dropOffPickupRequest') return 'dropOffPickup';
+  return 'standard';
+}
+
+function requestTypeForServiceFlow(serviceFlow) {
+  if (serviceFlow === 'pickupDelivery') return 'pickupDeliveryRequest';
+  if (serviceFlow === 'dropOffPickup') return 'dropOffPickupRequest';
+  return 'quoteRequest';
+}
+
+function normalizeStartHandover(value, fallback = 'customerDropsOff') {
+  const normalized = readString(value);
+  return normalized === 'businessCollects' || normalized === 'customerDropsOff'
+    ? normalized
+    : fallback;
+}
+
+function normalizeEndHandover(value, fallback = 'customerCollects') {
+  const normalized = readString(value);
+  return normalized === 'businessReturns' || normalized === 'customerCollects'
+    ? normalized
+    : fallback;
+}
+
+function normalizeHandoverOptions(value, allowedValues, selected) {
+  const source = Array.isArray(value) ? value : [];
+  return [...new Set([selected, ...source.map(readString)])]
+    .filter((item) => allowedValues.includes(item));
+}
+
 function normalizeFulfilmentType(value) {
   const normalized = readString(value).toLowerCase();
   return normalized === 'collection' || normalized === 'delivery'
@@ -1245,7 +1298,7 @@ function shouldRequireExactPinAfterQuoteAccepted({
 function normalizeRequestFlowOptions(value, requestType) {
   const source = value && typeof value === 'object' ? value : {};
   const defaults = {
-    showFulfilmentChoice: requestType === 'orderRequest',
+    showFulfilmentChoice: false,
     askPreferredDate: requestType !== 'dropOffPickupRequest',
     askPreferredTime: requestType !== 'dropOffPickupRequest',
     showPickupAddress: requestType === 'pickupDeliveryRequest',
@@ -1284,13 +1337,6 @@ function isSeededQuestionCoveredByRequestFlow(
   if (options.askPreferredTime && text === 'preferred time') {
     return true;
   }
-  if (
-    requestType === 'orderRequest' &&
-    options.showFulfilmentChoice &&
-    (text === 'collection or delivery' || text === 'delivery address')
-  ) {
-    return true;
-  }
   if (requestType === 'pickupDeliveryRequest') {
     if (
       options.showPickupAddress &&
@@ -1304,10 +1350,13 @@ function isSeededQuestionCoveredByRequestFlow(
   }
   if (requestType === 'dropOffPickupRequest') {
     return (
-      (options.showDropOffDate && text === 'drop off date') ||
-      (options.showDropOffTime && text === 'drop off time') ||
+      (options.showDropOffDate &&
+        (text === 'drop off date' || text === 'event date')) ||
+      (options.showDropOffTime &&
+        (text === 'drop off time' || text === 'event time')) ||
       (options.showPickUpDate && text === 'pick up date') ||
-      (options.showPickUpTime && text === 'pick up time')
+      (options.showPickUpTime && text === 'pick up time') ||
+      text === 'location'
     );
   }
   return false;
@@ -1599,18 +1648,28 @@ function buildRequestJobMirror({
     normalizedRequestStatus,
     hasReply,
   );
-  const configuredExactPinAfterQuoteAccepted =
-    readBool(after.requiresExactPinAfterQuoteAccepted) ||
-    readBool(after.exactPinRequiredAfterQuoteAccepted) ||
-    readBool(existingJob.requiresExactPinAfterQuoteAccepted);
   const requestType = firstNonEmpty([
     readString(after.requestType),
     readString(existingJob.requestType),
   ]);
+  const customerJourneyType = normalizeCustomerJourneyType(
+    firstNonEmpty([
+      readString(after.customerJourneyType),
+      readString(existingJob.customerJourneyType),
+    ]),
+    customerJourneyForLegacyRequestType(requestType),
+  );
   const fulfilmentType = firstNonEmpty([
     readString(after.fulfilmentType),
     readString(existingJob.fulfilmentType),
   ]);
+  const configuredExactPinAfterQuoteAccepted =
+    requestType === 'dropOffPickupRequest'
+      ? readBool(after.requiresExactPinAfterQuoteAccepted) ||
+        readBool(after.exactPinRequiredAfterQuoteAccepted)
+      : readBool(after.requiresExactPinAfterQuoteAccepted) ||
+        readBool(after.exactPinRequiredAfterQuoteAccepted) ||
+        readBool(existingJob.requiresExactPinAfterQuoteAccepted);
   const requiresExactPinAfterQuoteAccepted =
     shouldRequireExactPinAfterQuoteAccepted({
       configured: configuredExactPinAfterQuoteAccepted,
@@ -1666,10 +1725,64 @@ function buildRequestJobMirror({
     suggestedDate: suggestedDate || null,
     suggestedTimeWindow,
     requestType,
+    customerJourneyType,
     fulfilmentType,
-    requestExactPin: readBool(after.exactPinRequested) || readBool(existingJob.requestExactPin),
+    startHandover: firstNonEmpty([
+      readString(after.startHandover),
+      readString(existingJob.startHandover),
+    ]),
+    endHandover: firstNonEmpty([
+      readString(after.endHandover),
+      readString(existingJob.endHandover),
+    ]),
+    allowedStartHandoverOptions: Array.isArray(after.allowedStartHandoverOptions)
+      ? after.allowedStartHandoverOptions
+      : (Array.isArray(existingJob.allowedStartHandoverOptions)
+        ? existingJob.allowedStartHandoverOptions
+        : []),
+    allowedEndHandoverOptions: Array.isArray(after.allowedEndHandoverOptions)
+      ? after.allowedEndHandoverOptions
+      : (Array.isArray(existingJob.allowedEndHandoverOptions)
+        ? existingJob.allowedEndHandoverOptions
+        : []),
+    collectionAddress: firstNonEmpty([
+      readString(after.collectionAddress),
+      readString(existingJob.collectionAddress),
+    ]),
+    returnAddress: firstNonEmpty([
+      readString(after.returnAddress),
+      readString(existingJob.returnAddress),
+    ]),
+    returnAddressSameAsCollection:
+      readBool(after.returnAddressSameAsCollection) ||
+      readBool(existingJob.returnAddressSameAsCollection),
+    businessDropOffInstructions: firstNonEmpty([
+      readString(after.businessDropOffInstructions),
+      readString(existingJob.businessDropOffInstructions),
+    ]),
+    businessCollectionInstructions: firstNonEmpty([
+      readString(after.businessCollectionInstructions),
+      readString(existingJob.businessCollectionInstructions),
+    ]),
+    dropOffDate: firstNonEmpty([
+      toIsoStringOrNull(after.dropOffDate),
+      toIsoStringOrNull(existingJob.dropOffDate),
+    ]) || null,
+    dropOffTime: firstNonEmpty([after.dropOffTime, existingJob.dropOffTime]),
+    pickUpDate: firstNonEmpty([
+      toIsoStringOrNull(after.pickUpDate),
+      toIsoStringOrNull(existingJob.pickUpDate),
+    ]) || null,
+    pickUpTime: firstNonEmpty([after.pickUpTime, existingJob.pickUpTime]),
+    requestExactPin: requestType === 'dropOffPickupRequest'
+      ? false
+      : readBool(after.exactPinRequested) || readBool(existingJob.requestExactPin),
     requestPhotos: readBool(after.requestPhotos) || readBool(existingJob.requestPhotos),
     requiresExactPinAfterQuoteAccepted,
+    locationPending: requestType === 'dropOffPickupRequest'
+      ? requiresExactPinAfterQuoteAccepted &&
+        (readBool(after.locationPending) || readBool(existingJob.locationPending))
+      : readBool(after.locationPending) || readBool(existingJob.locationPending),
     selectedServiceId: readString(after.selectedServiceId || existingJob.selectedServiceId),
     selectedServiceName: readString(after.selectedServiceName || existingJob.selectedServiceName),
     checklistItems: Array.isArray(after.checklistItems)
@@ -1901,18 +2014,28 @@ function buildQuoteJobMirror({
     toIsoStringOrNull(after[QUOTE_NOTIFICATION_SENT_AT_FIELD]),
     toIsoStringOrNull(existingJob[QUOTE_NOTIFICATION_SENT_AT_FIELD]),
   ]);
-  const configuredExactPinAfterQuoteAccepted =
-    readBool(after.requiresExactPinAfterQuoteAccepted) ||
-    readBool(after.exactPinRequiredAfterQuoteAccepted) ||
-    readBool(existingJob.requiresExactPinAfterQuoteAccepted);
   const requestType = firstNonEmpty([
     readString(after.requestType),
     readString(existingJob.requestType),
   ]);
+  const customerJourneyType = normalizeCustomerJourneyType(
+    firstNonEmpty([
+      readString(after.customerJourneyType),
+      readString(existingJob.customerJourneyType),
+    ]),
+    customerJourneyForLegacyRequestType(requestType),
+  );
   const fulfilmentType = firstNonEmpty([
     readString(after.fulfilmentType),
     readString(existingJob.fulfilmentType),
   ]);
+  const configuredExactPinAfterQuoteAccepted =
+    requestType === 'dropOffPickupRequest'
+      ? readBool(after.requiresExactPinAfterQuoteAccepted) ||
+        readBool(after.exactPinRequiredAfterQuoteAccepted)
+      : readBool(after.requiresExactPinAfterQuoteAccepted) ||
+        readBool(after.exactPinRequiredAfterQuoteAccepted) ||
+        readBool(existingJob.requiresExactPinAfterQuoteAccepted);
   const requiresExactPinAfterQuoteAccepted =
     shouldRequireExactPinAfterQuoteAccepted({
       configured: configuredExactPinAfterQuoteAccepted,
@@ -2026,9 +2149,63 @@ function buildQuoteJobMirror({
       readNullableInt(after.estimatedDurationMinutes) ??
       readNullableInt(existingJob.estimatedDurationMinutes),
     requestType,
+    customerJourneyType,
     fulfilmentType,
-    requestExactPin: readBool(after.requestExactPin) || readBool(existingJob.requestExactPin),
+    startHandover: firstNonEmpty([
+      readString(after.startHandover),
+      readString(existingJob.startHandover),
+    ]),
+    endHandover: firstNonEmpty([
+      readString(after.endHandover),
+      readString(existingJob.endHandover),
+    ]),
+    allowedStartHandoverOptions: Array.isArray(after.allowedStartHandoverOptions)
+      ? after.allowedStartHandoverOptions
+      : (Array.isArray(existingJob.allowedStartHandoverOptions)
+        ? existingJob.allowedStartHandoverOptions
+        : []),
+    allowedEndHandoverOptions: Array.isArray(after.allowedEndHandoverOptions)
+      ? after.allowedEndHandoverOptions
+      : (Array.isArray(existingJob.allowedEndHandoverOptions)
+        ? existingJob.allowedEndHandoverOptions
+        : []),
+    collectionAddress: firstNonEmpty([
+      readString(after.collectionAddress),
+      readString(existingJob.collectionAddress),
+    ]),
+    returnAddress: firstNonEmpty([
+      readString(after.returnAddress),
+      readString(existingJob.returnAddress),
+    ]),
+    returnAddressSameAsCollection:
+      readBool(after.returnAddressSameAsCollection) ||
+      readBool(existingJob.returnAddressSameAsCollection),
+    businessDropOffInstructions: firstNonEmpty([
+      readString(after.businessDropOffInstructions),
+      readString(existingJob.businessDropOffInstructions),
+    ]),
+    businessCollectionInstructions: firstNonEmpty([
+      readString(after.businessCollectionInstructions),
+      readString(existingJob.businessCollectionInstructions),
+    ]),
+    dropOffDate: firstNonEmpty([
+      toIsoStringOrNull(after.dropOffDate),
+      toIsoStringOrNull(existingJob.dropOffDate),
+    ]) || null,
+    dropOffTime: firstNonEmpty([after.dropOffTime, existingJob.dropOffTime]),
+    pickUpDate: firstNonEmpty([
+      toIsoStringOrNull(after.pickUpDate),
+      toIsoStringOrNull(existingJob.pickUpDate),
+    ]) || null,
+    pickUpTime: firstNonEmpty([after.pickUpTime, existingJob.pickUpTime]),
+    requestExactPin: requestType === 'dropOffPickupRequest'
+      ? false
+      : readBool(after.requestExactPin) || readBool(existingJob.requestExactPin),
     requiresExactPinAfterQuoteAccepted,
+    locationPending: requestType === 'dropOffPickupRequest'
+      ? requiresExactPinAfterQuoteAccepted &&
+        (readBool(after.locationPending) || readBool(existingJob.locationPending))
+      : readBool(after.locationPending) || readBool(existingJob.locationPending),
     calendarStatus: normalizeCalendarStatus(
       firstNonEmpty([after.calendarStatus, existingJob.calendarStatus]),
     ),
@@ -2603,6 +2780,7 @@ async function sendBookingRequestReceivedNotification({
   jobId,
   customerName,
   serviceName,
+  customerJourneyType,
 }) {
   const normalizedOwnerUid = readString(ownerUid);
   const normalizedRequestId = readString(requestId);
@@ -2613,7 +2791,10 @@ async function sendBookingRequestReceivedNotification({
     return;
   }
 
-  const notificationTitle = 'New booking request';
+  const journeyType = normalizeCustomerJourneyType(customerJourneyType);
+  const notificationTitle = journeyType === 'order'
+    ? 'New order'
+    : (journeyType === 'booking' ? 'New booking request' : 'New quote request');
   const notificationBody = buildBookingRequestNotificationBody({
     customerName,
     serviceName,
@@ -2625,6 +2806,7 @@ async function sendBookingRequestReceivedNotification({
     serviceName: readString(serviceName),
     jobId: readString(jobId),
     customerName: readString(customerName),
+    customerJourneyType: journeyType,
   };
 
   console.info(
@@ -2699,6 +2881,11 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   let fulfilmentType = normalizeFulfilmentType(data.fulfilmentType);
   let pickupAddress = readString(data.pickupAddress);
   let deliveryAddress = readString(data.deliveryAddress);
+  let collectionAddress = readString(data.collectionAddress);
+  let returnAddress = readString(data.returnAddress);
+  const returnAddressSameAsCollection = readBool(
+    data.returnAddressSameAsCollection,
+  );
   let dropOffDate = toDateOrNull(data.dropOffDate);
   let dropOffTime = readString(data.dropOffTime);
   let pickUpDate = toDateOrNull(data.pickUpDate);
@@ -2798,10 +2985,97 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     readString(selectedService.name) ||
     requestedServiceName ||
     'Service request';
-  const requestType = normalizeCustomerRequestType(
+  const legacyRequestType = normalizeCustomerRequestType(
     selectedService.requestType,
     requestedRequestType,
   );
+  const serviceFlow = normalizeServiceFlow(
+    selectedService.serviceFlow,
+    legacyRequestType,
+  );
+  const requestType = requestTypeForServiceFlow(serviceFlow);
+  const legacyJourney = customerJourneyForLegacyRequestType(legacyRequestType);
+  const customerJourneyType = normalizeCustomerJourneyType(
+    selectedService.customerJourneyType,
+    legacyJourney,
+  );
+  const supportsHandover =
+    requestType === 'dropOffPickupRequest' ||
+    requestType === 'pickupDeliveryRequest';
+  const legacyHandoverMode = readString(
+    selectedService.handoverMode || selectedService.transportMode,
+  ).toLowerCase();
+  const legacyBusinessMoves =
+    legacyHandoverMode === 'businesscollectreturn' ||
+    legacyHandoverMode === 'business_collect_return';
+  const legacyCustomerChooses =
+    legacyHandoverMode === 'customerchooses' ||
+    legacyHandoverMode === 'customer_chooses';
+  const fallbackStartHandover =
+    requestType === 'pickupDeliveryRequest' || legacyBusinessMoves
+    ? 'businessCollects'
+    : 'customerDropsOff';
+  const fallbackEndHandover =
+    requestType === 'pickupDeliveryRequest' || legacyBusinessMoves
+    ? 'businessReturns'
+    : 'customerCollects';
+  const configuredStartHandover = normalizeStartHandover(
+    selectedService.startHandover,
+    fallbackStartHandover,
+  );
+  const configuredEndHandover = normalizeEndHandover(
+    selectedService.endHandover,
+    fallbackEndHandover,
+  );
+  const allowedStartHandoverOptions = normalizeHandoverOptions(
+    Array.isArray(selectedService.allowedStartHandoverOptions)
+      ? selectedService.allowedStartHandoverOptions
+      : (legacyCustomerChooses
+        ? ['customerDropsOff', 'businessCollects']
+        : []),
+    ['customerDropsOff', 'businessCollects'],
+    configuredStartHandover,
+  );
+  const allowedEndHandoverOptions = normalizeHandoverOptions(
+    Array.isArray(selectedService.allowedEndHandoverOptions)
+      ? selectedService.allowedEndHandoverOptions
+      : (legacyCustomerChooses
+        ? ['customerCollects', 'businessReturns']
+        : []),
+    ['customerCollects', 'businessReturns'],
+    configuredEndHandover,
+  );
+  const requestedStartHandover = readString(data.startHandover);
+  const requestedEndHandover = readString(data.endHandover);
+  if (
+    supportsHandover &&
+    requestedStartHandover &&
+    !allowedStartHandoverOptions.includes(requestedStartHandover)
+  ) {
+    throw new HttpsError('invalid-argument', 'Start handover is not available.');
+  }
+  if (
+    supportsHandover &&
+    requestedEndHandover &&
+    !allowedEndHandoverOptions.includes(requestedEndHandover)
+  ) {
+    throw new HttpsError('invalid-argument', 'End handover is not available.');
+  }
+  const startHandover = supportsHandover
+    ? (requestedStartHandover || configuredStartHandover)
+    : '';
+  const endHandover = supportsHandover
+    ? (requestedEndHandover || configuredEndHandover)
+    : '';
+  if (supportsHandover && !collectionAddress) {
+    collectionAddress = pickupAddress;
+  }
+  if (supportsHandover && !returnAddress) {
+    returnAddress = deliveryAddress;
+  }
+  if (returnAddressSameAsCollection && startHandover === 'businessCollects') {
+    returnAddress = collectionAddress;
+  }
   const requestFlowOptions = normalizeRequestFlowOptions(
     selectedService.requestFlowOptions,
     requestType,
@@ -2814,42 +3088,32 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
       fulfilmentType = '';
     }
     if (
+      supportsHandover ||
       requestType !== 'pickupDeliveryRequest' ||
       !requestFlowOptions.showPickupAddress
     ) {
       pickupAddress = '';
     }
     const keepsDeliveryAddress =
-      (requestType === 'orderRequest' &&
+      !supportsHandover &&
+      ((requestType === 'orderRequest' &&
         requestFlowOptions.showFulfilmentChoice &&
         fulfilmentType === 'delivery') ||
       (requestType === 'pickupDeliveryRequest' &&
-        requestFlowOptions.showDeliveryAddress);
+        requestFlowOptions.showDeliveryAddress));
     if (!keepsDeliveryAddress) {
       deliveryAddress = '';
     }
-    if (
-      requestType !== 'dropOffPickupRequest' ||
-      !requestFlowOptions.showDropOffDate
-    ) {
+    if (!supportsHandover && !requestFlowOptions.showDropOffDate) {
       dropOffDate = null;
     }
-    if (
-      requestType !== 'dropOffPickupRequest' ||
-      !requestFlowOptions.showDropOffTime
-    ) {
+    if (!supportsHandover && !requestFlowOptions.showDropOffTime) {
       dropOffTime = '';
     }
-    if (
-      requestType !== 'dropOffPickupRequest' ||
-      !requestFlowOptions.showPickUpDate
-    ) {
+    if (!supportsHandover && !requestFlowOptions.showPickUpDate) {
       pickUpDate = null;
     }
-    if (
-      requestType !== 'dropOffPickupRequest' ||
-      !requestFlowOptions.showPickUpTime
-    ) {
+    if (!supportsHandover && !requestFlowOptions.showPickUpTime) {
       pickUpTime = '';
     }
     if (!requestFlowOptions.askPreferredDate) {
@@ -2941,6 +3205,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Delivery address is required.');
   }
   if (
+    !supportsHandover &&
     supportsStructuredRequestFlow &&
     requestType === 'pickupDeliveryRequest' &&
     requestFlowOptions.showPickupAddress &&
@@ -2949,6 +3214,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Pickup address is required.');
   }
   if (
+    !supportsHandover &&
     supportsStructuredRequestFlow &&
     requestType === 'pickupDeliveryRequest' &&
     requestFlowOptions.showDeliveryAddress &&
@@ -2957,6 +3223,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Delivery address is required.');
   }
   if (
+    !supportsHandover &&
     supportsStructuredRequestFlow &&
     requestType === 'dropOffPickupRequest' &&
     requestFlowOptions.showDropOffDate &&
@@ -2965,6 +3232,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Drop-off date is required.');
   }
   if (
+    !supportsHandover &&
     supportsStructuredRequestFlow &&
     requestType === 'dropOffPickupRequest' &&
     requestFlowOptions.showPickUpDate &&
@@ -2973,18 +3241,38 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Pick-up date is required.');
   }
   if (
+    supportsHandover &&
+    startHandover === 'businessCollects' &&
+    !collectionAddress
+  ) {
+    throw new HttpsError('invalid-argument', 'Collection address is required.');
+  }
+  if (
+    supportsHandover &&
+    endHandover === 'businessReturns' &&
+    !returnAddress
+  ) {
+    throw new HttpsError('invalid-argument', 'Return address is required.');
+  }
+  if (supportsHandover && !dropOffDate) {
+    throw new HttpsError('invalid-argument', 'Start handover date is required.');
+  }
+  if (supportsHandover && !pickUpDate) {
+    throw new HttpsError('invalid-argument', 'End handover date is required.');
+  }
+  if (
     dropOffDate &&
     pickUpDate &&
     pickUpDate.getTime() < dropOffDate.getTime()
   ) {
     throw new HttpsError(
       'invalid-argument',
-      'Pick-up date must be on or after the drop-off date.',
+      'End handover date must be on or after the start handover date.',
     );
   }
   for (const [label, date] of [
-    ['Drop-off', dropOffDate],
-    ['Pick-up', pickUpDate],
+    [supportsHandover ? 'Start handover' : 'Drop-off', dropOffDate],
+    [supportsHandover ? 'End handover' : 'Pick-up', pickUpDate],
   ]) {
     const dateValidationMessage = validatePreferredBookingWindow({
       preferredDate: date,
@@ -3050,6 +3338,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     normalizedAnswers.map((item) => readString(item.questionId)).filter(Boolean),
   );
   const missingLinkedQuestions = linkedQuestions
+    .filter((item) => !readBool(item && item.optional))
     .map((item) => ({
       id: readString(item && item.id),
       questionText: readString(item && item.questionText),
@@ -3076,8 +3365,12 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const requestId = admin.firestore().collection(PUBLIC_JOB_REQUEST_COLLECTION).doc().id;
   const jobId = `booking_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const addressSummary =
-    supportsStructuredRequestFlow && requestType === 'pickupDeliveryRequest'
+  const addressSummary = supportsHandover
+    ? [
+        startHandover === 'businessCollects' ? collectionAddress : '',
+        endHandover === 'businessReturns' ? returnAddress : '',
+      ].filter(Boolean).join(' → ')
+    : supportsStructuredRequestFlow && requestType === 'pickupDeliveryRequest'
       ? [pickupAddress, deliveryAddress].filter(Boolean).join(' → ')
       : supportsStructuredRequestFlow &&
           requestType === 'orderRequest' &&
@@ -3122,8 +3415,8 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   );
   const compiledNotes = [
     fulfilmentType ? `Fulfilment: ${fulfilmentType}` : '',
-    pickupAddress ? `Pickup address: ${pickupAddress}` : '',
-    deliveryAddress ? `Delivery address: ${deliveryAddress}` : '',
+    !supportsHandover && pickupAddress ? `Pickup address: ${pickupAddress}` : '',
+    !supportsHandover && deliveryAddress ? `Delivery address: ${deliveryAddress}` : '',
     dropOffDate
       ? `Drop-off: ${dropOffDate.toISOString().slice(0, 10)}${dropOffTime ? ` at ${dropOffTime}` : ''}`
       : '',
@@ -3154,11 +3447,26 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     ownerUid,
     publicConfigId,
     businessProfileId,
+    customerJourneyType,
+    serviceFlow,
     requestType,
     requestFlowOptions,
     fulfilmentType,
     pickupAddress,
     deliveryAddress,
+    startHandover,
+    endHandover,
+    allowedStartHandoverOptions,
+    allowedEndHandoverOptions,
+    collectionAddress,
+    returnAddress,
+    returnAddressSameAsCollection,
+    businessDropOffInstructions: readString(
+      selectedService.businessDropOffInstructions,
+    ),
+    businessCollectionInstructions: readString(
+      selectedService.businessCollectionInstructions,
+    ),
     dropOffDate: dropOffDate
       ? admin.firestore.Timestamp.fromDate(dropOffDate)
       : null,
@@ -3277,6 +3585,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
         jobId,
         customerName,
         serviceName,
+        customerJourneyType,
       });
     } catch (notificationError) {
       console.error(
@@ -4098,9 +4407,17 @@ exports.onVanJobQuoteMirror = onDocumentWritten(
           existingJob.publicCustomerName,
         ]);
         const quoteVerb = update.quoteAccepted ? 'accepted' : 'declined';
+        const customerJourneyType = normalizeCustomerJourneyType(firstNonEmpty([
+          after.customerJourneyType,
+          update.customerJourneyType,
+          existingJob.customerJourneyType,
+        ]));
+        const journeyNoun = customerJourneyType === 'booking'
+          ? 'booking'
+          : (customerJourneyType === 'order' ? 'order' : 'quote');
         const notificationBody = customerName
-          ? `${customerName} ${quoteVerb} your quote.`
-          : `Your quote was ${quoteVerb}.`;
+          ? `${customerName} ${quoteVerb} your ${journeyNoun}.`
+          : `Your ${journeyNoun} was ${quoteVerb}.`;
         const quoteResponseId = firstNonEmpty([
           after.quoteResponseId,
           quoteId,
@@ -4124,6 +4441,7 @@ exports.onVanJobQuoteMirror = onDocumentWritten(
             existingJob.publicJobTitle,
           ]),
           quoteStatus: update.quoteAccepted ? 'accepted' : 'declined',
+          customerJourneyType,
         };
         try {
           const tokenRecords = await loadTokens(ownerUid);
@@ -4143,7 +4461,7 @@ exports.onVanJobQuoteMirror = onDocumentWritten(
               const response = await admin.messaging().sendEachForMulticast({
                 tokens,
                 notification: {
-                  title: 'Quote reply',
+                  title: `${journeyNoun[0].toUpperCase()}${journeyNoun.slice(1)} reply`,
                   body: notificationBody,
                 },
                 data: notificationData,

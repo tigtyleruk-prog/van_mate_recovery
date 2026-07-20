@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_invoice_history_entry.dart';
 import '../models/van_invoice_draft.dart';
+import 'van_business_local_notifications.dart';
 
 enum VanInvoiceReminderStage {
   threeDays(3),
@@ -260,7 +261,7 @@ class VanInvoiceReminderService {
   VanInvoiceReminderService._({
     FlutterLocalNotificationsPlugin? notificationsPlugin,
   }) : _notificationsPlugin =
-           notificationsPlugin ?? FlutterLocalNotificationsPlugin();
+           notificationsPlugin ?? vanBusinessLocalNotificationsPlugin;
 
   static final VanInvoiceReminderService instance =
       VanInvoiceReminderService._();

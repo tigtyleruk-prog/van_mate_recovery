@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_exact_pin_source.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
+import '../models/van_service_handover.dart';
 import '../models/van_job_request_record.dart';
 import 'van_firestore_payload_builder.dart';
 import 'van_firebase_auth_service.dart';
@@ -253,7 +254,29 @@ class VanPublicQuoteCloudService {
         'jobId': job.jobId.trim(),
         'requestId': job.requestId?.trim() ?? '',
         'requestType': job.requestType.trim(),
+        'customerJourneyType': job.customerJourneyType.trim().isEmpty
+            ? 'quote'
+            : job.customerJourneyType.trim(),
+        'startHandover': job.effectiveHandover.start.storageKey,
+        'endHandover': job.effectiveHandover.end.storageKey,
+        'allowedStartHandoverOptions': job.allowedStartHandoverOptions,
+        'allowedEndHandoverOptions': job.allowedEndHandoverOptions,
+        'collectionAddress': job.collectionAddress.trim(),
+        'returnAddress': job.returnAddress.trim(),
+        'returnAddressSameAsCollection': job.returnAddressSameAsCollection,
+        'businessDropOffInstructions': job.businessDropOffInstructions.trim(),
+        'businessCollectionInstructions': job.businessCollectionInstructions
+            .trim(),
+        'handoverSummary': vanCustomerHandoverSummary(
+          job.effectiveHandover.start,
+          job.effectiveHandover.end,
+        ),
+        'businessHandoverSummary': job.handoverSummary,
         'fulfilmentType': job.fulfilmentType.trim(),
+        'dropOffDate': job.dropOffDate?.toIso8601String(),
+        'dropOffTime': job.dropOffTime.trim(),
+        'pickUpDate': job.pickUpDate?.toIso8601String(),
+        'pickUpTime': job.pickUpTime.trim(),
         'quoteResponseId': docId,
         'quoteResponseToken': quoteResponseToken,
         'quoteResponseLink': quoteResponseLink,
@@ -270,7 +293,7 @@ class VanPublicQuoteCloudService {
         'acceptedProposedDate': job.acceptedProposedDate,
         'acceptedProposedStartTime': job.acceptedProposedStartTime,
         'schedulingStatus': job.schedulingStatus,
-        'estimatedDurationMinutes': job.estimatedDurationMinutes,
+        'estimatedDurationMinutes': job.effectiveCalendarDurationMinutes,
         'quoteAmount': job.quoteAmount,
         'quoteAmountText': job.quoteAmount != null
             ? formatCurrency(job.quoteAmount!)

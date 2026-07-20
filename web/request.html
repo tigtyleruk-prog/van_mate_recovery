@@ -888,6 +888,21 @@
       }
     }
 
+    function customerJourneyCopy(request) {
+      let value = String(request && request.customerJourneyType || "").trim().toLowerCase();
+      if (value !== "quote" && value !== "booking" && value !== "order") {
+        const legacy = String(request && request.requestType || "").trim().toLowerCase();
+        value = legacy === "bookingrequest" ? "booking" : (legacy === "orderrequest" ? "order" : "quote");
+      }
+      if (value === "booking") {
+        return { noun: "Booking request", submit: "Request booking", received: "Booking request received" };
+      }
+      if (value === "order") {
+        return { noun: "Order request", submit: "Place order", received: "Order received" };
+      }
+      return { noun: "Quote request", submit: "Request quote", received: "Quote request received" };
+    }
+
     function isReplyAlreadySent(request) {
       if (!request) {
         return false;
@@ -1579,7 +1594,7 @@
       }
 
       if (request.status === "reply_received") {
-        title.textContent = "Reply received";
+        title.textContent = customerJourneyCopy(request).received;
         description.textContent = "Thanks. The driver already has your reply.";
         return;
       }
@@ -1590,7 +1605,7 @@
         return;
       }
 
-      title.textContent = request.publicJobTitle || "Job request";
+      title.textContent = request.publicJobTitle || customerJourneyCopy(request).noun;
       description.textContent = "";
     }
 
@@ -1913,7 +1928,7 @@
         state.submitting || state.submitted || blocked || exactPinMissing;
       submitButton.textContent = state.submitting
         ? "Submitting..."
-        : (request?.status === "reply_received" ? "Reply received" : "Submit request");
+        : (request?.status === "reply_received" ? customerJourneyCopy(request).received : customerJourneyCopy(request).submit);
 
       additionalNotes.disabled = state.submitting || state.submitted || blocked;
       exactPinNote.disabled = state.submitting || state.submitted || blocked || !request?.exactPinRequested;
@@ -2126,6 +2141,8 @@
         publicCustomerEmail: String(data.publicCustomerEmail || "").trim(),
         selectedServiceId: String(data.selectedServiceId || "").trim(),
         selectedServiceName: String(data.selectedServiceName || "").trim(),
+        requestType: String(data.requestType || "").trim(),
+        customerJourneyType: String(data.customerJourneyType || "").trim(),
         checklistItems: rawChecklistItems.map((item) => String(item || "").trim()).filter(Boolean),
         customQuestions: rawCustomQuestions.map((item) => String(item || "").trim()).filter(Boolean),
         answers,

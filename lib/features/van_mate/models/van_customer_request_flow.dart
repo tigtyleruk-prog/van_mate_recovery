@@ -6,6 +6,55 @@ enum VanCustomerRequestType {
   pickupDeliveryRequest,
 }
 
+enum VanServiceFlow { standard, pickupDelivery, dropOffPickup }
+
+const List<VanServiceFlow> kVanServiceFlows = VanServiceFlow.values;
+
+extension VanServiceFlowX on VanServiceFlow {
+  String get storageKey => switch (this) {
+    VanServiceFlow.standard => 'standard',
+    VanServiceFlow.pickupDelivery => 'pickupDelivery',
+    VanServiceFlow.dropOffPickup => 'dropOffPickup',
+  };
+
+  String get label => switch (this) {
+    VanServiceFlow.standard => 'Standard service',
+    VanServiceFlow.pickupDelivery => 'Pickup / delivery',
+    VanServiceFlow.dropOffPickup => 'Drop-off / pick-up',
+  };
+
+  String get description => switch (this) {
+    VanServiceFlow.standard =>
+      'For services carried out at one location without a handover journey.',
+    VanServiceFlow.pickupDelivery =>
+      'For services that collect from one address and deliver to another.',
+    VanServiceFlow.dropOffPickup =>
+      'For services where an item or pet is dropped off and collected later.',
+  };
+
+  VanCustomerRequestType get requestType => switch (this) {
+    VanServiceFlow.standard => VanCustomerRequestType.quoteRequest,
+    VanServiceFlow.pickupDelivery =>
+      VanCustomerRequestType.pickupDeliveryRequest,
+    VanServiceFlow.dropOffPickup => VanCustomerRequestType.dropOffPickupRequest,
+  };
+}
+
+VanServiceFlow vanServiceFlowFromStorage(
+  Object? value, {
+  VanCustomerRequestType legacyRequestType =
+      VanCustomerRequestType.quoteRequest,
+}) {
+  final normalized = value?.toString().trim().toLowerCase() ?? '';
+  return switch (normalized) {
+    'pickupdelivery' ||
+    'pickupdeliveryrequest' => VanServiceFlow.pickupDelivery,
+    'dropoffpickup' || 'dropoffpickuprequest' => VanServiceFlow.dropOffPickup,
+    'standard' => VanServiceFlow.standard,
+    _ => legacyRequestType.serviceFlow,
+  };
+}
+
 class VanCustomerRequestFlowOptions {
   const VanCustomerRequestFlowOptions({
     required this.showFulfilmentChoice,
@@ -34,24 +83,17 @@ class VanCustomerRequestFlowOptions {
   factory VanCustomerRequestFlowOptions.defaultsFor(
     VanCustomerRequestType requestType,
   ) {
+    final serviceFlow = requestType.serviceFlow;
     return VanCustomerRequestFlowOptions(
-      showFulfilmentChoice: requestType == VanCustomerRequestType.orderRequest,
-      askPreferredDate:
-          requestType != VanCustomerRequestType.dropOffPickupRequest,
-      askPreferredTime:
-          requestType != VanCustomerRequestType.dropOffPickupRequest,
-      showPickupAddress:
-          requestType == VanCustomerRequestType.pickupDeliveryRequest,
-      showDeliveryAddress:
-          requestType == VanCustomerRequestType.pickupDeliveryRequest,
-      showDropOffDate:
-          requestType == VanCustomerRequestType.dropOffPickupRequest,
-      showDropOffTime:
-          requestType == VanCustomerRequestType.dropOffPickupRequest,
-      showPickUpDate:
-          requestType == VanCustomerRequestType.dropOffPickupRequest,
-      showPickUpTime:
-          requestType == VanCustomerRequestType.dropOffPickupRequest,
+      showFulfilmentChoice: false,
+      askPreferredDate: serviceFlow != VanServiceFlow.dropOffPickup,
+      askPreferredTime: serviceFlow != VanServiceFlow.dropOffPickup,
+      showPickupAddress: serviceFlow == VanServiceFlow.pickupDelivery,
+      showDeliveryAddress: serviceFlow == VanServiceFlow.pickupDelivery,
+      showDropOffDate: serviceFlow == VanServiceFlow.dropOffPickup,
+      showDropOffTime: serviceFlow == VanServiceFlow.dropOffPickup,
+      showPickUpDate: serviceFlow == VanServiceFlow.dropOffPickup,
+      showPickUpTime: serviceFlow == VanServiceFlow.dropOffPickup,
       showNotes: true,
     );
   }
@@ -136,6 +178,15 @@ class VanCustomerRequestFlowOptions {
 }
 
 extension VanCustomerRequestTypeX on VanCustomerRequestType {
+  VanServiceFlow get serviceFlow => switch (this) {
+    VanCustomerRequestType.pickupDeliveryRequest =>
+      VanServiceFlow.pickupDelivery,
+    VanCustomerRequestType.dropOffPickupRequest => VanServiceFlow.dropOffPickup,
+    VanCustomerRequestType.quoteRequest ||
+    VanCustomerRequestType.bookingRequest ||
+    VanCustomerRequestType.orderRequest => VanServiceFlow.standard,
+  };
+
   String get storageKey => switch (this) {
     VanCustomerRequestType.quoteRequest => 'quoteRequest',
     VanCustomerRequestType.bookingRequest => 'bookingRequest',
@@ -143,36 +194,15 @@ extension VanCustomerRequestTypeX on VanCustomerRequestType {
     VanCustomerRequestType.dropOffPickupRequest => 'dropOffPickupRequest',
     VanCustomerRequestType.pickupDeliveryRequest => 'pickupDeliveryRequest',
   };
-
-  String get label => switch (this) {
-    VanCustomerRequestType.quoteRequest => 'Quote request',
-    VanCustomerRequestType.bookingRequest => 'Booking request',
-    VanCustomerRequestType.orderRequest => 'Order request',
-    VanCustomerRequestType.dropOffPickupRequest => 'Drop-off / pick-up',
-    VanCustomerRequestType.pickupDeliveryRequest => 'Pickup / delivery',
-  };
-
-  String get customerActionLabel => switch (this) {
-    VanCustomerRequestType.quoteRequest => 'Request a quote',
-    VanCustomerRequestType.bookingRequest => 'Request a booking',
-    VanCustomerRequestType.orderRequest => 'Place an order',
-    VanCustomerRequestType.dropOffPickupRequest => 'Request a booking',
-    VanCustomerRequestType.pickupDeliveryRequest => 'Request pickup / delivery',
-  };
-
-  String get description => switch (this) {
-    VanCustomerRequestType.quoteRequest =>
-      'For quote-led work such as removals, gardening, trades and repairs.',
-    VanCustomerRequestType.bookingRequest =>
-      'For appointments, cleaning and mobile services.',
-    VanCustomerRequestType.orderRequest =>
-      'For cakes, food, gifts and other made-to-order products.',
-    VanCustomerRequestType.dropOffPickupRequest =>
-      'For services with separate drop-off and pick-up times.',
-    VanCustomerRequestType.pickupDeliveryRequest =>
-      'For courier, collection and delivery services.',
-  };
 }
+
+VanServiceFlow defaultVanServiceFlowForService({
+  required String serviceId,
+  required String serviceName,
+}) => defaultVanCustomerRequestTypeForService(
+  serviceId: serviceId,
+  serviceName: serviceName,
+).serviceFlow;
 
 VanCustomerRequestType vanCustomerRequestTypeFromStorage(
   Object? value, {
@@ -259,20 +289,20 @@ bool isVanCustomerRequestBuiltInQuestion(
       text == 'preferred date time') {
     return true;
   }
-  return switch (requestType) {
-    VanCustomerRequestType.orderRequest =>
-      text == 'collection or delivery' || text == 'delivery address',
-    VanCustomerRequestType.pickupDeliveryRequest =>
+  return switch (requestType.serviceFlow) {
+    VanServiceFlow.pickupDelivery =>
       text == 'collection address' ||
           text == 'pickup address' ||
           text == 'delivery address',
-    VanCustomerRequestType.dropOffPickupRequest =>
+    VanServiceFlow.dropOffPickup =>
       text == 'drop off date' ||
           text == 'drop off time' ||
           text == 'pick up date' ||
-          text == 'pick up time',
-    VanCustomerRequestType.quoteRequest ||
-    VanCustomerRequestType.bookingRequest => false,
+          text == 'pick up time' ||
+          text == 'event date' ||
+          text == 'event time' ||
+          text == 'location',
+    VanServiceFlow.standard => false,
   };
 }
 

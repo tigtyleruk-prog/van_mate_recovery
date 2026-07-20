@@ -148,6 +148,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Saved extras'), findsOneWidget);
+    await _scrollExtrasUntilBuilt(tester, find.text('Save extras'));
     expect(find.text('Save extras'), findsOneWidget);
   });
 
@@ -181,6 +182,26 @@ void main() {
 
     expect(draft.invoiceDate, '13 Jul 2026 at 09:00');
   });
+}
+
+Future<void> _scrollExtrasUntilBuilt(WidgetTester tester, Finder finder) async {
+  for (var attempt = 0; attempt < 20 && finder.evaluate().isEmpty; attempt++) {
+    final scrollable = find
+        .descendant(
+          of: find.byType(ReorderableListView),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final position = tester.state<ScrollableState>(scrollable).position;
+    position.jumpTo(
+      (position.pixels + 300).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+    await tester.pump();
+  }
+  expect(finder, findsOneWidget);
 }
 
 Future<VanInvoiceDraft> _openAndSaveInvoiceItemsPage(

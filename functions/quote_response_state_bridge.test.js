@@ -558,6 +558,54 @@ test('buildQuoteJobMirror keeps an accepted quote accepted when stale sent field
   assert.equal(payload.hasExactPin, true);
 });
 
+test('buildQuoteJobMirror preserves drop-off pickup times and clears stale pin state', () => {
+  const payload = __test__.buildQuoteJobMirror({
+    before: {},
+    after: {
+      ownerUid: 'driver-1',
+      jobId: 'pet-sitting-job',
+      requestId: 'pet-sitting-request',
+      requestType: 'dropOffPickupRequest',
+      startHandover: 'businessCollects',
+      endHandover: 'customerCollects',
+      allowedStartHandoverOptions: ['businessCollects'],
+      allowedEndHandoverOptions: ['customerCollects'],
+      collectionAddress: '1 Collection Road',
+      returnAddress: '',
+      returnAddressSameAsCollection: false,
+      businessCollectionInstructions: 'Collect from reception',
+      dropOffDate: '2026-07-22T00:00:00.000Z',
+      dropOffTime: '09:30',
+      pickUpDate: '2026-07-22T00:00:00.000Z',
+      pickUpTime: '17:30',
+      requiresExactPinAfterQuoteAccepted: false,
+      quoteStatus: 'accepted',
+      quoteResponseStatus: 'accepted',
+      quoteAccepted: true,
+    },
+    existingJob: {
+      requestExactPin: true,
+      requiresExactPinAfterQuoteAccepted: true,
+      locationPending: true,
+    },
+    quoteId: 'pet-sitting-quote',
+    ownerUid: 'driver-1',
+    jobId: 'pet-sitting-job',
+  });
+
+  assert.equal(payload.dropOffTime, '09:30');
+  assert.equal(payload.pickUpTime, '17:30');
+  assert.equal(payload.startHandover, 'businessCollects');
+  assert.equal(payload.endHandover, 'customerCollects');
+  assert.deepEqual(payload.allowedStartHandoverOptions, ['businessCollects']);
+  assert.deepEqual(payload.allowedEndHandoverOptions, ['customerCollects']);
+  assert.equal(payload.collectionAddress, '1 Collection Road');
+  assert.equal(payload.businessCollectionInstructions, 'Collect from reception');
+  assert.equal(payload.requestExactPin, false);
+  assert.equal(payload.requiresExactPinAfterQuoteAccepted, false);
+  assert.equal(payload.locationPending, false);
+});
+
 test('customer reply exact pin notification prefers customer name over job title', () => {
   const body = __test__.buildCustomerReplyNotificationBody({
     customerName: 'Full Flow Test',

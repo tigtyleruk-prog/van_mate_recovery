@@ -29,6 +29,11 @@ const helperNames = [
   'isCollectionOrder',
   'isDeliveryOrder',
   'isPickupDeliveryRequest',
+  'isDropOffPickupRequest',
+  'handoverForQuote',
+  'customerHandoverSummary',
+  'customerJourneyType',
+  'quoteResponseCopy',
   'quoteNeedsCustomerLocation',
   'quoteNeedsExactPin',
   'quoteContactNoun',
@@ -92,12 +97,60 @@ test('pickup/delivery and legacy quotes retain safe location fallback', () => {
   );
 });
 
-test('drop-off/pick-up flows do not request a customer pin', () => {
+test('drop-off/pick-up flows request a pin only when configured', () => {
+  const quote = { requestType: 'dropOffPickupRequest' };
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(context.quoteResponseCopy(quote))),
+    {
+      helper: 'Use the buttons below to confirm your choice.',
+      accept: 'Accept & book',
+      arrange: 'Accept quote – rearrange appointment',
+      decline: 'Decline quote',
+    },
+  );
   assert.equal(
     context.quoteNeedsExactPin({
       requestType: 'dropOffPickupRequest',
       requiresExactPinAfterQuoteAccepted: true,
     }),
+    true,
+  );
+  assert.equal(
+    context.quoteNeedsExactPin({
+      requestType: 'dropOffPickupRequest',
+      requiresExactPinAfterQuoteAccepted: false,
+    }),
     false,
+  );
+  assert.equal(
+    context.exactPinPrompt({
+      requestType: 'dropOffPickupRequest',
+      requiresExactPinAfterQuoteAccepted: true,
+    }),
+    'Please confirm the exact drop-off location.',
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(context.handoverForQuote(quote))),
+    { start: 'customerdropsoff', end: 'customercollects' },
+  );
+  assert.equal(
+    context.customerHandoverSummary(quote),
+    'You will drop off and collect.',
+  );
+  assert.match(pageSource, /"Business collection"\s*:\s*"Your drop-off"/);
+  assert.match(pageSource, /"Business return"\s*:\s*"Your collection"/);
+  assert.match(pageSource, /dropOffDate: asDate\(data\.dropOffDate\)/);
+  assert.match(pageSource, /pickUpDate: asDate\(data\.pickUpDate\)/);
+});
+
+test('legacy booking journeys keep booking decline wording', () => {
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(context.quoteResponseCopy({ requestType: 'bookingRequest' }))),
+    {
+      helper: 'Use the buttons below to confirm your choice.',
+      accept: 'Accept & book',
+      arrange: 'Accept quote – rearrange appointment',
+      decline: 'Decline booking',
+    },
   );
 });

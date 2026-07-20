@@ -397,20 +397,12 @@ void main() {
 
     await tester.tap(find.text('Open settings'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Add custom extra'),
-      120,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await _scrollUntilBuilt(tester, find.text('Add custom extra'));
     await tester.tap(find.text('Add custom extra'));
     await tester.pumpAndSettle();
     await _enterLastCustomExtra(tester, label: '4th person', price: '15');
 
-    await tester.scrollUntilVisible(
-      find.text('Save extras'),
-      120,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await _scrollUntilBuilt(tester, find.text('Save extras'));
     await tester.tap(find.text('Save extras'));
     await tester.pumpAndSettle();
 
@@ -424,25 +416,140 @@ void main() {
     await tester.tap(find.text('Open settings'));
     await tester.pumpAndSettle();
 
+    await _scrollUntilBuilt(
+      tester,
+      find.byKey(const ValueKey('quote-extra-label-custom_extra_item_1')),
+    );
+
     expect(_textFieldValues(tester), contains('4th person'));
     expect(_textFieldValues(tester), contains('15.00'));
 
-    await tester.scrollUntilVisible(
-      find.byTooltip('Delete custom extra'),
-      120,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await _scrollUntilBuilt(tester, find.byTooltip('Delete custom extra'));
     await tester.tap(find.byTooltip('Delete custom extra'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Save extras'),
-      120,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await _scrollUntilBuilt(tester, find.text('Save extras'));
     await tester.tap(find.text('Save extras'));
     await tester.pumpAndSettle();
 
     expect(saved!.customExtras, isEmpty);
+  });
+
+  testWidgets('extras editor lazily builds rows and keeps rapid edits local', (
+    tester,
+  ) async {
+    final customExtras = List<VanQuoteExtraDefault>.generate(
+      24,
+      (index) => VanQuoteExtraDefault.custom(
+        key: 'custom_extra_test_$index',
+        label: 'Test extra $index',
+        defaultPrice: index.toDouble(),
+      ),
+    );
+    final initial = VanQuoteExtraDefaults.defaults().copyWithCustomExtras(
+      customExtras,
+    );
+    VanQuoteExtraDefaults? saved;
+
+    await pumpSettingsHost(tester, () => initial, (value) {
+      saved = value;
+    });
+    await tester.tap(find.text('Open settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextField).evaluate().length, lessThan(60));
+
+    const labelKey = ValueKey('quote-extra-label-helper');
+    await _scrollUntilBuilt(tester, find.byKey(labelKey));
+    await tester.tap(find.byKey(labelKey));
+    for (final value in <String>[
+      'R',
+      'Ra',
+      'Rap',
+      'Rapi',
+      'Rapid',
+      'Rapid ',
+      'Rapid e',
+      'Rapid ed',
+      'Rapid edi',
+      'Rapid edit',
+    ]) {
+      tester.testTextInput.enterText(value);
+      await tester.pump();
+    }
+
+    expect(saved, isNull);
+    expect(
+      tester.widget<TextField>(find.byKey(labelKey)).controller!.text,
+      'Rapid edit',
+    );
+
+    final labelFocusNode = tester
+        .widget<TextField>(find.byKey(labelKey))
+        .focusNode;
+    tester
+        .widget<ReorderableListView>(find.byType(ReorderableListView))
+        .onReorderItem!(0, 2);
+    await tester.pump();
+
+    expect(
+      tester.widget<TextField>(find.byKey(labelKey)).controller!.text,
+      'Rapid edit',
+    );
+    expect(
+      tester.widget<TextField>(find.byKey(labelKey)).focusNode,
+      same(labelFocusNode),
+    );
+    expect(labelFocusNode!.hasFocus, isTrue);
+
+    final scrollPosition = _extrasScrollPosition(tester);
+    scrollPosition.jumpTo(
+      (scrollPosition.pixels + 1600).clamp(
+        scrollPosition.minScrollExtent,
+        scrollPosition.maxScrollExtent,
+      ),
+    );
+    await tester.pump();
+    scrollPosition.jumpTo(scrollPosition.minScrollExtent);
+    await tester.pump();
+    await _scrollUntilBuilt(tester, find.byKey(labelKey));
+
+    expect(
+      tester.widget<TextField>(find.byKey(labelKey)).controller!.text,
+      'Rapid edit',
+    );
+    expect(saved, isNull);
+  });
+
+  testWidgets('default price accepts currency decimals and saves on submit', (
+    tester,
+  ) async {
+    final initial = VanQuoteExtraDefaults.defaults();
+    VanQuoteExtraDefaults? saved;
+
+    await pumpSettingsHost(tester, () => initial, (value) {
+      saved = value;
+    });
+    await tester.tap(find.text('Open settings'));
+    await tester.pumpAndSettle();
+
+    const priceKey = ValueKey('quote-extra-price-helper');
+    await _scrollUntilBuilt(tester, find.byKey(priceKey));
+    await tester.enterText(find.byKey(priceKey), '12.34');
+    await tester.enterText(find.byKey(priceKey), '12.345');
+    await tester.pump();
+
+    expect(saved, isNull);
+    expect(
+      tester.widget<TextField>(find.byKey(priceKey)).controller!.text,
+      '12.34',
+    );
+
+    await _scrollUntilBuilt(tester, find.text('Save extras'));
+    await tester.tap(find.text('Save extras'));
+    await tester.pumpAndSettle();
+
+    expect(saved, isNotNull);
+    expect(saved!.extraForKey(kVanQuoteExtraHelperKey).defaultPrice, 12.34);
   });
 
   group('VanQuoteExtraSelections', () {
@@ -569,10 +676,38 @@ Future<void> _enterLastCustomExtra(
   required String label,
   required String price,
 }) async {
-  final fieldCount = find.byType(TextField).evaluate().length;
-  await tester.enterText(find.byType(TextField).at(fieldCount - 2), label);
-  await tester.enterText(find.byType(TextField).at(fieldCount - 1), price);
+  const labelKey = ValueKey('quote-extra-label-custom_extra_item_1');
+  const priceKey = ValueKey('quote-extra-price-custom_extra_item_1');
+  await _scrollUntilBuilt(tester, find.byKey(labelKey));
+  await tester.enterText(find.byKey(labelKey), label);
+  await tester.enterText(find.byKey(priceKey), price);
   await tester.pumpAndSettle();
+}
+
+Future<void> _scrollUntilBuilt(WidgetTester tester, Finder finder) async {
+  for (var attempt = 0; attempt < 20 && finder.evaluate().isEmpty; attempt++) {
+    final position = _extrasScrollPosition(tester);
+    position.jumpTo(
+      (position.pixels + 300).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+    await tester.pump();
+  }
+  expect(finder, findsOneWidget);
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
+  await tester.pump();
+}
+
+ScrollPosition _extrasScrollPosition(WidgetTester tester) {
+  final scrollable = find
+      .descendant(
+        of: find.byType(ReorderableListView),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+  return tester.state<ScrollableState>(scrollable).position;
 }
 
 List<String> _textFieldValues(WidgetTester tester) {

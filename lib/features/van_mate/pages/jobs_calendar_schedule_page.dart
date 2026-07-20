@@ -7,17 +7,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../helpers/app_theme.dart';
+import '../helpers/van_calendar_job_presentation.dart';
 import '../helpers/van_completed_job_status_pills.dart';
 import '../helpers/van_customer_request_actions.dart';
+import '../helpers/van_customer_journey_theme.dart';
 import '../helpers/van_job_navigation.dart';
 import '../helpers/van_job_request_state.dart';
 import '../helpers/van_text_formatters.dart';
+import '../models/van_customer_journey.dart';
 import 'create_invoice_page.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'create_job_request_flow.dart';
 import 'job_detail_page.dart';
 import 'van_invoice_preview_page.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
+import '../widgets/van_calendar_compact_action_card.dart';
 
 class JobsCalendarSchedulePage extends StatefulWidget {
   const JobsCalendarSchedulePage({super.key});
@@ -173,6 +177,9 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
       requiresExactPinAfterQuoteAccepted:
           job.requiresExactPinAfterQuoteAccepted,
       hasExactPin: job.exactPinSaved,
+      emptyFallback: job.isDropOffPickupRequest && !job.requiresAnyExactPin
+          ? ''
+          : 'No address added yet.',
     );
     final exactPinLabel = job.exactPinShared
         ? 'Exact pin shared'
@@ -218,17 +225,19 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               ),
             if (job.hasQuote)
               _ScheduleActionData(
-                label: 'View quote',
+                label:
+                    'View ${job.customerJourney.copy.requestNoun.toLowerCase()}',
                 enabled: true,
-                icon: Icons.request_quote_outlined,
-                accent: const Color(0xFF4A7DFF),
+                icon: job.customerJourney.journeyTheme.icon,
+                accent: job.customerJourney.journeyTheme.accent,
                 onTap: () => _createQuoteFor(job),
               )
             else if (!job.hasCustomerRequestAttached)
               _ScheduleActionData(
-                label: 'Create quote',
+                label: job.customerJourney.copy.businessAction,
                 enabled: true,
-                icon: Icons.request_quote_outlined,
+                icon: job.customerJourney.journeyTheme.icon,
+                accent: job.customerJourney.journeyTheme.accent,
                 onTap: () => _createQuoteFor(job),
               ),
           ]
@@ -266,17 +275,19 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
               ),
             if (actionState.canCreateQuote)
               _ScheduleActionData(
-                label: 'Create quote',
+                label: job.customerJourney.copy.businessAction,
                 enabled: true,
-                icon: Icons.request_quote_outlined,
+                icon: job.customerJourney.journeyTheme.icon,
+                accent: job.customerJourney.journeyTheme.accent,
                 onTap: () => _createQuoteFor(job),
               )
             else if (actionState.canViewQuote)
               _ScheduleActionData(
-                label: 'View quote',
+                label:
+                    'View ${job.customerJourney.copy.requestNoun.toLowerCase()}',
                 enabled: true,
-                icon: Icons.request_quote_outlined,
-                accent: const Color(0xFF4A7DFF),
+                icon: job.customerJourney.journeyTheme.icon,
+                accent: job.customerJourney.journeyTheme.accent,
                 onTap: () => _createQuoteFor(job),
               ),
             if (showAcceptedQuoteAction)
@@ -294,15 +305,13 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
 
     return _ScheduleJobData(
       title: job.customerName,
-      subtitle: job.jobTitle.trim().isNotEmpty
-          ? job.jobTitle.trim()
-          : 'Job details',
+      subtitle: vanCalendarDisplayJobTitle(job),
       locationLabel: locationLabel,
       exactPinLabel: exactPinLabel,
       timeLabel: _jobTimeTextForSchedule(job),
       statusLabel: job.statusLabel,
       status: status,
-      accent: _scheduleAccentForStatus(status),
+      accent: vanCalendarAccentForJob(job),
       body: _scheduleBodyText(job),
       statusPills: statusPills,
       actions: actions,
@@ -456,7 +465,10 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
         : job.requiresAnyExactPin
         ? 'Exact pin still missing.'
         : 'No exact pin requested.';
-    return '$statusText\n$pinText';
+    final dropOffPickupTiming = vanCalendarDropOffPickupTimingText(job);
+    return dropOffPickupTiming.isEmpty
+        ? '$statusText\n$pinText'
+        : '$statusText\n$dropOffPickupTiming\n$pinText';
   }
 
   bool _hasCustomerReply(DriverCustomerReplyMockData job) {
@@ -884,7 +896,7 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
       persisted = await DriverReplyMockState.instance.persistScheduledJob(
         jobId: job.jobId,
         scheduledAt: scheduledAt,
-        estimatedDurationMinutes: job.estimatedDurationMinutes ?? 60,
+        estimatedDurationMinutes: job.effectiveCalendarDurationMinutes ?? 60,
         schedulingStatus: job.schedulingStatus.trim().isNotEmpty
             ? job.schedulingStatus
             : 'accepted_time',
@@ -1049,7 +1061,29 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
 
   Map<DateTime, List<DriverCustomerReplyMockData>> _calendarJobsByDate() {
     _calendarMapBuildCount += 1;
-    final jobsByDate = DriverReplyMockState.instance.bookedJobsByDate();
+    final storedJobsByDate = DriverReplyMockState.instance.bookedJobsByDate();
+    final jobsByDate = <DateTime, List<DriverCustomerReplyMockData>>{
+      for (final entry in storedJobsByDate.entries)
+        entry.key: entry.value.toList(growable: true),
+    };
+    final projectedJobs = <String, DriverCustomerReplyMockData>{};
+    for (final jobs in storedJobsByDate.values) {
+      for (final job in jobs) {
+        projectedJobs[job.jobId] = job;
+      }
+    }
+    for (final job in projectedJobs.values) {
+      for (final action in vanCalendarActionProjections(job)) {
+        final date = DateUtils.dateOnly(action.start);
+        final jobs = jobsByDate.putIfAbsent(
+          date,
+          () => <DriverCustomerReplyMockData>[],
+        );
+        if (!jobs.any((candidate) => candidate.jobId == job.jobId)) {
+          jobs.add(job);
+        }
+      }
+    }
     debugPrint(
       '[CalendarSchedulePage] calendarJobsByDate build=$_calendarMapBuildCount '
       'days=${jobsByDate.length} watchers=${DriverReplyMockState.instance.activeRequestWatchCount} '
@@ -1182,11 +1216,37 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
     required DateTime selectedDate,
   }) {
     final entries = jobs
-        .map((job) => _buildDayScheduleEntry(job, selectedDate: selectedDate))
-        .whereType<_DayScheduleEntry>()
+        .expand(
+          (job) =>
+              _buildDayScheduleEntriesForJob(job, selectedDate: selectedDate),
+        )
         .toList(growable: true);
     entries.sort((a, b) => a.start.compareTo(b.start));
     return entries;
+  }
+
+  List<_DayScheduleEntry> _buildDayScheduleEntriesForJob(
+    DriverCustomerReplyMockData job, {
+    required DateTime selectedDate,
+  }) {
+    final actions = vanCalendarActionProjections(job);
+    if (actions.isEmpty) {
+      final entry = _buildDayScheduleEntry(job, selectedDate: selectedDate);
+      return entry == null
+          ? const <_DayScheduleEntry>[]
+          : <_DayScheduleEntry>[entry];
+    }
+    return actions
+        .where((action) => DateUtils.isSameDay(action.start, selectedDate))
+        .map(
+          (action) => _buildDayScheduleEntry(
+            job,
+            selectedDate: selectedDate,
+            action: action,
+          ),
+        )
+        .whereType<_DayScheduleEntry>()
+        .toList(growable: false);
   }
 
   List<_DayScheduleEntry> _dayScheduleEntriesForDate(
@@ -1203,25 +1263,33 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
   _DayScheduleEntry? _buildDayScheduleEntry(
     DriverCustomerReplyMockData job, {
     required DateTime selectedDate,
+    VanCalendarActionProjection? action,
   }) {
     try {
       final slot = job.bookedCalendarSlot;
       final scheduledAt =
+          action?.start ??
           slot?.start ??
           job.scheduledAtOrParsed ??
           _fallbackTimelineDateTime(job, selectedDate);
       final durationMinutes = _sanitizedTimelineDurationMinutes(
-        slot?.durationMinutes ?? job.estimatedDurationMinutes ?? 60,
+        action == null
+            ? slot?.durationMinutes ??
+                  job.effectiveCalendarDurationMinutes ??
+                  60
+            : 60,
       );
       final status = _scheduleJobStatusForJob(job);
       final startHour = _safeTimelineHour(scheduledAt.hour);
       final startMinute = _safeTimelineMinute(scheduledAt.minute);
-      final endHour = _timelineEndHour(
-        start: scheduledAt,
-        durationMinutes: durationMinutes,
-      );
+      final endHour = action == null
+          ? _timelineEndHour(
+              start: scheduledAt,
+              durationMinutes: durationMinutes,
+            )
+          : startHour;
       final heightFactor = _sanitizedTimelineHeightFactor(
-        _durationHeightFactor(durationMinutes),
+        action == null ? _durationHeightFactor(durationMinutes) : 1.5,
       );
       final computedCardHeight = _timelineCardHeight(heightFactor);
       final topOffsetFraction = _timelineTopOffsetFraction(startMinute);
@@ -1240,15 +1308,19 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
         start: scheduledAt,
         durationMinutes: durationMinutes,
         startLabel: _timelineStartLabel(job, scheduledAt),
-        durationLabel: _formatDurationLabel(
-          durationMinutes,
-          start: scheduledAt,
-        ),
+        durationLabel: action == null || action.showBookingDuration
+            ? _formatDurationLabel(durationMinutes, start: scheduledAt)
+            : '',
+        actionLabel: action?.label ?? '',
+        actionIcon: action?.icon,
+        actionAddress: action?.address ?? '',
         statusLabel: _timelineStatusLabel(job),
         status: status,
-        accent: _scheduleAccentForStatus(status),
+        accent: vanCalendarAccentForJob(job),
         customerName: _safeTimelineCustomerName(job),
-        jobTitle: _safeTimelineJobTitle(job),
+        jobTitle: action == null
+            ? vanCalendarDisplayJobTitle(job)
+            : _safeDaySheetTitle(job),
         heightFactor: heightFactor,
         displayStartHour: startHour,
         displayEndHour: endHour,
@@ -1284,11 +1356,12 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
         durationMinutes: 60,
         startLabel: _timelineFallbackDateTimeLabel(job, fallbackAt),
         durationLabel: _formatDurationLabel(60, start: fallbackAt),
+        actionLabel: '',
         statusLabel: 'Scheduled',
         status: fallbackStatus,
-        accent: _scheduleAccentForStatus(fallbackStatus),
+        accent: vanCalendarAccentForJob(job),
         customerName: _safeTimelineCustomerName(job),
-        jobTitle: _safeTimelineJobTitle(job),
+        jobTitle: vanCalendarDisplayJobTitle(job),
         heightFactor: fallbackHeightFactor,
         displayStartHour: fallbackHour,
         displayEndHour: fallbackHour,
@@ -1549,7 +1622,25 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
     required DateTime selectedDate,
   }) {
     final cards = jobs
-        .map((job) => _buildSafeDaySheetCard(job, selectedDate: selectedDate))
+        .expand((job) {
+          final projectedActions = vanCalendarActionProjections(job);
+          if (projectedActions.isEmpty) {
+            return <_DaySheetJobCardData>[
+              _buildSafeDaySheetCard(job, selectedDate: selectedDate),
+            ];
+          }
+          return projectedActions
+              .where(
+                (action) => DateUtils.isSameDay(action.start, selectedDate),
+              )
+              .map(
+                (action) => _buildSafeDaySheetCard(
+                  job,
+                  selectedDate: selectedDate,
+                  action: action,
+                ),
+              );
+        })
         .toList(growable: false);
     cards.sort((a, b) {
       final hourCompare = a.displayHour.compareTo(b.displayHour);
@@ -1568,32 +1659,40 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
   _DaySheetJobCardData _buildSafeDaySheetCard(
     DriverCustomerReplyMockData job, {
     required DateTime selectedDate,
+    VanCalendarActionProjection? action,
   }) {
     try {
       final selectedDay = DateUtils.dateOnly(selectedDate);
       final slot = job.bookedCalendarSlot;
       final resolvedStart = slot?.start ?? job.scheduledAtOrParsed;
       final fallbackStart = _fallbackTimelineDateTime(job, selectedDay);
-      final displayStart = resolvedStart ?? fallbackStart;
+      final displayStart = action?.start ?? resolvedStart ?? fallbackStart;
       final hasParsedTime =
+          action != null ||
           resolvedStart != null ||
           _tryParseTimelineTime(job.scheduledStartTime) != null;
       final displayHour = _safeTimelineHour(displayStart.hour);
       final displayMinute = _safeTimelineMinute(displayStart.minute);
-      final rawDurationMinutes = _sanitizedTimelineDurationMinutes(
-        job.estimatedDurationMinutes,
-      );
-      final placementDurationMinutes =
-          _sanitizedTimelineDurationMinutes(
-            slot?.durationMinutes ?? job.estimatedDurationMinutes,
-          ) ??
-          60;
+      final rawDurationMinutes = action == null
+          ? _sanitizedTimelineDurationMinutes(
+              job.effectiveCalendarDurationMinutes,
+            )
+          : null;
+      final placementDurationMinutes = action == null
+          ? _sanitizedTimelineDurationMinutes(
+                  slot?.durationMinutes ?? job.effectiveCalendarDurationMinutes,
+                ) ??
+                60
+          : action.visualOccupancyMinutes;
       final timeLabel = hasParsedTime
           ? _formatTimelineTime(displayStart)
           : 'Time not set';
       final title = _safeDaySheetTitle(job);
       final customer = _safeDaySheetCustomer(job);
-      final address = _safeDaySheetAddress(job);
+      final projectedAddress = action?.address.trim() ?? '';
+      final address = projectedAddress.isNotEmpty
+          ? projectedAddress
+          : _safeDaySheetAddress(job);
       final status = _scheduleJobStatusForJob(job);
       final occupiedUntilLabel = _daySheetOccupiedUntilLabelForRange(
         displayStart,
@@ -1611,10 +1710,12 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
         durationLabel: rawDurationMinutes == null
             ? ''
             : _formatDurationLabel(rawDurationMinutes, start: displayStart),
+        actionLabel: action?.label ?? '',
+        actionIcon: action?.icon,
         addressLabel: address,
         statusLabel: _timelineStatusLabel(job),
         status: status,
-        accent: _scheduleAccentForStatus(status),
+        accent: vanCalendarAccentForJob(job),
         statusPills: statusPills,
         placementDurationMinutes: placementDurationMinutes,
         occupiedUntilLabel: occupiedUntilLabel,
@@ -1646,10 +1747,11 @@ class _JobsCalendarSchedulePageState extends State<JobsCalendarSchedulePage>
         title: _safeDaySheetTitle(job),
         customer: _safeDaySheetCustomer(job),
         durationLabel: '',
+        actionLabel: '',
         addressLabel: _safeDaySheetAddress(job),
         statusLabel: _timelineStatusLabel(job),
         status: status,
-        accent: _scheduleAccentForStatus(status),
+        accent: vanCalendarAccentForJob(job),
         statusPills: buildVanCompletedJobStatusPills(job),
         placementDurationMinutes: 60,
         occupiedUntilLabel: occupiedUntilLabel,
@@ -2634,6 +2736,9 @@ class _DayScheduleHourRow extends StatelessWidget {
                     children: [
                       for (var index = 0; index < entries.length; index++) ...[
                         _DayScheduleJobCard(
+                          key: ValueKey<String>(
+                            '${entries[index].job.jobId}:${entries[index].actionLabel}:${entries[index].start.toIso8601String()}',
+                          ),
                           entry: entries[index],
                           onTap: () => onOpenJob(entries[index].job),
                         ),
@@ -2650,7 +2755,11 @@ class _DayScheduleHourRow extends StatelessWidget {
 }
 
 class _DayScheduleJobCard extends StatelessWidget {
-  const _DayScheduleJobCard({required this.entry, required this.onTap});
+  const _DayScheduleJobCard({
+    super.key,
+    required this.entry,
+    required this.onTap,
+  });
 
   final _DayScheduleEntry entry;
   final VoidCallback onTap;
@@ -2658,8 +2767,77 @@ class _DayScheduleJobCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardHeight = entry.computedCardHeight;
+    final isProjectedAction = entry.actionLabel.isNotEmpty;
+    if (isProjectedAction) {
+      return VanCalendarCompactActionCard(
+        key: ValueKey<String>(
+          '${entry.job.jobId}:${entry.actionLabel}:${entry.start.toIso8601String()}',
+        ),
+        cardId:
+            '${entry.job.jobId}-${entry.actionLabel}-${entry.start.millisecondsSinceEpoch}',
+        actionLabel: entry.actionLabel,
+        actionIcon: entry.actionIcon,
+        customerName: entry.customerName,
+        accent: entry.accent,
+        timeChip: _DayScheduleMetaChip(
+          icon: Icons.schedule_rounded,
+          label: entry.startLabel,
+        ),
+        statusChip: _ScheduleMiniChip(
+          label: entry.statusLabel,
+          accent: entry.accent,
+          highlight: true,
+          compact: true,
+        ),
+        expandedChild: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              entry.jobTitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white.withValues(alpha: 0.78),
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (entry.job.hasServiceHandover)
+              Text(
+                entry.job.handoverSummary,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+            if (entry.actionAddress.trim().isNotEmpty)
+              Text(
+                entry.actionAddress.trim(),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+            if (entry.job.phoneNumber.trim().isNotEmpty)
+              Text(
+                entry.job.phoneNumber.trim(),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+            Text(
+              'Parent job: ${entry.job.jobId}',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+            ),
+          ],
+        ),
+        onOpen: onTap,
+      );
+    }
     final showsMinutePlacementLabel =
-        entry.startMinute != 0 || entry.usedFallbackPlacement;
+        !isProjectedAction &&
+        (entry.startMinute != 0 || entry.usedFallbackPlacement);
     final placementLabel = '${entry.startLabel} • ${entry.jobTitle}';
     return Material(
       color: Colors.transparent,
@@ -2705,6 +2883,21 @@ class _DayScheduleJobCard extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                if (isProjectedAction) ...[
+                                  Text(
+                                    entry.actionLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          color: entry.accent,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                ],
                                 Text(
                                   entry.customerName,
                                   maxLines: 1,
@@ -2717,7 +2910,9 @@ class _DayScheduleJobCard extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  showsMinutePlacementLabel
+                                  isProjectedAction
+                                      ? entry.jobTitle
+                                      : showsMinutePlacementLabel
                                       ? placementLabel
                                       : entry.jobTitle,
                                   maxLines: showsMinutePlacementLabel ? 3 : 2,
@@ -2748,7 +2943,7 @@ class _DayScheduleJobCard extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          if (!showsMinutePlacementLabel)
+                          if (isProjectedAction || !showsMinutePlacementLabel)
                             _DayScheduleMetaChip(
                               icon: Icons.schedule_rounded,
                               label: entry.startLabel,
@@ -2864,6 +3059,9 @@ class _DaySheetHourRow extends StatelessWidget {
                     children: [
                       for (var index = 0; index < cards.length; index++) ...[
                         _DaySheetJobCard(
+                          key: ValueKey<String>(
+                            '${cards[index].job.jobId}:${cards[index].actionLabel}:${cards[index].displayStart.toIso8601String()}',
+                          ),
                           card: cards[index],
                           onTap: () => onOpenJob(cards[index].job),
                         ),
@@ -2890,13 +3088,95 @@ class _DaySheetHourRow extends StatelessWidget {
 }
 
 class _DaySheetJobCard extends StatelessWidget {
-  const _DaySheetJobCard({required this.card, required this.onTap});
+  const _DaySheetJobCard({super.key, required this.card, required this.onTap});
 
   final _DaySheetJobCardData card;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    if (card.actionLabel.isNotEmpty) {
+      return VanCalendarCompactActionCard(
+        key: ValueKey<String>(
+          '${card.job.jobId}:${card.actionLabel}:${card.displayStart.toIso8601String()}',
+        ),
+        cardId:
+            '${card.job.jobId}-${card.actionLabel}-${card.displayStart.millisecondsSinceEpoch}',
+        actionLabel: card.actionLabel,
+        actionIcon: card.actionIcon,
+        customerName: card.customer,
+        accent: card.accent,
+        timeChip: _DayScheduleMetaChip(
+          icon: Icons.schedule_rounded,
+          label: card.timeLabel,
+        ),
+        statusChip: _ScheduleMiniChip(
+          label: card.statusLabel,
+          accent: card.accent,
+          highlight: true,
+          compact: true,
+        ),
+        expandedChild: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              card.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.84),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (card.job.hasServiceHandover)
+              Text(
+                card.job.handoverSummary,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+            if (card.addressLabel.trim().isNotEmpty)
+              Text(
+                card.addressLabel.trim(),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+            if (card.job.phoneNumber.trim().isNotEmpty)
+              Text(
+                card.job.phoneNumber.trim(),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+            Text(
+              'Parent job: ${card.job.jobId}',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+            ),
+            if (card.statusPills.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final pill in card.statusPills)
+                    _ScheduleMiniChip(
+                      label: pill.label,
+                      accent: pill.color,
+                      highlight: pill.filled || pill.label == 'Paid',
+                      compact: true,
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+        onOpen: onTap,
+      );
+    }
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2938,6 +3218,19 @@ class _DaySheetJobCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (card.actionLabel.isNotEmpty) ...[
+                        Text(
+                          card.actionLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: card.accent,
+                                fontWeight: FontWeight.w900,
+                              ),
+                        ),
+                        const SizedBox(height: 3),
+                      ],
                       Text(
                         card.customer,
                         maxLines: 2,
@@ -3534,6 +3827,9 @@ class _DayScheduleEntry {
     required this.durationMinutes,
     required this.startLabel,
     required this.durationLabel,
+    required this.actionLabel,
+    this.actionIcon,
+    this.actionAddress = '',
     required this.statusLabel,
     required this.status,
     required this.accent,
@@ -3553,6 +3849,9 @@ class _DayScheduleEntry {
   final int? durationMinutes;
   final String startLabel;
   final String durationLabel;
+  final String actionLabel;
+  final IconData? actionIcon;
+  final String actionAddress;
   final String statusLabel;
   final _ScheduleJobStatus status;
   final Color accent;
@@ -3577,6 +3876,8 @@ class _DaySheetJobCardData {
     required this.title,
     required this.customer,
     required this.durationLabel,
+    required this.actionLabel,
+    this.actionIcon,
     required this.addressLabel,
     required this.statusLabel,
     required this.status,
@@ -3595,6 +3896,8 @@ class _DaySheetJobCardData {
   final String title;
   final String customer;
   final String durationLabel;
+  final String actionLabel;
+  final IconData? actionIcon;
   final String addressLabel;
   final String statusLabel;
   final _ScheduleJobStatus status;

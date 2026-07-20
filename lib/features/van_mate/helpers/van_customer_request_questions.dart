@@ -1,4 +1,5 @@
 import '../models/van_custom_job_question.dart';
+import '../models/van_customer_request_flow.dart';
 import '../models/van_job_request_record.dart';
 import '../models/van_job_service.dart';
 import 'van_text_formatters.dart';
@@ -55,6 +56,37 @@ List<String> buildVanServiceDefaultQuestionIds(
     }
   }
   return List<String>.unmodifiable(selected);
+}
+
+bool isVanSeededQuestionCoveredByBuiltInFlow({
+  required VanJobService service,
+  required VanCustomJobQuestion question,
+}) {
+  if (!question.id.trim().startsWith('service_template_')) {
+    return false;
+  }
+  final options = service.effectiveRequestFlowOptions;
+  final text = _normalizeVanQuestionText(question.questionText)
+      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  switch (service.serviceFlow) {
+    case VanServiceFlow.dropOffPickup:
+      return (options.showDropOffDate &&
+              (text == 'drop off date' || text == 'event date')) ||
+          (options.showDropOffTime &&
+              (text == 'drop off time' || text == 'event time')) ||
+          (options.showPickUpDate && text == 'pick up date') ||
+          (options.showPickUpTime && text == 'pick up time') ||
+          text == 'location';
+    case VanServiceFlow.standard:
+    case VanServiceFlow.pickupDelivery:
+      return false;
+  }
+}
+
+String vanBookingPhotoHelperText(VanCustomerRequestType requestType) {
+  return 'Add photos if they help explain the item, pet, access, parking, condition, or anything the business should know.';
 }
 
 VanQuestionSelectionResolution resolveVanQuestionTextsForSelection(

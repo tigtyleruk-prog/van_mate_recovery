@@ -105,6 +105,58 @@ void main() {
     expect(publicMap['requestType'], 'pickupDeliveryRequest');
   });
 
+  test(
+    'drop-off pickup preserves both times and gates exact pin by setting',
+    () {
+      final base = <String, dynamic>{
+        'requestId': 'pet-sitting-request',
+        'ownerUid': 'owner-1',
+        'jobId': 'pet-sitting-job',
+        'linkedJobId': 'pet-sitting-job',
+        'status': 'quote_accepted',
+        'createdAt': '2026-07-20T09:00:00.000Z',
+        'updatedAt': '2026-07-20T10:00:00.000Z',
+        'expiresAt': '2026-07-27T09:00:00.000Z',
+        'publicJobTitle': 'Pet Sitting',
+        'publicCustomerName': 'Jamie',
+        'publicAddressSummary': '',
+        'checklistItems': const <String>[],
+        'customQuestions': const <String>[],
+        'requestType': 'dropOffPickupRequest',
+        'dropOffDate': '2026-07-22T00:00:00.000',
+        'dropOffTime': '09:30',
+        'pickUpDate': '2026-07-22T00:00:00.000',
+        'pickUpTime': '17:30',
+        'exactPinRequested': true,
+        'locationPending': true,
+      };
+
+      final pinOff = VanJobRequestRecord.fromJson(<String, dynamic>{
+        ...base,
+        'requiresExactPinAfterQuoteAccepted': false,
+      });
+      final pinOn = VanJobRequestRecord.fromJson(<String, dynamic>{
+        ...base,
+        'requiresExactPinAfterQuoteAccepted': true,
+      });
+
+      expect(pinOff.dropOffDateTime, DateTime(2026, 7, 22, 9, 30));
+      expect(pinOff.pickUpDateTime, DateTime(2026, 7, 22, 17, 30));
+      expect(pinOff.dropOffPickupDurationMinutes, 480);
+      expect(pinOff.hasAgreedSchedulingTime, isTrue);
+      expect(pinOff.isReadyForCalendar, isTrue);
+      expect(pinOff.exactPinRequested, isFalse);
+      expect(pinOff.requiresAnyExactPin, isFalse);
+      expect(pinOff.locationPending, isFalse);
+      expect(pinOff.toDraft().dropOffTime, '09:30');
+      expect(pinOff.toPublicFirestore()['pickUpTime'], '17:30');
+
+      expect(pinOn.requiresAnyExactPin, isTrue);
+      expect(pinOn.locationPending, isTrue);
+      expect(pinOn.isReadyForCalendar, isFalse);
+    },
+  );
+
   test('request record preserves decline reason fields', () {
     final request = VanJobRequestRecord.fromJson(<String, dynamic>{
       'requestId': 'request-2',

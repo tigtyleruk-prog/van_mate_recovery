@@ -154,7 +154,7 @@ final List<VanServiceTemplateCategory> kVanServiceTemplateCategories =
           _eventTemplate('dj', 'DJ'),
           _eventTemplate('photographer', 'Photographer'),
           _eventTemplate('dog_walking', 'Dog Walking'),
-          _eventTemplate('pet_sitting', 'Pet Sitting'),
+          _petSittingTemplate(),
           _eventTemplate('mobile_hairdresser', 'Mobile Hairdresser'),
           _eventTemplate('beautician', 'Beautician'),
         ],
@@ -405,11 +405,7 @@ const VanServiceTemplate _cakeOrdersTemplate = VanServiceTemplate(
     VanServiceTemplateQuestion(text: 'Quantity'),
     VanServiceTemplateQuestion(text: 'Flavours'),
     VanServiceTemplateQuestion(text: 'Allergies'),
-    VanServiceTemplateQuestion(text: 'Collection or delivery?'),
-    VanServiceTemplateQuestion(
-      text: 'Preferred date',
-      answerType: VanCustomQuestionAnswerType.date,
-    ),
+    VanServiceTemplateQuestion(text: 'Any special requirements?'),
     VanServiceTemplateQuestion(text: 'Celebration message'),
   ],
   extras: <VanServiceTemplateExtra>[
@@ -572,7 +568,7 @@ VanServiceTemplate _simpleTransportTemplate(String id, String name) {
       VanServiceTemplateQuestion(text: 'Collection address'),
       VanServiceTemplateQuestion(text: 'Delivery address'),
       VanServiceTemplateQuestion(text: 'What needs transporting?'),
-      VanServiceTemplateQuestion(text: 'Preferred date and time?'),
+      VanServiceTemplateQuestion(text: 'Any special requirements?'),
       VanServiceTemplateQuestion(
         text: 'Photos if helpful?',
         answerType: VanCustomQuestionAnswerType.photoUploadRequest,
@@ -608,7 +604,7 @@ VanServiceTemplate _propertyTemplate(String id, String name) {
     questions: <VanServiceTemplateQuestion>[
       VanServiceTemplateQuestion(text: 'What work do you need?'),
       VanServiceTemplateQuestion(text: 'Property size or area?'),
-      VanServiceTemplateQuestion(text: 'Preferred date and time?'),
+      VanServiceTemplateQuestion(text: 'Access or parking notes?'),
       VanServiceTemplateQuestion(
         text: 'Is there easy access?',
         answerType: VanCustomQuestionAnswerType.yesNo,
@@ -650,7 +646,7 @@ VanServiceTemplate _tradeTemplate(String id, String name) {
         text: 'What issue or job do you need help with?',
       ),
       VanServiceTemplateQuestion(text: 'Property type?'),
-      VanServiceTemplateQuestion(text: 'Preferred date and time?'),
+      VanServiceTemplateQuestion(text: 'Is there easy access?'),
       VanServiceTemplateQuestion(
         text: 'Materials supplied?',
         answerType: VanCustomQuestionAnswerType.yesNo,
@@ -691,11 +687,7 @@ VanServiceTemplate _foodTemplate(String id, String name) {
       VanServiceTemplateQuestion(text: 'What would you like to order?'),
       VanServiceTemplateQuestion(text: 'Quantity'),
       VanServiceTemplateQuestion(text: 'Allergies or dietary notes?'),
-      VanServiceTemplateQuestion(text: 'Collection or delivery?'),
-      VanServiceTemplateQuestion(
-        text: 'Preferred date',
-        answerType: VanCustomQuestionAnswerType.date,
-      ),
+      VanServiceTemplateQuestion(text: 'Anything else about your order?'),
     ],
     extras: <VanServiceTemplateExtra>[
       VanServiceTemplateExtra(
@@ -726,15 +718,8 @@ VanServiceTemplate _eventTemplate(String id, String name) {
     defaultQuoteDescription: '$name service as discussed.',
     questions: <VanServiceTemplateQuestion>[
       VanServiceTemplateQuestion(text: 'What service do you need?'),
-      VanServiceTemplateQuestion(
-        text: 'Event date',
-        answerType: VanCustomQuestionAnswerType.date,
-      ),
-      VanServiceTemplateQuestion(
-        text: 'Event time',
-        answerType: VanCustomQuestionAnswerType.time,
-      ),
       VanServiceTemplateQuestion(text: 'Location'),
+      VanServiceTemplateQuestion(text: 'Preferred contact method?'),
       VanServiceTemplateQuestion(text: 'Any special requirements?'),
     ],
     extras: <VanServiceTemplateExtra>[
@@ -747,6 +732,45 @@ VanServiceTemplate _eventTemplate(String id, String name) {
         key: 'custom_extra_setup',
         label: 'Setup',
         defaultPrice: 25,
+      ),
+      VanServiceTemplateExtra(
+        key: 'custom_extra_travel',
+        label: 'Travel',
+        defaultPrice: 10,
+      ),
+    ],
+  );
+}
+
+VanServiceTemplate _petSittingTemplate() {
+  return VanServiceTemplate(
+    id: 'pet_sitting',
+    name: 'Pet Sitting',
+    description: 'Pet sitting and care booking.',
+    suggestedDurationMinutes: 120,
+    defaultQuoteDescription: 'Pet Sitting service as discussed.',
+    questions: const <VanServiceTemplateQuestion>[
+      VanServiceTemplateQuestion(text: 'Pet or dog name'),
+      VanServiceTemplateQuestion(text: 'Breed or type'),
+      VanServiceTemplateQuestion(
+        text: 'Feeding notes',
+        answerType: VanCustomQuestionAnswerType.longText,
+      ),
+      VanServiceTemplateQuestion(
+        text: 'Medication notes',
+        answerType: VanCustomQuestionAnswerType.longText,
+      ),
+      VanServiceTemplateQuestion(text: 'Emergency contact'),
+      VanServiceTemplateQuestion(
+        text: 'Any special requirements?',
+        answerType: VanCustomQuestionAnswerType.longText,
+      ),
+    ],
+    extras: const <VanServiceTemplateExtra>[
+      VanServiceTemplateExtra(
+        key: 'custom_extra_extra_hour',
+        label: 'Extra hour',
+        defaultPrice: 30,
       ),
       VanServiceTemplateExtra(
         key: 'custom_extra_travel',

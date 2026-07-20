@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_service.dart';
+import '../models/van_customer_journey.dart';
 
 class VanMateExactPinNotificationPayload {
   const VanMateExactPinNotificationPayload({
@@ -22,6 +23,7 @@ class VanMateExactPinNotificationPayload {
     this.serviceName = '',
     this.customerName = '',
     this.hasExactPin = false,
+    this.customerJourneyType = 'quote',
   });
 
   final String type;
@@ -34,6 +36,10 @@ class VanMateExactPinNotificationPayload {
   final String serviceName;
   final String customerName;
   final bool hasExactPin;
+  final String customerJourneyType;
+
+  VanCustomerJourneyType get customerJourney =>
+      vanCustomerJourneyTypeFromStorage(customerJourneyType);
 
   bool get isPinResponseNotification =>
       type == 'exact_pin_received' || type == 'location_note_received';
@@ -83,13 +89,14 @@ class VanMateExactPinNotificationPayload {
 
   String _quoteReplyBody(bool accepted) {
     final trimmedCustomerName = customerName.trim();
+    final noun = customerJourney.name;
     if (trimmedCustomerName.isNotEmpty) {
       return accepted
-          ? '$trimmedCustomerName accepted your quote.'
-          : '$trimmedCustomerName declined your quote.';
+          ? '$trimmedCustomerName accepted your $noun.'
+          : '$trimmedCustomerName declined your $noun.';
     }
 
-    return accepted ? 'Your quote was accepted.' : 'Your quote was declined.';
+    return accepted ? 'Your $noun was accepted.' : 'Your $noun was declined.';
   }
 
   String _bookingRequestBody() {
@@ -101,7 +108,7 @@ class VanMateExactPinNotificationPayload {
     if (cleanedCustomerName.isEmpty && cleanedServiceName.isNotEmpty) {
       return 'New $cleanedServiceName request received';
     }
-    return 'New booking request received';
+    return 'New ${customerJourney.copy.requestNoun.toLowerCase()} received';
   }
 
   String get snackbarBody {
@@ -134,10 +141,11 @@ class VanMateExactPinNotificationPayload {
 
   String get notificationTitle {
     if (isBookingRequestNotification) {
-      return 'New booking request';
+      return 'New ${customerJourney.copy.requestNoun.toLowerCase()}';
     }
     if (isQuoteReplyNotification) {
-      return 'Quote reply';
+      final noun = customerJourney.name;
+      return '${noun[0].toUpperCase()}${noun.substring(1)} reply';
     }
     if (isCustomerReplyNotification) {
       return 'Van Mate';
@@ -194,6 +202,7 @@ class VanMateExactPinNotificationPayload {
     final serviceName = _readString(data['serviceName']);
     final customerName = _readString(data['customerName']);
     final hasExactPin = _readBool(data['hasExactPin']);
+    final customerJourneyType = _readString(data['customerJourneyType']);
 
     if (type.isEmpty || requestId.isEmpty) {
       return null;
@@ -210,6 +219,7 @@ class VanMateExactPinNotificationPayload {
       serviceName: serviceName,
       customerName: customerName,
       hasExactPin: hasExactPin,
+      customerJourneyType: customerJourneyType,
     );
   }
 

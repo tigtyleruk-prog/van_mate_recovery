@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/van_customer_journey.dart';
+
 String buildRequestShareMessage({
   required String link,
   String? customerName,
@@ -12,16 +14,26 @@ String buildRequestShareMessage({
   bool exactPinRequested = false,
   bool exactPinRequestedAfterQuoteAccepted = false,
   bool includeJobLines = true,
+  String customerJourneyType = 'quote',
 }) {
   final cleanedLink = link.trim();
   final cleanedCustomerName = _cleanShareContext(customerName ?? '');
   final cleanedJobTitle = _cleanShareContext(jobTitle ?? '');
   final cleanedBusinessName = _cleanShareContext(businessName ?? '');
+  final journey = vanCustomerJourneyTypeFromStorage(customerJourneyType);
+  final requestSentence = switch (journey) {
+    VanCustomerJourneyType.quote =>
+      'Please fill in this quick job request so I can prepare your quote.',
+    VanCustomerJourneyType.booking =>
+      'Please fill in this quick request so I can confirm your booking.',
+    VanCustomerJourneyType.order =>
+      'Please fill in this quick request so I can confirm your order.',
+  };
 
   final lines = <String>[
     cleanedCustomerName.isNotEmpty ? 'Hi $cleanedCustomerName,' : 'Hi,',
     '',
-    'Please fill in this quick job request so I can prepare your quote.',
+    requestSentence,
   ];
 
   if (exactPinRequestedAfterQuoteAccepted) {
@@ -224,15 +236,22 @@ String buildRequestEmailBody({
   String? address,
   bool exactPinRequested = false,
   bool exactPinRequestedAfterQuoteAccepted = false,
+  String customerJourneyType = 'quote',
 }) {
   final cleanedJobTitle = _cleanShareContext(jobTitle ?? '');
   final cleanedAddress = _cleanShareContext(address ?? '');
   final cleanedLink = link.trim();
+  final journey = vanCustomerJourneyTypeFromStorage(customerJourneyType);
+  final opening = switch (journey) {
+    VanCustomerJourneyType.quote =>
+      'Hi, please fill in these quick job questions so I can prepare your quote.',
+    VanCustomerJourneyType.booking =>
+      'Hi, please fill in these quick job questions so I can confirm your booking.',
+    VanCustomerJourneyType.order =>
+      'Hi, please fill in these quick questions so I can confirm your order.',
+  };
 
-  final lines = <String>[
-    'Hi, please fill in these quick job questions so I can plan it properly.',
-    '',
-  ];
+  final lines = <String>[opening, ''];
 
   if (exactPinRequested) {
     lines.add(

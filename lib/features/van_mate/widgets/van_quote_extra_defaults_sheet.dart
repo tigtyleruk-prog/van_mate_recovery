@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/van_quote_extra_defaults.dart';
 import '../widgets/van_form_field_styles.dart';
@@ -31,6 +32,8 @@ class _VanQuoteExtraDefaultsSheetState
       <String, TextEditingController>{};
   final Map<String, TextEditingController> _priceControllers =
       <String, TextEditingController>{};
+  final Map<String, FocusNode> _labelFocusNodes = <String, FocusNode>{};
+  final Map<String, FocusNode> _priceFocusNodes = <String, FocusNode>{};
   final Map<String, bool> _enabledValues = <String, bool>{};
   final List<_EditableCustomExtra> _customRows = <_EditableCustomExtra>[];
   final List<String> _extraOrder = <String>[];
@@ -50,11 +53,19 @@ class _VanQuoteExtraDefaultsSheetState
     for (final controller in _priceControllers.values) {
       controller.dispose();
     }
+    for (final focusNode in _labelFocusNodes.values) {
+      focusNode.dispose();
+    }
+    for (final focusNode in _priceFocusNodes.values) {
+      focusNode.dispose();
+    }
     for (final row in _customRows) {
       row.dispose();
     }
     _labelControllers.clear();
     _priceControllers.clear();
+    _labelFocusNodes.clear();
+    _priceFocusNodes.clear();
     _enabledValues.clear();
     _customRows.clear();
     _extraOrder.clear();
@@ -78,6 +89,12 @@ class _VanQuoteExtraDefaultsSheetState
     }
     for (final controller in _priceControllers.values) {
       controller.dispose();
+    }
+    for (final focusNode in _labelFocusNodes.values) {
+      focusNode.dispose();
+    }
+    for (final focusNode in _priceFocusNodes.values) {
+      focusNode.dispose();
     }
     for (final row in _customRows) {
       row.dispose();
@@ -113,6 +130,14 @@ class _VanQuoteExtraDefaultsSheetState
       ),
     );
     _enabledValues.putIfAbsent(key, () => defaults.enabled);
+    _labelFocusNodes.putIfAbsent(
+      key,
+      () => FocusNode(debugLabel: 'quote-extra-$key-label'),
+    );
+    _priceFocusNodes.putIfAbsent(
+      key,
+      () => FocusNode(debugLabel: 'quote-extra-$key-price'),
+    );
   }
 
   _EditableCustomExtra? _customRowForKey(String key) {
@@ -245,9 +270,13 @@ class _VanQuoteExtraDefaultsSheetState
             color: Color(0xFF101B2A),
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          child: SingleChildScrollView(
+          child: ReorderableListView.builder(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-            child: Column(
+            buildDefaultDragHandles: false,
+            itemCount: _extraOrder.length,
+            onReorderItem: _reorderExtra,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            header: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -303,7 +332,7 @@ class _VanQuoteExtraDefaultsSheetState
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (_extraOrder.isEmpty) ...[
+                if (_extraOrder.isEmpty) ...<Widget>[
                   Text(
                     'No active extras saved yet.',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -312,92 +341,88 @@ class _VanQuoteExtraDefaultsSheetState
                     ),
                   ),
                   const SizedBox(height: 10),
-                ] else ...[
-                  ReorderableListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    buildDefaultDragHandles: false,
-                    itemCount: _extraOrder.length,
-                    onReorderItem: _reorderExtra,
-                    itemBuilder: (context, index) {
-                      final key = _extraOrder[index];
-                      final isBuiltIn = isVanQuoteBuiltInExtraKey(key);
-                      final customRow = isBuiltIn
-                          ? null
-                          : _customRowForKey(key);
-                      if (!isBuiltIn && customRow == null) {
-                        return const SizedBox.shrink(
-                          key: ValueKey('missing-quote-extra-row'),
-                        );
-                      }
-                      if (isBuiltIn) {
-                        _ensureBuiltInControllers(key);
-                      }
-                      return Padding(
-                        key: ValueKey('quote-extra-row-$key'),
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ReorderableDragStartListener(
-                              index: index,
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 14),
-                                child: Icon(
-                                  Icons.drag_handle,
-                                  color: Colors.white.withValues(alpha: 0.72),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _SavedExtraEditorRow(
-                                title: isBuiltIn
-                                    ? kVanQuoteExtraDefaultLabels[key] ??
-                                          'Extra'
-                                    : 'Custom extra',
-                                labelController: isBuiltIn
-                                    ? _labelControllers[key]!
-                                    : customRow!.labelController,
-                                priceController: isBuiltIn
-                                    ? _priceControllers[key]!
-                                    : customRow!.priceController,
-                                enabled: isBuiltIn
-                                    ? _enabledValues[key] ?? true
-                                    : customRow!.enabled,
-                                onEnabledChanged: (value) {
-                                  if (isBuiltIn) {
-                                    _enabledValues[key] = value;
-                                  } else {
-                                    customRow!.enabled = value;
-                                  }
-                                },
-                                onDelete: isBuiltIn
-                                    ? () => _deleteBuiltInExtra(key)
-                                    : () => _deleteCustomExtra(customRow!),
-                                deleteTooltip: isBuiltIn
-                                    ? 'Delete built-in extra'
-                                    : 'Delete custom extra',
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
                 ],
-                FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(_buildDefaults()),
-                  icon: const Icon(Icons.check),
-                  label: Text(widget.saveLabel),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    backgroundColor: const Color(0xFF58D0A4),
-                    foregroundColor: const Color(0xFF07130F),
-                  ),
-                ),
               ],
             ),
+            footer: FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(_buildDefaults()),
+              icon: const Icon(Icons.check),
+              label: Text(widget.saveLabel),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+                backgroundColor: const Color(0xFF58D0A4),
+                foregroundColor: const Color(0xFF07130F),
+              ),
+            ),
+            itemBuilder: (context, index) {
+              final key = _extraOrder[index];
+              final isBuiltIn = isVanQuoteBuiltInExtraKey(key);
+              final customRow = isBuiltIn ? null : _customRowForKey(key);
+              if (!isBuiltIn && customRow == null) {
+                return SizedBox.shrink(
+                  key: ValueKey('missing-quote-extra-row-$key'),
+                );
+              }
+              if (isBuiltIn) {
+                _ensureBuiltInControllers(key);
+              }
+              return Padding(
+                key: ValueKey('quote-extra-row-$key'),
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: Icon(
+                          Icons.drag_handle,
+                          color: Colors.white.withValues(alpha: 0.72),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SavedExtraEditorRow(
+                        title: isBuiltIn
+                            ? kVanQuoteExtraDefaultLabels[key] ?? 'Extra'
+                            : 'Custom extra',
+                        fieldKey: key,
+                        labelController: isBuiltIn
+                            ? _labelControllers[key]!
+                            : customRow!.labelController,
+                        priceController: isBuiltIn
+                            ? _priceControllers[key]!
+                            : customRow!.priceController,
+                        labelFocusNode: isBuiltIn
+                            ? _labelFocusNodes[key]!
+                            : customRow!.labelFocusNode,
+                        priceFocusNode: isBuiltIn
+                            ? _priceFocusNodes[key]!
+                            : customRow!.priceFocusNode,
+                        enabled: isBuiltIn
+                            ? _enabledValues[key] ?? true
+                            : customRow!.enabled,
+                        onEnabledChanged: (value) {
+                          if (isBuiltIn) {
+                            _enabledValues[key] = value;
+                          } else {
+                            customRow!.enabled = value;
+                          }
+                        },
+                        onDelete: isBuiltIn
+                            ? () => _deleteBuiltInExtra(key)
+                            : () => _deleteCustomExtra(customRow!),
+                        deleteTooltip: isBuiltIn
+                            ? 'Delete built-in extra'
+                            : 'Delete custom extra',
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -408,8 +433,11 @@ class _VanQuoteExtraDefaultsSheetState
 class _SavedExtraEditorRow extends StatefulWidget {
   const _SavedExtraEditorRow({
     required this.title,
+    required this.fieldKey,
     required this.labelController,
     required this.priceController,
+    required this.labelFocusNode,
+    required this.priceFocusNode,
     required this.enabled,
     required this.onEnabledChanged,
     this.onDelete,
@@ -417,8 +445,11 @@ class _SavedExtraEditorRow extends StatefulWidget {
   });
 
   final String title;
+  final String fieldKey;
   final TextEditingController labelController;
   final TextEditingController priceController;
+  final FocusNode labelFocusNode;
+  final FocusNode priceFocusNode;
   final bool enabled;
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback? onDelete;
@@ -498,7 +529,9 @@ class _SavedExtraEditorRowState extends State<_SavedExtraEditorRow> {
               final stacked = constraints.maxWidth < 460;
               final fields = <Widget>[
                 TextField(
+                  key: ValueKey('quote-extra-label-${widget.fieldKey}'),
                   controller: widget.labelController,
+                  focusNode: widget.labelFocusNode,
                   style: kVanMateFieldTextStyle,
                   decoration: vanMateFieldDecoration(
                     label: 'Label',
@@ -506,10 +539,15 @@ class _SavedExtraEditorRowState extends State<_SavedExtraEditorRow> {
                   ),
                 ),
                 TextField(
+                  key: ValueKey('quote-extra-price-${widget.fieldKey}'),
                   controller: widget.priceController,
+                  focusNode: widget.priceFocusNode,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  inputFormatters: const <TextInputFormatter>[
+                    _CurrencyInputFormatter(),
+                  ],
                   style: kVanMateFieldTextStyle,
                   decoration: vanMateFieldDecoration(
                     label: 'Default price',
@@ -562,6 +600,8 @@ class _EditableCustomExtra {
     required this.key,
     required this.labelController,
     required this.priceController,
+    required this.labelFocusNode,
+    required this.priceFocusNode,
     required this.enabled,
   });
 
@@ -574,6 +614,8 @@ class _EditableCustomExtra {
             ? '0'
             : extra.defaultPrice.toStringAsFixed(2),
       ),
+      labelFocusNode: FocusNode(debugLabel: 'quote-extra-${extra.key}-label'),
+      priceFocusNode: FocusNode(debugLabel: 'quote-extra-${extra.key}-price'),
       enabled: extra.enabled,
     );
   }
@@ -583,6 +625,8 @@ class _EditableCustomExtra {
       key: key,
       labelController: TextEditingController(),
       priceController: TextEditingController(text: '0'),
+      labelFocusNode: FocusNode(debugLabel: 'quote-extra-$key-label'),
+      priceFocusNode: FocusNode(debugLabel: 'quote-extra-$key-price'),
       enabled: true,
     );
   }
@@ -590,10 +634,28 @@ class _EditableCustomExtra {
   final String key;
   final TextEditingController labelController;
   final TextEditingController priceController;
+  final FocusNode labelFocusNode;
+  final FocusNode priceFocusNode;
   bool enabled;
 
   void dispose() {
     labelController.dispose();
     priceController.dispose();
+    labelFocusNode.dispose();
+    priceFocusNode.dispose();
+  }
+}
+
+class _CurrencyInputFormatter extends TextInputFormatter {
+  const _CurrencyInputFormatter();
+
+  static final RegExp _validCurrency = RegExp(r'^\d*(?:\.\d{0,2})?$');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return _validCurrency.hasMatch(newValue.text) ? newValue : oldValue;
   }
 }

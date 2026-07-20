@@ -564,7 +564,7 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                             _ProfileField(
                               controller: _paymentNotesController,
                               label: 'Payment notes',
-                              hint: 'Bank transfer, due on receipt, etc.',
+                              hint: 'Example: Bank transfer, cash on collection, payment on completion, or payment link.',
                               maxLines: 3,
                               keyboardType: TextInputType.multiline,
                               autofillHints: null,

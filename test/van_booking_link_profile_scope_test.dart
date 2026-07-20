@@ -79,6 +79,8 @@ void main() {
         'isActive',
         'services',
         'requestType',
+        'serviceFlow',
+        'customerJourneyType',
         'requestFlowOptions',
       ]) {
         expect(cloudService, contains(field));
@@ -110,7 +112,10 @@ void main() {
       expect(hostedPage, contains('id="collectionChoice"'));
       expect(hostedPage, contains('id="deliveryChoice"'));
       expect(hostedPage, isNot(contains('<select id="fulfilmentType"')));
-      expect(hostedPage, contains('Preferred collection / delivery date'));
+      expect(
+        hostedPage,
+        contains('preferredDateLabel.textContent = "Preferred date"'),
+      );
       expect(settingsPage, contains('Custom public heading (optional)'));
       expect(
         settingsPage,
