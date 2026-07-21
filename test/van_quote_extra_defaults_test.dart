@@ -178,7 +178,14 @@ void main() {
       ]);
       expect(
         courier.orderedExtras.map((extra) => extra.resolvedLabel),
-        <String>['Waiting time', 'Urgent delivery', 'Signature required'],
+        <String>[
+          'Two person lift',
+          'Waiting time',
+          'Stairs',
+          'Urgent delivery',
+          'Signature required',
+          'Evening delivery',
+        ],
       );
       expect(
         bakery.orderedExtras.map((extra) => extra.key),

@@ -16,6 +16,7 @@ import '../models/van_job_request_record.dart';
 import '../models/van_customer_journey.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'job_detail_page.dart';
+import 'van_booking_link_page.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 
 Future<void> openVanIncomingRequestsPage(BuildContext context) {
@@ -647,7 +648,10 @@ class _VanIncomingRequestsPageState extends State<VanIncomingRequestsPage> {
                         if (showErrorCard || jobs.isNotEmpty)
                           const SizedBox(height: 12),
                         if (jobs.isEmpty)
-                          const _IncomingEmptyCard()
+                          _IncomingEmptyCard(
+                            onOpenBookingLink: () =>
+                                unawaited(openVanBookingLinkPage(context)),
+                          )
                         else
                           for (var i = 0; i < jobs.length; i++) ...[
                             () {
@@ -689,7 +693,9 @@ class _VanIncomingRequestsPageState extends State<VanIncomingRequestsPage> {
 }
 
 class _IncomingEmptyCard extends StatelessWidget {
-  const _IncomingEmptyCard();
+  const _IncomingEmptyCard({required this.onOpenBookingLink});
+
+  final VoidCallback onOpenBookingLink;
 
   @override
   Widget build(BuildContext context) {
@@ -714,6 +720,12 @@ class _IncomingEmptyCard extends StatelessWidget {
               fontSize: 14,
               height: 1.4,
             ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: onOpenBookingLink,
+            icon: const Icon(Icons.link_rounded),
+            label: const Text('Open booking link'),
           ),
         ],
       ),

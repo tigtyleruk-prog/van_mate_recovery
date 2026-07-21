@@ -314,6 +314,39 @@ void main() {
     expect(courier.linkedQuestionIds, isNot(contains(bakeryQuestion.id)));
   });
 
+  test('question library metadata is additive and backwards compatible', () {
+    final now = DateTime(2026, 7, 21);
+    final question = VanCustomJobQuestion(
+      id: 'q-access',
+      questionText: 'Are there any access restrictions?',
+      helperText: '',
+      libraryQuestionId: 'transport.access.restrictions',
+      tags: const <String>['access', 'transport'],
+      answerType: VanCustomQuestionAnswerType.longText,
+      category: VanCustomQuestionCategory.access,
+      isActive: true,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    final restored = VanCustomJobQuestion.fromJson(question.toJson());
+    expect(restored.libraryQuestionId, 'transport.access.restrictions');
+    expect(restored.tags, <String>['access', 'transport']);
+
+    final legacy = VanCustomJobQuestion.fromJson(<String, dynamic>{
+      'id': 'legacy-question',
+      'questionText': 'Legacy wording',
+      'answerType': 'short_text',
+      'isActive': true,
+      'isArchived': false,
+      'createdAt': now.toIso8601String(),
+      'updatedAt': now.toIso8601String(),
+    });
+    expect(legacy.libraryQuestionId, isEmpty);
+    expect(legacy.tags, isEmpty);
+  });
+
   test('New Job no longer imports or reads the legacy default pack', () {
     final source = File(
       'lib/features/van_mate/pages/create_job_request_flow.dart',
@@ -362,7 +395,7 @@ void main() {
       contains("'Choose how customers buy or request this service.'"),
     );
     expect(source, contains("'Choose how this service is carried out.'"));
-    expect(source, contains("'Flow options'"));
+    expect(source, contains("'Booking options'"));
     expect(source, contains('kVanServiceFlows'));
     expect(source, isNot(contains('ReorderableListView<CustomerRequest')));
   });

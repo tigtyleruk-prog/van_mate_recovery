@@ -31,19 +31,24 @@ class _VanServiceQuestionEditorPage extends StatefulWidget {
 
 class _VanServiceQuestionEditorPageState
     extends State<_VanServiceQuestionEditorPage> {
-  late final TextEditingController _textController;
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _questionController;
   late final TextEditingController _helperController;
+  late final TextEditingController _choicesController;
   late VanCustomQuestionAnswerType _answerType;
   bool _active = true;
 
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController(
+    _questionController = TextEditingController(
       text: widget.question?.questionText ?? '',
     );
     _helperController = TextEditingController(
       text: widget.question?.helperText ?? '',
+    );
+    _choicesController = TextEditingController(
+      text: widget.question?.choiceOptions.join('\n') ?? '',
     );
     _answerType =
         widget.question?.answerType ?? VanCustomQuestionAnswerType.shortText;
@@ -52,18 +57,34 @@ class _VanServiceQuestionEditorPageState
 
   @override
   void dispose() {
-    _textController.dispose();
+    _questionController.dispose();
     _helperController.dispose();
+    _choicesController.dispose();
     super.dispose();
   }
 
   void _save() {
-    final text = _textController.text.trim();
-    if (text.isEmpty) {
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final questionText = _questionController.text.trim();
+    final helperText = _helperController.text.trim();
     final now = DateTime.now();
     final existing = widget.question;
+    final choiceOptions =
+        _answerType == VanCustomQuestionAnswerType.multipleChoice
+        ? _choicesController.text
+              .split(RegExp(r'[\r\n,]+'))
+              .map((value) => value.trim())
+              .where((value) => value.isNotEmpty)
+              .toSet()
+              .toList(growable: false)
+        : const <String>[];
+    if (_answerType == VanCustomQuestionAnswerType.multipleChoice &&
+        choiceOptions.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add at least two answer options.')),
+      );
+      return;
+    }
     final normalizedServiceId = widget.serviceId.trim().replaceAll(
       RegExp(r'[^a-zA-Z0-9_-]+'),
       '_',
@@ -73,11 +94,11 @@ class _VanServiceQuestionEditorPageState
         id:
             existing?.id ??
             'service_question_${normalizedServiceId}_${now.microsecondsSinceEpoch}',
-        questionText: text,
-        helperText: _helperController.text.trim(),
+        questionText: questionText,
+        helperText: helperText,
         answerType: _answerType,
         category: existing?.category,
-        choiceOptions: existing?.choiceOptions ?? const <String>[],
+        choiceOptions: choiceOptions,
         isActive: _active,
         isArchived: false,
         createdAt: existing?.createdAt ?? now,
@@ -92,48 +113,74 @@ class _VanServiceQuestionEditorPageState
       appBar: AppBar(
         title: Text(widget.question == null ? 'New Question' : 'Edit Question'),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: _textController,
-            decoration: vanMateFieldDecoration(label: 'Question'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _helperController,
-            decoration: vanMateFieldDecoration(
-              label: 'Helper text',
-              hintText: 'Optional',
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              key: const Key('service_question_text'),
+              controller: _questionController,
+              decoration: vanMateFieldDecoration(label: 'Question'),
+              validator: (value) =>
+                  (value ?? '').trim().isEmpty ? 'Enter a question.' : null,
             ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<VanCustomQuestionAnswerType>(
-            initialValue: _answerType,
-            decoration: vanMateFieldDecoration(label: 'Answer type'),
-            items: [
-              for (final type in VanCustomQuestionAnswerType.values)
-                DropdownMenuItem(value: type, child: Text(type.label)),
+            const SizedBox(height: 12),
+            TextFormField(
+              key: const Key('service_question_helper'),
+              controller: _helperController,
+              decoration: vanMateFieldDecoration(
+                label: 'Helper text',
+                hintText: 'Optional',
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<VanCustomQuestionAnswerType>(
+              key: const Key('service_question_answer_type'),
+              initialValue: _answerType,
+              isExpanded: true,
+              decoration: vanMateFieldDecoration(label: 'Answer type'),
+              items: [
+                for (final type in VanCustomQuestionAnswerType.values)
+                  DropdownMenuItem(
+                    value: type,
+                    child: Text(type.label, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _answerType = value);
+                }
+              },
+            ),
+            if (_answerType == VanCustomQuestionAnswerType.multipleChoice) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _choicesController,
+                minLines: 3,
+                maxLines: 6,
+                decoration: vanMateFieldDecoration(
+                  label: 'Answer options',
+                  hintText: 'Enter one option per line',
+                ),
+              ),
             ],
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _answerType = value);
-              }
-            },
-          ),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            value: _active,
-            onChanged: (value) => setState(() => _active = value),
-            title: const Text('Enabled'),
-          ),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Save question'),
-          ),
-        ],
+            SwitchListTile.adaptive(
+              key: const Key('service_question_enabled'),
+              contentPadding: EdgeInsets.zero,
+              value: _active,
+              onChanged: (value) => setState(() => _active = value),
+              title: const Text('Enabled'),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              key: const Key('save_service_question'),
+              onPressed: _save,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Save question'),
+            ),
+          ],
+        ),
       ),
     );
   }

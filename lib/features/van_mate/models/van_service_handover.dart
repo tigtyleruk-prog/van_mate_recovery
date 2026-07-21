@@ -75,6 +75,38 @@ class VanServiceHandoverConfig {
   bool get customerChoosesStart => allowedStarts.length > 1;
   bool get customerChoosesEnd => allowedEnds.length > 1;
 
+  factory VanServiceHandoverConfig.fromCapabilities({
+    required bool allowCustomerDropOff,
+    required bool allowBusinessCollection,
+    required bool allowCustomerCollection,
+    required bool allowBusinessReturn,
+    VanStartHandover? preferredStart,
+    VanEndHandover? preferredEnd,
+  }) {
+    final starts = <VanStartHandover>[
+      if (allowCustomerDropOff) VanStartHandover.customerDropsOff,
+      if (allowBusinessCollection) VanStartHandover.businessCollects,
+    ];
+    final ends = <VanEndHandover>[
+      if (allowCustomerCollection) VanEndHandover.customerCollects,
+      if (allowBusinessReturn) VanEndHandover.businessReturns,
+    ];
+    return VanServiceHandoverConfig(
+      start: preferredStart != null && starts.contains(preferredStart)
+          ? preferredStart
+          : starts.isEmpty
+          ? VanStartHandover.customerDropsOff
+          : starts.first,
+      end: preferredEnd != null && ends.contains(preferredEnd)
+          ? preferredEnd
+          : ends.isEmpty
+          ? VanEndHandover.customerCollects
+          : ends.first,
+      allowedStarts: List<VanStartHandover>.unmodifiable(starts),
+      allowedEnds: List<VanEndHandover>.unmodifiable(ends),
+    );
+  }
+
   static VanServiceHandoverConfig resolve({
     required VanCustomerRequestType requestType,
     Object? startValue,
@@ -151,12 +183,12 @@ String vanBusinessHandoverSummary(VanStartHandover start, VanEndHandover end) {
 String vanCustomerHandoverSummary(VanStartHandover start, VanEndHandover end) {
   return switch ((start, end)) {
     (VanStartHandover.customerDropsOff, VanEndHandover.customerCollects) =>
-      'You will drop off and collect.',
+      "You'll drop off your item and collect it when ready.",
     (VanStartHandover.customerDropsOff, VanEndHandover.businessReturns) =>
-      'You will drop off; we will return it to you.',
+      "You'll drop off your item. We'll return it when finished.",
     (VanStartHandover.businessCollects, VanEndHandover.customerCollects) =>
-      'We will collect; you will collect when ready.',
+      "We'll collect your item. You'll collect it when ready.",
     (VanStartHandover.businessCollects, VanEndHandover.businessReturns) =>
-      'We will collect and return.',
+      "We'll collect your item and return it when finished.",
   };
 }

@@ -73,6 +73,9 @@ class VanBookingLinkCloudService {
                 'id': service.id,
                 'name': service.name.trim(),
                 'description': service.description.trim(),
+                'customerMessage': service.customerMessage.trim(),
+                'appointmentDurationMinutes':
+                    service.appointmentDurationMinutes,
                 'requestType': service.serviceFlow.requestType.storageKey,
                 'serviceFlow': service.serviceFlow.storageKey,
                 'customerJourneyType': service.customerJourneyType.storageKey,
@@ -88,6 +91,10 @@ class VanBookingLinkCloudService {
                     .allowedEnds
                     .map((value) => value.storageKey)
                     .toList(growable: false),
+                'allowCustomerDropOff': service.allowCustomerDropOff,
+                'allowBusinessCollection': service.allowBusinessCollection,
+                'allowCustomerCollection': service.allowCustomerCollection,
+                'allowBusinessReturn': service.allowBusinessReturn,
                 'businessDropOffInstructions':
                     service.businessDropOffInstructions,
                 'businessCollectionInstructions':
@@ -95,10 +102,21 @@ class VanBookingLinkCloudService {
                 'requestFlowOptions': service.effectiveRequestFlowOptions
                     .toJson(),
                 'requireAddress': service.requireAddress,
+                'showAddress': service.showsBuiltInQuestion('address'),
+                'showPhoneNumber': service.showsBuiltInQuestion('phone'),
+                'requirePhoneNumber': service.requiresBuiltInQuestion(
+                  'phone',
+                  legacyDefault: true,
+                ),
+                'showEmailAddress': service.showsBuiltInQuestion('email'),
+                'requireEmailAddress': service.requiresBuiltInQuestion('email'),
                 'requestPhotos': service.requestPhotos,
+                'maxCustomerPhotos': service.maxCustomerPhotos,
+                'builtInQuestionSettings': service.builtInQuestionSettings,
                 'requestExactPinAfterQuoteAccepted':
                     service.requestExactPinAfterQuoteAccepted,
                 'quoteExtraDefaults': service.quoteExtraDefaults.toJson(),
+                'extraChargeUnits': service.extraChargeUnits,
                 'linkedQuestions': service.linkedQuestionIds
                     .where(
                       (id) => !service.disabledLinkedQuestionIds.contains(id),

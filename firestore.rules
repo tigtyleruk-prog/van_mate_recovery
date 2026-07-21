@@ -310,15 +310,24 @@ service cloud.firestore {
         && request.auth.uid == userId;
 
       match /van_jobs/{jobId} {
-        allow read, write: if signedIn() && request.auth.uid == userId;
+        allow read, create: if signedIn() && request.auth.uid == userId;
+        allow update, delete: if signedIn()
+          && request.auth.uid == userId
+          && resource.data.archivedReadOnly != true;
       }
 
       match /van_quotes/{quoteId} {
-        allow read, write: if signedIn() && request.auth.uid == userId;
+        allow read, create: if signedIn() && request.auth.uid == userId;
+        allow update, delete: if signedIn()
+          && request.auth.uid == userId
+          && resource.data.archivedReadOnly != true;
       }
 
       match /van_invoices/{invoiceId} {
-        allow read, write: if signedIn() && request.auth.uid == userId;
+        allow read, create: if signedIn() && request.auth.uid == userId;
+        allow update, delete: if signedIn()
+          && request.auth.uid == userId
+          && resource.data.archivedReadOnly != true;
       }
 
       match /van_business_profile/{profileId} {

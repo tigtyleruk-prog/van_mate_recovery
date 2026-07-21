@@ -14,6 +14,7 @@ import '../helpers/van_text_formatters.dart';
 import '../models/van_invoice_history_entry.dart';
 import '../services/van_invoice_reminder_service.dart';
 import 'driver_customer_reply_mock_page.dart';
+import 'van_quick_invoice_page.dart';
 import 'van_invoice_preview_page.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 
@@ -344,7 +345,7 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
     }
     return switch (_activeFilter) {
       VanInvoiceHistoryFilter.all =>
-        'Invoices will appear here when you create one from a completed job.',
+        'Create an invoice now, or generate one later from a completed job.',
       VanInvoiceHistoryFilter.unpaid => 'Everything is paid up.',
       VanInvoiceHistoryFilter.paid => '',
     };
@@ -832,6 +833,29 @@ class _VanInvoiceHistoryPageState extends State<VanInvoiceHistoryPage> {
                             ),
                           ),
                         ],
+                        const SizedBox(height: 14),
+                        FilledButton.icon(
+                          onPressed: _allInvoices.isEmpty
+                              ? () =>
+                                    unawaited(openVanQuickInvoicePage(context))
+                              : () {
+                                  _searchController.clear();
+                                  setState(() {
+                                    _searchQuery = '';
+                                    _activeFilter = VanInvoiceHistoryFilter.all;
+                                  });
+                                },
+                          icon: Icon(
+                            _allInvoices.isEmpty
+                                ? Icons.add_rounded
+                                : Icons.filter_alt_off_outlined,
+                          ),
+                          label: Text(
+                            _allInvoices.isEmpty
+                                ? 'Create an invoice'
+                                : 'Clear filters',
+                          ),
+                        ),
                       ],
                     ),
                   )

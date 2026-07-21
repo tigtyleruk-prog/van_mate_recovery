@@ -39,6 +39,7 @@ class _VanQuoteExtraDefaultsSheetState
   final List<String> _extraOrder = <String>[];
   final Set<String> _deletedBuiltInKeys = <String>{};
   int _nextCustomIndex = 0;
+  String? _highlightedCustomKey;
 
   @override
   void initState() {
@@ -196,12 +197,43 @@ class _VanQuoteExtraDefaultsSheetState
   }
 
   void _addCustomExtra() {
+    for (final row in _customRows) {
+      if (row.labelController.text.trim().isEmpty) {
+        _revealCustomExtra(row);
+        return;
+      }
+    }
+    late final _EditableCustomExtra row;
     setState(() {
-      final row = _EditableCustomExtra.blank(
+      row = _EditableCustomExtra.blank(
         key: buildVanQuoteCustomExtraKey(label: '', index: _nextCustomIndex++),
       );
       _customRows.add(row);
-      _extraOrder.add(row.key);
+      _extraOrder.insert(0, row.key);
+      _highlightedCustomKey = row.key;
+    });
+    _revealCustomExtra(row);
+  }
+
+  void _revealCustomExtra(_EditableCustomExtra row) {
+    setState(() => _highlightedCustomKey = row.key);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final cardContext = row.cardKey.currentContext;
+      if (cardContext != null) {
+        await Scrollable.ensureVisible(
+          cardContext,
+          alignment: 0.15,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      if (!mounted) return;
+      row.labelFocusNode.requestFocus();
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      if (mounted && _highlightedCustomKey == row.key) {
+        setState(() => _highlightedCustomKey = null);
+      }
     });
   }
 
@@ -385,9 +417,12 @@ class _VanQuoteExtraDefaultsSheetState
                     const SizedBox(width: 8),
                     Expanded(
                       child: _SavedExtraEditorRow(
+                        key: isBuiltIn ? null : customRow!.cardKey,
                         title: isBuiltIn
                             ? kVanQuoteExtraDefaultLabels[key] ?? 'Extra'
-                            : 'Custom extra',
+                            : customRow!.labelController.text.trim().isEmpty
+                            ? 'New custom extra'
+                            : customRow.labelController.text.trim(),
                         fieldKey: key,
                         labelController: isBuiltIn
                             ? _labelControllers[key]!
@@ -417,6 +452,7 @@ class _VanQuoteExtraDefaultsSheetState
                         deleteTooltip: isBuiltIn
                             ? 'Delete built-in extra'
                             : 'Delete custom extra',
+                        highlighted: !isBuiltIn && _highlightedCustomKey == key,
                       ),
                     ),
                   ],
@@ -432,6 +468,7 @@ class _VanQuoteExtraDefaultsSheetState
 
 class _SavedExtraEditorRow extends StatefulWidget {
   const _SavedExtraEditorRow({
+    super.key,
     required this.title,
     required this.fieldKey,
     required this.labelController,
@@ -442,6 +479,7 @@ class _SavedExtraEditorRow extends StatefulWidget {
     required this.onEnabledChanged,
     this.onDelete,
     this.deleteTooltip = 'Delete custom extra',
+    this.highlighted = false,
   });
 
   final String title;
@@ -454,6 +492,7 @@ class _SavedExtraEditorRow extends StatefulWidget {
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback? onDelete;
   final String deleteTooltip;
+  final bool highlighted;
 
   @override
   State<_SavedExtraEditorRow> createState() => _SavedExtraEditorRowState();
@@ -485,12 +524,20 @@ class _SavedExtraEditorRowState extends State<_SavedExtraEditorRow> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.07),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        color: widget.highlighted
+            ? const Color(0xFF58D0A4).withValues(alpha: .15)
+            : Colors.white.withValues(alpha: 0.07),
+        border: Border.all(
+          color: widget.highlighted
+              ? const Color(0xFF58D0A4).withValues(alpha: .72)
+              : Colors.white.withValues(alpha: 0.12),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -603,7 +650,8 @@ class _EditableCustomExtra {
     required this.labelFocusNode,
     required this.priceFocusNode,
     required this.enabled,
-  });
+    GlobalKey? cardKey,
+  }) : cardKey = cardKey ?? GlobalKey();
 
   factory _EditableCustomExtra.fromExtra(VanQuoteExtraDefault extra) {
     return _EditableCustomExtra(
@@ -637,6 +685,7 @@ class _EditableCustomExtra {
   final FocusNode labelFocusNode;
   final FocusNode priceFocusNode;
   bool enabled;
+  final GlobalKey cardKey;
 
   void dispose() {
     labelController.dispose();

@@ -19,6 +19,7 @@ import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
 import '../models/van_service_handover.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
+import '../pages/van_job_types_services_page.dart';
 import '../services/van_booking_link_cloud_service.dart';
 import '../services/van_booking_link_settings_storage.dart';
 import '../services/van_business_profile_scope_storage.dart';
@@ -694,13 +695,28 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
                             ),
                             const SizedBox(height: 10),
                             if (_activeServices.isEmpty)
-                              Text(
-                                'No services set up yet.\n\nAdd your services in Business Hub -> Job Types / Services.',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.72),
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.4,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'No services created yet. Add a service before sharing this booking link.',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.72,
+                                      ),
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  FilledButton.icon(
+                                    onPressed: () => unawaited(
+                                      openVanJobTypesServicesPage(context),
+                                    ),
+                                    icon: const Icon(Icons.add_rounded),
+                                    label: const Text('Add services'),
+                                  ),
+                                ],
                               )
                             else
                               for (
@@ -711,8 +727,7 @@ class _VanBookingLinkPageState extends State<VanBookingLinkPage> {
                                 _ServiceRow(
                                   service: _activeServices[i],
                                   questionCount: _activeServices[i]
-                                      .linkedQuestionIds
-                                      .length,
+                                      .configuredQuestionCount,
                                 ),
                                 if (i < _activeServices.length - 1)
                                   Divider(
@@ -759,7 +774,6 @@ class _VanBookingLinkCustomerFormPageState
     extends State<VanBookingLinkCustomerFormPage> {
   static final String _defaultBusinessName =
       VanBusinessProfile.defaults().businessName;
-  static const int _photoLimit = 5;
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -783,6 +797,7 @@ class _VanBookingLinkCustomerFormPageState
   bool _submitting = false;
   bool _submitted = false;
   bool _returnAddressSameAsCollection = false;
+  String _clientSubmissionId = '';
   VanStartHandover? _selectedStartHandover;
   VanEndHandover? _selectedEndHandover;
   String _confirmationRequestId = '';
@@ -800,14 +815,15 @@ class _VanBookingLinkCustomerFormPageState
     return null;
   }
 
+  int get _photoLimit => (_selectedService?.maxCustomerPhotos ?? 5).clamp(1, 5);
+
   VanCustomerJourneyCopy get _journeyCopy =>
       (_selectedService?.customerJourneyType ?? VanCustomerJourneyType.quote)
           .copy;
 
   VanStartHandover? get _effectiveStartHandover {
     final service = _selectedService;
-    if (service == null ||
-        !vanRequestTypeSupportsHandover(service.requestType)) {
+    if (service == null || !service.hasHandoverConfiguration) {
       return null;
     }
     return _selectedStartHandover ?? service.effectiveHandover.start;
@@ -815,8 +831,7 @@ class _VanBookingLinkCustomerFormPageState
 
   VanEndHandover? get _effectiveEndHandover {
     final service = _selectedService;
-    if (service == null ||
-        !vanRequestTypeSupportsHandover(service.requestType)) {
+    if (service == null || !service.hasHandoverConfiguration) {
       return null;
     }
     return _selectedEndHandover ?? service.effectiveHandover.end;
@@ -991,11 +1006,34 @@ class _VanBookingLinkCustomerFormPageState
       return false;
     }
 
-    if (_nameController.text.trim().isEmpty ||
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add your name.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
+    if (service.showsBuiltInQuestion('phone') &&
+        service.requiresBuiltInQuestion('phone', legacyDefault: true) &&
         _phoneController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please add your name and phone number.'),
+          content: Text('Please add your phone number.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
+    if (service.showsBuiltInQuestion('email') &&
+        service.requiresBuiltInQuestion('email') &&
+        _emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add your email address.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1003,7 +1041,7 @@ class _VanBookingLinkCustomerFormPageState
     }
 
     if (service.requireAddress &&
-        !vanRequestTypeSupportsHandover(service.requestType) &&
+        !service.hasHandoverConfiguration &&
         _addressController.text.trim().isEmpty &&
         _postcodeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1056,11 +1094,28 @@ class _VanBookingLinkCustomerFormPageState
       }
     }
 
-    final preferredTimingMessage = validateVanMatePreferredBookingWindow(
-      preferredDate: _preferredDate,
-      preferredTimeWindow: _preferredTimeWindow,
-      preferredIsFlexible: _preferredIsFlexible,
-    );
+    if (service.requestPhotos &&
+        service.requiresBuiltInQuestion('photos') &&
+        _selectedPhotos.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one photo.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
+    final requiresPreferredTiming =
+        service.requiresBuiltInQuestion('preferred_date') ||
+        service.requiresBuiltInQuestion('preferred_time');
+    final preferredTimingMessage = requiresPreferredTiming
+        ? validateVanMatePreferredBookingWindow(
+            preferredDate: _preferredDate,
+            preferredTimeWindow: _preferredTimeWindow,
+            preferredIsFlexible: _preferredIsFlexible,
+          )
+        : null;
     if (preferredTimingMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1074,20 +1129,26 @@ class _VanBookingLinkCustomerFormPageState
     return true;
   }
 
-  bool get _hasValidPreferredTimingSelection =>
-      validateVanMatePreferredBookingWindow(
-        preferredDate: _preferredDate,
-        preferredTimeWindow: _preferredTimeWindow,
-        preferredIsFlexible: _preferredIsFlexible,
-      ) ==
-      null;
+  bool get _requiresPreferredTiming =>
+      _selectedService?.requiresBuiltInQuestion('preferred_date') == true ||
+      _selectedService?.requiresBuiltInQuestion('preferred_time') == true;
 
-  String? get _preferredTimingValidationMessage =>
+  bool get _hasValidPreferredTimingSelection =>
+      !_requiresPreferredTiming ||
       validateVanMatePreferredBookingWindow(
-        preferredDate: _preferredDate,
-        preferredTimeWindow: _preferredTimeWindow,
-        preferredIsFlexible: _preferredIsFlexible,
-      );
+            preferredDate: _preferredDate,
+            preferredTimeWindow: _preferredTimeWindow,
+            preferredIsFlexible: _preferredIsFlexible,
+          ) ==
+          null;
+
+  String? get _preferredTimingValidationMessage => !_requiresPreferredTiming
+      ? null
+      : validateVanMatePreferredBookingWindow(
+          preferredDate: _preferredDate,
+          preferredTimeWindow: _preferredTimeWindow,
+          preferredIsFlexible: _preferredIsFlexible,
+        );
 
   String _formatDate(DateTime date) {
     const monthNames = <String>[
@@ -1416,78 +1477,75 @@ class _VanBookingLinkCustomerFormPageState
       return;
     }
 
-    final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
-      source: 'van_mate.booking_link_submit',
-    );
-    if (!mounted) {
-      return;
-    }
-    final normalizedOwnerUid = ownerUid?.trim() ?? '';
-    if (normalizedOwnerUid.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not find the Booking Link owner.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    final address = sanitizeVanText(_addressController.text).trim();
-    final postcode = _normalizePostcode(_postcodeController.text);
-    final startHandover = _effectiveStartHandover;
-    final endHandover = _effectiveEndHandover;
-    final returnAddress = _returnAddressSameAsCollection
-        ? address
-        : sanitizeVanText(_returnAddressController.text).trim();
-    final selectedQuestions = _selectedServiceQuestions;
-    final collectedAnswers = selectedQuestions
-        .asMap()
-        .entries
-        .map((entry) {
-          final index = entry.key;
-          final question = entry.value;
-          final answer = _readQuestionAnswer(question);
-          final payload = <String, dynamic>{
-            'questionId': question.id.trim(),
-            'questionText': question.questionText.trim(),
-            'type': question.answerType.storageKey,
-            'answerType': question.answerType.storageKey,
-            'category': question.category?.storageKey ?? '',
-            'answer': answer,
-            'answerValue': answer,
-            'order': index,
-          };
-          debugPrint(
-            '[BookingLinkPreviewSubmit] answer collected index=$index questionId=${question.id} questionText=${question.questionText.trim()} type=${question.answerType.storageKey} answer=$answer',
-          );
-          return payload;
-        })
-        .where(
-          (item) =>
-              (item['questionId'] as String).isNotEmpty &&
-              (item['questionText'] as String).isNotEmpty &&
-              (item['answerValue'] as String).trim().isNotEmpty,
-        )
-        .toList(growable: false);
-
-    debugPrint(
-      '[BookingLinkPreviewSubmit] selected service id=${service.id} name=${service.name.trim()} linkedQuestionsLoaded=${selectedQuestions.length}',
-    );
-
-    List<Map<String, String>> photoPayload = const <Map<String, String>>[];
-    if (service.requestPhotos && _selectedPhotos.isNotEmpty) {
-      photoPayload = await _buildSubmitPhotoPayload();
-    }
-    debugPrint(
-      '[BookingLinkPreviewSubmit] selected photo count=${_selectedPhotos.length} payloadCount=${photoPayload.length}',
-    );
-
     setState(() {
       _submitting = true;
+      _clientSubmissionId = _clientSubmissionId.isEmpty
+          ? 'booking_${DateTime.now().microsecondsSinceEpoch}'
+          : _clientSubmissionId;
     });
 
     try {
+      final ownerUid = await VanFirebaseAuthService.instance
+          .ensureCurrentUid(source: 'van_mate.booking_link_submit')
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
+      final normalizedOwnerUid = ownerUid?.trim() ?? '';
+      if (normalizedOwnerUid.isEmpty) {
+        throw StateError('Booking Link owner is unavailable.');
+      }
+
+      final address = sanitizeVanText(_addressController.text).trim();
+      final postcode = _normalizePostcode(_postcodeController.text);
+      final startHandover = _effectiveStartHandover;
+      final endHandover = _effectiveEndHandover;
+      final returnAddress = _returnAddressSameAsCollection
+          ? address
+          : sanitizeVanText(_returnAddressController.text).trim();
+      final selectedQuestions = _selectedServiceQuestions;
+      final collectedAnswers = selectedQuestions
+          .asMap()
+          .entries
+          .map((entry) {
+            final index = entry.key;
+            final question = entry.value;
+            final answer = _readQuestionAnswer(question);
+            final payload = <String, dynamic>{
+              'questionId': question.id.trim(),
+              'questionText': question.questionText.trim(),
+              'type': question.answerType.storageKey,
+              'answerType': question.answerType.storageKey,
+              'category': question.category?.storageKey ?? '',
+              'answer': answer,
+              'answerValue': answer,
+              'order': index,
+            };
+            debugPrint(
+              '[BookingLinkPreviewSubmit] answer collected index=$index questionId=${question.id} questionText=${question.questionText.trim()} type=${question.answerType.storageKey} answer=$answer',
+            );
+            return payload;
+          })
+          .where(
+            (item) =>
+                (item['questionId'] as String).isNotEmpty &&
+                (item['questionText'] as String).isNotEmpty &&
+                (item['answerValue'] as String).trim().isNotEmpty,
+          )
+          .toList(growable: false);
+
+      debugPrint(
+        '[BookingLinkPreviewSubmit] selected service id=${service.id} name=${service.name.trim()} linkedQuestionsLoaded=${selectedQuestions.length}',
+      );
+
+      List<Map<String, String>> photoPayload = const <Map<String, String>>[];
+      if (service.requestPhotos && _selectedPhotos.isNotEmpty) {
+        photoPayload = await _buildSubmitPhotoPayload().timeout(
+          const Duration(seconds: 20),
+        );
+      }
+      debugPrint(
+        '[BookingLinkPreviewSubmit] selected photo count=${_selectedPhotos.length} payloadCount=${photoPayload.length}',
+      );
+
       final callable = FirebaseFunctions.instanceFor(
         region: 'us-central1',
       ).httpsCallable('submitBookingLinkRequest');
@@ -1497,43 +1555,46 @@ class _VanBookingLinkCustomerFormPageState
       final additionalNotes = sanitizeVanText(
         _timingNoteController.text,
       ).trim();
-      final callableResult = await callable.call(<String, dynamic>{
-        'ownerUid': normalizedOwnerUid,
-        'serviceId': service.id.trim(),
-        'serviceName': service.name.trim(),
-        'requestType': service.serviceFlow.requestType.storageKey,
-        'serviceFlow': service.serviceFlow.storageKey,
-        'customerJourneyType': service.customerJourneyType.storageKey,
-        'customerName': sanitizeVanText(_nameController.text).trim(),
-        'phoneNumber': sanitizeVanText(_phoneController.text).trim(),
-        'customerEmail': sanitizeVanText(_emailController.text).trim(),
-        'address': address,
-        'startHandover': startHandover?.storageKey ?? '',
-        'endHandover': endHandover?.storageKey ?? '',
-        'collectionAddress': startHandover?.needsCustomerAddress == true
-            ? address
-            : '',
-        'returnAddress': endHandover?.needsCustomerAddress == true
-            ? returnAddress
-            : '',
-        'returnAddressSameAsCollection': _returnAddressSameAsCollection,
-        'postcode': postcode,
-        'additionalNotes': additionalNotes,
-        'preferredDate': _preferredDate?.toIso8601String(),
-        'preferredDateAt': _preferredDate?.toIso8601String(),
-        'preferredTimeWindow': _preferredTimeWindow,
-        'preferredWindow': _preferredTimeWindow,
-        'preferredIsFlexible': _preferredIsFlexible,
-        'timingFlexible': _preferredIsFlexible,
-        'preferredTimingNote': '',
-        'timingNote': '',
-        'photoFileNames': _selectedPhotos
-            .map((photo) => photo.name.trim())
-            .where((name) => name.isNotEmpty)
-            .toList(growable: false),
-        'photos': photoPayload,
-        'answers': collectedAnswers,
-      });
+      final callableResult = await callable
+          .call(<String, dynamic>{
+            'ownerUid': normalizedOwnerUid,
+            'serviceId': service.id.trim(),
+            'serviceName': service.name.trim(),
+            'clientSubmissionId': _clientSubmissionId,
+            'requestType': service.serviceFlow.requestType.storageKey,
+            'serviceFlow': service.serviceFlow.storageKey,
+            'customerJourneyType': service.customerJourneyType.storageKey,
+            'customerName': sanitizeVanText(_nameController.text).trim(),
+            'phoneNumber': sanitizeVanText(_phoneController.text).trim(),
+            'customerEmail': sanitizeVanText(_emailController.text).trim(),
+            'address': service.hasHandoverConfiguration ? '' : address,
+            'startHandover': startHandover?.storageKey ?? '',
+            'endHandover': endHandover?.storageKey ?? '',
+            'collectionAddress': startHandover?.needsCustomerAddress == true
+                ? address
+                : '',
+            'returnAddress': endHandover?.needsCustomerAddress == true
+                ? returnAddress
+                : '',
+            'returnAddressSameAsCollection': _returnAddressSameAsCollection,
+            'postcode': service.hasHandoverConfiguration ? '' : postcode,
+            'additionalNotes': additionalNotes,
+            'preferredDate': _preferredDate?.toIso8601String(),
+            'preferredDateAt': _preferredDate?.toIso8601String(),
+            'preferredTimeWindow': _preferredTimeWindow,
+            'preferredWindow': _preferredTimeWindow,
+            'preferredIsFlexible': _preferredIsFlexible,
+            'timingFlexible': _preferredIsFlexible,
+            'preferredTimingNote': '',
+            'timingNote': '',
+            'photoFileNames': _selectedPhotos
+                .map((photo) => photo.name.trim())
+                .where((name) => name.isNotEmpty)
+                .toList(growable: false),
+            'photos': photoPayload,
+            'answers': collectedAnswers,
+          })
+          .timeout(const Duration(seconds: 45));
       final resultData = callableResult.data;
       final resultMap = resultData is Map
           ? Map<String, dynamic>.from(resultData)
@@ -1544,55 +1605,57 @@ class _VanBookingLinkCustomerFormPageState
         '[BookingLinkPreviewSubmit] callable submit success requestId=${requestId.isEmpty ? '(none)' : requestId} jobId=${jobId.isEmpty ? '(none)' : jobId}',
       );
       if (requestId.isNotEmpty) {
-        await VanJobRequestCloudService.instance.mergeRequestFields(
-          ownerUid: normalizedOwnerUid,
-          requestId: requestId,
-          source: 'van_mate.booking_link_submit',
-          fields: <String, dynamic>{
-            'source': 'preview',
-            'isPreview': true,
-            'sourceLabel': 'Preview test',
-            'requestStatusLabel': 'Request Received',
-            'selectedServiceId': service.id,
-            'selectedServiceName': service.name.trim(),
-            'customerJourneyType': service.customerJourneyType.storageKey,
-            'serviceFlow': service.serviceFlow.storageKey,
-            'startHandover': startHandover?.storageKey ?? '',
-            'endHandover': endHandover?.storageKey ?? '',
-            'collectionAddress': startHandover?.needsCustomerAddress == true
-                ? address
-                : '',
-            'returnAddress': endHandover?.needsCustomerAddress == true
-                ? returnAddress
-                : '',
-            'returnAddressSameAsCollection': _returnAddressSameAsCollection,
-            'businessDropOffInstructions': service.businessDropOffInstructions,
-            'businessCollectionInstructions':
-                service.businessCollectionInstructions,
-            'customerPostcode': postcode,
-            'preferredDate': _preferredDate?.toIso8601String(),
-            'preferredTimeWindow': _preferredTimeWindow,
-            'preferredIsFlexible': _preferredIsFlexible,
-            'preferredTimingNote': '',
-            'additionalNotes': additionalNotes,
-            'photoFileNames': _selectedPhotos
-                .map((photo) => photo.name.trim())
-                .where((name) => name.isNotEmpty)
-                .toList(growable: false),
-            'status': 'reply_received',
-            'requestStatus': 'reply_received',
-          },
-        );
+        await VanJobRequestCloudService.instance
+            .mergeRequestFields(
+              ownerUid: normalizedOwnerUid,
+              requestId: requestId,
+              source: 'van_mate.booking_link_submit',
+              fields: <String, dynamic>{
+                'source': 'preview',
+                'isPreview': true,
+                'sourceLabel': 'Preview test',
+                'requestStatusLabel': 'Request Received',
+                'selectedServiceId': service.id,
+                'selectedServiceName': service.name.trim(),
+                'customerJourneyType': service.customerJourneyType.storageKey,
+                'serviceFlow': service.serviceFlow.storageKey,
+                'startHandover': startHandover?.storageKey ?? '',
+                'endHandover': endHandover?.storageKey ?? '',
+                'collectionAddress': startHandover?.needsCustomerAddress == true
+                    ? address
+                    : '',
+                'returnAddress': endHandover?.needsCustomerAddress == true
+                    ? returnAddress
+                    : '',
+                'returnAddressSameAsCollection': _returnAddressSameAsCollection,
+                'businessDropOffInstructions':
+                    service.businessDropOffInstructions,
+                'businessCollectionInstructions':
+                    service.businessCollectionInstructions,
+                'customerPostcode': postcode,
+                'preferredDate': _preferredDate?.toIso8601String(),
+                'preferredTimeWindow': _preferredTimeWindow,
+                'preferredIsFlexible': _preferredIsFlexible,
+                'preferredTimingNote': '',
+                'additionalNotes': additionalNotes,
+                'photoFileNames': _selectedPhotos
+                    .map((photo) => photo.name.trim())
+                    .where((name) => name.isNotEmpty)
+                    .toList(growable: false),
+                'status': 'reply_received',
+                'requestStatus': 'reply_received',
+              },
+            )
+            .timeout(const Duration(seconds: 15));
       }
-      await DriverReplyMockState.instance.refreshJobsFromCloud(
-        forceServer: true,
-      );
+      await DriverReplyMockState.instance
+          .refreshJobsFromCloud(forceServer: true)
+          .timeout(const Duration(seconds: 15));
 
       if (!mounted) {
         return;
       }
       setState(() {
-        _submitting = false;
         _submitted = true;
         _confirmationRequestId = requestId;
       });
@@ -1601,15 +1664,20 @@ class _VanBookingLinkCustomerFormPageState
       if (!mounted) {
         return;
       }
-      setState(() {
-        _submitting = false;
-      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not submit request. Please try again.'),
+        SnackBar(
+          content: Text(
+            error is TimeoutException
+                ? 'Request timed out. Check your connection and try again.'
+                : 'Could not submit request. Please try again.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
+    } finally {
+      if (mounted && _submitting) {
+        setState(() => _submitting = false);
+      }
     }
   }
 
@@ -1967,6 +2035,7 @@ class _VanBookingLinkCustomerFormPageState
                                     _selectedStartHandover = null;
                                     _selectedEndHandover = null;
                                     _returnAddressSameAsCollection = false;
+                                    _clientSubmissionId = '';
                                     _addressController.clear();
                                     _returnAddressController.clear();
                                     _syncQuestionControllers();
@@ -1984,10 +2053,28 @@ class _VanBookingLinkCustomerFormPageState
                                 ),
                               ),
                             ],
+                            if (service?.customerMessage.trim().isNotEmpty ==
+                                true) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                service!.customerMessage,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.82),
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                      if (service != null) ...[
+                      if (service != null &&
+                          (service
+                                  .effectiveRequestFlowOptions
+                                  .askPreferredDate ||
+                              service
+                                  .effectiveRequestFlowOptions
+                                  .askPreferredTime)) ...[
                         const SizedBox(height: 12),
                         _GlassCard(
                           child: Column(
@@ -2016,47 +2103,86 @@ class _VanBookingLinkCustomerFormPageState
                                 autocorrect: false,
                                 textInputAction: TextInputAction.next,
                               ),
-                              const SizedBox(height: 10),
-                              _BookingTextField(
-                                controller: _phoneController,
-                                label: 'Phone number',
-                                hint: 'Enter phone number',
-                                icon: Icons.phone_outlined,
-                                keyboardType: TextInputType.phone,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9 +()-]'),
+                              if (service.showsBuiltInQuestion('phone')) ...[
+                                const SizedBox(height: 10),
+                                _BookingTextField(
+                                  controller: _phoneController,
+                                  label:
+                                      service.requiresBuiltInQuestion(
+                                        'phone',
+                                        legacyDefault: true,
+                                      )
+                                      ? 'Phone number'
+                                      : 'Phone number (optional)',
+                                  hint: 'Enter phone number',
+                                  icon: Icons.phone_outlined,
+                                  keyboardType: TextInputType.phone,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[0-9 +()-]'),
+                                    ),
+                                  ],
+                                  autofillHints: const <String>[
+                                    AutofillHints.telephoneNumber,
+                                  ],
+                                  textInputAction: TextInputAction.next,
+                                  enableSuggestions: false,
+                                  autocorrect: false,
+                                ),
+                                if (service
+                                    .builtInQuestionHelper('phone')
+                                    .isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 5),
+                                    child: Text(
+                                      service.builtInQuestionHelper('phone'),
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: .62,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ],
-                                autofillHints: const <String>[
-                                  AutofillHints.telephoneNumber,
-                                ],
-                                textInputAction: TextInputAction.next,
-                                enableSuggestions: false,
-                                autocorrect: false,
-                              ),
-                              const SizedBox(height: 10),
-                              _BookingTextField(
-                                controller: _emailController,
-                                label: 'Email (optional)',
-                                hint: 'Enter email',
-                                icon: Icons.email_outlined,
-                                keyboardType: TextInputType.emailAddress,
-                                autofillHints: const <String>[
-                                  AutofillHints.email,
-                                ],
-                                enableSuggestions: false,
-                                autocorrect: false,
-                                textInputAction: TextInputAction.next,
-                              ),
+                              ],
+                              if (service.showsBuiltInQuestion('email')) ...[
+                                const SizedBox(height: 10),
+                                _BookingTextField(
+                                  controller: _emailController,
+                                  label:
+                                      service.requiresBuiltInQuestion('email')
+                                      ? 'Email address'
+                                      : 'Email (optional)',
+                                  hint: 'Enter email',
+                                  icon: Icons.email_outlined,
+                                  keyboardType: TextInputType.emailAddress,
+                                  autofillHints: const <String>[
+                                    AutofillHints.email,
+                                  ],
+                                  enableSuggestions: false,
+                                  autocorrect: false,
+                                  textInputAction: TextInputAction.next,
+                                ),
+                                if (service
+                                    .builtInQuestionHelper('email')
+                                    .isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 5),
+                                    child: Text(
+                                      service.builtInQuestionHelper('email'),
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: .62,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ],
                           ),
                         ),
                       ],
                       if (service != null &&
-                          vanRequestTypeSupportsHandover(
-                            service.requestType,
-                          )) ...[
+                          service.hasHandoverConfiguration) ...[
                         const SizedBox(height: 12),
                         _GlassCard(
                           child: Column(
@@ -2086,47 +2212,52 @@ class _VanBookingLinkCustomerFormPageState
                                   .effectiveHandover
                                   .customerChoosesStart) ...[
                                 const SizedBox(height: 12),
-                                DropdownButtonFormField<VanStartHandover>(
-                                  initialValue: _effectiveStartHandover,
-                                  decoration: vanMateFieldDecoration(
-                                    label: 'Start of service',
-                                  ),
-                                  dropdownColor: const Color(0xFF13233A),
-                                  items: service.effectiveHandover.allowedStarts
-                                      .map(
-                                        (value) => DropdownMenuItem(
-                                          value: value,
-                                          child: Text(value.label),
-                                        ),
-                                      )
-                                      .toList(growable: false),
-                                  onChanged: (value) => setState(
-                                    () => _selectedStartHandover = value,
+                                const Text(
+                                  'How would you like to begin?',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
+                                const SizedBox(height: 7),
+                                for (final value
+                                    in service.effectiveHandover.allowedStarts)
+                                  _HandoverRadioTile(
+                                    label:
+                                        value ==
+                                            VanStartHandover.customerDropsOff
+                                        ? "I'll drop it off"
+                                        : 'Please collect it',
+                                    selected: _effectiveStartHandover == value,
+                                    onTap: () => setState(
+                                      () => _selectedStartHandover = value,
+                                    ),
+                                  ),
                               ],
                               if (service
                                   .effectiveHandover
                                   .customerChoosesEnd) ...[
                                 const SizedBox(height: 12),
-                                DropdownButtonFormField<VanEndHandover>(
-                                  initialValue: _effectiveEndHandover,
-                                  decoration: vanMateFieldDecoration(
-                                    label: 'End of service',
-                                  ),
-                                  dropdownColor: const Color(0xFF13233A),
-                                  items: service.effectiveHandover.allowedEnds
-                                      .map(
-                                        (value) => DropdownMenuItem(
-                                          value: value,
-                                          child: Text(value.label),
-                                        ),
-                                      )
-                                      .toList(growable: false),
-                                  onChanged: (value) => setState(
-                                    () => _selectedEndHandover = value,
+                                const Text(
+                                  'How would you like it returned?',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
                                   ),
                                 ),
+                                const SizedBox(height: 7),
+                                for (final value
+                                    in service.effectiveHandover.allowedEnds)
+                                  _HandoverRadioTile(
+                                    label:
+                                        value == VanEndHandover.customerCollects
+                                        ? "I'll collect it"
+                                        : 'Please return it',
+                                    selected: _effectiveEndHandover == value,
+                                    onTap: () => setState(
+                                      () => _selectedEndHandover = value,
+                                    ),
+                                  ),
                               ],
                               if (_effectiveStartHandover ==
                                   VanStartHandover.customerDropsOff) ...[
@@ -2195,23 +2326,34 @@ class _VanBookingLinkCustomerFormPageState
                           ),
                         ),
                       ],
-                      if (service?.requireAddress == true &&
-                          !vanRequestTypeSupportsHandover(
-                            service!.requestType,
-                          )) ...[
+                      if (service?.showsBuiltInQuestion('address') == true &&
+                          !service!.hasHandoverConfiguration) ...[
                         const SizedBox(height: 12),
                         _GlassCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Address or postcode',
-                                style: TextStyle(
+                              Text(
+                                service.requireAddress
+                                    ? 'Address or postcode'
+                                    : 'Address or postcode (optional)',
+                                style: const TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
                                 ),
                               ),
+                              if (service
+                                  .builtInQuestionHelper('address')
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  service.builtInQuestionHelper('address'),
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: .66),
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 12),
                               _BookingTextField(
                                 controller: _addressController,
@@ -2267,7 +2409,13 @@ class _VanBookingLinkCustomerFormPageState
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                vanBookingPhotoHelperText(service!.requestType),
+                                service!
+                                        .builtInQuestionHelper('photos')
+                                        .isNotEmpty
+                                    ? service.builtInQuestionHelper('photos')
+                                    : vanBookingPhotoHelperText(
+                                        service.requestType,
+                                      ),
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.74),
                                   height: 1.35,
@@ -2284,8 +2432,12 @@ class _VanBookingLinkCustomerFormPageState
                                     child: FilledButton.icon(
                                       onPressed: _pickPhotos,
                                       icon: const Icon(Icons.add_a_photo),
-                                      label: const Text(
-                                        'Add photos (optional)',
+                                      label: Text(
+                                        service.requiresBuiltInQuestion(
+                                              'photos',
+                                            )
+                                            ? 'Add photos'
+                                            : 'Add photos (optional)',
                                       ),
                                     ),
                                   ),
@@ -2343,61 +2495,73 @@ class _VanBookingLinkCustomerFormPageState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Preferred time (optional)',
-                                style: TextStyle(
+                              Text(
+                                _requiresPreferredTiming
+                                    ? 'Preferred date and time'
+                                    : 'Preferred date and time (optional)',
+                                style: const TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              _BookingTextField(
-                                controller: _preferredDateController,
-                                label: 'Preferred date',
-                                hint: 'Choose a preferred date',
-                                icon: Icons.event_outlined,
-                                readOnly: true,
-                                onTap: _pickPreferredDate,
-                                autofillHints: const <String>[],
-                                textInputAction: TextInputAction.next,
-                              ),
-                              const SizedBox(height: 10),
-                              DropdownButtonFormField<String>(
-                                initialValue: _preferredTimeWindow,
-                                decoration: vanMateFieldDecoration(
-                                  label: 'Preferred time window',
-                                  hintText: 'Choose a preferred time',
-                                  labelOpacity: 0.68,
-                                  hintOpacity: 0.48,
+                              if (service
+                                  .effectiveRequestFlowOptions
+                                  .askPreferredDate) ...[
+                                const SizedBox(height: 10),
+                                _BookingTextField(
+                                  controller: _preferredDateController,
+                                  label: 'Preferred date',
+                                  hint: 'Choose a preferred date',
+                                  icon: Icons.event_outlined,
+                                  readOnly: true,
+                                  onTap: _pickPreferredDate,
+                                  autofillHints: const <String>[],
+                                  textInputAction: TextInputAction.next,
                                 ),
-                                style: kVanMateFieldTextStyle,
-                                dropdownColor: const Color(0xFF13233A),
-                                iconEnabledColor: Colors.white,
-                                items:
-                                    const <String>[
-                                          'morning',
-                                          'afternoon',
-                                          'evening',
-                                          'anytime',
-                                        ]
-                                        .map((value) {
-                                          return DropdownMenuItem<String>(
-                                            value: value,
-                                            child: Text(
-                                              _preferredTimeWindowLabel(value),
-                                            ),
-                                          );
-                                        })
-                                        .toList(growable: false),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _preferredTimeWindow =
-                                        value?.trim().toLowerCase() ??
-                                        'anytime';
-                                  });
-                                },
-                              ),
+                              ],
+                              if (service
+                                  .effectiveRequestFlowOptions
+                                  .askPreferredTime) ...[
+                                const SizedBox(height: 10),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _preferredTimeWindow,
+                                  decoration: vanMateFieldDecoration(
+                                    label: 'Preferred time window',
+                                    hintText: 'Choose a preferred time',
+                                    labelOpacity: 0.68,
+                                    hintOpacity: 0.48,
+                                  ),
+                                  style: kVanMateFieldTextStyle,
+                                  dropdownColor: const Color(0xFF13233A),
+                                  iconEnabledColor: Colors.white,
+                                  items:
+                                      const <String>[
+                                            'morning',
+                                            'afternoon',
+                                            'evening',
+                                            'anytime',
+                                          ]
+                                          .map((value) {
+                                            return DropdownMenuItem<String>(
+                                              value: value,
+                                              child: Text(
+                                                _preferredTimeWindowLabel(
+                                                  value,
+                                                ),
+                                              ),
+                                            );
+                                          })
+                                          .toList(growable: false),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _preferredTimeWindow =
+                                          value?.trim().toLowerCase() ??
+                                          'anytime';
+                                    });
+                                  },
+                                ),
+                              ],
                               const SizedBox(height: 8),
                               CheckboxListTile(
                                 contentPadding: EdgeInsets.zero,
@@ -2675,6 +2839,61 @@ class _ChoiceAnswerButton extends StatelessWidget {
 }
 
 enum _PhotoSourceChoice { camera, gallery }
+
+class _HandoverRadioTile extends StatelessWidget {
+  const _HandoverRadioTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 7),
+    child: Material(
+      color: selected
+          ? const Color(0xFF66D6B5).withValues(alpha: .1)
+          : Colors.white.withValues(alpha: .035),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(13),
+        side: BorderSide(
+          color: selected
+              ? const Color(0xFF66D6B5)
+              : Colors.white.withValues(alpha: .11),
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(13),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(
+            children: [
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                color: selected ? const Color(0xFF66D6B5) : Colors.white54,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 class _BookingTextField extends StatelessWidget {
   const _BookingTextField({

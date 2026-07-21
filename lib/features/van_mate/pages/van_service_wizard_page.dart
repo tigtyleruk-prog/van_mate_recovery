@@ -9,7 +9,10 @@ import '../models/van_customer_request_flow.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
 import '../models/van_quote_extra_defaults.dart';
+import '../models/van_service_capability.dart';
 import '../models/van_service_handover.dart';
+import '../models/van_starter_capability_pack.dart';
+import '../models/van_service_template.dart';
 import '../pages/van_booking_link_page.dart';
 import '../pages/van_service_question_editor_page.dart';
 import '../services/van_business_profile_storage.dart';
@@ -19,17 +22,42 @@ import '../widgets/van_back_business_hub_buttons.dart';
 import '../widgets/van_form_field_styles.dart';
 import '../widgets/van_quote_extra_defaults_sheet.dart';
 
+class VanServiceWizardBuildResult {
+  const VanServiceWizardBuildResult({
+    required this.createdServiceIds,
+    this.existingServiceIds = const <String>[],
+  });
+
+  final List<String> createdServiceIds;
+  final List<String> existingServiceIds;
+
+  List<String> get serviceIds => <String>[
+    ...createdServiceIds,
+    ...existingServiceIds,
+  ];
+}
+
+enum _BusinessSetupStage {
+  services,
+  capabilities,
+  extras,
+  availability,
+  review,
+}
+
 class VanServiceWizardPage extends StatefulWidget {
   const VanServiceWizardPage({
     super.key,
     this.initialService,
     this.duplicateFrom,
     this.suggestedName,
+    this.starterTemplate,
   });
 
   final VanJobService? initialService;
   final VanJobService? duplicateFrom;
   final String? suggestedName;
+  final VanServiceTemplate? starterTemplate;
 
   @override
   State<VanServiceWizardPage> createState() => _VanServiceWizardPageState();
@@ -40,18 +68,22 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     'Basic information',
     'Customer journey',
     'Service flow',
-    'Customer questions',
+    'Choose questions',
+    'Configure questions',
     'Pricing',
     'Availability',
     'Review',
   ];
-  static const _categories = <String>[
-    'General',
-    'Home & property',
-    'Transport & delivery',
-    'Pets',
-    'Beauty & wellbeing',
-    'Repairs & maintenance',
+  static const _categoryOptions = <({String id, String label})>[
+    (id: 'general', label: 'General'),
+    (id: 'home_property', label: 'Home & property'),
+    (id: 'transport_delivery', label: 'Transport & Delivery'),
+    (id: 'trades', label: 'Trades'),
+    (id: 'food_local_business', label: 'Food & local business'),
+    (id: 'events_other', label: 'Events & other'),
+    (id: 'pets', label: 'Pets'),
+    (id: 'beauty_wellbeing', label: 'Beauty & wellbeing'),
+    (id: 'repairs_maintenance', label: 'Repairs & maintenance'),
   ];
   static const _iconOptions = <String, IconData>{
     'work': Icons.work_outline_rounded,
@@ -85,12 +117,15 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _dropOffController;
   late final TextEditingController _collectionController;
+  late final TextEditingController _customerMessageController;
+  late final TextEditingController _businessSearchController;
   late final String _serviceId;
   late String _category;
   late String _iconKey;
   late int _colourValue;
   late VanCustomerJourneyType _journey;
   late VanCustomerRequestType _requestType;
+  late VanCustomerRequestFlowOptions _flowOptions;
   late VanStartHandover _startHandover;
   late VanEndHandover _endHandover;
   late List<VanStartHandover> _allowedStarts;
@@ -101,9 +136,36 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
   late int _endMinutes;
   late int _noticeHours;
   late int _maxBookings;
+  late int _appointmentDurationMinutes;
   final Map<String, VanCustomJobQuestion> _questions = {};
   final List<String> _linkedQuestionIds = [];
+  final Set<String> _availableQuestionIds = {};
   final Set<String> _optionalQuestionIds = {};
+  final Set<String> _selectedBuiltInQuestions = {};
+  final Map<String, Map<String, dynamic>> _builtInQuestionSettings = {};
+  final Map<String, String> _libraryQuestionIds = {};
+  final Map<String, String> _extraChargeUnits = {};
+  final Set<String> _templateQuestionIds = {};
+  late int _maxCustomerPhotos;
+  VanServiceTemplate? _selectedStarterTemplate;
+  VanStarterCapabilityPack? _selectedCapabilityPack;
+  final Set<String> _selectedRecommendedServiceIds = <String>{};
+  final Map<String, Set<String>> _capabilityIdsByService =
+      <String, Set<String>>{};
+  final Set<String> _manualCapabilityIds = <String>{};
+  final Set<String> _capabilityGeneratedQuestionIds = <String>{};
+  final Map<String, String> _capabilityGeneratedQuestionKeys =
+      <String, String>{};
+  final Set<String> _capabilityGeneratedExtraKeys = <String>{};
+  final Set<String> _capabilityGeneratedBuiltInQuestionKeys = <String>{};
+  String _creationSource = '';
+  String? _expandedTemplateCategoryId;
+  String _businessSearchQuery = '';
+  List<_BusinessChoice> _recentBusinessChoices = const <_BusinessChoice>[];
+  bool _showStarterBrowser = false;
+  bool _showBasicFields = false;
+  _BusinessSetupStage _businessSetupStage = _BusinessSetupStage.services;
+  bool _businessSetupExtrasPrepared = false;
   bool _isActive = true;
   bool _requestPhotos = false;
   bool _requireAddress = true;
@@ -111,28 +173,95 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
   int _step = 0;
   bool _saving = false;
   bool _loadingQuestions = true;
+  bool _configuringExtras = false;
+  bool _handoverTouched = false;
 
   VanJobService? get _source => widget.initialService ?? widget.duplicateFrom;
   bool get _isEditing => widget.initialService != null;
   bool get _isDuplicating => widget.duplicateFrom != null;
+  bool get _showWizardChrome => _source != null || _showBasicFields;
+  bool get _usesUniversalCapabilityEditor =>
+      (_source?.isCapabilityDriven ?? false) ||
+      (_source == null && _creationSource == 'blank');
+  bool get _isUnchangedStandardWithoutFullHandover =>
+      _source != null &&
+      _source!.serviceFlow == VanServiceFlow.standard &&
+      !_source!.hasHandoverConfiguration &&
+      !_handoverTouched &&
+      !(_allowedStarts.isNotEmpty && _allowedEnds.isNotEmpty);
+
+  static String _normalizedCategoryLabel(String value) =>
+      value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+  static List<({String id, String label})> _categoryDropdownOptions(
+    String selectedLabel,
+  ) {
+    final byId = <String, ({String id, String label})>{};
+    final seenLabels = <String>{};
+    for (final option in _categoryOptions) {
+      final normalizedLabel = _normalizedCategoryLabel(option.label);
+      if (byId.containsKey(option.id) || !seenLabels.add(normalizedLabel)) {
+        continue;
+      }
+      byId[option.id] = option;
+    }
+    final normalizedSelected = _normalizedCategoryLabel(selectedLabel);
+    if (!seenLabels.contains(normalizedSelected)) {
+      final legacyId = normalizedSelected.isEmpty
+          ? 'legacy_category'
+          : 'legacy_${normalizedSelected.replaceAll(' ', '_')}';
+      byId.putIfAbsent(
+        legacyId,
+        () => (id: legacyId, label: selectedLabel.trim()),
+      );
+    }
+    return byId.values.toList(growable: false);
+  }
+
+  static ({String id, String label}) _selectedCategoryOption(
+    String selectedLabel,
+  ) {
+    final normalizedSelected = _normalizedCategoryLabel(selectedLabel);
+    return _categoryDropdownOptions(selectedLabel).firstWhere(
+      (option) => _normalizedCategoryLabel(option.label) == normalizedSelected,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     final source = _source;
     final now = DateTime.now();
+    _selectedStarterTemplate = widget.starterTemplate;
+    if (_selectedStarterTemplate == null &&
+        source?.starterTemplateId.isNotEmpty == true) {
+      _selectedStarterTemplate = findVanServiceTemplateById(
+        source!.starterTemplateId,
+      );
+    }
+    _creationSource = _isDuplicating
+        ? 'duplicate'
+        : source?.creationSource.isNotEmpty == true
+        ? source!.creationSource
+        : source != null && !source.isDraft
+        ? 'existing'
+        : (_selectedStarterTemplate == null ? '' : 'starterPack');
+    _showBasicFields = source != null || widget.starterTemplate != null;
+    _showStarterBrowser =
+        _creationSource == 'starterPack' && _selectedStarterTemplate == null;
+    _expandedTemplateCategoryId = null;
     _serviceId = _isEditing
         ? source!.id
         : 'service_${now.microsecondsSinceEpoch}';
     _nameController = TextEditingController(
       text: _isDuplicating
-          ? ''
+          ? '${source!.name} Copy'
           : (source?.isDraft == true && source?.name == 'Untitled service')
           ? ''
           : source?.name ?? widget.suggestedName ?? '',
     );
     _descriptionController = TextEditingController(
-      text: source?.description ?? '',
+      text: source?.description ?? _selectedStarterTemplate?.description ?? '',
     );
     _dropOffController = TextEditingController(
       text: source?.businessDropOffInstructions ?? '',
@@ -140,6 +269,10 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     _collectionController = TextEditingController(
       text: source?.businessCollectionInstructions ?? '',
     );
+    _customerMessageController = TextEditingController(
+      text: source?.customerMessage ?? '',
+    );
+    _businessSearchController = TextEditingController();
     _category = source?.category ?? 'General';
     _iconKey = source?.iconKey ?? 'work';
     _colourValue = source?.colorValue ?? _colourOptions.first;
@@ -147,14 +280,21 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         source?.customerJourneyType ??
         defaultVanCustomerJourneyTypeForService(
           serviceId: '',
-          serviceName: widget.suggestedName ?? '',
+          serviceName:
+              _selectedStarterTemplate?.name ?? widget.suggestedName ?? '',
         );
     _requestType =
         source?.requestType ??
         defaultVanServiceFlowForService(
           serviceId: '',
-          serviceName: widget.suggestedName ?? '',
+          serviceName:
+              _selectedStarterTemplate?.name ?? widget.suggestedName ?? '',
         ).requestType;
+    _flowOptions =
+        source?.effectiveRequestFlowOptions ??
+        VanCustomerRequestFlowOptions.defaultsFor(
+          _requestType,
+        ).copyWith(askPreferredDate: false, askPreferredTime: false);
     final handover =
         source?.effectiveHandover ??
         VanServiceHandoverConfig.resolve(requestType: _requestType);
@@ -164,21 +304,971 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     _allowedEnds = handover.allowedEnds;
     _extras =
         source?.quoteExtraDefaults ??
-        VanQuoteExtraDefaults.starterForServiceName(widget.suggestedName ?? '');
+        _selectedStarterTemplate?.quoteExtraDefaults() ??
+        VanQuoteExtraDefaults.empty();
+    if (source == null && _selectedStarterTemplate?.id == 'courier') {
+      _extras = _extras.copyWithExtra(
+        VanQuoteExtraDefault.fallback(
+          kVanQuoteExtraMileageKey,
+        ).copyWith(enabled: true, defaultPrice: 1),
+      );
+    }
     _workingDays = {...?source?.workingDays};
     if (_workingDays.isEmpty) _workingDays.addAll(const [1, 2, 3, 4, 5]);
     _startMinutes = source?.businessStartMinutes ?? 9 * 60;
     _endMinutes = source?.businessEndMinutes ?? 17 * 60;
     _noticeHours = source?.noticeHours ?? 24;
     _maxBookings = source?.maxBookingsPerDay ?? 8;
+    _appointmentDurationMinutes = source?.appointmentDurationMinutes ?? 60;
     _isActive = source?.isActive ?? true;
     _requestPhotos = source?.requestPhotos ?? false;
-    _requireAddress = source?.requireAddress ?? true;
-    _requestExactPin = source?.requestExactPinAfterQuoteAccepted ?? true;
+    _requireAddress = source?.requireAddress ?? false;
+    _requestExactPin = source?.requestExactPinAfterQuoteAccepted ?? false;
     _optionalQuestionIds.addAll(source?.optionalQuestionIds ?? const []);
+    _selectedBuiltInQuestions.addAll(
+      source?.effectiveSelectedBuiltInQuestionKeys ?? const <String>{},
+    );
+    if (_requestExactPin) _selectedBuiltInQuestions.add('exact_pin');
+    for (final entry
+        in source?.builtInQuestionSettings.entries ??
+            const <MapEntry<String, Map<String, dynamic>>>[]) {
+      _builtInQuestionSettings[entry.key] = {...entry.value};
+    }
+    _maxCustomerPhotos = source?.maxCustomerPhotos ?? 5;
+    _extraChargeUnits.addAll(source?.extraChargeUnits ?? const {});
+    _manualCapabilityIds.addAll(
+      source?.serviceCapabilityIds ?? const <String>[],
+    );
+    _capabilityGeneratedQuestionIds.addAll(
+      source?.capabilityGeneratedQuestionIds ?? const <String>[],
+    );
+    _capabilityGeneratedQuestionKeys.addAll(
+      source?.capabilityGeneratedQuestionKeys ?? const <String, String>{},
+    );
+    _capabilityGeneratedExtraKeys.addAll(
+      source?.capabilityGeneratedExtraKeys ?? const <String>[],
+    );
+    _capabilityGeneratedBuiltInQuestionKeys.addAll(
+      source?.capabilityGeneratedBuiltInQuestionKeys ?? const <String>[],
+    );
+    final selectedStarterTemplate = _selectedStarterTemplate;
+    if (source == null && selectedStarterTemplate != null) {
+      _applyTemplateBuiltInRecommendations(selectedStarterTemplate);
+      _applyTemplatePresentationDefaults(selectedStarterTemplate);
+    }
+    if (source?.isDraft == true) {
+      _step = source!.wizardStep.clamp(0, _stepTitles.length - 1);
+      if (_step > 0) _showBasicFields = true;
+    }
     _nameController.addListener(_refreshPreview);
     _descriptionController.addListener(_refreshPreview);
     unawaited(_loadQuestions());
+    if (source == null) unawaited(_loadRecentBusinesses());
+  }
+
+  Future<void> _loadRecentBusinesses() async {
+    try {
+      final services = await _servicesStorage.loadAll();
+      final choices = <_BusinessChoice>[];
+      final seenLabels = <String>{};
+      for (final service in services) {
+        if (service.isArchived || service.isDraft) continue;
+        VanStarterCapabilityPack? pack;
+        if (service.starterPackId.isNotEmpty) {
+          pack = findVanStarterCapabilityPackById(service.starterPackId);
+        }
+        if (pack == null && service.starterTemplateId.isNotEmpty) {
+          pack = findVanStarterCapabilityPackById(
+            '${service.starterTemplateId}_business',
+          );
+        }
+        pack ??= findBestVanStarterCapabilityPack(service.name);
+        if (pack == null) {
+          final nameTerms = service.name
+              .split(RegExp(r'[^a-zA-Z0-9]+'))
+              .where((term) => term.length >= 4);
+          for (final term in nameTerms) {
+            pack = findBestVanStarterCapabilityPack(term);
+            if (pack != null) break;
+          }
+        }
+        if (pack == null) continue;
+        final label = service.name.trim().isEmpty ? pack.name : service.name;
+        if (!seenLabels.add(label.toLowerCase())) continue;
+        choices.add(_BusinessChoice(label: label, pack: pack));
+        if (choices.length == 4) break;
+      }
+      if (mounted) {
+        setState(() => _recentBusinessChoices = choices);
+      }
+    } catch (_) {
+      // Recent shortcuts are optional; the full finder remains available.
+    }
+  }
+
+  void _applyTemplateBuiltInRecommendations(VanServiceTemplate template) {
+    for (final question in template.questions) {
+      final key = _builtInQuestionKeyForText(question.text);
+      if (key == null) continue;
+      _selectedBuiltInQuestions.add(key);
+      _builtInQuestionSettings[key] = <String, dynamic>{
+        'required': true,
+        'helperText': '',
+      };
+      if (key == 'photos') _requestPhotos = true;
+    }
+    if (template.id == 'courier') {
+      _selectedBuiltInQuestions.add('photos');
+      _builtInQuestionSettings['photos'] = <String, dynamic>{
+        'required': false,
+        'helperText': 'Add a photo if it helps identify the parcel.',
+      };
+      _requestPhotos = true;
+    }
+    _flowOptions = _flowOptions.copyWith(
+      askPreferredDate: _selectedBuiltInQuestions.contains('preferred_date'),
+      askPreferredTime: _selectedBuiltInQuestions.contains('preferred_time'),
+    );
+  }
+
+  VanServiceTemplateCategory? _templateCategoryFor(
+    VanServiceTemplate template,
+  ) {
+    for (final category in kVanServiceTemplateCategories) {
+      if (category.services.any((item) => item.id == template.id)) {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  void _applyTemplatePresentationDefaults(VanServiceTemplate template) {
+    final templateCategory = _templateCategoryFor(template);
+    _category = switch (templateCategory?.id) {
+      'transport_delivery' => 'Transport & delivery',
+      'property_services' => 'Home & property',
+      'trades' => 'Trades',
+      'food_local' => 'Food & local business',
+      'events_other' when template.id.contains('dog') => 'Pets',
+      'events_other' => 'Events & other',
+      _ => 'General',
+    };
+    _iconKey = switch (templateCategory?.id) {
+      'transport_delivery' => 'van',
+      'property_services' => 'home',
+      'trades' => 'work',
+      'food_local' => 'sparkle',
+      'events_other' when template.id.contains('dog') => 'pet',
+      'events_other' => 'sparkle',
+      _ => 'work',
+    };
+    _colourValue = switch (templateCategory?.id) {
+      'transport_delivery' => _colourOptions[0],
+      'property_services' => _colourOptions[2],
+      'trades' => _colourOptions[3],
+      'food_local' => _colourOptions[4],
+      'events_other' => _colourOptions[1],
+      _ => _colourOptions.first,
+    };
+    _journey = defaultVanCustomerJourneyTypeForService(
+      serviceId: template.id,
+      serviceName: template.name,
+    );
+    _requestType = defaultVanServiceFlowForService(
+      serviceId: template.id,
+      serviceName: template.name,
+    ).requestType;
+    _flowOptions = VanCustomerRequestFlowOptions.defaultsFor(_requestType)
+        .copyWith(
+          askPreferredDate: _selectedBuiltInQuestions.contains(
+            'preferred_date',
+          ),
+          askPreferredTime: _selectedBuiltInQuestions.contains(
+            'preferred_time',
+          ),
+        );
+    final handover = VanServiceHandoverConfig.resolve(
+      requestType: _requestType,
+    );
+    _startHandover = handover.start;
+    _endHandover = handover.end;
+    _allowedStarts = handover.allowedStarts;
+    _allowedEnds = handover.allowedEnds;
+  }
+
+  void _clearNewServiceQuestionSelections() {
+    for (final id in _availableQuestionIds) {
+      _questions.remove(id);
+    }
+    _linkedQuestionIds.clear();
+    _availableQuestionIds.clear();
+    _optionalQuestionIds.clear();
+    _selectedBuiltInQuestions.clear();
+    _builtInQuestionSettings.clear();
+    _libraryQuestionIds.clear();
+    _templateQuestionIds.clear();
+  }
+
+  void _resetNewServiceState() {
+    _clearNewServiceQuestionSelections();
+    _nameController.clear();
+    _descriptionController.clear();
+    _dropOffController.clear();
+    _collectionController.clear();
+    _customerMessageController.clear();
+    _category = 'General';
+    _iconKey = 'work';
+    _colourValue = _colourOptions.first;
+    _journey = defaultVanCustomerJourneyTypeForService(
+      serviceId: '',
+      serviceName: '',
+    );
+    _requestType = defaultVanServiceFlowForService(
+      serviceId: '',
+      serviceName: '',
+    ).requestType;
+    _flowOptions = VanCustomerRequestFlowOptions.defaultsFor(
+      _requestType,
+    ).copyWith(askPreferredDate: false, askPreferredTime: false);
+    final handover = VanServiceHandoverConfig.resolve(
+      requestType: _requestType,
+    );
+    _startHandover = handover.start;
+    _endHandover = handover.end;
+    _allowedStarts = handover.allowedStarts;
+    _allowedEnds = handover.allowedEnds;
+    _extras = VanQuoteExtraDefaults.empty();
+    _extraChargeUnits.clear();
+    _manualCapabilityIds.clear();
+    _capabilityGeneratedQuestionIds.clear();
+    _capabilityGeneratedQuestionKeys.clear();
+    _capabilityGeneratedExtraKeys.clear();
+    _capabilityGeneratedBuiltInQuestionKeys.clear();
+    _workingDays = <int>{1, 2, 3, 4, 5};
+    _startMinutes = 9 * 60;
+    _endMinutes = 17 * 60;
+    _noticeHours = 24;
+    _maxBookings = 8;
+    _appointmentDurationMinutes = 60;
+    _isActive = true;
+    _requestPhotos = false;
+    _requireAddress = false;
+    _requestExactPin = false;
+    _maxCustomerPhotos = 5;
+    _configuringExtras = false;
+    _handoverTouched = false;
+  }
+
+  void _applyTemplateCustomQuestions(VanServiceTemplate template) {
+    final now = DateTime.now().microsecondsSinceEpoch;
+    var index = 0;
+    for (final templateQuestion in template.questions) {
+      if (_builtInQuestionKeyForText(templateQuestion.text) != null) continue;
+      final id = 'service_question_${_serviceId}_${now + index++}';
+      final question = VanCustomJobQuestion(
+        id: id,
+        questionText: templateQuestion.text,
+        helperText: '',
+        libraryQuestionId: templateQuestion.libraryId,
+        tags: templateQuestion.tags,
+        answerType: templateQuestion.answerType,
+        category: templateQuestion.category,
+        choiceOptions: templateQuestion.choiceOptions,
+        isActive: true,
+        isArchived: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      _questions[id] = question;
+      _linkedQuestionIds.add(id);
+      _availableQuestionIds.add(id);
+      _templateQuestionIds.add(id);
+      final libraryKey = _libraryKeyForQuestion(question);
+      if (libraryKey != null) _libraryQuestionIds[libraryKey] = id;
+    }
+  }
+
+  void _selectCapabilityPack(VanStarterCapabilityPack pack) {
+    setState(() {
+      _resetNewServiceState();
+      _selectedStarterTemplate = null;
+      _selectedCapabilityPack = pack;
+      _selectedRecommendedServiceIds.clear();
+      _capabilityIdsByService.clear();
+      _businessSetupStage = _BusinessSetupStage.services;
+      _businessSetupExtrasPrepared = false;
+      _creationSource = 'capabilityBuilder';
+      _showStarterBrowser = false;
+      _showBasicFields = false;
+    });
+  }
+
+  void _updateBusinessSearch(String value) {
+    setState(() => _businessSearchQuery = value.trim());
+  }
+
+  void _clearBusinessSearch() {
+    _businessSearchController.clear();
+    setState(() => _businessSearchQuery = '');
+  }
+
+  void _toggleRecommendedService(String serviceId, bool selected) {
+    setState(() {
+      if (selected) {
+        _selectedRecommendedServiceIds.add(serviceId);
+      } else {
+        _selectedRecommendedServiceIds.remove(serviceId);
+        _capabilityIdsByService.remove(serviceId);
+      }
+      _businessSetupExtrasPrepared = false;
+    });
+  }
+
+  void _continueToServiceCapabilities() {
+    final pack = _selectedCapabilityPack;
+    if (pack == null || _selectedRecommendedServiceIds.isEmpty) return;
+    for (final service in pack.serviceRecommendations) {
+      if (!_selectedRecommendedServiceIds.contains(service.id)) continue;
+      _capabilityIdsByService.putIfAbsent(
+        service.id,
+        () => service.recommendedCapabilityIds.toSet(),
+      );
+    }
+    setState(() => _businessSetupStage = _BusinessSetupStage.review);
+  }
+
+  void _toggleUniversalCapability(
+    String serviceId,
+    String capabilityId,
+    bool selected,
+  ) {
+    setState(() {
+      final current = _capabilityIdsByService[serviceId] ?? <String>{};
+      _capabilityIdsByService[serviceId] = toggleVanServiceCapability(
+        current,
+        capabilityId,
+        selected,
+      );
+      _businessSetupExtrasPrepared = false;
+    });
+  }
+
+  void _continueToBusinessSetupExtras() {
+    final pack = _selectedCapabilityPack;
+    if (pack == null) return;
+    final setups = pack.recommendationsFor(
+      _selectedRecommendedServiceIds,
+      capabilityIdsByService: _capabilityIdsByService,
+    );
+    if (!_validateBusinessServiceSetups(setups)) return;
+    if (!_businessSetupExtrasPrepared) {
+      var generatedExtras = VanQuoteExtraDefaults.empty();
+      for (final setup in setups) {
+        for (final extra in setup.extras) {
+          _extraChargeUnits.putIfAbsent(
+            extra.key,
+            () => extra.defaultChargeUnit,
+          );
+        }
+        for (final extra in setup.quoteExtraDefaults().orderedExtras) {
+          generatedExtras = generatedExtras.copyWithExtra(extra);
+        }
+      }
+      _extras = generatedExtras;
+      if (setups.isNotEmpty) {
+        _noticeHours = setups.first.suggestedNoticeHours;
+        _appointmentDurationMinutes =
+            setups.first.suggestedDurationMinutes ?? 60;
+      }
+      _businessSetupExtrasPrepared = true;
+    }
+    setState(() => _businessSetupStage = _BusinessSetupStage.extras);
+  }
+
+  bool _validateBusinessServiceSetups(List<VanRecommendedServiceSetup> setups) {
+    if (setups.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choose at least one service you offer.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+    for (final setup in setups) {
+      final hasJourney = setup.capabilityIds.any(
+        const <String>{
+          VanServiceCapabilityIds.placeOrder,
+          VanServiceCapabilityIds.requestQuote,
+          VanServiceCapabilityIds.bookAppointment,
+        }.contains,
+      );
+      if (!hasJourney) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Choose a customer journey for ${setup.name}.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return false;
+      }
+      final hasStart =
+          setup.allowCustomerDropOff || setup.allowBusinessCollection;
+      final hasEnd = setup.allowCustomerCollection || setup.allowBusinessReturn;
+      if (hasStart != hasEnd) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'For ${setup.name}, choose at least one matching start and end handover option.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _toggleManualCapability(String capabilityId, bool selected) {
+    setState(() {
+      final updated = toggleVanServiceCapability(
+        _manualCapabilityIds,
+        capabilityId,
+        selected,
+      );
+      _manualCapabilityIds
+        ..clear()
+        ..addAll(updated);
+    });
+  }
+
+  void _applyManualCapabilityDefaults() {
+    final resolved = resolveVanServiceCapabilities(
+      _manualCapabilityIds,
+      recommendedDurationMinutes: _appointmentDurationMinutes,
+      recommendedNoticeHours: _noticeHours,
+    );
+    final targetQuestionTexts = resolved.questions
+        .map((question) => question.text.trim().toLowerCase())
+        .toSet();
+    final retainedGeneratedQuestionIds = <String>{};
+    final retainedGeneratedQuestionKeys = <String, String>{};
+    final customisedGeneratedQuestionKeys = <String>{};
+    for (final id in _capabilityGeneratedQuestionIds.toList()) {
+      final normalized = _questions[id]?.questionText.trim().toLowerCase();
+      final generatedKey = _capabilityGeneratedQuestionKeys[id] ?? normalized;
+      if (normalized != null &&
+          generatedKey != null &&
+          normalized != generatedKey) {
+        customisedGeneratedQuestionKeys.add(generatedKey);
+        continue;
+      }
+      if (generatedKey != null && targetQuestionTexts.contains(generatedKey)) {
+        retainedGeneratedQuestionIds.add(id);
+        retainedGeneratedQuestionKeys[id] = generatedKey;
+        continue;
+      }
+      _linkedQuestionIds.remove(id);
+      _availableQuestionIds.remove(id);
+      _optionalQuestionIds.remove(id);
+      _questions.remove(id);
+    }
+
+    final targetBuiltInKeys = resolved.builtInQuestionKeys
+        .where((key) => key != 'phone' && key != 'email')
+        .toSet();
+    for (final key in _capabilityGeneratedBuiltInQuestionKeys.difference(
+      targetBuiltInKeys,
+    )) {
+      _selectedBuiltInQuestions.remove(key);
+      _builtInQuestionSettings.remove(key);
+    }
+
+    final targetExtraKeys = resolved.extras.map((extra) => extra.key).toSet();
+    final removedExtraKeys = _capabilityGeneratedExtraKeys.difference(
+      targetExtraKeys,
+    );
+    var refreshedExtras = _extras;
+    for (final key in removedExtraKeys.where(isVanQuoteBuiltInExtraKey)) {
+      refreshedExtras = refreshedExtras.copyWithExtra(
+        refreshedExtras.extraForKey(key).copyWith(enabled: false),
+      );
+    }
+    refreshedExtras = refreshedExtras.copyWithCustomExtras(
+      refreshedExtras.customExtras
+          .where((extra) => !removedExtraKeys.contains(extra.key))
+          .toList(growable: false),
+    );
+    _extras = refreshedExtras;
+    final newExtras = resolved.extras.where(
+      (extra) => !_capabilityGeneratedExtraKeys.contains(extra.key),
+    );
+
+    _capabilityGeneratedQuestionIds
+      ..clear()
+      ..addAll(retainedGeneratedQuestionIds);
+    _capabilityGeneratedQuestionKeys
+      ..clear()
+      ..addAll(retainedGeneratedQuestionKeys);
+    _capabilityGeneratedExtraKeys
+      ..clear()
+      ..addAll(targetExtraKeys);
+    _capabilityGeneratedBuiltInQuestionKeys
+      ..clear()
+      ..addAll(targetBuiltInKeys);
+
+    _journey = resolved.journeyType;
+    _requestType = resolved.requestType;
+    _allowedStarts = <VanStartHandover>[
+      if (resolved.allowCustomerDropOff) VanStartHandover.customerDropsOff,
+      if (resolved.allowBusinessCollection) VanStartHandover.businessCollects,
+    ];
+    _allowedEnds = <VanEndHandover>[
+      if (resolved.allowCustomerCollection) VanEndHandover.customerCollects,
+      if (resolved.allowBusinessReturn) VanEndHandover.businessReturns,
+    ];
+    if (_allowedStarts.isNotEmpty) _startHandover = _allowedStarts.first;
+    if (_allowedEnds.isNotEmpty) _endHandover = _allowedEnds.first;
+    _requireAddress = resolved.requireAddress;
+    _appointmentDurationMinutes = resolved.suggestedDurationMinutes;
+    _noticeHours = resolved.suggestedNoticeHours;
+    _selectedBuiltInQuestions.addAll(resolved.builtInQuestionKeys);
+    for (final key in resolved.builtInQuestionKeys) {
+      _builtInQuestionSettings.putIfAbsent(
+        key,
+        () => <String, dynamic>{
+          'required': key == 'address' || key == 'preferred_date',
+          'helperText': '',
+        },
+      );
+    }
+    _flowOptions = VanCustomerRequestFlowOptions.defaultsFor(_requestType)
+        .copyWith(
+          askPreferredDate: resolved.builtInQuestionKeys.contains(
+            'preferred_date',
+          ),
+          askPreferredTime: resolved.builtInQuestionKeys.contains(
+            'preferred_time',
+          ),
+        );
+    _mergeRecommendedExtras(newExtras);
+    for (final question in resolved.questions) {
+      final generatedKey = question.text.trim().toLowerCase();
+      if (customisedGeneratedQuestionKeys.contains(generatedKey)) continue;
+      final id = _ensureRecommendedQuestion(question);
+      if (id != null) {
+        _capabilityGeneratedQuestionIds.add(id);
+        _capabilityGeneratedQuestionKeys[id] = generatedKey;
+      }
+    }
+  }
+
+  void _mergeRecommendedExtras(Iterable<VanServiceTemplateExtra> extras) {
+    var updated = _extras;
+    final custom = <String, VanQuoteExtraDefault>{
+      for (final extra in updated.customExtras) extra.key: extra,
+    };
+    for (final extra in extras) {
+      if (isVanQuoteBuiltInExtraKey(extra.key)) {
+        updated = updated.copyWithExtra(
+          VanQuoteExtraDefault.fallback(extra.key).copyWith(
+            label: extra.label,
+            defaultPrice: extra.defaultPrice,
+            enabled: true,
+          ),
+        );
+      } else {
+        custom.putIfAbsent(
+          extra.key,
+          () => VanQuoteExtraDefault.custom(
+            key: extra.key,
+            label: extra.label,
+            defaultPrice: extra.defaultPrice,
+          ),
+        );
+      }
+    }
+    _extras = updated.copyWithCustomExtras(custom.values.toList());
+  }
+
+  String? _ensureRecommendedQuestion(
+    VanServiceTemplateQuestion recommendation,
+  ) {
+    if (_builtInQuestionKeyForText(recommendation.text) != null) return null;
+    final normalized = recommendation.text.trim().toLowerCase();
+    for (final id in _linkedQuestionIds) {
+      if (_questions[id]?.questionText.trim().toLowerCase() == normalized) {
+        return _capabilityGeneratedQuestionIds.contains(id) ? id : null;
+      }
+    }
+    final now = DateTime.now();
+    final id =
+        'service_capability_${_serviceId}_${now.microsecondsSinceEpoch}_${_linkedQuestionIds.length}';
+    _questions[id] = VanCustomJobQuestion(
+      id: id,
+      questionText: recommendation.text,
+      helperText: '',
+      answerType: recommendation.answerType,
+      category: recommendation.category,
+      choiceOptions: recommendation.choiceOptions,
+      isActive: true,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+    );
+    _linkedQuestionIds.add(id);
+    _availableQuestionIds.add(id);
+    return id;
+  }
+
+  VanQuoteExtraDefaults _businessSetupExtrasFor(
+    VanQuoteExtraDefaults generated,
+  ) {
+    var merged = generated;
+    for (final extra in _extras.orderedExtras) {
+      merged = merged.copyWithExtra(extra);
+    }
+    return merged;
+  }
+
+  Future<void> _createRecommendedServices() async {
+    final pack = _selectedCapabilityPack;
+    if (_saving || pack == null) return;
+    final recommendations = pack.recommendationsFor(
+      _selectedRecommendedServiceIds,
+      capabilityIdsByService: _capabilityIdsByService,
+    );
+    if (!_validateBusinessServiceSetups(recommendations)) return;
+
+    setState(() => _saving = true);
+    try {
+      final existingServices = await _servicesStorage.loadAll();
+      final existingQuestions = await _questionsStorage.loadAll();
+      final now = DateTime.now();
+      final stamp = now.microsecondsSinceEpoch;
+      final createdServices = <VanJobService>[];
+      final existingMatches = <VanJobService>[];
+      final createdQuestions = <VanCustomJobQuestion>[];
+      for (
+        var serviceIndex = 0;
+        serviceIndex < recommendations.length;
+        serviceIndex++
+      ) {
+        final setup = recommendations[serviceIndex];
+        final existingMatch = existingServices
+            .where(
+              (service) =>
+                  !service.isArchived &&
+                  (service.creationSource == 'capabilityPack' ||
+                      service.creationSource == 'capabilityBuilder') &&
+                  service.starterPackId == setup.packId &&
+                  (service.id.startsWith(
+                        'service_${setup.packId}_${setup.serviceKey}_',
+                      ) ||
+                      service.starterTemplateId == setup.serviceKey ||
+                      _sameStringSet(
+                        service.starterCapabilityIds,
+                        setup.capabilityIds,
+                      )),
+            )
+            .firstOrNull;
+        if (existingMatch != null) {
+          existingMatches.add(existingMatch);
+          continue;
+        }
+        final serviceId =
+            'service_${setup.packId}_${setup.serviceKey}_${stamp + serviceIndex}';
+        final linkedQuestionIds = <String>[];
+        final capabilityGeneratedQuestionIds = <String>[];
+        final capabilityGeneratedQuestionKeys = <String, String>{};
+        final resolvedCapabilityDefaults = resolveVanServiceCapabilities(
+          setup.capabilityIds,
+          recommendedDurationMinutes: setup.suggestedDurationMinutes,
+          recommendedNoticeHours: setup.suggestedNoticeHours,
+        );
+        final generatedQuestionTexts = resolvedCapabilityDefaults.questions
+            .map((question) => question.text.trim().toLowerCase())
+            .toSet();
+        final selectedBuiltIns = <String>{
+          'phone',
+          'email',
+          ...setup.builtInQuestionKeys,
+        };
+        final builtInSettings = <String, Map<String, dynamic>>{
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+        };
+        for (final key in setup.builtInQuestionKeys) {
+          builtInSettings.putIfAbsent(
+            key,
+            () => <String, dynamic>{
+              'required': key == 'address' || key == 'preferred_date',
+              'helperText': '',
+            },
+          );
+        }
+        var customIndex = 0;
+        for (final recommendation in setup.questions) {
+          final builtInKey =
+              recommendation.answerType ==
+                  VanCustomQuestionAnswerType.photoUploadRequest
+              ? 'photos'
+              : _builtInQuestionKeyForText(recommendation.text);
+          if (builtInKey != null) {
+            selectedBuiltIns.add(builtInKey);
+            builtInSettings[builtInKey] = <String, dynamic>{
+              'required': builtInKey != 'photos',
+              'helperText': builtInKey == 'photos' ? recommendation.text : '',
+            };
+            continue;
+          }
+          final questionId = 'service_capability_${serviceId}_${customIndex++}';
+          createdQuestions.add(
+            VanCustomJobQuestion(
+              id: questionId,
+              questionText: recommendation.text,
+              helperText: '',
+              libraryQuestionId: recommendation.libraryId,
+              tags: recommendation.tags,
+              answerType: recommendation.answerType,
+              category: recommendation.category,
+              choiceOptions: recommendation.choiceOptions,
+              isActive: true,
+              isArchived: false,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+          linkedQuestionIds.add(questionId);
+          final normalizedQuestionText = recommendation.text
+              .trim()
+              .toLowerCase();
+          if (generatedQuestionTexts.contains(normalizedQuestionText)) {
+            capabilityGeneratedQuestionIds.add(questionId);
+            capabilityGeneratedQuestionKeys[questionId] =
+                normalizedQuestionText;
+          }
+        }
+        if (setup.requestPhotos) {
+          selectedBuiltIns.add('photos');
+          builtInSettings.putIfAbsent(
+            'photos',
+            () => <String, dynamic>{'required': false, 'helperText': ''},
+          );
+        }
+        if (setup.requireAddress) {
+          selectedBuiltIns.add('address');
+          builtInSettings['address'] = <String, dynamic>{
+            'required': true,
+            'helperText': '',
+          };
+        }
+        final allowedStarts = <VanStartHandover>[
+          if (setup.allowCustomerDropOff) VanStartHandover.customerDropsOff,
+          if (setup.allowBusinessCollection) VanStartHandover.businessCollects,
+        ];
+        final allowedEnds = <VanEndHandover>[
+          if (setup.allowCustomerCollection) VanEndHandover.customerCollects,
+          if (setup.allowBusinessReturn) VanEndHandover.businessReturns,
+        ];
+        final flowOptions =
+            VanCustomerRequestFlowOptions.defaultsFor(
+              setup.requestType,
+            ).copyWith(
+              askPreferredDate: selectedBuiltIns.contains('preferred_date'),
+              askPreferredTime: selectedBuiltIns.contains('preferred_time'),
+            );
+        createdServices.add(
+          VanJobService(
+            id: serviceId,
+            name: setup.name,
+            description: setup.description,
+            isActive: true,
+            requestPhotos:
+                setup.requestPhotos || selectedBuiltIns.contains('photos'),
+            requireAddress: setup.requireAddress,
+            requestExactPinAfterQuoteAccepted: false,
+            requestType: setup.requestType,
+            customerJourneyType: setup.journeyType,
+            startHandover: allowedStarts.isEmpty ? null : allowedStarts.first,
+            endHandover: allowedEnds.isEmpty ? null : allowedEnds.first,
+            allowedStartHandoverOptions: allowedStarts,
+            allowedEndHandoverOptions: allowedEnds,
+            allowCustomerDropOff: setup.allowCustomerDropOff,
+            allowBusinessCollection: setup.allowBusinessCollection,
+            allowCustomerCollection: setup.allowCustomerCollection,
+            allowBusinessReturn: setup.allowBusinessReturn,
+            requestFlowOptions: flowOptions,
+            linkedQuestionIds: linkedQuestionIds,
+            quoteExtraDefaults: _businessSetupExtrasFor(
+              setup.quoteExtraDefaults(),
+            ),
+            extraChargeUnits: Map.unmodifiable(<String, String>{
+              for (final extra in setup.extras)
+                extra.key: extra.defaultChargeUnit,
+              ..._extraChargeUnits,
+            }),
+            createdAt: now,
+            updatedAt: now,
+            category: setup.category,
+            iconKey: setup.iconKey,
+            colorValue: setup.colorValue,
+            workingDays: _workingDays.toList(growable: false),
+            businessStartMinutes: _startMinutes,
+            businessEndMinutes: _endMinutes,
+            noticeHours: setup.suggestedNoticeHours,
+            maxBookingsPerDay: _maxBookings,
+            selectedBuiltInQuestionKeys: selectedBuiltIns.toList(
+              growable: false,
+            ),
+            builtInQuestionSettings: builtInSettings,
+            creationSource: 'capabilityBuilder',
+            starterTemplateId: setup.serviceKey,
+            starterPackId: setup.packId,
+            starterCapabilityIds: const <String>[],
+            serviceCapabilityIds: setup.capabilityIds,
+            capabilitySchemaVersion: 1,
+            capabilityGeneratedQuestionIds: capabilityGeneratedQuestionIds,
+            capabilityGeneratedQuestionKeys: capabilityGeneratedQuestionKeys,
+            capabilityGeneratedExtraKeys: resolvedCapabilityDefaults.extras
+                .map((extra) => extra.key)
+                .toList(growable: false),
+            capabilityGeneratedBuiltInQuestionKeys: resolvedCapabilityDefaults
+                .builtInQuestionKeys
+                .where((key) => key != 'phone' && key != 'email')
+                .toList(growable: false),
+            pricingMode: setup.pricingMode,
+            suggestedReminderMinutes: setup.suggestedReminderMinutes,
+            suggestedStatusNames: setup.suggestedStatusNames,
+            appointmentDurationMinutes: setup.suggestedDurationMinutes ?? 60,
+            customerMessage: setup.suggestedCustomerMessage,
+          ),
+        );
+      }
+      if (createdQuestions.isNotEmpty) {
+        await _questionsStorage.saveAll(<VanCustomJobQuestion>[
+          ...createdQuestions,
+          ...existingQuestions,
+        ]);
+      }
+      if (createdServices.isNotEmpty) {
+        await _servicesStorage.saveAll(<VanJobService>[
+          ...createdServices,
+          ...existingServices,
+        ]);
+      }
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (mounted) {
+        Navigator.of(context).pop(
+          VanServiceWizardBuildResult(
+            createdServiceIds: createdServices
+                .map((service) => service.id)
+                .toList(growable: false),
+            existingServiceIds: existingMatches
+                .map((service) => service.id)
+                .toList(growable: false),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not create the recommended services.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  bool _sameStringSet(Iterable<String> left, Iterable<String> right) {
+    final leftSet = left
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
+    final rightSet = right
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
+    return leftSet.isNotEmpty &&
+        leftSet.length == rightSet.length &&
+        leftSet.containsAll(rightSet);
+  }
+
+  void _chooseStarterPack() {
+    setState(() {
+      _creationSource = 'capabilityBuilder';
+      _showStarterBrowser = true;
+      _showBasicFields = false;
+      _selectedStarterTemplate = null;
+      _selectedCapabilityPack = null;
+      _selectedRecommendedServiceIds.clear();
+      _capabilityIdsByService.clear();
+      _businessSetupStage = _BusinessSetupStage.services;
+      _businessSetupExtrasPrepared = false;
+      _businessSearchController.clear();
+      _businessSearchQuery = '';
+      _expandedTemplateCategoryId = null;
+    });
+  }
+
+  void _chooseDifferentStarterPack() {
+    setState(() {
+      _resetNewServiceState();
+      _selectedStarterTemplate = null;
+      _selectedCapabilityPack = null;
+      _selectedRecommendedServiceIds.clear();
+      _capabilityIdsByService.clear();
+      _businessSetupStage = _BusinessSetupStage.services;
+      _businessSetupExtrasPrepared = false;
+      _creationSource = 'capabilityBuilder';
+      _showStarterBrowser = true;
+      _showBasicFields = false;
+      _businessSearchController.clear();
+      _businessSearchQuery = '';
+      _expandedTemplateCategoryId = null;
+    });
+  }
+
+  String? _builtInQuestionKeyForText(String text) {
+    final normalized = text
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim();
+    return switch (normalized) {
+      'address' => 'address',
+      'collection address' || 'pickup address' => 'collection_address',
+      'delivery address' || 'return address' => 'delivery_address',
+      'preferred date' => 'preferred_date',
+      'preferred time' => 'preferred_time',
+      'phone number' => 'phone',
+      'email address' || 'email' => 'email',
+      _
+          when normalized.contains('upload photos') ||
+              normalized.contains('upload a photo') ||
+              normalized.contains('upload photo') ||
+              normalized == 'photos' =>
+        'photos',
+      _ => null,
+    };
+  }
+
+  String? _libraryKeyForQuestion(VanCustomJobQuestion question) {
+    final normalized = question.questionText
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim();
+    for (final item in _customQuestionLibrary) {
+      final candidate = item.label
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+          .trim();
+      if (normalized == candidate) return item.key;
+    }
+    return null;
   }
 
   Future<void> _loadQuestions() async {
@@ -196,14 +1286,38 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        _linkedQuestionIds.add(id);
+        _availableQuestionIds.add(id);
+        if (!_source!.disabledLinkedQuestionIds.contains(original.id)) {
+          _linkedQuestionIds.add(id);
+        }
+        final libraryKey = _libraryKeyForQuestion(original);
+        if (libraryKey != null) _libraryQuestionIds[libraryKey] = id;
         if (_source!.optionalQuestionIds.contains(original.id)) {
           _optionalQuestionIds.add(id);
         }
       }
     } else {
       _questions.addAll(lookup);
-      _linkedQuestionIds.addAll(sourceIds.where(lookup.containsKey));
+      _linkedQuestionIds.addAll(
+        sourceIds.where(
+          (id) =>
+              lookup.containsKey(id) &&
+              !(_source?.disabledLinkedQuestionIds.contains(id) ?? false),
+        ),
+      );
+      _availableQuestionIds.addAll(sourceIds.where(lookup.containsKey));
+      for (final id in _availableQuestionIds) {
+        final question = lookup[id];
+        if (question == null) continue;
+        final libraryKey = _libraryKeyForQuestion(question);
+        if (libraryKey != null) _libraryQuestionIds[libraryKey] = id;
+      }
+    }
+    final starterTemplate = _selectedStarterTemplate;
+    if (_source == null &&
+        starterTemplate != null &&
+        _templateQuestionIds.isEmpty) {
+      _applyTemplateCustomQuestions(starterTemplate);
     }
     if (mounted) setState(() => _loadingQuestions = false);
   }
@@ -220,17 +1334,30 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     _descriptionController.dispose();
     _dropOffController.dispose();
     _collectionController.dispose();
+    _customerMessageController.dispose();
+    _businessSearchController.dispose();
     super.dispose();
   }
 
   VanJobService _buildService({required bool isDraft}) {
     final source = _source;
     final now = DateTime.now();
+    final resolvedCapabilities = _usesUniversalCapabilityEditor
+        ? resolveVanServiceCapabilities(
+            _manualCapabilityIds,
+            recommendedDurationMinutes: _appointmentDurationMinutes,
+            recommendedNoticeHours: _noticeHours,
+          )
+        : null;
     final cleanName = sanitizeVanText(_nameController.text).trim();
-    final flowOptions =
-        source != null && source.serviceFlow == _requestType.serviceFlow
-        ? source.requestFlowOptions
-        : VanCustomerRequestFlowOptions.defaultsFor(_requestType);
+    final flowOptions = _flowOptions.copyWith(
+      askPreferredDate: _selectedBuiltInQuestions.contains('preferred_date'),
+      askPreferredTime: _selectedBuiltInQuestions.contains('preferred_time'),
+      showPickupAddress:
+          _requestType.serviceFlow == VanServiceFlow.pickupDelivery,
+      showDeliveryAddress:
+          _requestType.serviceFlow == VanServiceFlow.pickupDelivery,
+    );
     return VanJobService(
       id: _serviceId,
       name: cleanName.isEmpty ? 'Untitled service' : cleanName,
@@ -245,6 +1372,18 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
       endHandover: _endHandover,
       allowedStartHandoverOptions: _allowedStarts,
       allowedEndHandoverOptions: _allowedEnds,
+      allowCustomerDropOff: _allowedStarts.contains(
+        VanStartHandover.customerDropsOff,
+      ),
+      allowBusinessCollection: _allowedStarts.contains(
+        VanStartHandover.businessCollects,
+      ),
+      allowCustomerCollection: _allowedEnds.contains(
+        VanEndHandover.customerCollects,
+      ),
+      allowBusinessReturn: _allowedEnds.contains(
+        VanEndHandover.businessReturns,
+      ),
       businessDropOffInstructions: sanitizeVanText(
         _dropOffController.text,
       ).trim(),
@@ -274,6 +1413,48 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
       businessEndMinutes: _endMinutes,
       noticeHours: _noticeHours,
       maxBookingsPerDay: _maxBookings,
+      appointmentDurationMinutes: _appointmentDurationMinutes,
+      customerMessage: sanitizeVanText(_customerMessageController.text).trim(),
+      selectedBuiltInQuestionKeys: _selectedBuiltInQuestions.toList(
+        growable: false,
+      ),
+      builtInQuestionSettings: Map.unmodifiable({
+        for (final entry in _builtInQuestionSettings.entries)
+          entry.key: Map<String, dynamic>.unmodifiable(entry.value),
+      }),
+      maxCustomerPhotos: _maxCustomerPhotos,
+      extraChargeUnits: Map.unmodifiable(_extraChargeUnits),
+      creationSource: _creationSource,
+      starterTemplateId: _selectedStarterTemplate?.id ?? '',
+      starterPackId: source?.starterPackId ?? '',
+      starterCapabilityIds: source?.starterCapabilityIds ?? const <String>[],
+      serviceCapabilityIds:
+          resolvedCapabilities?.capabilityIds ??
+          source?.serviceCapabilityIds ??
+          const <String>[],
+      capabilitySchemaVersion: resolvedCapabilities == null
+          ? source?.capabilitySchemaVersion ?? 0
+          : 1,
+      capabilityGeneratedQuestionIds: _capabilityGeneratedQuestionIds.toList(
+        growable: false,
+      ),
+      capabilityGeneratedQuestionKeys: Map.unmodifiable(
+        _capabilityGeneratedQuestionKeys,
+      ),
+      capabilityGeneratedExtraKeys: _capabilityGeneratedExtraKeys.toList(
+        growable: false,
+      ),
+      capabilityGeneratedBuiltInQuestionKeys:
+          _capabilityGeneratedBuiltInQuestionKeys.toList(growable: false),
+      pricingMode:
+          resolvedCapabilities?.pricingMode ?? source?.pricingMode ?? '',
+      suggestedReminderMinutes:
+          resolvedCapabilities?.suggestedReminderMinutes ??
+          source?.suggestedReminderMinutes ??
+          const <int>[],
+      suggestedStatusNames:
+          source?.suggestedStatusNames ?? const <String, String>{},
+      wizardStep: _step,
     );
   }
 
@@ -317,7 +1498,12 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
   }
 
   Future<void> _publish() async {
-    if (_saving || !_validateStep(0) || !_validateStep(5)) return;
+    if (_saving ||
+        !_validateStep(0) ||
+        !_validateStep(2) ||
+        !_validateStep(6)) {
+      return;
+    }
     setState(() => _saving = true);
     try {
       await _persistQuestions();
@@ -355,12 +1541,33 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
 
   bool _validateStep(int step) {
     String? message;
-    if (step == 0 && sanitizeVanText(_nameController.text).trim().isEmpty) {
+    if (step == 0 && _source == null && !_showBasicFields) {
+      message = 'Choose your business type and the services you offer.';
+    } else if (step == 0 &&
+        sanitizeVanText(_nameController.text).trim().isEmpty) {
       message = 'Add a service name before continuing.';
-    } else if (step == 5 && _workingDays.isEmpty) {
+    } else if (step == 1 &&
+        _usesUniversalCapabilityEditor &&
+        !_manualCapabilityIds.any(
+          const <String>{
+            VanServiceCapabilityIds.placeOrder,
+            VanServiceCapabilityIds.requestQuote,
+            VanServiceCapabilityIds.bookAppointment,
+          }.contains,
+        )) {
+      message = 'Choose one customer journey before continuing.';
+    } else if (step == 6 && _workingDays.isEmpty) {
       message = 'Choose at least one working day.';
-    } else if (step == 5 && _endMinutes <= _startMinutes) {
+    } else if (step == 6 && _endMinutes <= _startMinutes) {
       message = 'Closing time must be later than opening time.';
+    } else if (step == 2 &&
+        _allowedStarts.isEmpty &&
+        !_isUnchangedStandardWithoutFullHandover) {
+      message = 'Choose at least one way for the service to start.';
+    } else if (step == 2 &&
+        _allowedEnds.isEmpty &&
+        !_isUnchangedStandardWithoutFullHandover) {
+      message = 'Choose at least one way for the service to end.';
     }
     if (message == null) return true;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -371,10 +1578,21 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
 
   void _next() {
     if (!_validateStep(_step)) return;
+    if (_step == 1 && _usesUniversalCapabilityEditor) {
+      setState(_applyManualCapabilityDefaults);
+    }
+    if (_step == 5 && !_configuringExtras) {
+      setState(() => _configuringExtras = true);
+      return;
+    }
     if (_step < _stepTitles.length - 1) setState(() => _step++);
   }
 
   void _previous() {
+    if (_step == 5 && _configuringExtras) {
+      setState(() => _configuringExtras = false);
+      return;
+    }
     if (_step > 0) setState(() => _step--);
   }
 
@@ -427,6 +1645,7 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     setState(() {
       _questions[question.id] = question;
       _linkedQuestionIds.add(question.id);
+      _availableQuestionIds.add(question.id);
     });
   }
 
@@ -443,6 +1662,7 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _showQuestionTemplates() async {
     final templates = _questionTemplates();
     final selected = await showModalBottomSheet<_QuestionTemplate>(
@@ -561,23 +1781,10 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     );
   }
 
-  void _selectFlow(VanServiceFlow flow) {
-    final defaults = VanServiceHandoverConfig.resolve(
-      requestType: flow.requestType,
-    );
-    setState(() {
-      _requestType = flow.requestType;
-      _requireAddress = flow == VanServiceFlow.standard;
-      _startHandover = defaults.start;
-      _endHandover = defaults.end;
-      _allowedStarts = defaults.allowedStarts;
-      _allowedEnds = defaults.allowedEnds;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final compactHeader = MediaQuery.sizeOf(context).width < 420;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -591,18 +1798,37 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
           surfaceTintColor: Colors.transparent,
           foregroundColor: Colors.white,
           elevation: 0,
-          title: Text(_isEditing ? 'Edit Service' : 'Create Service'),
-          leadingWidth: 96,
+          title: Text(
+            compactHeader
+                ? (_isEditing ? 'Edit' : 'Create')
+                : (_isEditing ? 'Edit Service' : 'Create Service'),
+            overflow: TextOverflow.ellipsis,
+          ),
+          leadingWidth: compactHeader ? 52 : 96,
           leading: Padding(
             padding: const EdgeInsetsDirectional.only(start: 8),
-            child: VanBackBusinessHubButtons(onBack: _cancel),
+            child: compactHeader
+                ? IconButton(
+                    onPressed: _cancel,
+                    tooltip: 'Back',
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  )
+                : VanBackBusinessHubButtons(onBack: _cancel),
           ),
           actions: [
-            TextButton(
-              onPressed: _saving ? null : _saveDraft,
-              child: const Text('Save Draft'),
-            ),
-            const SizedBox(width: 8),
+            if (compactHeader && _showWizardChrome)
+              IconButton(
+                onPressed: _saving ? null : _saveDraft,
+                tooltip: 'Save Draft',
+                icon: const Icon(Icons.save_outlined),
+              )
+            else if (_showWizardChrome) ...[
+              TextButton(
+                onPressed: _saving ? null : _saveDraft,
+                child: const Text('Save Draft'),
+              ),
+              const SizedBox(width: 8),
+            ],
           ],
         ),
         body: Stack(
@@ -614,7 +1840,8 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
               top: false,
               child: Column(
                 children: [
-                  _WizardProgress(step: _step, titles: _stepTitles),
+                  if (_showWizardChrome)
+                    _WizardProgress(step: _step, titles: _stepTitles),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -623,14 +1850,15 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 220),
                             child: KeyedSubtree(
-                              key: ValueKey(_step),
+                              key: ValueKey('$_step-$_configuringExtras'),
                               child: _buildStep(),
                             ),
                           ),
                         );
                         final preview = _LiveJourneyPreview(
                           journey: _journey,
-                          flow: _requestType.serviceFlow,
+                          allowedStarts: _allowedStarts,
+                          allowedEnds: _allowedEnds,
                           colour: Color(_colourValue),
                         );
                         return ListView(
@@ -640,7 +1868,7 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
                             16,
                             bottomInset + 110,
                           ),
-                          children: wide
+                          children: wide && _showWizardChrome
                               ? [
                                   Row(
                                     crossAxisAlignment:
@@ -652,7 +1880,13 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
                                     ],
                                   ),
                                 ]
-                              : [editor, const SizedBox(height: 12), preview],
+                              : [
+                                  editor,
+                                  if (_showWizardChrome) ...[
+                                    const SizedBox(height: 12),
+                                    preview,
+                                  ],
+                                ],
                         );
                       },
                     ),
@@ -660,18 +1894,25 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
                 ],
               ),
             ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: _WizardNavigation(
-                step: _step,
-                saving: _saving,
-                onPrevious: _previous,
-                onNext: _next,
-                onPublish: _publish,
-                onSaveDraft: _saveDraft,
-                onCancel: _cancel,
+            if (_showWizardChrome)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: _WizardNavigation(
+                  step: _step,
+                  lastStep: _stepTitles.length - 1,
+                  saving: _saving,
+                  nextLabel: _step == 3
+                      ? 'Configure questions'
+                      : _step == 5 && !_configuringExtras
+                      ? 'Configure extras'
+                      : 'Next',
+                  onPrevious: _previous,
+                  onNext: _next,
+                  onPublish: _publish,
+                  onSaveDraft: _saveDraft,
+                  onCancel: _cancel,
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -682,9 +1923,10 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     0 => _buildBasics(),
     1 => _buildJourney(),
     2 => _buildFlow(),
-    3 => _buildQuestions(),
-    4 => _buildPricing(),
-    5 => _buildAvailability(),
+    3 => _buildQuestionLibrary(),
+    4 => _buildQuestionConfiguration(),
+    5 => _buildPricing(),
+    6 => _buildAvailability(),
     _ => _buildReview(),
   };
 
@@ -712,6 +1954,356 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
   );
 
   Widget _buildBasics() {
+    if (_source != null) return _buildBasicInformationFields();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!_showBasicFields) _buildCreationStart(),
+        if (_showBasicFields) ...[
+          _CreationSourceBanner(
+            title: 'Starter Pack: ${_selectedStarterTemplate!.name}',
+            subtitle:
+                'Recommended settings are loaded and everything remains editable.',
+            onChange: _chooseDifferentStarterPack,
+          ),
+          const SizedBox(height: 18),
+          _buildBasicInformationFields(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCreationStart() {
+    final selectedPack = _selectedCapabilityPack;
+    final searchResults = searchVanStarterCapabilityPacks(_businessSearchQuery);
+    final popularChoices = _popularBusinessChoices();
+    final browseCategories = _businessBrowseCategories();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!_showStarterBrowser && selectedPack == null) ...[
+          _stepHeader(
+            'Set Up My Business',
+            'Choose your business type and the services you offer. Business Mate will build everything for you automatically, and you can customise everything later.',
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _chooseStarterPack,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text('Choose Business Type'),
+            ),
+          ),
+        ],
+        if (_showStarterBrowser) ...[
+          const _QuestionSectionHeading(
+            title: 'What business do you run?',
+            subtitle:
+                'Search or browse to find the best starting point. You will choose the services you offer next.',
+          ),
+          TextField(
+            key: const Key('business_search_field'),
+            controller: _businessSearchController,
+            onChanged: _updateBusinessSearch,
+            textInputAction: TextInputAction.search,
+            decoration:
+                vanMateFieldDecoration(
+                  label: 'Search businesses',
+                  hintText: 'Search businesses...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                ).copyWith(
+                  suffixIcon: _businessSearchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          onPressed: _clearBusinessSearch,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                ),
+          ),
+          const SizedBox(height: 14),
+          if (_businessSearchQuery.isNotEmpty) ...[
+            if (searchResults.isNotEmpty)
+              _BusinessResultList(
+                results: searchResults,
+                onSelected: _selectCapabilityPack,
+              )
+            else
+              const _EmptyBusinessSearch(),
+          ] else ...[
+            if (_recentBusinessChoices.isNotEmpty) ...[
+              _BusinessShortcutSection(
+                title: 'Recent',
+                icon: Icons.history_rounded,
+                choices: _recentBusinessChoices,
+                onSelected: _selectCapabilityPack,
+              ),
+              const SizedBox(height: 16),
+            ],
+            _BusinessShortcutSection(
+              title: 'Popular businesses',
+              icon: Icons.star_rounded,
+              choices: popularChoices,
+              onSelected: _selectCapabilityPack,
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Browse businesses',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 9),
+            for (final category in browseCategories) ...[
+              _BusinessCategoryCard(
+                category: category,
+                expanded: _expandedTemplateCategoryId == category.id,
+                onToggle: () => setState(() {
+                  _expandedTemplateCategoryId =
+                      _expandedTemplateCategoryId == category.id
+                      ? null
+                      : category.id;
+                }),
+                onSelected: _selectCapabilityPack,
+              ),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ],
+        if (selectedPack != null && !_showStarterBrowser) ...[
+          const SizedBox(height: 20),
+          switch (_businessSetupStage) {
+            _BusinessSetupStage.services => _RecommendedServiceSelectionCard(
+              pack: selectedPack,
+              selectedIds: _selectedRecommendedServiceIds,
+              saving: _saving,
+              onChanged: _toggleRecommendedService,
+              onContinue: _continueToServiceCapabilities,
+              onChooseDifferent: _chooseDifferentStarterPack,
+            ),
+            _BusinessSetupStage.capabilities => _ServiceCapabilitiesCard(
+              pack: selectedPack,
+              selectedServiceIds: _selectedRecommendedServiceIds,
+              capabilityIdsByService: _capabilityIdsByService,
+              saving: _saving,
+              onChanged: _toggleUniversalCapability,
+              onBack: () => setState(
+                () => _businessSetupStage = _BusinessSetupStage.services,
+              ),
+              onContinue: _continueToBusinessSetupExtras,
+              onChooseDifferent: _chooseDifferentStarterPack,
+            ),
+            _BusinessSetupStage.extras => _buildBusinessSetupExtras(),
+            _BusinessSetupStage.availability =>
+              _buildBusinessSetupAvailability(),
+            _BusinessSetupStage.review => _buildBusinessSetupReview(),
+          },
+        ],
+      ],
+    );
+  }
+
+  Widget _businessSetupActions({
+    required VoidCallback onBack,
+    required VoidCallback onContinue,
+    required String continueLabel,
+    IconData continueIcon = Icons.arrow_forward_rounded,
+  }) => Column(
+    children: [
+      const SizedBox(height: 18),
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _saving ? null : onContinue,
+          icon: Icon(continueIcon),
+          label: Text(continueLabel),
+        ),
+      ),
+      const SizedBox(height: 8),
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _saving ? null : onBack,
+          icon: const Icon(Icons.arrow_back_rounded),
+          label: const Text('Previous'),
+        ),
+      ),
+    ],
+  );
+
+  Future<void> _addBusinessSetupCustomExtra() async {
+    var extraName = '';
+    final label = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Add Custom Extra'),
+        content: TextField(
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Extra name',
+            hintText: 'e.g. Equipment hire',
+          ),
+          onChanged: (value) => extraName = value,
+          onSubmitted: (value) {
+            final cleaned = value.trim();
+            if (cleaned.isNotEmpty) Navigator.of(dialogContext).pop(cleaned);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final cleaned = extraName.trim();
+              if (cleaned.isNotEmpty) Navigator.of(dialogContext).pop(cleaned);
+            },
+            child: const Text('Add Extra'),
+          ),
+        ],
+      ),
+    );
+    if (label == null || !mounted) return;
+    final key =
+        'custom_extra_setup_${DateTime.now().microsecondsSinceEpoch.toString()}';
+    setState(() {
+      _extras = _extras.copyWithExtra(
+        VanQuoteExtraDefault.custom(key: key, label: label, defaultPrice: 0),
+      );
+      _extraChargeUnits[key] = 'Fixed';
+    });
+  }
+
+  Widget _buildBusinessSetupExtras() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _stepHeader(
+        'Pricing extras',
+        'Tick the extras you use. Business Mate will add them to your services, and you can set or change prices later.',
+      ),
+      _LibraryGrid(
+        children: [
+          for (final item in _extrasLibrary)
+            _LibraryChoiceCard(
+              icon: item.icon,
+              label: item.label,
+              selected: _configuredExtra(item.key)?.enabled == true,
+              onChanged: (selected) => _toggleExtraLibraryItem(item, selected),
+            ),
+        ],
+      ),
+      const SizedBox(height: 14),
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _addBusinessSetupCustomExtra,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Add Custom Extra'),
+        ),
+      ),
+      _businessSetupActions(
+        onBack: () => setState(
+          () => _businessSetupStage = _BusinessSetupStage.capabilities,
+        ),
+        onContinue: () => setState(
+          () => _businessSetupStage = _BusinessSetupStage.availability,
+        ),
+        continueLabel: 'Set Availability',
+        continueIcon: Icons.schedule_outlined,
+      ),
+    ],
+  );
+
+  void _continueToBusinessSetupReview() {
+    String? message;
+    if (_workingDays.isEmpty) {
+      message = 'Choose at least one working day.';
+    } else if (_endMinutes <= _startMinutes) {
+      message = 'Closing time must be later than opening time.';
+    }
+    if (message != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    setState(() => _businessSetupStage = _BusinessSetupStage.review);
+  }
+
+  Widget _buildBusinessSetupAvailability() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _buildAvailability(businessSetup: true),
+      _businessSetupActions(
+        onBack: () =>
+            setState(() => _businessSetupStage = _BusinessSetupStage.extras),
+        onContinue: _continueToBusinessSetupReview,
+        continueLabel: 'Review Services',
+        continueIcon: Icons.fact_check_outlined,
+      ),
+    ],
+  );
+
+  Widget _buildBusinessSetupReview() {
+    final pack = _selectedCapabilityPack!;
+    final setups = pack.recommendationsFor(
+      _selectedRecommendedServiceIds,
+      capabilityIdsByService: _capabilityIdsByService,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _stepHeader(
+          'Review business',
+          'Business Mate will create each selected service with its own sensible defaults. You will review features, questions, extras and availability one service at a time next.',
+        ),
+        for (final setup in setups) ...[
+          _BusinessServiceReviewCard(
+            setup: setup,
+            handover: _businessSetupHandoverSummary(setup),
+            extrasCount: _businessSetupExtrasFor(
+              setup.quoteExtraDefaults(),
+            ).enabledExtras.length,
+            availability:
+                'Mon–Fri · 9:00 AM–5:00 PM · ${setup.suggestedDurationMinutes ?? 60} min',
+          ),
+          const SizedBox(height: 12),
+        ],
+        _businessSetupActions(
+          onBack: () => setState(
+            () => _businessSetupStage = _BusinessSetupStage.services,
+          ),
+          onContinue: _createRecommendedServices,
+          continueLabel: setups.length == 1
+              ? 'Create Service'
+              : 'Create ${setups.length} Services',
+          continueIcon: Icons.rocket_launch_outlined,
+        ),
+      ],
+    );
+  }
+
+  String _businessSetupHandoverSummary(VanRecommendedServiceSetup setup) {
+    final values = <String>[
+      if (setup.allowCustomerDropOff) 'Customer drops off',
+      if (setup.allowBusinessCollection) 'Business collects',
+      if (setup.allowCustomerCollection) 'Customer collects',
+      if (setup.allowBusinessReturn) 'Business returns',
+      if (setup.requireAddress &&
+          !setup.allowBusinessCollection &&
+          !setup.allowBusinessReturn)
+        'Customer address required',
+    ];
+    return values.isEmpty ? 'No handover required' : values.join(' · ');
+  }
+
+  Widget _buildBasicInformationFields() {
+    final categoryOptions = _categoryDropdownOptions(_category);
+    final selectedCategory = _selectedCategoryOption(_category);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -730,17 +2322,28 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
-          initialValue: _category,
+          key: ValueKey<String>('service_category_${selectedCategory.id}'),
+          initialValue: selectedCategory.id,
+          isExpanded: true,
           dropdownColor: const Color(0xFF17253A),
           decoration: vanMateFieldDecoration(
             label: 'Category',
             prefixIcon: const Icon(Icons.category_outlined),
           ),
           items: [
-            for (final value in _categories)
-              DropdownMenuItem(value: value, child: Text(value)),
+            for (final option in categoryOptions)
+              DropdownMenuItem(
+                value: option.id,
+                child: Text(option.label, overflow: TextOverflow.ellipsis),
+              ),
           ],
-          onChanged: (value) => setState(() => _category = value ?? _category),
+          onChanged: (value) {
+            if (value == null) return;
+            final selected = categoryOptions.singleWhere(
+              (option) => option.id == value,
+            );
+            setState(() => _category = selected.label);
+          },
         ),
         const SizedBox(height: 16),
         const _FieldLabel('Icon'),
@@ -782,6 +2385,16 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
             prefixIcon: const Icon(Icons.notes_outlined),
           ),
         ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _customerMessageController,
+          maxLines: 3,
+          decoration: vanMateFieldDecoration(
+            label: 'Customer message (optional)',
+            hintText: 'A helpful message customers see for this service',
+            prefixIcon: const Icon(Icons.chat_bubble_outline_rounded),
+          ),
+        ),
         const SizedBox(height: 18),
         _ServicePreviewCard(
           name: _nameController.text,
@@ -795,6 +2408,32 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
   }
 
   Widget _buildJourney() {
+    if (_usesUniversalCapabilityEditor) {
+      final serviceName = _nameController.text.trim().isEmpty
+          ? 'This service'
+          : _nameController.text.trim();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _stepHeader(
+            'How should this service work?',
+            'Choose any capabilities you need. These choices build the customer journey, booking settings, questions and extras.',
+          ),
+          _ServiceCapabilityEditor(
+            service: VanBusinessServiceRecommendation(
+              id: _serviceId,
+              name: serviceName,
+              description: '',
+              recommendedCapabilityIds: const <String>[],
+            ),
+            selectedIds: _manualCapabilityIds,
+            colour: Color(_colourValue),
+            enabled: !_saving,
+            onChanged: _toggleManualCapability,
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -834,237 +2473,687 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
   }
 
   Widget _buildFlow() {
-    final flow = _requestType.serviceFlow;
+    if (_usesUniversalCapabilityEditor) {
+      final resolved = resolveVanServiceCapabilities(
+        _manualCapabilityIds,
+        recommendedDurationMinutes: _appointmentDurationMinutes,
+        recommendedNoticeHours: _noticeHours,
+      );
+      final fulfilmentLabels = kVanServiceCapabilities
+          .where(
+            (capability) =>
+                capability.group == VanServiceCapabilityGroup.fulfilment &&
+                _manualCapabilityIds.contains(capability.id),
+          )
+          .map((capability) => capability.label)
+          .toList(growable: false);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _stepHeader(
+            'Your generated customer flow',
+            'Business Mate has translated the selected capabilities into the customer journey and service settings below.',
+          ),
+          _RecommendationBanner(
+            text:
+                '${resolved.journeyType.selectorLabel} · ${resolved.builtInQuestionKeys.length} customer details · ${resolved.extras.length} suggested extras',
+          ),
+          if (fulfilmentLabels.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final label in fulfilmentLabels)
+                  Chip(
+                    avatar: const Icon(Icons.check_rounded, size: 17),
+                    label: Text(label),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 14),
+          Text(
+            'Use Previous to change capabilities. You can still customise individual questions, extras and availability in the next steps.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: .68),
+              height: 1.4,
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _stepHeader(
           'How is this service carried out?',
-          'This automatically adjusts wording, addresses and handovers.',
+          'Choose which handover options your business offers. Customers will only see the options you enable.',
         ),
-        _SelectionCard(
-          icon: Icons.handyman_outlined,
-          title: 'Standard',
-          description: 'The business performs the service at one location.',
-          selected: flow == VanServiceFlow.standard,
-          onTap: () => _selectFlow(VanServiceFlow.standard),
+        const _QuestionSectionHeading(
+          title: 'Service starts',
+          subtitle: 'Enable one or both options.',
+        ),
+        _HandoverCapabilityTile(
+          icon: Icons.storefront_outlined,
+          title: 'Customer drops off item',
+          subtitle: 'The customer brings the item to your business.',
+          selected: _allowedStarts.contains(VanStartHandover.customerDropsOff),
+          onChanged: (selected) => setState(() {
+            _handoverTouched = true;
+            if (selected) {
+              if (!_allowedStarts.contains(VanStartHandover.customerDropsOff)) {
+                _allowedStarts = [
+                  ..._allowedStarts,
+                  VanStartHandover.customerDropsOff,
+                ];
+              }
+            } else {
+              _allowedStarts = _allowedStarts
+                  .where((value) => value != VanStartHandover.customerDropsOff)
+                  .toList(growable: false);
+            }
+            if (_allowedStarts.isNotEmpty &&
+                !_allowedStarts.contains(_startHandover)) {
+              _startHandover = _allowedStarts.first;
+            }
+          }),
         ),
         const SizedBox(height: 10),
-        _SelectionCard(
+        _HandoverCapabilityTile(
           icon: Icons.local_shipping_outlined,
-          title: 'Pickup & Delivery',
-          description: 'Collect the item, complete the work, then return it.',
-          selected: flow == VanServiceFlow.pickupDelivery,
-          onTap: () => _selectFlow(VanServiceFlow.pickupDelivery),
+          title: 'Business collects item',
+          subtitle: 'You collect the item from the customer.',
+          selected: _allowedStarts.contains(VanStartHandover.businessCollects),
+          onChanged: (selected) => setState(() {
+            _handoverTouched = true;
+            if (selected) {
+              if (!_allowedStarts.contains(VanStartHandover.businessCollects)) {
+                _allowedStarts = [
+                  ..._allowedStarts,
+                  VanStartHandover.businessCollects,
+                ];
+              }
+            } else {
+              _allowedStarts = _allowedStarts
+                  .where((value) => value != VanStartHandover.businessCollects)
+                  .toList(growable: false);
+            }
+            if (_allowedStarts.isNotEmpty &&
+                !_allowedStarts.contains(_startHandover)) {
+              _startHandover = _allowedStarts.first;
+            }
+          }),
+        ),
+        const SizedBox(height: 22),
+        const _QuestionSectionHeading(
+          title: 'Service ends',
+          subtitle: 'Enable one or both options.',
+        ),
+        _HandoverCapabilityTile(
+          icon: Icons.shopping_bag_outlined,
+          title: 'Customer collects item',
+          subtitle: 'The customer collects it from your business.',
+          selected: _allowedEnds.contains(VanEndHandover.customerCollects),
+          onChanged: (selected) => setState(() {
+            _handoverTouched = true;
+            if (selected) {
+              if (!_allowedEnds.contains(VanEndHandover.customerCollects)) {
+                _allowedEnds = [
+                  ..._allowedEnds,
+                  VanEndHandover.customerCollects,
+                ];
+              }
+            } else {
+              _allowedEnds = _allowedEnds
+                  .where((value) => value != VanEndHandover.customerCollects)
+                  .toList(growable: false);
+            }
+            if (_allowedEnds.isNotEmpty &&
+                !_allowedEnds.contains(_endHandover)) {
+              _endHandover = _allowedEnds.first;
+            }
+          }),
         ),
         const SizedBox(height: 10),
-        _SelectionCard(
-          icon: Icons.store_mall_directory_outlined,
-          title: 'Drop-off & Collection',
-          description:
-              'The customer drops off, then collects when work is done.',
-          selected: flow == VanServiceFlow.dropOffPickup,
-          onTap: () => _selectFlow(VanServiceFlow.dropOffPickup),
+        _HandoverCapabilityTile(
+          icon: Icons.route_outlined,
+          title: 'Business returns item',
+          subtitle: 'You return it to the customer when finished.',
+          selected: _allowedEnds.contains(VanEndHandover.businessReturns),
+          onChanged: (selected) => setState(() {
+            _handoverTouched = true;
+            if (selected) {
+              if (!_allowedEnds.contains(VanEndHandover.businessReturns)) {
+                _allowedEnds = [
+                  ..._allowedEnds,
+                  VanEndHandover.businessReturns,
+                ];
+              }
+            } else {
+              _allowedEnds = _allowedEnds
+                  .where((value) => value != VanEndHandover.businessReturns)
+                  .toList(growable: false);
+            }
+            if (_allowedEnds.isNotEmpty &&
+                !_allowedEnds.contains(_endHandover)) {
+              _endHandover = _allowedEnds.first;
+            }
+          }),
         ),
-        if (vanRequestTypeSupportsHandover(_requestType)) ...[
-          const SizedBox(height: 18),
-          Row(
+        const SizedBox(height: 18),
+        TextField(
+          controller: _dropOffController,
+          maxLines: 2,
+          decoration: vanMateFieldDecoration(
+            label: 'Business location / drop-off instructions',
+            hintText: 'Optional',
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _collectionController,
+          maxLines: 2,
+          decoration: vanMateFieldDecoration(
+            label: 'Collection / return instructions',
+            hintText: 'Optional',
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<_QuestionLibraryItem> get _questionLibrary => <_QuestionLibraryItem>[
+    const _QuestionLibraryItem.builtIn(
+      key: 'address',
+      label: 'Address',
+      icon: Icons.location_on_outlined,
+    ),
+    if (_requestType.serviceFlow == VanServiceFlow.pickupDelivery) ...const [
+      _QuestionLibraryItem.builtIn(
+        key: 'collection_address',
+        label: 'Collection Address',
+        icon: Icons.trip_origin_rounded,
+      ),
+      _QuestionLibraryItem.builtIn(
+        key: 'delivery_address',
+        label: 'Delivery Address',
+        icon: Icons.location_on_rounded,
+      ),
+    ],
+    const _QuestionLibraryItem.builtIn(
+      key: 'preferred_date',
+      label: 'Preferred Date',
+      icon: Icons.calendar_today_outlined,
+    ),
+    const _QuestionLibraryItem.builtIn(
+      key: 'preferred_time',
+      label: 'Preferred Time',
+      icon: Icons.schedule_outlined,
+    ),
+    const _QuestionLibraryItem.builtIn(
+      key: 'photos',
+      label: 'Photos',
+      icon: Icons.add_a_photo_outlined,
+    ),
+    const _QuestionLibraryItem.builtIn(
+      key: 'phone',
+      label: 'Phone Number',
+      icon: Icons.phone_outlined,
+    ),
+    const _QuestionLibraryItem.builtIn(
+      key: 'email',
+      label: 'Email Address',
+      icon: Icons.email_outlined,
+    ),
+    ..._customQuestionLibrary,
+    const _QuestionLibraryItem.builtIn(
+      key: 'exact_pin',
+      label: 'Exact Location After Acceptance',
+      icon: Icons.pin_drop_outlined,
+    ),
+  ];
+
+  bool _isQuestionLibraryItemSelected(_QuestionLibraryItem item) {
+    if (item.builtIn) return _selectedBuiltInQuestions.contains(item.key);
+    final id = _libraryQuestionIds[item.key];
+    return id != null && _linkedQuestionIds.contains(id);
+  }
+
+  void _toggleQuestionLibraryItem(_QuestionLibraryItem item, bool selected) {
+    setState(() {
+      if (item.builtIn) {
+        if (selected) {
+          _selectedBuiltInQuestions.add(item.key);
+          _builtInQuestionSettings.putIfAbsent(
+            item.key,
+            () => <String, dynamic>{'required': false, 'helperText': ''},
+          );
+        } else {
+          _selectedBuiltInQuestions.remove(item.key);
+        }
+        _requestPhotos = _selectedBuiltInQuestions.contains('photos');
+        _requestExactPin = _selectedBuiltInQuestions.contains('exact_pin');
+        _requireAddress =
+            _selectedBuiltInQuestions.contains('address') &&
+            (_builtInQuestionSettings['address']?['required'] == true);
+        return;
+      }
+      var id = _libraryQuestionIds[item.key];
+      if (selected) {
+        if (id == null || !_questions.containsKey(id)) {
+          final now = DateTime.now();
+          id = 'service_question_${_serviceId}_${now.microsecondsSinceEpoch}';
+          _questions[id] = VanCustomJobQuestion(
+            id: id,
+            questionText: item.label,
+            helperText: '',
+            answerType: item.answerType,
+            category: item.category,
+            isActive: true,
+            isArchived: false,
+            createdAt: now,
+            updatedAt: now,
+          );
+          _availableQuestionIds.add(id);
+          _libraryQuestionIds[item.key] = id;
+        }
+        if (!_linkedQuestionIds.contains(id)) _linkedQuestionIds.add(id);
+      } else if (id != null) {
+        _linkedQuestionIds.remove(id);
+        _optionalQuestionIds.remove(id);
+      }
+    });
+  }
+
+  String _normaliseQuestionText(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+  Set<String> get _starterQuestionTexts => {
+    for (final question
+        in _selectedStarterTemplate?.questions ??
+            const <VanServiceTemplateQuestion>[])
+      _normaliseQuestionText(question.text),
+  };
+
+  Set<String> get _starterBuiltInQuestionKeys {
+    final keys = <String>{};
+    for (final question
+        in _selectedStarterTemplate?.questions ??
+            const <VanServiceTemplateQuestion>[]) {
+      final key = _builtInQuestionKeyForText(question.text);
+      if (key != null) keys.add(key);
+    }
+    if (_selectedStarterTemplate?.id == 'courier') keys.add('photos');
+    return keys;
+  }
+
+  bool _isStarterQuestionLibraryItem(_QuestionLibraryItem item) {
+    if (_selectedStarterTemplate == null) return false;
+    if (item.builtIn) return _starterBuiltInQuestionKeys.contains(item.key);
+    return _starterQuestionTexts.contains(_normaliseQuestionText(item.label));
+  }
+
+  bool _isStarterStoredQuestion(String id) {
+    final question = _questions[id];
+    return question != null &&
+        _starterQuestionTexts.contains(
+          _normaliseQuestionText(question.questionText),
+        );
+  }
+
+  Widget _questionLibraryChoice(_QuestionLibraryItem item) =>
+      _LibraryChoiceCard(
+        icon: item.icon,
+        label: item.label,
+        selected: _isQuestionLibraryItemSelected(item),
+        onChanged: (selected) => _toggleQuestionLibraryItem(item, selected),
+      );
+
+  Widget _storedQuestionChoice(String id) => _LibraryChoiceCard(
+    icon: Icons.question_answer_outlined,
+    label: _questions[id]!.questionText,
+    selected: _linkedQuestionIds.contains(id),
+    onChanged: (selected) => setState(() {
+      if (selected) {
+        if (!_linkedQuestionIds.contains(id)) _linkedQuestionIds.add(id);
+      } else {
+        _linkedQuestionIds.remove(id);
+        _optionalQuestionIds.remove(id);
+      }
+    }),
+  );
+
+  Widget _buildQuestionLibrary() {
+    final hasStarter = _selectedStarterTemplate != null;
+    final suggestedLibraryItems = _questionLibrary
+        .where(_isStarterQuestionLibraryItem)
+        .toList(growable: false);
+    final browseLibraryItems = _questionLibrary
+        .where((item) => !hasStarter || !_isStarterQuestionLibraryItem(item))
+        .toList(growable: false);
+    final standaloneQuestionIds = _availableQuestionIds
+        .where(
+          (id) =>
+              !_libraryQuestionIds.values.contains(id) &&
+              _questions[id] != null,
+        )
+        .toList(growable: false);
+    final suggestedQuestionIds = standaloneQuestionIds
+        .where(_isStarterStoredQuestion)
+        .toList(growable: false);
+    final browseQuestionIds = standaloneQuestionIds
+        .where((id) => !hasStarter || !_isStarterStoredQuestion(id))
+        .toList(growable: false);
+    final selectedCount =
+        _selectedBuiltInQuestions.length + _linkedQuestionIds.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _stepHeader(
+          'What would you like to ask your customers?',
+          'Choose the information you normally need from customers. You\'ll customise your selections in the next step.',
+        ),
+        if (hasStarter) ...[
+          _QuestionSectionHeading(
+            title: 'Suggested for your business',
+            subtitle:
+                '${_selectedStarterTemplate!.name} recommendations are already selected. Untick anything you do not need.',
+          ),
+          _LibraryGrid(
             children: [
-              Expanded(
-                child: DropdownButtonFormField<VanStartHandover>(
-                  initialValue: _startHandover,
-                  dropdownColor: const Color(0xFF17253A),
-                  decoration: vanMateFieldDecoration(label: 'Service starts'),
-                  items: [
-                    for (final value in VanStartHandover.values)
-                      DropdownMenuItem(value: value, child: Text(value.label)),
-                  ],
-                  onChanged: (value) => setState(() {
-                    _startHandover = value ?? _startHandover;
-                    if (!_allowedStarts.contains(_startHandover)) {
-                      _allowedStarts = [..._allowedStarts, _startHandover];
-                    }
-                  }),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: DropdownButtonFormField<VanEndHandover>(
-                  initialValue: _endHandover,
-                  dropdownColor: const Color(0xFF17253A),
-                  decoration: vanMateFieldDecoration(label: 'Service ends'),
-                  items: [
-                    for (final value in VanEndHandover.values)
-                      DropdownMenuItem(value: value, child: Text(value.label)),
-                  ],
-                  onChanged: (value) => setState(() {
-                    _endHandover = value ?? _endHandover;
-                    if (!_allowedEnds.contains(_endHandover)) {
-                      _allowedEnds = [..._allowedEnds, _endHandover];
-                    }
-                  }),
-                ),
-              ),
+              for (final item in suggestedLibraryItems)
+                _questionLibraryChoice(item),
+              for (final id in suggestedQuestionIds) _storedQuestionChoice(id),
             ],
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _dropOffController,
-            maxLines: 2,
-            decoration: vanMateFieldDecoration(
-              label: 'Drop-off instructions',
-              hintText: 'Optional',
-            ),
+          const SizedBox(height: 22),
+        ],
+        const _QuestionSectionHeading(
+          title: 'Browse more questions',
+          subtitle: 'Add any other information that would help with this job.',
+        ),
+        _LibraryGrid(
+          children: [
+            for (final item in browseLibraryItems) _questionLibraryChoice(item),
+            for (final id in browseQuestionIds) _storedQuestionChoice(id),
+          ],
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _addQuestion,
+            icon: const Icon(Icons.add),
+            label: const Text('Create Custom Question'),
           ),
+        ),
+        if (_loadingQuestions)
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else ...[
           const SizedBox(height: 12),
-          TextField(
-            controller: _collectionController,
-            maxLines: 2,
-            decoration: vanMateFieldDecoration(
-              label: 'Collection instructions',
-              hintText: 'Optional',
-            ),
-          ),
+          _SelectedQuestionsSummary(count: selectedCount),
         ],
       ],
     );
   }
 
-  Widget _buildQuestions() {
+  Widget _buildQuestionConfiguration() {
+    final builtIns = _questionLibrary
+        .where((item) => item.builtIn && _isQuestionLibraryItemSelected(item))
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _stepHeader(
-          'What do you need from the customer?',
-          'Only ask what helps you understand and complete this service.',
+          'Customise your selected questions',
+          'Now tell us how you would like to ask each one. Only your selections are shown here.',
         ),
-        _CompactToggle(
-          icon: Icons.location_on_outlined,
-          title: 'Address',
-          subtitle: 'Ask where the service takes place.',
-          value: _requireAddress,
-          onChanged: (value) => setState(() => _requireAddress = value),
-        ),
-        _CompactToggle(
-          icon: Icons.add_a_photo_outlined,
-          title: 'Photos',
-          subtitle: 'Let customers add useful images.',
-          value: _requestPhotos,
-          onChanged: (value) => setState(() => _requestPhotos = value),
-        ),
-        _CompactToggle(
-          icon: Icons.pin_drop_outlined,
-          title: 'Exact pin after acceptance',
-          subtitle: 'Request a precise location once the work is agreed.',
-          value: _requestExactPin,
-          onChanged: (value) => setState(() => _requestExactPin = value),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            const Expanded(child: _FieldLabel('Your questions')),
-            TextButton.icon(
-              onPressed: _showQuestionTemplates,
-              icon: const Icon(Icons.auto_awesome_outlined),
-              label: const Text('Templates'),
-            ),
-            TextButton.icon(
-              onPressed: _addQuestion,
-              icon: const Icon(Icons.add),
-              label: const Text('Add'),
-            ),
-          ],
-        ),
-        if (_loadingQuestions)
-          const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_linkedQuestionIds.isEmpty)
+        if (builtIns.isEmpty && _linkedQuestionIds.isEmpty)
           const _EmptyWizardCard(
-            icon: Icons.question_answer_outlined,
-            text: 'No extra questions yet. Use a template or add your own.',
-          )
-        else
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _linkedQuestionIds.length,
-            onReorderItem: (oldIndex, newIndex) {
-              setState(() {
-                final id = _linkedQuestionIds.removeAt(oldIndex);
-                _linkedQuestionIds.insert(newIndex, id);
-              });
-            },
-            itemBuilder: (context, index) {
-              final id = _linkedQuestionIds[index];
-              final question = _questions[id]!;
-              final optional = _optionalQuestionIds.contains(id);
-              return _QuestionCard(
-                key: ValueKey(id),
-                question: question,
-                optional: optional,
-                onOptionalChanged: (value) => setState(() {
-                  value
-                      ? _optionalQuestionIds.add(id)
-                      : _optionalQuestionIds.remove(id);
-                }),
-                onEdit: () => _editQuestion(id),
-                onRemove: () => setState(() {
-                  _linkedQuestionIds.remove(id);
-                  _optionalQuestionIds.remove(id);
-                }),
-              );
-            },
+            icon: Icons.check_circle_outline,
+            text: 'No customer questions selected. You can continue.',
           ),
+        for (final item in builtIns) ...[
+          _BuiltInQuestionConfigCard(
+            item: item,
+            requiredValue:
+                _builtInQuestionSettings[item.key]?['required'] == true,
+            helperText:
+                _builtInQuestionSettings[item.key]?['helperText']?.toString() ??
+                '',
+            maxPhotos: _maxCustomerPhotos,
+            onRequiredChanged: (value) => setState(() {
+              final settings = _builtInQuestionSettings.putIfAbsent(
+                item.key,
+                () => <String, dynamic>{},
+              );
+              settings['required'] = value;
+              if (item.key == 'address') _requireAddress = value;
+            }),
+            onHelperChanged: (value) {
+              _builtInQuestionSettings.putIfAbsent(
+                item.key,
+                () => <String, dynamic>{},
+              )['helperText'] = value;
+            },
+            onMaxPhotosChanged: item.key == 'photos'
+                ? (value) => setState(() => _maxCustomerPhotos = value)
+                : null,
+          ),
+          const SizedBox(height: 10),
+        ],
+        for (final id in _linkedQuestionIds) ...[
+          if (_questions[id] case final question?)
+            _CustomQuestionConfigCard(
+              question: question,
+              requiredValue: !_optionalQuestionIds.contains(id),
+              showUnit: _libraryQuestionIds['measurements'] == id,
+              onRequiredChanged: (required) => setState(() {
+                required
+                    ? _optionalQuestionIds.remove(id)
+                    : _optionalQuestionIds.add(id);
+              }),
+              onHelperChanged: (value) {
+                _questions[id] = question.copyWith(
+                  helperText: value,
+                  updatedAt: DateTime.now(),
+                );
+              },
+              onUnitChanged: (unit) {
+                _questions[id] = question.copyWith(
+                  helperText: unit.isEmpty
+                      ? ''
+                      : 'Please provide this in $unit.',
+                  updatedAt: DateTime.now(),
+                );
+              },
+              onEdit: () => _editQuestion(id),
+            ),
+          const SizedBox(height: 10),
+        ],
       ],
     );
   }
 
   Widget _buildPricing() {
-    final extras = _extras.orderedExtras;
+    return _configuringExtras
+        ? _buildExtraConfiguration()
+        : _buildExtrasLibrary();
+  }
+
+  List<_ExtraLibraryItem> get _extrasLibrary {
+    final items = <_ExtraLibraryItem>[..._defaultExtrasLibrary];
+    final known = items.map((item) => item.key).toSet();
+    for (final extra in _extras.orderedExtras) {
+      if (known.add(extra.key)) {
+        items.add(
+          _ExtraLibraryItem(
+            key: extra.key,
+            label: extra.resolvedLabel,
+            icon: Icons.add_card_outlined,
+            defaultPrice: extra.defaultPrice,
+          ),
+        );
+      }
+    }
+    return items;
+  }
+
+  VanQuoteExtraDefault? _configuredExtra(String key) {
+    for (final extra in _extras.orderedExtras) {
+      if (extra.key == key) return extra;
+    }
+    return null;
+  }
+
+  void _toggleExtraLibraryItem(_ExtraLibraryItem item, bool selected) {
+    setState(() {
+      final existing = _configuredExtra(item.key);
+      final next =
+          existing?.copyWith(enabled: selected) ??
+          (isVanQuoteBuiltInExtraKey(item.key)
+              ? VanQuoteExtraDefault.fallback(item.key).copyWith(
+                  label: item.label,
+                  defaultPrice: item.defaultPrice,
+                  enabled: selected,
+                )
+              : VanQuoteExtraDefault.custom(
+                  key: item.key,
+                  label: item.label,
+                  defaultPrice: item.defaultPrice,
+                  enabled: selected,
+                ));
+      _extras = _extras.copyWithExtra(next);
+      if (selected) {
+        _extraChargeUnits.putIfAbsent(item.key, () => item.defaultUnit);
+      }
+    });
+  }
+
+  Widget _buildExtrasLibrary() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _stepHeader(
-          'How will you price extras?',
-          'Keep this simple. Enable only the charges you use regularly.',
+          'How would you like to charge?',
+          'Choose any extras you use. You will set prices only for those choices next.',
         ),
-        if (extras.isEmpty)
-          const _EmptyWizardCard(
-            icon: Icons.payments_outlined,
+        if (_selectedStarterTemplate != null)
+          _RecommendationBanner(
             text:
-                'No pricing extras yet. Add one only if this service needs it.',
-          )
-        else
-          for (final extra in extras) ...[
-            _PricingCard(
-              extra: extra,
-              onChanged: (value) => setState(() {
-                _extras = _extras.copyWithExtra(extra.copyWith(enabled: value));
-              }),
-              onEdit: _editExtras,
-            ),
-            const SizedBox(height: 10),
+                '${_selectedStarterTemplate!.name} recommendations are pre-selected. You remain in control.',
+          ),
+        const SizedBox(height: 12),
+        _LibraryGrid(
+          children: [
+            for (final item in _extrasLibrary)
+              _LibraryChoiceCard(
+                icon: item.icon,
+                label: item.label,
+                selected: _configuredExtra(item.key)?.enabled == true,
+                onChanged: (selected) =>
+                    _toggleExtraLibraryItem(item, selected),
+              ),
           ],
-        const SizedBox(height: 10),
-        FilledButton.tonalIcon(
-          onPressed: _editExtras,
-          icon: const Icon(Icons.tune_rounded),
-          label: Text(
-            extras.isEmpty ? 'Add pricing extras' : 'Manage pricing extras',
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _editExtras,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Custom Extra'),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildAvailability() {
+  Widget _buildExtraConfiguration() {
+    final selected = _extras.enabledExtras;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _stepHeader(
-          'When is this service available?',
+          'Configure your pricing extras',
+          'Set a clear price and charging method for only the extras you selected.',
+        ),
+        if (selected.isEmpty)
+          const _EmptyWizardCard(
+            icon: Icons.check_circle_outline,
+            text: 'No pricing extras selected. You can continue.',
+          ),
+        for (final extra in selected) ...[
+          Builder(
+            builder: (context) {
+              final libraryExtra = _libraryExtraForKey(extra.key);
+              final unit =
+                  _extraChargeUnits[extra.key] ??
+                  libraryExtra?.defaultUnit ??
+                  'Fixed';
+              final units = <String>{
+                ...?libraryExtra?.units,
+                unit,
+                'Fixed',
+                'Hour',
+                '30 Minutes',
+                'Mile',
+                'Item',
+                'Stop',
+                'Floor',
+                'Day',
+                'Week',
+                'Percentage',
+              }.toList(growable: false);
+              return _ExtraConfigurationCard(
+                key: ValueKey(extra.key),
+                extra: extra,
+                unit: unit,
+                units: units,
+                onPriceChanged: (value) {
+                  final price = double.tryParse(value);
+                  if (price == null || price < 0) return;
+                  _extras = _extras.copyWithExtra(
+                    extra.copyWith(defaultPrice: price),
+                  );
+                },
+                onUnitChanged: (value) => setState(() {
+                  _extraChargeUnits[extra.key] = value;
+                }),
+                onEnabledChanged: (value) => setState(() {
+                  _extras = _extras.copyWithExtra(
+                    extra.copyWith(enabled: value),
+                  );
+                }),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  _ExtraLibraryItem? _libraryExtraForKey(String key) {
+    for (final item in _extrasLibrary) {
+      if (item.key == key) return item;
+    }
+    return null;
+  }
+
+  Widget _buildAvailability({bool businessSetup = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _stepHeader(
+          businessSetup
+              ? 'When are these services available?'
+              : 'When is this service available?',
           'Set a sensible default schedule. Holiday settings can be added later.',
         ),
         const _FieldLabel('Working days'),
@@ -1113,7 +3202,44 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         ),
         const SizedBox(height: 14),
         DropdownButtonFormField<int>(
+          initialValue: _appointmentDurationMinutes,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF17253A),
+          decoration: vanMateFieldDecoration(label: 'Typical duration'),
+          items:
+              (<int>{
+                    10,
+                    15,
+                    30,
+                    45,
+                    60,
+                    90,
+                    120,
+                    180,
+                    240,
+                    480,
+                    _appointmentDurationMinutes,
+                  }.toList()..sort())
+                  .map(
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: Text(
+                        value < 60
+                            ? '$value minutes'
+                            : value % 60 == 0
+                            ? '${value ~/ 60} hour${value == 60 ? '' : 's'}'
+                            : '${value ~/ 60}h ${value % 60}m',
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+          onChanged: (value) =>
+              setState(() => _appointmentDurationMinutes = value ?? 60),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
           initialValue: _noticeHours,
+          isExpanded: true,
           dropdownColor: const Color(0xFF17253A),
           decoration: vanMateFieldDecoration(label: 'Minimum notice'),
           items: const [
@@ -1128,6 +3254,7 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         const SizedBox(height: 12),
         DropdownButtonFormField<int>(
           initialValue: _maxBookings,
+          isExpanded: true,
           dropdownColor: const Color(0xFF17253A),
           decoration: vanMateFieldDecoration(label: 'Maximum bookings per day'),
           items: [
@@ -1172,28 +3299,32 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         ),
         _ReviewRow(
           icon: Icons.alt_route_rounded,
-          label: 'Flow',
-          value: _requestType.serviceFlow.label,
+          label: 'Handover',
+          value: _handoverConfigurationSummary(),
           onEdit: () => setState(() => _step = 2),
         ),
         _ReviewRow(
           icon: Icons.question_answer_outlined,
           label: 'Questions',
-          value: '${_linkedQuestionIds.length} custom questions',
+          value:
+              '${_selectedBuiltInQuestions.length + _linkedQuestionIds.length} selected',
           onEdit: () => setState(() => _step = 3),
         ),
         _ReviewRow(
           icon: Icons.payments_outlined,
           label: 'Pricing extras',
           value: '${_extras.enabledExtras.length} enabled',
-          onEdit: () => setState(() => _step = 4),
+          onEdit: () => setState(() {
+            _configuringExtras = false;
+            _step = 5;
+          }),
         ),
         _ReviewRow(
           icon: Icons.schedule_outlined,
           label: 'Availability',
           value:
-              '${_workingDaysLabel()} · ${_formatMinutes(_startMinutes)}–${_formatMinutes(_endMinutes)}',
-          onEdit: () => setState(() => _step = 5),
+              '${_workingDaysLabel()} · ${_formatMinutes(_startMinutes)}–${_formatMinutes(_endMinutes)} · $_appointmentDurationMinutes min',
+          onEdit: () => setState(() => _step = 6),
         ),
         const SizedBox(height: 14),
         SwitchListTile.adaptive(
@@ -1240,6 +3371,13 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     if (sorted.length == 7) return 'Every day';
     return sorted.map((day) => _dayLabels[day]).join(', ');
   }
+
+  String _handoverConfigurationSummary() {
+    if (_allowedStarts.isEmpty && _allowedEnds.isEmpty) {
+      return 'No handover required';
+    }
+    return '${_allowedStarts.length} start option${_allowedStarts.length == 1 ? '' : 's'} · ${_allowedEnds.length} end option${_allowedEnds.length == 1 ? '' : 's'}';
+  }
 }
 
 String _formatMinutes(int minutes) =>
@@ -1259,17 +3397,26 @@ class _WizardProgress extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(
-              'Step ${step + 1} of ${titles.length}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
+            Expanded(
+              child: Text(
+                'Step ${step + 1} of ${titles.length}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-            const Spacer(),
-            Text(
-              titles[step],
-              style: TextStyle(color: Colors.white.withValues(alpha: .68)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                titles[step],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: TextStyle(color: Colors.white.withValues(alpha: .68)),
+              ),
             ),
           ],
         ),
@@ -1319,7 +3466,9 @@ class _WizardPanel extends StatelessWidget {
 class _WizardNavigation extends StatelessWidget {
   const _WizardNavigation({
     required this.step,
+    required this.lastStep,
     required this.saving,
+    required this.nextLabel,
     required this.onPrevious,
     required this.onNext,
     required this.onPublish,
@@ -1327,7 +3476,9 @@ class _WizardNavigation extends StatelessWidget {
     required this.onCancel,
   });
   final int step;
+  final int lastStep;
   final bool saving;
+  final String nextLabel;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onPublish;
@@ -1344,39 +3495,57 @@ class _WizardNavigation extends StatelessWidget {
           top: BorderSide(color: Colors.white.withValues(alpha: .1)),
         ),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: saving ? null : onCancel,
-            tooltip: 'Cancel',
-            icon: const Icon(Icons.close),
-          ),
-          if (step > 0)
-            OutlinedButton.icon(
-              onPressed: saving ? null : onPrevious,
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Previous'),
-            ),
-          const Spacer(),
-          if (step < 6)
-            FilledButton.icon(
-              onPressed: saving ? null : onNext,
-              iconAlignment: IconAlignment.end,
-              icon: const Icon(Icons.arrow_forward),
-              label: const Text('Next'),
-            )
-          else
-            FilledButton.icon(
-              onPressed: saving ? null : onPublish,
-              icon: saving
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.rocket_launch_outlined),
-              label: const Text('Publish'),
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 420;
+          final forward = step < lastStep
+              ? FilledButton.icon(
+                  onPressed: saving ? null : onNext,
+                  iconAlignment: IconAlignment.end,
+                  icon: compact
+                      ? const SizedBox.shrink()
+                      : const Icon(Icons.arrow_forward),
+                  label: Text(
+                    nextLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )
+              : FilledButton.icon(
+                  onPressed: saving ? null : onPublish,
+                  icon: saving
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.rocket_launch_outlined),
+                  label: const Text('Publish'),
+                );
+          return Row(
+            children: [
+              IconButton(
+                onPressed: saving ? null : onCancel,
+                tooltip: 'Cancel',
+                icon: const Icon(Icons.close),
+              ),
+              if (step > 0)
+                if (compact)
+                  IconButton(
+                    onPressed: saving ? null : onPrevious,
+                    tooltip: 'Previous',
+                    icon: const Icon(Icons.arrow_back),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: saving ? null : onPrevious,
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Previous'),
+                  ),
+              const Spacer(),
+              Flexible(child: forward),
+            ],
+          );
+        },
       ),
     ),
   );
@@ -1385,49 +3554,25 @@ class _WizardNavigation extends StatelessWidget {
 class _LiveJourneyPreview extends StatelessWidget {
   const _LiveJourneyPreview({
     required this.journey,
-    required this.flow,
+    required this.allowedStarts,
+    required this.allowedEnds,
     required this.colour,
   });
   final VanCustomerJourneyType journey;
-  final VanServiceFlow flow;
+  final List<VanStartHandover> allowedStarts;
+  final List<VanEndHandover> allowedEnds;
   final Color colour;
-  List<String> get _steps {
-    final start = switch (journey) {
-      VanCustomerJourneyType.quote => [
-        'Customer',
-        'Quote request',
-        'Business review',
-        'Quote sent',
-        'Accepted',
-      ],
-      VanCustomerJourneyType.booking => [
-        'Customer',
-        'Booking request',
-        'Business confirms',
-      ],
-      VanCustomerJourneyType.order => [
-        'Customer',
-        'Order placed',
-        'Business prepares',
-      ],
-    };
-    final fulfilment = switch (flow) {
-      VanServiceFlow.standard => ['Service', 'Calendar', 'Invoice'],
-      VanServiceFlow.pickupDelivery => [
-        'Collect',
-        'Complete work',
-        'Return',
-        'Invoice',
-      ],
-      VanServiceFlow.dropOffPickup => [
-        'Drop-off',
-        'Complete work',
-        'Collection',
-        'Invoice',
-      ],
-    };
-    return [...start, ...fulfilment];
-  }
+  String get _workLabel => switch (journey) {
+    VanCustomerJourneyType.quote => 'Business completes service',
+    VanCustomerJourneyType.booking => 'Business completes appointment',
+    VanCustomerJourneyType.order => 'Business prepares order',
+  };
+
+  List<String> get _routes => [
+    for (final start in allowedStarts)
+      for (final end in allowedEnds)
+        '${start == VanStartHandover.customerDropsOff ? 'Customer drops off' : 'Business collects'} → $_workLabel → ${end == VanEndHandover.customerCollects ? 'Customer collects' : 'Business returns'}',
+  ];
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1444,53 +3589,97 @@ class _LiveJourneyPreview extends StatelessWidget {
           children: [
             Icon(Icons.account_tree_outlined, color: Colors.white70),
             SizedBox(width: 8),
-            Text(
-              'Live journey preview',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
+            Expanded(
+              child: Text(
+                'Live journey preview',
+                softWrap: true,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 14),
-        for (var index = 0; index < _steps.length; index++) ...[
-          Row(
-            children: [
-              Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: colour.withValues(alpha: .18),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  index == 0 ? Icons.person_outline : Icons.check_rounded,
-                  size: 14,
-                  color: colour,
-                ),
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  _steps[index],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (index < _steps.length - 1)
+        if (_routes.isEmpty)
+          Text(
+            'Choose at least one start and end option to preview the customer journey.',
+            style: TextStyle(color: Colors.white.withValues(alpha: .62)),
+          )
+        else
+          for (var index = 0; index < _routes.length; index++) ...[
             Container(
-              margin: const EdgeInsets.only(left: 11),
-              width: 2,
-              height: 12,
-              color: colour.withValues(alpha: .35),
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colour.withValues(alpha: .09),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colour.withValues(alpha: .22)),
+              ),
+              child: Text(
+                _routes[index],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
             ),
-        ],
+            if (index < _routes.length - 1) const SizedBox(height: 8),
+          ],
       ],
+    ),
+  );
+}
+
+class _HandoverCapabilityTile extends StatelessWidget {
+  const _HandoverCapabilityTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: selected
+        ? const Color(0xFF66D6B5).withValues(alpha: .1)
+        : Colors.white.withValues(alpha: .04),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(
+        color: selected
+            ? const Color(0xFF66D6B5)
+            : Colors.white.withValues(alpha: .11),
+      ),
+    ),
+    child: CheckboxListTile(
+      value: selected,
+      onChanged: (value) => onChanged(value == true),
+      secondary: Icon(
+        icon,
+        color: selected ? const Color(0xFF66D6B5) : Colors.white60,
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: Colors.white.withValues(alpha: .58)),
+      ),
+      controlAffinity: ListTileControlAffinity.trailing,
     ),
   );
 }
@@ -1701,6 +3890,7 @@ class _ColourChoice extends StatelessWidget {
   );
 }
 
+// ignore: unused_element
 class _CompactToggle extends StatelessWidget {
   const _CompactToggle({
     required this.icon,
@@ -1730,9 +3920,9 @@ class _CompactToggle extends StatelessWidget {
   );
 }
 
+// ignore: unused_element
 class _QuestionCard extends StatelessWidget {
   const _QuestionCard({
-    super.key,
     required this.question,
     required this.optional,
     required this.onOptionalChanged,
@@ -1801,6 +3991,7 @@ class _QuestionCard extends StatelessWidget {
   );
 }
 
+// ignore: unused_element
 class _PricingCard extends StatelessWidget {
   const _PricingCard({
     required this.extra,
@@ -1930,6 +4121,74 @@ class _ReviewHero extends StatelessWidget {
   );
 }
 
+class _BusinessServiceReviewCard extends StatelessWidget {
+  const _BusinessServiceReviewCard({
+    required this.setup,
+    required this.handover,
+    required this.extrasCount,
+    required this.availability,
+  });
+
+  final VanRecommendedServiceSetup setup;
+  final String handover;
+  final int extrasCount;
+  final String availability;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .045),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: Colors.white.withValues(alpha: .11)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          setup.name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          setup.description,
+          style: TextStyle(color: Colors.white.withValues(alpha: .62)),
+        ),
+        const SizedBox(height: 8),
+        _ReviewRow(
+          icon: Icons.signpost_outlined,
+          label: 'Journey',
+          value: setup.journeyType.selectorLabel,
+          onEdit: null,
+        ),
+        _ReviewRow(
+          icon: Icons.alt_route_rounded,
+          label: 'Handover',
+          value: handover,
+          onEdit: null,
+        ),
+        _ReviewRow(
+          icon: Icons.payments_outlined,
+          label: 'Pricing extras',
+          value: '$extrasCount enabled',
+          onEdit: null,
+        ),
+        _ReviewRow(
+          icon: Icons.schedule_outlined,
+          label: 'Availability',
+          value: availability,
+          onEdit: null,
+        ),
+      ],
+    ),
+  );
+}
+
 class _ReviewRow extends StatelessWidget {
   const _ReviewRow({
     required this.icon,
@@ -1939,7 +4198,7 @@ class _ReviewRow extends StatelessWidget {
   });
   final IconData icon;
   final String label, value;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit;
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1952,7 +4211,9 @@ class _ReviewRow extends StatelessWidget {
       value,
       style: TextStyle(color: Colors.white.withValues(alpha: .62)),
     ),
-    trailing: TextButton(onPressed: onEdit, child: const Text('Edit')),
+    trailing: onEdit == null
+        ? null
+        : TextButton(onPressed: onEdit, child: const Text('Edit')),
   );
 }
 
@@ -2008,6 +4269,1307 @@ class _QuestionTemplate {
   final IconData icon;
   final VanCustomQuestionAnswerType answerType;
   final VanCustomQuestionCategory? category;
+}
+
+class _QuestionLibraryItem {
+  const _QuestionLibraryItem({
+    required this.key,
+    required this.label,
+    required this.icon,
+    this.answerType = VanCustomQuestionAnswerType.shortText,
+    this.category = VanCustomQuestionCategory.jobDetails,
+  }) : builtIn = false;
+
+  const _QuestionLibraryItem.builtIn({
+    required this.key,
+    required this.label,
+    required this.icon,
+  }) : builtIn = true,
+       answerType = VanCustomQuestionAnswerType.shortText,
+       category = VanCustomQuestionCategory.jobDetails;
+
+  final String key;
+  final String label;
+  final IconData icon;
+  final bool builtIn;
+  final VanCustomQuestionAnswerType answerType;
+  final VanCustomQuestionCategory category;
+}
+
+const List<_QuestionLibraryItem> _customQuestionLibrary = [
+  _QuestionLibraryItem(
+    key: 'access_instructions',
+    label: 'Access Instructions',
+    icon: Icons.door_front_door_outlined,
+    answerType: VanCustomQuestionAnswerType.longText,
+    category: VanCustomQuestionCategory.access,
+  ),
+  _QuestionLibraryItem(
+    key: 'parking',
+    label: 'Parking',
+    icon: Icons.local_parking_outlined,
+    answerType: VanCustomQuestionAnswerType.longText,
+    category: VanCustomQuestionCategory.parking,
+  ),
+  _QuestionLibraryItem(
+    key: 'measurements',
+    label: 'Measurements',
+    icon: Icons.straighten_outlined,
+  ),
+  _QuestionLibraryItem(
+    key: 'colours',
+    label: 'Colours',
+    icon: Icons.palette_outlined,
+  ),
+  _QuestionLibraryItem(
+    key: 'gate_code',
+    label: 'Gate Code',
+    icon: Icons.password_outlined,
+  ),
+  _QuestionLibraryItem(key: 'pets', label: 'Pets', icon: Icons.pets_outlined),
+  _QuestionLibraryItem(
+    key: 'allergies',
+    label: 'Allergies',
+    icon: Icons.health_and_safety_outlined,
+    answerType: VanCustomQuestionAnswerType.longText,
+  ),
+  _QuestionLibraryItem(
+    key: 'vehicle_details',
+    label: 'Vehicle Details',
+    icon: Icons.directions_car_outlined,
+    answerType: VanCustomQuestionAnswerType.longText,
+  ),
+];
+
+class _ExtraLibraryItem {
+  const _ExtraLibraryItem({
+    required this.key,
+    required this.label,
+    required this.icon,
+    required this.defaultPrice,
+    this.units = const ['Fixed'],
+    this.defaultUnit = 'Fixed',
+  });
+
+  final String key;
+  final String label;
+  final IconData icon;
+  final double defaultPrice;
+  final List<String> units;
+  final String defaultUnit;
+}
+
+const List<_ExtraLibraryItem> _defaultExtrasLibrary = [
+  _ExtraLibraryItem(
+    key: kVanQuoteExtraMileageKey,
+    label: 'Mileage',
+    icon: Icons.route_outlined,
+    defaultPrice: 1,
+    units: ['Mile', 'Km', 'Fixed'],
+    defaultUnit: 'Mile',
+  ),
+  _ExtraLibraryItem(
+    key: kVanQuoteExtraWaitingTimeKey,
+    label: 'Waiting Time',
+    icon: Icons.timer_outlined,
+    defaultPrice: 15,
+    units: ['15 Minutes', '30 Minutes', 'Hour'],
+    defaultUnit: '15 Minutes',
+  ),
+  _ExtraLibraryItem(
+    key: 'custom_extra_materials',
+    label: 'Materials',
+    icon: Icons.inventory_2_outlined,
+    defaultPrice: 20,
+  ),
+  _ExtraLibraryItem(
+    key: 'custom_extra_weekend',
+    label: 'Weekend',
+    icon: Icons.weekend_outlined,
+    defaultPrice: 20,
+  ),
+  _ExtraLibraryItem(
+    key: 'custom_extra_emergency_callout',
+    label: 'Emergency Call-out',
+    icon: Icons.emergency_outlined,
+    defaultPrice: 30,
+  ),
+  _ExtraLibraryItem(
+    key: 'custom_extra_rush_order',
+    label: 'Rush Order',
+    icon: Icons.bolt_outlined,
+    defaultPrice: 20,
+  ),
+  _ExtraLibraryItem(
+    key: kVanQuoteExtraCollectionDeliveryKey,
+    label: 'Delivery',
+    icon: Icons.local_shipping_outlined,
+    defaultPrice: 15,
+  ),
+  _ExtraLibraryItem(
+    key: 'custom_extra_installation',
+    label: 'Installation',
+    icon: Icons.build_outlined,
+    defaultPrice: 25,
+  ),
+  _ExtraLibraryItem(
+    key: 'custom_extra_gift_wrapping',
+    label: 'Gift Wrapping',
+    icon: Icons.card_giftcard_outlined,
+    defaultPrice: 5,
+  ),
+];
+
+class _RecommendationBanner extends StatelessWidget {
+  const _RecommendationBanner({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF66D6B5).withValues(alpha: .1),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFF66D6B5).withValues(alpha: .35)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.auto_awesome, color: Color(0xFF66D6B5)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(color: Colors.white, height: 1.35),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _BusinessChoice {
+  const _BusinessChoice({required this.label, required this.pack});
+
+  final String label;
+  final VanStarterCapabilityPack pack;
+}
+
+class _BusinessBrowseCategory {
+  const _BusinessBrowseCategory({
+    required this.id,
+    required this.title,
+    required this.icon,
+    required this.packs,
+  });
+
+  final String id;
+  final String title;
+  final IconData icon;
+  final List<VanStarterCapabilityPack> packs;
+}
+
+List<_BusinessChoice> _popularBusinessChoices() {
+  const choices = <(String, String)>[
+    ('Plumber', 'plumber_business'),
+    ('Electrician', 'electrician_business'),
+    ('Gardener', 'gardening_business'),
+    ('Cleaner', 'cleaning_business'),
+    ('Window Cleaner', 'window_cleaning_business'),
+    ('Cake Orders', 'cake_orders_business'),
+    ('Dog Groomer', 'dog_groomer_business'),
+    ('Photographer', 'photography_business'),
+    ('Courier', 'courier_business'),
+    ('Hairdresser', 'mobile_hairdresser_business'),
+  ];
+  return <_BusinessChoice>[
+    for (final choice in choices)
+      if (findVanStarterCapabilityPackById(choice.$2) case final pack?)
+        _BusinessChoice(label: choice.$1, pack: pack),
+  ];
+}
+
+List<_BusinessBrowseCategory> _businessBrowseCategories() {
+  const definitions = <(String, String, IconData)>[
+    (
+      'transport_delivery',
+      'Transport & Delivery',
+      Icons.local_shipping_outlined,
+    ),
+    ('home_property', 'Home & Property', Icons.home_repair_service_outlined),
+    ('trades', 'Trades', Icons.handyman_outlined),
+    ('food_local', 'Food & Local Businesses', Icons.cake_outlined),
+    ('pet_services', 'Pet Services', Icons.pets_outlined),
+    ('creative_events', 'Creative & Events', Icons.photo_camera_outlined),
+    ('professional', 'Professional Services', Icons.business_center_outlined),
+    ('entertainment', 'Entertainment', Icons.celebration_outlined),
+    ('health_beauty', 'Health & Beauty', Icons.spa_outlined),
+    ('other', 'Other', Icons.add_circle_outline_rounded),
+  ];
+  final grouped = <String, List<VanStarterCapabilityPack>>{};
+  for (final pack in kVanStarterCapabilityPacks) {
+    grouped.putIfAbsent(_browseCategoryIdFor(pack), () => []).add(pack);
+  }
+  return <_BusinessBrowseCategory>[
+    for (final definition in definitions)
+      if (grouped[definition.$1]?.isNotEmpty == true)
+        _BusinessBrowseCategory(
+          id: definition.$1,
+          title: definition.$2,
+          icon: definition.$3,
+          packs: grouped[definition.$1]!
+            ..sort((left, right) => left.name.compareTo(right.name)),
+        ),
+  ];
+}
+
+String _browseCategoryIdFor(VanStarterCapabilityPack pack) {
+  final id = pack.id;
+  if (id.contains('dog') || id.contains('pet')) return 'pet_services';
+  if (id.contains('hairdresser') || id.contains('beautician')) {
+    return 'health_beauty';
+  }
+  if (id.contains('dj') || id.contains('party') || id.contains('balloon')) {
+    return 'entertainment';
+  }
+  if (id.contains('photo') || id.contains('event_setup')) {
+    return 'creative_events';
+  }
+  return switch (pack.category.toLowerCase()) {
+    'transport & delivery' => 'transport_delivery',
+    'home & property' => 'home_property',
+    'trades' => 'trades',
+    'food & local business' => 'food_local',
+    _ => 'other',
+  };
+}
+
+class _BusinessShortcutSection extends StatelessWidget {
+  const _BusinessShortcutSection({
+    required this.title,
+    required this.icon,
+    required this.choices,
+    required this.onSelected,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_BusinessChoice> choices;
+  final ValueChanged<VanStarterCapabilityPack> onSelected;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFFFFC65C)),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 9),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final choice in choices)
+            ActionChip(
+              onPressed: () => onSelected(choice.pack),
+              avatar: Icon(
+                Icons.business_center_outlined,
+                size: 17,
+                color: Color(choice.pack.colorValue),
+              ),
+              label: Text(choice.label),
+              backgroundColor: Colors.white.withValues(alpha: .07),
+              side: BorderSide(color: Colors.white.withValues(alpha: .13)),
+              labelStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+        ],
+      ),
+    ],
+  );
+}
+
+class _BusinessResultList extends StatelessWidget {
+  const _BusinessResultList({required this.results, required this.onSelected});
+
+  final List<VanBusinessSearchResult> results;
+  final ValueChanged<VanStarterCapabilityPack> onSelected;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .045),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.white.withValues(alpha: .12)),
+    ),
+    child: Column(
+      children: [
+        for (var index = 0; index < results.length; index++) ...[
+          if (index > 0)
+            Divider(height: 1, color: Colors.white.withValues(alpha: .08)),
+          _BusinessResultTile(
+            label: results[index].label,
+            pack: results[index].pack,
+            onSelected: onSelected,
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _BusinessResultTile extends StatelessWidget {
+  const _BusinessResultTile({
+    required this.label,
+    required this.pack,
+    required this.onSelected,
+  });
+
+  final String label;
+  final VanStarterCapabilityPack pack;
+  final ValueChanged<VanStarterCapabilityPack> onSelected;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: () => onSelected(pack),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(13, 11, 9, 11),
+      child: Row(
+        children: [
+          Icon(
+            Icons.auto_awesome_outlined,
+            size: 20,
+            color: Color(pack.colorValue),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (label != pack.name)
+                  Text(
+                    'Recommended starting point: ${pack.name}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: .52),
+                      fontSize: 11.5,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+        ],
+      ),
+    ),
+  );
+}
+
+class _BusinessCategoryCard extends StatelessWidget {
+  const _BusinessCategoryCard({
+    required this.category,
+    required this.expanded,
+    required this.onToggle,
+    required this.onSelected,
+  });
+
+  final _BusinessBrowseCategory category;
+  final bool expanded;
+  final VoidCallback onToggle;
+  final ValueChanged<VanStarterCapabilityPack> onSelected;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .04),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: Colors.white.withValues(alpha: .11)),
+    ),
+    child: Column(
+      children: [
+        InkWell(
+          onTap: onToggle,
+          borderRadius: BorderRadius.circular(15),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+            child: Row(
+              children: [
+                Icon(category.icon, size: 20, color: const Color(0xFF91E8CE)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    category.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${category.packs.length}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: .42),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Icon(
+                  expanded ? Icons.expand_less : Icons.expand_more,
+                  color: Colors.white70,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (expanded) ...[
+          Divider(height: 1, color: Colors.white.withValues(alpha: .09)),
+          for (final pack in category.packs)
+            _BusinessResultTile(
+              label: pack.name,
+              pack: pack,
+              onSelected: onSelected,
+            ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _EmptyBusinessSearch extends StatelessWidget {
+  const _EmptyBusinessSearch();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .045),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.white.withValues(alpha: .12)),
+    ),
+    child: Column(
+      children: [
+        const Text(
+          "Can't find your business?",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Try a shorter search, a related business name, or clear the search to browse categories.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white.withValues(alpha: .6)),
+        ),
+      ],
+    ),
+  );
+}
+
+class _RecommendedServiceSelectionCard extends StatelessWidget {
+  const _RecommendedServiceSelectionCard({
+    required this.pack,
+    required this.selectedIds,
+    required this.saving,
+    required this.onChanged,
+    required this.onContinue,
+    required this.onChooseDifferent,
+  });
+
+  final VanStarterCapabilityPack pack;
+  final Set<String> selectedIds;
+  final bool saving;
+  final void Function(String serviceId, bool selected) onChanged;
+  final VoidCallback onContinue;
+  final VoidCallback onChooseDifferent;
+
+  @override
+  Widget build(BuildContext context) {
+    final services = pack.serviceRecommendations;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Color(pack.colorValue).withValues(alpha: .09),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Color(pack.colorValue).withValues(alpha: .35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            pack.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Which services do you offer?',
+            style: TextStyle(
+              color: Color(0xFF91E8CE),
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Choose what you provide and Business Mate will build each service for you.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: .68),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          for (final service in services) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 9),
+              child: Material(
+                color: Colors.white.withValues(alpha: .045),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(
+                    color: selectedIds.contains(service.id)
+                        ? Color(pack.colorValue).withValues(alpha: .52)
+                        : Colors.white.withValues(alpha: .09),
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: CheckboxListTile(
+                  value: selectedIds.contains(service.id),
+                  onChanged: saving
+                      ? null
+                      : (value) => onChanged(service.id, value == true),
+                  activeColor: Color(pack.colorValue),
+                  checkColor: const Color(0xFF0B1728),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  title: Text(
+                    service.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 3),
+                      Text(
+                        service.description,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: .58),
+                          fontSize: 12,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 7),
+          Text(
+            '${selectedIds.length} service${selectedIds.length == 1 ? '' : 's'} selected',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: .72),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: saving || selectedIds.isEmpty ? null : onContinue,
+              icon: saving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.fact_check_outlined),
+              label: const Text('Review Business'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: saving ? null : onChooseDifferent,
+              child: const Text('Choose a different business type'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceCapabilitiesCard extends StatelessWidget {
+  const _ServiceCapabilitiesCard({
+    required this.pack,
+    required this.selectedServiceIds,
+    required this.capabilityIdsByService,
+    required this.saving,
+    required this.onChanged,
+    required this.onBack,
+    required this.onContinue,
+    required this.onChooseDifferent,
+  });
+
+  final VanStarterCapabilityPack pack;
+  final Set<String> selectedServiceIds;
+  final Map<String, Set<String>> capabilityIdsByService;
+  final bool saving;
+  final void Function(String serviceId, String capabilityId, bool selected)
+  onChanged;
+  final VoidCallback onBack;
+  final VoidCallback onContinue;
+  final VoidCallback onChooseDifferent;
+
+  @override
+  Widget build(BuildContext context) {
+    final services = pack.serviceRecommendations
+        .where((service) => selectedServiceIds.contains(service.id))
+        .toList(growable: false);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Color(pack.colorValue).withValues(alpha: .09),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Color(pack.colorValue).withValues(alpha: .35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Service Capabilities',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 21,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Choose how each service works. Business Mate will turn these choices into the customer journey, booking settings, questions and pricing behaviour.',
+            style: TextStyle(color: Colors.white70, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          for (final service in services) ...[
+            _ServiceCapabilityEditor(
+              service: service,
+              selectedIds:
+                  capabilityIdsByService[service.id] ??
+                  service.recommendedCapabilityIds.toSet(),
+              colour: Color(pack.colorValue),
+              enabled: !saving,
+              onChanged: (capabilityId, selected) =>
+                  onChanged(service.id, capabilityId, selected),
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: saving ? null : onContinue,
+              icon: const Icon(Icons.payments_outlined),
+              label: const Text('Choose Pricing Extras'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: saving ? null : onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('Change Selected Services'),
+            ),
+          ),
+          TextButton(
+            onPressed: saving ? null : onChooseDifferent,
+            child: const Text('Choose a different business type'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceCapabilityEditor extends StatelessWidget {
+  const _ServiceCapabilityEditor({
+    required this.service,
+    required this.selectedIds,
+    required this.colour,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final VanBusinessServiceRecommendation service;
+  final Set<String> selectedIds;
+  final Color colour;
+  final bool enabled;
+  final void Function(String capabilityId, bool selected) onChanged;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white.withValues(alpha: .045),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(color: Colors.white.withValues(alpha: .11)),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: ExpansionTile(
+      initiallyExpanded: true,
+      iconColor: colour,
+      collapsedIconColor: Colors.white70,
+      title: Text(
+        service.name,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      subtitle: Text(
+        '${selectedIds.length} capabilities enabled',
+        style: TextStyle(color: Colors.white.withValues(alpha: .58)),
+      ),
+      childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+      children: [
+        for (final group in VanServiceCapabilityGroup.values) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 7),
+              child: Text(
+                group.label,
+                style: TextStyle(
+                  color: colour,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              for (final capability in kVanServiceCapabilities)
+                if (capability.group == group)
+                  FilterChip(
+                    selected: selectedIds.contains(capability.id),
+                    onSelected: enabled
+                        ? (selected) => onChanged(capability.id, selected)
+                        : null,
+                    label: Text(capability.label),
+                    tooltip: capability.description,
+                    selectedColor: colour.withValues(alpha: .25),
+                    backgroundColor: Colors.white.withValues(alpha: .05),
+                    side: BorderSide(
+                      color: selectedIds.contains(capability.id)
+                          ? colour
+                          : Colors.white.withValues(alpha: .12),
+                    ),
+                    labelStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _CreationSourceBanner extends StatelessWidget {
+  const _CreationSourceBanner({
+    required this.title,
+    required this.subtitle,
+    required this.onChange,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(13),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .045),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: Colors.white.withValues(alpha: .11)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.check_circle, color: Color(0xFF66D6B5)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: TextStyle(color: Colors.white.withValues(alpha: .6)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        TextButton(onPressed: onChange, child: const Text('Change')),
+      ],
+    ),
+  );
+}
+
+class _QuestionSectionHeading extends StatelessWidget {
+  const _QuestionSectionHeading({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          subtitle,
+          style: TextStyle(color: Colors.white.withValues(alpha: .58)),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SelectedQuestionsSummary extends StatelessWidget {
+  const _SelectedQuestionsSummary({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF66D6B5).withValues(alpha: .1),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFF66D6B5).withValues(alpha: .28)),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.check_circle_outline, color: Color(0xFF66D6B5)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Selected Questions',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                '$count ${count == 1 ? 'question' : 'questions'} selected',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: .62),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _LibraryGrid extends StatelessWidget {
+  const _LibraryGrid({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 520 ? 2 : 1;
+      final width = (constraints.maxWidth - (columns - 1) * 10) / columns;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final child in children) SizedBox(width: width, child: child),
+        ],
+      );
+    },
+  );
+}
+
+class _LibraryChoiceCard extends StatelessWidget {
+  const _LibraryChoiceCard({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onChanged,
+  });
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: () => onChanged(!selected),
+      borderRadius: BorderRadius.circular(15),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF66D6B5).withValues(alpha: .11)
+              : Colors.white.withValues(alpha: .04),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF66D6B5)
+                : Colors.white.withValues(alpha: .11),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: selected ? const Color(0xFF66D6B5) : Colors.white60,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Checkbox(
+              value: selected,
+              onChanged: (value) => onChanged(value == true),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _BuiltInQuestionConfigCard extends StatelessWidget {
+  const _BuiltInQuestionConfigCard({
+    required this.item,
+    required this.requiredValue,
+    required this.helperText,
+    required this.maxPhotos,
+    required this.onRequiredChanged,
+    required this.onHelperChanged,
+    this.onMaxPhotosChanged,
+  });
+  final _QuestionLibraryItem item;
+  final bool requiredValue;
+  final String helperText;
+  final int maxPhotos;
+  final ValueChanged<bool> onRequiredChanged;
+  final ValueChanged<String> onHelperChanged;
+  final ValueChanged<int>? onMaxPhotosChanged;
+
+  @override
+  Widget build(BuildContext context) => _ConfigCard(
+    icon: item.icon,
+    title: item.label,
+    children: [
+      if (item.key != 'exact_pin')
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          value: requiredValue,
+          onChanged: onRequiredChanged,
+          title: Text(
+            requiredValue ? 'Required' : 'Optional',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      if (onMaxPhotosChanged != null)
+        DropdownButtonFormField<int>(
+          initialValue: maxPhotos,
+          dropdownColor: const Color(0xFF17253A),
+          decoration: vanMateFieldDecoration(label: 'Maximum number of photos'),
+          items: [
+            for (final value in const [1, 2, 3, 4, 5])
+              DropdownMenuItem(value: value, child: Text('$value photos')),
+          ],
+          onChanged: (value) {
+            if (value != null) onMaxPhotosChanged!(value);
+          },
+        ),
+      if (onMaxPhotosChanged != null) const SizedBox(height: 10),
+      TextFormField(
+        initialValue: helperText,
+        maxLines: 2,
+        onChanged: onHelperChanged,
+        decoration: vanMateFieldDecoration(
+          label: 'Helper text',
+          hintText: 'Optional guidance for the customer',
+        ),
+      ),
+    ],
+  );
+}
+
+class _CustomQuestionConfigCard extends StatelessWidget {
+  const _CustomQuestionConfigCard({
+    required this.question,
+    required this.requiredValue,
+    required this.showUnit,
+    required this.onRequiredChanged,
+    required this.onHelperChanged,
+    required this.onUnitChanged,
+    required this.onEdit,
+  });
+  final VanCustomJobQuestion question;
+  final bool requiredValue;
+  final bool showUnit;
+  final ValueChanged<bool> onRequiredChanged;
+  final ValueChanged<String> onHelperChanged;
+  final ValueChanged<String> onUnitChanged;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) => _ConfigCard(
+    icon: Icons.question_answer_outlined,
+    title: question.questionText,
+    trailing: TextButton.icon(
+      onPressed: onEdit,
+      icon: const Icon(Icons.edit_outlined),
+      label: const Text('Question & type'),
+    ),
+    children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Answer type: ${question.answerType.label}',
+          style: TextStyle(color: Colors.white.withValues(alpha: .62)),
+        ),
+      ),
+      SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        value: requiredValue,
+        onChanged: onRequiredChanged,
+        title: Text(
+          requiredValue ? 'Required' : 'Optional',
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      if (showUnit) ...[
+        DropdownButtonFormField<String>(
+          initialValue: null,
+          dropdownColor: const Color(0xFF17253A),
+          decoration: vanMateFieldDecoration(label: 'Unit'),
+          items: const [
+            DropdownMenuItem(value: 'cm', child: Text('Centimetres (cm)')),
+            DropdownMenuItem(value: 'mm', child: Text('Millimetres (mm)')),
+            DropdownMenuItem(value: 'inches', child: Text('Inches')),
+          ],
+          onChanged: (value) => onUnitChanged(value ?? ''),
+        ),
+        const SizedBox(height: 10),
+      ],
+      TextFormField(
+        initialValue: question.helperText,
+        maxLines: 2,
+        onChanged: onHelperChanged,
+        decoration: vanMateFieldDecoration(
+          label: 'Helper text',
+          hintText: 'Optional guidance for the customer',
+        ),
+      ),
+    ],
+  );
+}
+
+class _ExtraConfigurationCard extends StatelessWidget {
+  const _ExtraConfigurationCard({
+    super.key,
+    required this.extra,
+    required this.unit,
+    required this.units,
+    required this.onPriceChanged,
+    required this.onUnitChanged,
+    required this.onEnabledChanged,
+  });
+  final VanQuoteExtraDefault extra;
+  final String unit;
+  final List<String> units;
+  final ValueChanged<String> onPriceChanged;
+  final ValueChanged<String> onUnitChanged;
+  final ValueChanged<bool> onEnabledChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final uniqueUnits = <String>{
+      for (final value in units)
+        if (value.trim().isNotEmpty) value.trim(),
+    }.toList(growable: true);
+    if (uniqueUnits.isEmpty) uniqueUnits.add('Fixed');
+    final selectedUnit = uniqueUnits.contains(unit) ? unit : uniqueUnits.first;
+    return _ConfigCard(
+      icon: Icons.payments_outlined,
+      title: extra.resolvedLabel,
+      children: [
+        TextFormField(
+          initialValue: extra.defaultPrice.toStringAsFixed(
+            extra.defaultPrice == extra.defaultPrice.roundToDouble() ? 0 : 2,
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: onPriceChanged,
+          decoration: vanMateFieldDecoration(label: 'Price', prefixText: '£'),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          initialValue: selectedUnit,
+          dropdownColor: const Color(0xFF17253A),
+          decoration: vanMateFieldDecoration(label: 'Charge per'),
+          items: [
+            for (final value in uniqueUnits)
+              DropdownMenuItem(value: value, child: Text(value)),
+          ],
+          onChanged: (value) {
+            if (value != null) onUnitChanged(value);
+          },
+        ),
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          value: extra.enabled,
+          onChanged: onEnabledChanged,
+          title: const Text('Enabled', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConfigCard extends StatelessWidget {
+  const _ConfigCard({
+    required this.icon,
+    required this.title,
+    required this.children,
+    this.trailing,
+  });
+  final IconData icon;
+  final String title;
+  final List<Widget> children;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: Material(
+      color: Colors.white.withValues(alpha: .045),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.white.withValues(alpha: .11)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: const Color(0xFF66D6B5)),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                ?trailing,
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _CompletionDialog extends StatefulWidget {

@@ -7,20 +7,39 @@ import 'package:image_picker/image_picker.dart';
 import '../helpers/app_theme.dart';
 import '../helpers/van_business_logo_support.dart';
 import '../models/van_business_profile_settings.dart';
+import '../services/van_business_deletion_service.dart';
 import '../services/van_business_logo_storage_service.dart';
+import '../services/van_business_profile_scope_storage.dart';
 import '../services/van_business_profile_storage.dart';
 import '../services/van_firebase_auth_service.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 import '../widgets/van_form_field_styles.dart';
 
-Future<void> openVanBusinessProfilePage(BuildContext context) {
+class VanBusinessProfilePageResult {
+  const VanBusinessProfilePageResult({
+    required this.businessDeleted,
+    required this.requiresBusinessSetup,
+  });
+
+  final bool businessDeleted;
+  final bool requiresBusinessSetup;
+}
+
+Future<VanBusinessProfilePageResult?> openVanBusinessProfilePage(
+  BuildContext context, {
+  bool setupMode = false,
+}) {
   return Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const VanBusinessProfilePage()),
+    MaterialPageRoute<VanBusinessProfilePageResult>(
+      builder: (_) => VanBusinessProfilePage(setupMode: setupMode),
+    ),
   );
 }
 
 class VanBusinessProfilePage extends StatefulWidget {
-  const VanBusinessProfilePage({super.key});
+  const VanBusinessProfilePage({super.key, this.setupMode = false});
+
+  final bool setupMode;
 
   @override
   State<VanBusinessProfilePage> createState() => _VanBusinessProfilePageState();
@@ -51,6 +70,8 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
   bool _vatRegistered = false;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isDeleting = false;
+  late bool _setupMode;
   VanBusinessProfileSettings _loadedSettings =
       const VanBusinessProfileSettings.defaults();
   String? _logoPath;
@@ -62,6 +83,7 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
   @override
   void initState() {
     super.initState();
+    _setupMode = widget.setupMode;
     unawaited(_loadProfile());
   }
 
@@ -183,13 +205,18 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
     if (_isSaving) {
       return;
     }
+    final businessName = _businessNameController.text.trim();
+    if (businessName.isEmpty) {
+      _showSnack('Enter a business name.');
+      return;
+    }
 
     setState(() {
       _isSaving = true;
     });
 
     final profile = VanBusinessProfileSettings(
-      businessName: _businessNameController.text.trim(),
+      businessName: businessName,
       ownerName: _ownerNameController.text.trim(),
       businessType: _businessTypeController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
@@ -327,11 +354,20 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
         logoUrl: resolvedLogoUrl,
         cloudLogoPath: resolvedLogoStoragePath,
       );
+      final scopeStorage = VanBusinessProfileScopeStorage.instance;
+      final activeProfile = await scopeStorage.activeProfile();
+      if (activeProfile.name != businessName) {
+        await scopeStorage.renameProfile(
+          profileId: activeProfile.id,
+          name: businessName,
+        );
+      }
       debugPrint('[BusinessProfilePage] profile settings save success');
       _logoUrl = resolvedLogoUrl;
       _logoStoragePath = resolvedLogoStoragePath;
       _selectedLogoUpload = null;
       _loadedSettings = profile;
+      _setupMode = false;
       if (!mounted) {
         return;
       }
@@ -354,6 +390,70 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
       if (mounted) {
         setState(() {
           _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteBusiness() async {
+    if (_isDeleting || _isSaving) {
+      return;
+    }
+    final scopeStorage = VanBusinessProfileScopeStorage.instance;
+    final activeProfile = await scopeStorage.activeProfile();
+    if (!mounted) {
+      return;
+    }
+    final confirmedName = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _DeleteBusinessDialog(businessName: activeProfile.name),
+    );
+    if (confirmedName == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isDeleting = true;
+    });
+    try {
+      final result = await VanBusinessDeletionService.instance.deleteBusiness(
+        profile: activeProfile,
+        confirmedBusinessName: confirmedName,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (result.transition.requiresBusinessSetup) {
+        setState(() {
+          _setupMode = true;
+          _isLoading = true;
+        });
+        await _loadProfile();
+        if (mounted) {
+          _showSnack('Business deleted. Set up your new business to continue.');
+        }
+        return;
+      }
+      Navigator.of(context).pop(
+        const VanBusinessProfilePageResult(
+          businessDeleted: true,
+          requiresBusinessSetup: false,
+        ),
+      );
+    } on VanBusinessDeletionException catch (error) {
+      if (mounted) {
+        _showSnack(error.message);
+      }
+    } catch (error) {
+      debugPrint('[BusinessProfilePage] delete failure: $error');
+      if (mounted) {
+        _showSnack('Could not delete the business safely. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeleting = false;
         });
       }
     }
@@ -407,7 +507,7 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
         surfaceTintColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Business Profile'),
+        title: Text(_setupMode ? 'Business Setup' : 'Edit Business'),
         leadingWidth: 96,
         leading: Padding(
           padding: const EdgeInsetsDirectional.only(start: 8),
@@ -437,6 +537,34 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                       bottomInset + keyboardInset + 24,
                     ),
                     children: [
+                      if (_setupMode) ...[
+                        _SectionCard(
+                          title: 'Set up your business',
+                          subtitle:
+                              'Add the essentials below. You can configure services and your Booking Link afterwards.',
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome_rounded,
+                                color: Color(0xFF8FB4FF),
+                              ),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Start with your business name and contact details, then save to continue.',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       _SectionCard(
                         title: 'Business Details',
                         subtitle:
@@ -564,7 +692,8 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                             _ProfileField(
                               controller: _paymentNotesController,
                               label: 'Payment notes',
-                              hint: 'Example: Bank transfer, cash on collection, payment on completion, or payment link.',
+                              hint:
+                                  'Example: Bank transfer, cash on collection, payment on completion, or payment link.',
                               maxLines: 3,
                               keyboardType: TextInputType.multiline,
                               autofillHints: null,
@@ -598,28 +727,33 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                                   color: Colors.white.withValues(alpha: 0.12),
                                 ),
                               ),
-                              child: SwitchListTile.adaptive(
-                                contentPadding: EdgeInsets.zero,
-                                value: _vatRegistered,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _vatRegistered = value;
-                                    if (!value) {
-                                      _vatNumberController.clear();
-                                    }
-                                  });
-                                },
-                                title: const Text(
-                                  'VAT registered',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
+                              child: Material(
+                                color: Colors.transparent,
+                                child: SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  value: _vatRegistered,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _vatRegistered = value;
+                                      if (!value) {
+                                        _vatNumberController.clear();
+                                      }
+                                    });
+                                  },
+                                  title: const Text(
+                                    'VAT registered',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
-                                ),
-                                subtitle: Text(
-                                  'Turn on if you charge VAT.',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.70),
+                                  subtitle: Text(
+                                    'Turn on if you charge VAT.',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.70,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -747,11 +881,182 @@ class _VanBusinessProfilePageState extends State<VanBusinessProfilePage> {
                         onSave: _saveProfile,
                         onReset: _resetChanges,
                       ),
+                      if (!_setupMode) ...[
+                        const SizedBox(height: 24),
+                        _DangerZoneCard(
+                          deleting: _isDeleting,
+                          onDelete: _deleteBusiness,
+                        ),
+                      ],
                     ],
                   ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DangerZoneCard extends StatelessWidget {
+  const _DangerZoneCard({required this.deleting, required this.onDelete});
+
+  final bool deleting;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    const danger = Color(0xFFFF6B6B);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF4A151B).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: danger.withValues(alpha: 0.65)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: danger),
+              SizedBox(width: 9),
+              Text(
+                'Danger Zone',
+                style: TextStyle(
+                  color: danger,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Delete this business and its active configuration. Completed invoices and legally relevant financial records are archived and retained.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: deleting ? null : onDelete,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: danger,
+              side: BorderSide(color: danger.withValues(alpha: 0.8)),
+              minimumSize: const Size(double.infinity, 46),
+            ),
+            icon: deleting
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: danger,
+                    ),
+                  )
+                : const Icon(Icons.delete_forever_outlined),
+            label: Text(deleting ? 'Deleting safely…' : 'Delete Business'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeleteBusinessDialog extends StatefulWidget {
+  const _DeleteBusinessDialog({required this.businessName});
+
+  final String businessName;
+
+  @override
+  State<_DeleteBusinessDialog> createState() => _DeleteBusinessDialogState();
+}
+
+class _DeleteBusinessDialogState extends State<_DeleteBusinessDialog> {
+  final TextEditingController _confirmationController = TextEditingController();
+
+  bool get _matches =>
+      _confirmationController.text.trim() == widget.businessName.trim();
+
+  @override
+  void dispose() {
+    _confirmationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Color(0xFFD32F2F)),
+          SizedBox(width: 10),
+          Expanded(child: Text('Delete business?')),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are deleting “${widget.businessName}”.',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'This permanently removes:',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '• Business profile and settings\n'
+              '• Services and customer questions\n'
+              '• Booking Link and active requests\n'
+              '• Other nonessential business data',
+              style: TextStyle(height: 1.45),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Completed invoices and legally relevant financial records are retained as archived, read-only records.',
+              style: TextStyle(fontWeight: FontWeight.w700, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Type ${widget.businessName} to confirm',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _confirmationController,
+              autofocus: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                hintText: widget.businessName,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: _matches
+              ? () => Navigator.of(context).pop(widget.businessName)
+              : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFD32F2F),
+          ),
+          icon: const Icon(Icons.delete_forever_outlined),
+          label: const Text('Delete permanently'),
+        ),
+      ],
     );
   }
 }

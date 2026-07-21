@@ -12,6 +12,7 @@ import '../helpers/van_text_formatters.dart';
 import '../models/van_invoice_draft.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'job_detail_page.dart';
+import 'van_incoming_requests_page.dart';
 import 'van_invoice_preview_page.dart';
 
 Future<void> openVanCompletedJobsPage(BuildContext context) {
@@ -753,6 +754,25 @@ class _VanCompletedJobsPageState extends State<VanCompletedJobsPage>
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.74),
               height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: _searchQuery.trim().isNotEmpty
+                ? () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  }
+                : () => unawaited(openVanIncomingRequestsPage(context)),
+            icon: Icon(
+              _searchQuery.trim().isNotEmpty
+                  ? Icons.search_off_rounded
+                  : Icons.inbox_outlined,
+            ),
+            label: Text(
+              _searchQuery.trim().isNotEmpty
+                  ? 'Clear search'
+                  : 'View incoming jobs',
             ),
           ),
         ],

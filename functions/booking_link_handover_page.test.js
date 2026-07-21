@@ -30,14 +30,15 @@ const context = {
     'dropOffPickupRequest',
     'pickupDeliveryRequest',
   ]),
-  startHandoverChoice: { value: '' },
-  endHandoverChoice: { value: '' },
+  startHandoverChoice: { querySelector: () => null },
+  endHandoverChoice: { querySelector: () => null },
 };
 vm.createContext(context);
 vm.runInContext(
   [
     'readText',
     'inferredRequestType',
+    'handoverChoiceValue',
     'handoverForService',
     'customerHandoverSummary',
   ].map(readFunction).join('\n'),
@@ -46,10 +47,10 @@ vm.runInContext(
 
 test('hosted booking page supports every independent handover combination', () => {
   const combinations = [
-    ['customerDropsOff', 'customerCollects', 'You will drop off and collect.'],
-    ['customerDropsOff', 'businessReturns', 'You will drop off; we will return it to you.'],
-    ['businessCollects', 'customerCollects', 'We will collect; you will collect when ready.'],
-    ['businessCollects', 'businessReturns', 'We will collect and return.'],
+    ['customerDropsOff', 'customerCollects', "You'll drop off your item and collect it when ready."],
+    ['customerDropsOff', 'businessReturns', "You'll drop off your item. We'll return it when finished."],
+    ['businessCollects', 'customerCollects', "We'll collect your item. You'll collect it when ready."],
+    ['businessCollects', 'businessReturns', "We'll collect your item and return it when finished."],
   ];
 
   for (const [startHandover, endHandover, summary] of combinations) {
@@ -57,8 +58,10 @@ test('hosted booking page supports every independent handover combination', () =
       requestType: 'dropOffPickupRequest',
       startHandover,
       endHandover,
-      allowedStartHandoverOptions: [startHandover],
-      allowedEndHandoverOptions: [endHandover],
+      allowCustomerDropOff: startHandover === 'customerDropsOff',
+      allowBusinessCollection: startHandover === 'businessCollects',
+      allowCustomerCollection: endHandover === 'customerCollects',
+      allowBusinessReturn: endHandover === 'businessReturns',
     });
     assert.equal(handover.start, startHandover);
     assert.equal(handover.end, endHandover);
@@ -97,6 +100,37 @@ test('hosted form keeps addresses separate from notes and requires them by stage
   assert.match(pageSource, /handover\.start === "businessCollects" && !readText\(collectionAddress\.value\)/);
   assert.match(pageSource, /handover\.end === "businessReturns"/);
   assert.match(pageSource, /returnAddressSameAsCollection:/);
+  assert.match(
+    pageSource,
+    /sameReturnAddress\.checked\s*\? readText\(collectionAddress\.value\)\s*:\s*readText\(returnAddress\.value\)/,
+  );
+  assert.match(
+    pageSource,
+    /Boolean\(service\.requireAddress\)\s*&&\s*!handover/,
+  );
   assert.doesNotMatch(pageSource, /additionalNotes:[^}]*collectionAddress/s);
   assert.doesNotMatch(pageSource, /additionalNotes:[^}]*returnAddress/s);
+});
+
+test('hosted submission validates before loading and always restores retry state', () => {
+  const submitSource = readFunction('submitRequest');
+  assert.ok(
+    submitSource.indexOf('if (!validateSubmission())') <
+      submitSource.indexOf('state.submitting = true'),
+  );
+  assert.match(submitSource, /if \(state\.submitting\)/);
+  assert.match(submitSource, /withSubmissionTimeout\(submitBookingLinkRequest/);
+  assert.match(submitSource, /finally\s*{[\s\S]*state\.submitting = false/);
+  assert.match(
+    submitSource,
+    /if \(!state\.submitted\)[\s\S]*submitButton\.disabled = false/,
+  );
+  assert.doesNotMatch(submitSource, /state\.selectedPhotos\s*=\s*\[\]/);
+});
+
+test('hosted submission has a retryable timeout and stable request identity', () => {
+  assert.match(pageSource, /const SUBMISSION_TIMEOUT_MS = 45 \* 1000/);
+  assert.match(pageSource, /Request timed out\. Check your connection and try again\./);
+  assert.match(pageSource, /clientSubmissionId: state\.clientSubmissionId/);
+  assert.match(pageSource, /state\.clientSubmissionId = state\.clientSubmissionId \|\| createClientSubmissionId\(\)/);
 });

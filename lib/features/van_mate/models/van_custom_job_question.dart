@@ -8,6 +8,8 @@ class VanCustomJobQuestion {
     required this.createdAt,
     required this.updatedAt,
     this.helperText = '',
+    this.libraryQuestionId = '',
+    this.tags = const <String>[],
     this.category,
     this.choiceOptions = const <String>[],
   });
@@ -15,6 +17,8 @@ class VanCustomJobQuestion {
   final String id;
   final String questionText;
   final String helperText;
+  final String libraryQuestionId;
+  final List<String> tags;
   final VanCustomQuestionAnswerType answerType;
   final VanCustomQuestionCategory? category;
   final List<String> choiceOptions;
@@ -33,6 +37,8 @@ class VanCustomJobQuestion {
     String? id,
     String? questionText,
     String? helperText,
+    String? libraryQuestionId,
+    List<String>? tags,
     VanCustomQuestionAnswerType? answerType,
     VanCustomQuestionCategory? category,
     bool clearCategory = false,
@@ -46,6 +52,8 @@ class VanCustomJobQuestion {
       id: id ?? this.id,
       questionText: questionText ?? this.questionText,
       helperText: helperText ?? this.helperText,
+      libraryQuestionId: libraryQuestionId ?? this.libraryQuestionId,
+      tags: tags ?? this.tags,
       answerType: answerType ?? this.answerType,
       category: clearCategory ? null : (category ?? this.category),
       choiceOptions: choiceOptions ?? this.choiceOptions,
@@ -61,6 +69,8 @@ class VanCustomJobQuestion {
       'id': id,
       'questionText': questionText,
       'helperText': helperText,
+      'libraryQuestionId': libraryQuestionId,
+      'tags': tags,
       'answerType': answerType.storageKey,
       'category': category?.storageKey,
       'choiceOptions': choiceOptions,
@@ -110,6 +120,8 @@ class VanCustomJobQuestion {
       id: resolvedId,
       questionText: questionText,
       helperText: readText('helperText'),
+      libraryQuestionId: readText('libraryQuestionId'),
+      tags: readChoices('tags'),
       answerType: VanCustomQuestionAnswerType.fromStorageKey(
         readText('answerType'),
       ),
@@ -148,8 +160,24 @@ enum VanCustomQuestionAnswerType {
 }
 
 enum VanCustomQuestionCategory {
+  items('items', 'Items'),
+  sizeWeight('size_weight', 'Size and Weight'),
   access('access', 'Access'),
   parking('parking', 'Parking'),
+  stairsLifts('stairs_lifts', 'Stairs and Lifts'),
+  collection('collection', 'Collection'),
+  delivery('delivery', 'Delivery'),
+  timing('timing', 'Timing'),
+  photosVideo('photos_video', 'Photos and Video'),
+  fragileValuableItems('fragile_valuable_items', 'Fragile and Valuable Items'),
+  packing('packing', 'Packing'),
+  assembly('assembly', 'Assembly'),
+  multipleStops('multiple_stops', 'Multiple Stops'),
+  proofOfDelivery('proof_of_delivery', 'Proof of Delivery'),
+  property('property', 'Property'),
+  survey('survey', 'Survey'),
+  medicalHandling('medical_handling', 'Medical Handling'),
+  generalNotes('general_notes', 'General Notes'),
   loading('loading', 'Loading'),
   photos('photos', 'Photos'),
   customerDetails('customer_details', 'Customer details'),

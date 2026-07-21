@@ -38,9 +38,11 @@ class VanServiceTemplate {
       (extra) => isVanQuoteBuiltInExtraKey(extra.key),
     )) {
       defaults = defaults.copyWithExtra(
-        VanQuoteExtraDefault.fallback(
-          extra.key,
-        ).copyWith(label: extra.label, defaultPrice: extra.defaultPrice),
+        VanQuoteExtraDefault.fallback(extra.key).copyWith(
+          label: extra.label,
+          defaultPrice: extra.defaultPrice,
+          enabled: extra.enabledByDefault,
+        ),
       );
     }
     return defaults.copyWithCustomExtras(<VanQuoteExtraDefault>[
@@ -50,6 +52,7 @@ class VanServiceTemplate {
             key: extra.key,
             label: extra.label,
             defaultPrice: extra.defaultPrice,
+            enabled: extra.enabledByDefault,
           ),
     ]);
   }
@@ -58,13 +61,19 @@ class VanServiceTemplate {
 class VanServiceTemplateQuestion {
   const VanServiceTemplateQuestion({
     required this.text,
+    this.libraryId = '',
     this.answerType = VanCustomQuestionAnswerType.shortText,
     this.category = VanCustomQuestionCategory.jobDetails,
+    this.choiceOptions = const <String>[],
+    this.tags = const <String>[],
   });
 
   final String text;
+  final String libraryId;
   final VanCustomQuestionAnswerType answerType;
   final VanCustomQuestionCategory category;
+  final List<String> choiceOptions;
+  final List<String> tags;
 }
 
 class VanServiceTemplateExtra {
@@ -72,11 +81,17 @@ class VanServiceTemplateExtra {
     required this.key,
     required this.label,
     this.defaultPrice = 0,
+    this.enabledByDefault = true,
+    this.defaultChargeUnit = 'Fixed',
+    this.tags = const <String>[],
   });
 
   final String key;
   final String label;
   final double defaultPrice;
+  final bool enabledByDefault;
+  final String defaultChargeUnit;
+  final List<String> tags;
 }
 
 final List<VanServiceTemplateCategory> kVanServiceTemplateCategories =
@@ -289,8 +304,18 @@ const VanServiceTemplate _courierTemplate = VanServiceTemplate(
   ],
   extras: <VanServiceTemplateExtra>[
     VanServiceTemplateExtra(
+      key: kVanQuoteExtraHelperKey,
+      label: 'Two person lift',
+      defaultPrice: 20,
+    ),
+    VanServiceTemplateExtra(
       key: kVanQuoteExtraWaitingTimeKey,
       label: 'Waiting time',
+      defaultPrice: 10,
+    ),
+    VanServiceTemplateExtra(
+      key: kVanQuoteExtraStairsKey,
+      label: 'Stairs',
       defaultPrice: 10,
     ),
     VanServiceTemplateExtra(
@@ -302,6 +327,11 @@ const VanServiceTemplate _courierTemplate = VanServiceTemplate(
       key: 'custom_extra_signature_required',
       label: 'Signature required',
       defaultPrice: 5,
+    ),
+    VanServiceTemplateExtra(
+      key: 'custom_extra_evening_delivery',
+      label: 'Evening delivery',
+      defaultPrice: 15,
     ),
   ],
 );

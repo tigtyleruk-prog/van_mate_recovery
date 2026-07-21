@@ -407,7 +407,9 @@ class _VanExpensesPageState extends State<VanExpensesPage> {
                       _buildFilterBar(),
                       const SizedBox(height: 12),
                       if (filtered.isEmpty)
-                        const _EmptyExpensesState()
+                        _EmptyExpensesState(
+                          onAdd: () => unawaited(_openEditor()),
+                        )
                       else
                         Column(
                           children: [
@@ -989,7 +991,9 @@ class _ExpenseCard extends StatelessWidget {
 }
 
 class _EmptyExpensesState extends StatelessWidget {
-  const _EmptyExpensesState();
+  const _EmptyExpensesState({required this.onAdd});
+
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -1007,13 +1011,19 @@ class _EmptyExpensesState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Tap + Add Expense to record fuel, insurance, parking and other running costs.',
+            'Record fuel, insurance, parking and other running costs here.',
             style: TextStyle(
               fontSize: 13.0,
               height: 1.45,
               fontWeight: FontWeight.w600,
               color: Colors.white.withValues(alpha: 0.72),
             ),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add an expense'),
           ),
         ],
       ),

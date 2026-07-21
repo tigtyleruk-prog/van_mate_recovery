@@ -1,0 +1,167 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {
+  bookingLinkAddressValidationError,
+  bookingLinkRequestDocumentId,
+  withTimeout,
+} = require('./booking_link_address_validation');
+
+const functionSource = fs.readFileSync(
+  path.join(__dirname, 'index.js'),
+  'utf8',
+);
+
+function validate(overrides = {}) {
+  return bookingLinkAddressValidationError({
+    requireAddress: true,
+    supportsStructuredRequestFlow: true,
+    requestType: 'quoteRequest',
+    requestFlowOptions: {},
+    supportsHandover: true,
+    startHandover: 'businessCollects',
+    endHandover: 'businessReturns',
+    address: '',
+    postcode: '',
+    fulfilmentType: '',
+    pickupAddress: '',
+    deliveryAddress: '',
+    collectionAddress: '',
+    returnAddress: '',
+    ...overrides,
+  });
+}
+
+test('business collects and returns accepts collection for both addresses', () => {
+  assert.equal(
+    validate({
+      collectionAddress: ' 10 Collection Road, London, SW1A 1AA ',
+      returnAddress: '10 Collection Road, London, SW1A 1AA',
+    }),
+    null,
+  );
+  assert.match(
+    functionSource,
+    /if \(returnAddressSameAsCollection && startHandover === 'businessCollects'\) {[\s\S]*returnAddress = collectionAddress;/,
+  );
+});
+
+test('business return requires a separate resolved return address', () => {
+  assert.deepEqual(
+    validate({ collectionAddress: '10 Collection Road, SW1A 1AA' }),
+    {
+      code: 'missing_return_address',
+      message: 'Return address is required.',
+    },
+  );
+});
+
+test('handover does not incorrectly require the generic address field', () => {
+  assert.equal(
+    validate({
+      address: '',
+      postcode: '',
+      collectionAddress: '10 Collection Road, SW1A 1AA',
+      returnAddress: '20 Return Road, E1 6AN',
+    }),
+    null,
+  );
+});
+
+test('missing collection address returns the journey-specific error', () => {
+  assert.deepEqual(validate({ returnAddress: '20 Return Road, E1 6AN' }), {
+    code: 'missing_collection_address',
+    message: 'Collection address is required.',
+  });
+});
+
+test('customer drop-off and collection does not require customer addresses', () => {
+  assert.equal(
+    validate({
+      startHandover: 'customerDropsOff',
+      endHandover: 'customerCollects',
+    }),
+    null,
+  );
+});
+
+test('standard customer visit still requires address or postcode', () => {
+  assert.deepEqual(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+    }),
+    {
+      code: 'missing_address_or_postcode',
+      message: 'Address or postcode is required for this service.',
+    },
+  );
+  assert.equal(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      postcode: ' sw1a 1aa ',
+    }),
+    null,
+  );
+});
+
+test('pickup and delivery retains its journey-specific address checks', () => {
+  assert.deepEqual(
+    validate({
+      supportsHandover: false,
+      requestType: 'pickupDeliveryRequest',
+      requestFlowOptions: {
+        showPickupAddress: true,
+        showDeliveryAddress: true,
+      },
+    }),
+    {
+      code: 'missing_pickup_address',
+      message: 'Pickup address is required.',
+    },
+  );
+  assert.deepEqual(
+    validate({
+      supportsHandover: false,
+      requestType: 'pickupDeliveryRequest',
+      requestFlowOptions: {
+        showPickupAddress: true,
+        showDeliveryAddress: true,
+      },
+      pickupAddress: 'Collection depot, M1 1AE',
+    }),
+    {
+      code: 'missing_delivery_address',
+      message: 'Delivery address is required.',
+    },
+  );
+});
+
+test('one client submission id always maps to exactly one request document', () => {
+  const first = bookingLinkRequestDocumentId('owner-1', 'attempt-123');
+  const retry = bookingLinkRequestDocumentId('owner-1', 'attempt-123');
+  const other = bookingLinkRequestDocumentId('owner-1', 'attempt-124');
+
+  assert.match(first, /^booking_[a-f0-9]{32}$/);
+  assert.equal(retry, first);
+  assert.notEqual(other, first);
+});
+
+test('photo upload timeout becomes a handled failure path', async () => {
+  await assert.rejects(
+    withTimeout(new Promise(() => {}), 5, 'photo upload timed out'),
+    /photo upload timed out/,
+  );
+  assert.match(
+    functionSource,
+    /withTimeout\(\s*file\.save[\s\S]*BOOKING_LINK_PHOTO_UPLOAD_TIMEOUT_MS/,
+  );
+  assert.match(
+    functionSource,
+    /catch \(error\) {[\s\S]*photoUploadFailed = true;[\s\S]*uploadedPhotos = \[\];/,
+  );
+});

@@ -6,6 +6,11 @@ const {
   onDocumentWritten,
 } = require('firebase-functions/v2/firestore');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
+const {
+  bookingLinkAddressValidationError,
+  bookingLinkRequestDocumentId,
+  withTimeout,
+} = require('./booking_link_address_validation');
 
 admin.initializeApp();
 
@@ -65,6 +70,21 @@ const SUMMARY_MODE_ROUTE_CHANGED = 'routeChanged';
 const GOOGLE_ROUTES_API_KEY = defineSecret('GOOGLE_ROUTES_API_KEY');
 const BOOKING_LINK_MAX_PHOTOS = 5;
 const BOOKING_LINK_MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const BOOKING_LINK_PHOTO_UPLOAD_TIMEOUT_MS = 15 * 1000;
+const DEFAULT_BUSINESS_PROFILE_ID = 'default_business';
+const BUSINESS_DELETION_SOURCE = 'van_mate.business_delete';
+const BUSINESS_RECORD_SUBCOLLECTIONS = [
+  'van_jobs',
+  'van_quotes',
+  'van_job_requests',
+  'van_pin_requests',
+];
+const BUSINESS_PUBLIC_COLLECTIONS = [
+  PUBLIC_JOB_REQUEST_COLLECTION,
+  PUBLIC_QUOTE_RESPONSE_COLLECTION,
+  PIN_REQUEST_COLLECTION,
+  LEGACY_JOB_REQUEST_COLLECTION,
+];
 
 function buildVanJobRequestHostedLink(requestId, shortCode = '') {
   const normalizedShortCode = readString(shortCode).toUpperCase();
@@ -2349,17 +2369,21 @@ async function uploadBookingLinkPhotos({ ownerUid, requestId, photos }) {
         storagePath,
         downloadToken,
       );
-      await file.save(dataBuffer, {
-        resumable: false,
-        contentType: photo.contentType,
-        metadata: {
+      await withTimeout(
+        file.save(dataBuffer, {
+          resumable: false,
           contentType: photo.contentType,
-          cacheControl: 'public,max-age=31536000',
           metadata: {
-            firebaseStorageDownloadTokens: downloadToken,
+            contentType: photo.contentType,
+            cacheControl: 'public,max-age=31536000',
+            metadata: {
+              firebaseStorageDownloadTokens: downloadToken,
+            },
           },
-        },
-      });
+        }),
+        BOOKING_LINK_PHOTO_UPLOAD_TIMEOUT_MS,
+        `Photo upload timed out for ${fileName}.`,
+      );
       if (!downloadUrl) {
         console.warn(
           `[BookingLinkSubmit] photo upload missing_download_url ownerUid=${ownerUid} requestId=${requestId} index=${index} path=${storagePath}`,
@@ -2867,6 +2891,9 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     data.ownerUid,
   ]);
   const serviceId = readString(data.serviceId);
+  const clientSubmissionId = readString(data.clientSubmissionId)
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .slice(0, 128);
   const requestedServiceName = readString(data.serviceName);
   const customerName = readString(data.customerName);
   const phoneNumber = readString(data.phoneNumber);
@@ -2952,10 +2979,6 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   if (!customerName) {
     throw new HttpsError('invalid-argument', 'Please enter your full name.');
   }
-  if (!phoneNumber) {
-    throw new HttpsError('invalid-argument', 'Please enter your phone number.');
-  }
-
   const bookingLinkSnap = await admin
     .firestore()
     .collection(PUBLIC_BOOKING_LINK_COLLECTION)
@@ -2980,6 +3003,32 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   if (!selectedService) {
     throw new HttpsError('not-found', 'Service not found.');
   }
+  if (
+    selectedService.showPhoneNumber !== false &&
+    selectedService.requirePhoneNumber !== false &&
+    !phoneNumber
+  ) {
+    throw new HttpsError('invalid-argument', 'Please enter your phone number.');
+  }
+  if (
+    selectedService.showEmailAddress !== false &&
+    selectedService.requireEmailAddress === true &&
+    !customerEmail
+  ) {
+    throw new HttpsError('invalid-argument', 'Please enter your email address.');
+  }
+  const photoSettings =
+    selectedService.builtInQuestionSettings &&
+    typeof selectedService.builtInQuestionSettings === 'object'
+      ? selectedService.builtInQuestionSettings.photos
+      : null;
+  if (
+    readBool(selectedService.requestPhotos) &&
+    readBool(photoSettings && photoSettings.required) &&
+    requestedPhotos.length === 0
+  ) {
+    throw new HttpsError('invalid-argument', 'Please add at least one photo.');
+  }
 
   const serviceName =
     readString(selectedService.name) ||
@@ -2999,9 +3048,18 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     selectedService.customerJourneyType,
     legacyJourney,
   );
-  const supportsHandover =
+  const legacySupportsHandover =
     requestType === 'dropOffPickupRequest' ||
     requestType === 'pickupDeliveryRequest';
+  const handoverCapabilityKeys = [
+    'allowCustomerDropOff',
+    'allowBusinessCollection',
+    'allowCustomerCollection',
+    'allowBusinessReturn',
+  ];
+  const hasHandoverCapabilityFlags = handoverCapabilityKeys.some(
+    (key) => Object.prototype.hasOwnProperty.call(selectedService, key),
+  );
   const legacyHandoverMode = readString(
     selectedService.handoverMode || selectedService.transportMode,
   ).toLowerCase();
@@ -3027,24 +3085,49 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     selectedService.endHandover,
     fallbackEndHandover,
   );
-  const allowedStartHandoverOptions = normalizeHandoverOptions(
-    Array.isArray(selectedService.allowedStartHandoverOptions)
-      ? selectedService.allowedStartHandoverOptions
-      : (legacyCustomerChooses
-        ? ['customerDropsOff', 'businessCollects']
+  const allowedStartHandoverOptions = hasHandoverCapabilityFlags
+    ? [
+      ...(readBool(selectedService.allowCustomerDropOff)
+        ? ['customerDropsOff']
         : []),
-    ['customerDropsOff', 'businessCollects'],
-    configuredStartHandover,
-  );
-  const allowedEndHandoverOptions = normalizeHandoverOptions(
-    Array.isArray(selectedService.allowedEndHandoverOptions)
-      ? selectedService.allowedEndHandoverOptions
-      : (legacyCustomerChooses
-        ? ['customerCollects', 'businessReturns']
+      ...(readBool(selectedService.allowBusinessCollection)
+        ? ['businessCollects']
         : []),
-    ['customerCollects', 'businessReturns'],
-    configuredEndHandover,
-  );
+    ]
+    : (legacySupportsHandover
+      ? normalizeHandoverOptions(
+        Array.isArray(selectedService.allowedStartHandoverOptions)
+          ? selectedService.allowedStartHandoverOptions
+          : (legacyCustomerChooses
+            ? ['customerDropsOff', 'businessCollects']
+            : []),
+        ['customerDropsOff', 'businessCollects'],
+        configuredStartHandover,
+      )
+      : []);
+  const allowedEndHandoverOptions = hasHandoverCapabilityFlags
+    ? [
+      ...(readBool(selectedService.allowCustomerCollection)
+        ? ['customerCollects']
+        : []),
+      ...(readBool(selectedService.allowBusinessReturn)
+        ? ['businessReturns']
+        : []),
+    ]
+    : (legacySupportsHandover
+      ? normalizeHandoverOptions(
+        Array.isArray(selectedService.allowedEndHandoverOptions)
+          ? selectedService.allowedEndHandoverOptions
+          : (legacyCustomerChooses
+            ? ['customerCollects', 'businessReturns']
+            : []),
+        ['customerCollects', 'businessReturns'],
+        configuredEndHandover,
+      )
+      : []);
+  const supportsHandover =
+    allowedStartHandoverOptions.length > 0 &&
+    allowedEndHandoverOptions.length > 0;
   const requestedStartHandover = readString(data.startHandover);
   const requestedEndHandover = readString(data.endHandover);
   if (
@@ -3062,10 +3145,16 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'End handover is not available.');
   }
   const startHandover = supportsHandover
-    ? (requestedStartHandover || configuredStartHandover)
+    ? (requestedStartHandover ||
+      (allowedStartHandoverOptions.includes(configuredStartHandover)
+        ? configuredStartHandover
+        : allowedStartHandoverOptions[0]))
     : '';
   const endHandover = supportsHandover
-    ? (requestedEndHandover || configuredEndHandover)
+    ? (requestedEndHandover ||
+      (allowedEndHandoverOptions.includes(configuredEndHandover)
+        ? configuredEndHandover
+        : allowedEndHandoverOptions[0]))
     : '';
   if (supportsHandover && !collectionAddress) {
     collectionAddress = pickupAddress;
@@ -3173,54 +3262,27 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     );
   });
 
-  const requiresStandardAddress =
-    requireAddress &&
-    (!supportsStructuredRequestFlow ||
-      (requestType !== 'orderRequest' &&
-        requestType !== 'pickupDeliveryRequest'));
-  if (requiresStandardAddress && !address && !postcode) {
-    throw new HttpsError(
-      'invalid-argument',
-      'Address or postcode is required for this service.',
+  const addressValidationError = bookingLinkAddressValidationError({
+    requireAddress,
+    supportsStructuredRequestFlow,
+    requestType,
+    requestFlowOptions,
+    supportsHandover,
+    startHandover,
+    endHandover,
+    address,
+    postcode,
+    fulfilmentType,
+    pickupAddress,
+    deliveryAddress,
+    collectionAddress,
+    returnAddress,
+  });
+  if (addressValidationError) {
+    console.warn(
+      `[BookingLinkSubmit] validation failed ownerUid=${ownerUid} serviceId=${serviceId} reason=${addressValidationError.code}`,
     );
-  }
-  if (
-    supportsStructuredRequestFlow &&
-    requestType === 'orderRequest' &&
-    requestFlowOptions.showFulfilmentChoice &&
-    !fulfilmentType
-  ) {
-    throw new HttpsError(
-      'invalid-argument',
-      'Please choose collection or delivery.',
-    );
-  }
-  if (
-    supportsStructuredRequestFlow &&
-    requestType === 'orderRequest' &&
-    requestFlowOptions.showFulfilmentChoice &&
-    fulfilmentType === 'delivery' &&
-    !deliveryAddress
-  ) {
-    throw new HttpsError('invalid-argument', 'Delivery address is required.');
-  }
-  if (
-    !supportsHandover &&
-    supportsStructuredRequestFlow &&
-    requestType === 'pickupDeliveryRequest' &&
-    requestFlowOptions.showPickupAddress &&
-    !pickupAddress
-  ) {
-    throw new HttpsError('invalid-argument', 'Pickup address is required.');
-  }
-  if (
-    !supportsHandover &&
-    supportsStructuredRequestFlow &&
-    requestType === 'pickupDeliveryRequest' &&
-    requestFlowOptions.showDeliveryAddress &&
-    !deliveryAddress
-  ) {
-    throw new HttpsError('invalid-argument', 'Delivery address is required.');
+    throw new HttpsError('invalid-argument', addressValidationError.message);
   }
   if (
     !supportsHandover &&
@@ -3239,20 +3301,6 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     !pickUpDate
   ) {
     throw new HttpsError('invalid-argument', 'Pick-up date is required.');
-  }
-  if (
-    supportsHandover &&
-    startHandover === 'businessCollects' &&
-    !collectionAddress
-  ) {
-    throw new HttpsError('invalid-argument', 'Collection address is required.');
-  }
-  if (
-    supportsHandover &&
-    endHandover === 'businessReturns' &&
-    !returnAddress
-  ) {
-    throw new HttpsError('invalid-argument', 'Return address is required.');
   }
   if (supportsHandover && !dropOffDate) {
     throw new HttpsError('invalid-argument', 'Start handover date is required.');
@@ -3362,7 +3410,9 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   );
 
   const now = new Date();
-  const requestId = admin.firestore().collection(PUBLIC_JOB_REQUEST_COLLECTION).doc().id;
+  const requestId =
+    bookingLinkRequestDocumentId(ownerUid, clientSubmissionId) ||
+    admin.firestore().collection(PUBLIC_JOB_REQUEST_COLLECTION).doc().id;
   const jobId = `booking_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const addressSummary = supportsHandover
@@ -3579,14 +3629,18 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
       `[BookingLinkSubmit] booking request created ownerUid=${ownerUid} requestId=${requestId} serviceName=${serviceName || '(none)'}`,
     );
     try {
-      await sendBookingRequestReceivedNotification({
-        ownerUid,
-        requestId,
-        jobId,
-        customerName,
-        serviceName,
-        customerJourneyType,
-      });
+      await withTimeout(
+        sendBookingRequestReceivedNotification({
+          ownerUid,
+          requestId,
+          jobId,
+          customerName,
+          serviceName,
+          customerJourneyType,
+        }),
+        10 * 1000,
+        'Booking request notification timed out.',
+      );
     } catch (notificationError) {
       console.error(
         `[BookingLinkSubmit] push failed ownerUid=${ownerUid} requestId=${requestId}`,
@@ -3869,6 +3923,294 @@ exports.calculateRouteSummary = onCall(
   }
   },
 );
+
+function normalizeBusinessProfileId(value) {
+  const normalized = readString(value);
+  if (!normalized || !/^[A-Za-z0-9_-]{1,180}$/.test(normalized)) {
+    throw new HttpsError('invalid-argument', 'Business profile ID is invalid.');
+  }
+  return normalized;
+}
+
+function buildBusinessDeletionPlan({ ownerUid, businessProfileId, publicConfigId }) {
+  const normalizedOwnerUid = readString(ownerUid);
+  const normalizedBusinessProfileId = normalizeBusinessProfileId(businessProfileId);
+  if (!normalizedOwnerUid) {
+    throw new HttpsError('unauthenticated', 'Sign in to delete a business.');
+  }
+
+  const expectedPublicConfigId = normalizedBusinessProfileId === DEFAULT_BUSINESS_PROFILE_ID
+    ? normalizedOwnerUid
+    : `${normalizedOwnerUid}_${normalizedBusinessProfileId}`;
+  const suppliedPublicConfigId = readString(publicConfigId);
+  if (suppliedPublicConfigId && suppliedPublicConfigId !== expectedPublicConfigId) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Booking Link identity does not belong to this business.',
+    );
+  }
+
+  const configDocuments = [
+    {
+      collection: 'van_booking_link_settings',
+      docId: normalizedBusinessProfileId === DEFAULT_BUSINESS_PROFILE_ID
+        ? 'settings'
+        : normalizedBusinessProfileId,
+    },
+  ];
+  if (normalizedBusinessProfileId === DEFAULT_BUSINESS_PROFILE_ID) {
+    configDocuments.push(
+      { collection: 'van_business_profile', docId: 'profile' },
+      { collection: 'van_job_services', docId: 'library' },
+      { collection: 'van_custom_job_questions', docId: 'library' },
+      { collection: 'van_settings', docId: 'quote_extras' },
+    );
+  }
+
+  return {
+    ownerUid: normalizedOwnerUid,
+    businessProfileId: normalizedBusinessProfileId,
+    publicConfigId: expectedPublicConfigId,
+    configDocuments,
+  };
+}
+
+function recordBelongsToBusiness(data, businessProfileId) {
+  const recordProfileId = readString(data && data.businessProfileId);
+  if (recordProfileId) {
+    return recordProfileId === businessProfileId;
+  }
+  return businessProfileId === DEFAULT_BUSINESS_PROFILE_ID;
+}
+
+function shouldPreserveBusinessJob(data) {
+  const status = readString(data && (data.status || data.requestStatus)).toLowerCase();
+  const invoiceNumber = readString(
+    data && (data.invoiceNumber || (data.invoice && data.invoice.invoiceNumber)),
+  );
+  return Boolean(
+    invoiceNumber ||
+    data && (data.invoiceCreated === true || data.paid === true) ||
+    ['completed', 'complete', 'paid', 'invoiced'].includes(status)
+  );
+}
+
+async function loadOwnedPublicDocuments(firestore, collectionName, ownerUid) {
+  const documents = new Map();
+  for (const ownerField of ['ownerUid', 'ownerId']) {
+    const snapshot = await firestore
+      .collection(collectionName)
+      .where(ownerField, '==', ownerUid)
+      .get();
+    for (const document of snapshot.docs) {
+      documents.set(document.ref.path, document);
+    }
+  }
+  return [...documents.values()];
+}
+
+async function archiveReadOnlyDocuments(firestore, documents, deletionMetadata) {
+  if (documents.length === 0) {
+    return 0;
+  }
+  for (const documentChunk of chunk(documents, 400)) {
+    const batch = firestore.batch();
+    for (const document of documentChunk) {
+      batch.set(
+        document.ref,
+        {
+          archived: true,
+          archivedReadOnly: true,
+          businessDeletedAt: admin.firestore.FieldValue.serverTimestamp(),
+          deletedBusinessProfileId: deletionMetadata.businessProfileId,
+          source: BUSINESS_DELETION_SOURCE,
+        },
+        { merge: true },
+      );
+    }
+    await batch.commit();
+  }
+  return documents.length;
+}
+
+async function recursiveDeleteDocuments(firestore, documents) {
+  for (const document of documents) {
+    await firestore.recursiveDelete(document.ref);
+  }
+  return documents.length;
+}
+
+exports.deleteBusinessProfileSafely = onCall(async (request) => {
+  const ownerUid = request.auth && request.auth.uid;
+  if (!ownerUid) {
+    throw new HttpsError('unauthenticated', 'Sign in to delete a business.');
+  }
+  if (request.data && request.data.confirmed !== true) {
+    throw new HttpsError('failed-precondition', 'Confirm the business deletion first.');
+  }
+
+  const confirmedBusinessName = readString(
+    request.data && request.data.confirmedBusinessName,
+  );
+  if (!confirmedBusinessName) {
+    throw new HttpsError('invalid-argument', 'Business name confirmation is required.');
+  }
+
+  const plan = buildBusinessDeletionPlan({
+    ownerUid,
+    businessProfileId: request.data && request.data.businessProfileId,
+    publicConfigId: request.data && request.data.publicConfigId,
+  });
+  const firestore = admin.firestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(plan.ownerUid);
+  const publicConfigRef = firestore
+    .collection(PUBLIC_BOOKING_LINK_COLLECTION)
+    .doc(plan.publicConfigId);
+  const publicConfigSnapshot = await publicConfigRef.get();
+  if (
+    publicConfigSnapshot.exists &&
+    readString(publicConfigSnapshot.data().ownerUid) !== plan.ownerUid
+  ) {
+    throw new HttpsError(
+      'permission-denied',
+      'Booking Link ownership could not be verified.',
+    );
+  }
+  if (publicConfigSnapshot.exists) {
+    await publicConfigRef.set(
+      {
+        isActive: false,
+        deletionInProgress: true,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        source: BUSINESS_DELETION_SOURCE,
+      },
+      { merge: true },
+    );
+  }
+  const logoPaths = new Set();
+  const publicLogoPath = readString(
+    publicConfigSnapshot.exists && publicConfigSnapshot.data().logoPath,
+  );
+  if (publicLogoPath) {
+    logoPaths.add(publicLogoPath);
+  }
+  if (plan.businessProfileId === DEFAULT_BUSINESS_PROFILE_ID) {
+    const profileSnapshot = await userRef
+      .collection('van_business_profile')
+      .doc('profile')
+      .get();
+    const profileLogoPath = readString(
+      profileSnapshot.exists && profileSnapshot.data().logoPath,
+    );
+    if (profileLogoPath) {
+      logoPaths.add(profileLogoPath);
+    }
+  }
+  let deletedLogoCount = 0;
+  const allowedLogoPrefix = `users/${plan.ownerUid}/van_business_profile/`;
+  for (const logoPath of logoPaths) {
+    if (!logoPath.startsWith(allowedLogoPrefix)) {
+      continue;
+    }
+    await admin.storage().bucket().file(logoPath).delete({ ignoreNotFound: true });
+    deletedLogoCount += 1;
+  }
+
+  const privateDocumentsByCollection = new Map();
+  for (const collectionName of BUSINESS_RECORD_SUBCOLLECTIONS) {
+    const snapshot = await userRef.collection(collectionName).get();
+    privateDocumentsByCollection.set(
+      collectionName,
+      snapshot.docs.filter((document) =>
+        recordBelongsToBusiness(document.data(), plan.businessProfileId)),
+    );
+  }
+  const invoiceSnapshot = await userRef.collection('van_invoices').get();
+  const invoiceDocuments = invoiceSnapshot.docs.filter((document) =>
+    recordBelongsToBusiness(document.data(), plan.businessProfileId));
+
+  const completedJobDocuments = [];
+  const activeJobDocuments = [];
+  for (const document of privateDocumentsByCollection.get('van_jobs') || []) {
+    if (shouldPreserveBusinessJob(document.data())) {
+      completedJobDocuments.push(document);
+    } else {
+      activeJobDocuments.push(document);
+    }
+  }
+
+  const archivedInvoiceCount = await archiveReadOnlyDocuments(
+    firestore,
+    invoiceDocuments,
+    plan,
+  );
+  const archivedJobCount = await archiveReadOnlyDocuments(
+    firestore,
+    completedJobDocuments,
+    plan,
+  );
+  const archivedQuoteCount = await archiveReadOnlyDocuments(
+    firestore,
+    privateDocumentsByCollection.get('van_quotes') || [],
+    plan,
+  );
+
+  let deletedPrivateRecordCount = 0;
+  deletedPrivateRecordCount += await recursiveDeleteDocuments(
+    firestore,
+    activeJobDocuments,
+  );
+  for (const collectionName of ['van_job_requests', 'van_pin_requests']) {
+    deletedPrivateRecordCount += await recursiveDeleteDocuments(
+      firestore,
+      privateDocumentsByCollection.get(collectionName) || [],
+    );
+  }
+
+  let deletedPublicRecordCount = 0;
+  for (const collectionName of [
+    ...BUSINESS_PUBLIC_COLLECTIONS,
+    PUBLIC_QUOTE_RESPONSE_TOKEN_COLLECTION,
+  ]) {
+    const ownedDocuments = await loadOwnedPublicDocuments(
+      firestore,
+      collectionName,
+      plan.ownerUid,
+    );
+    const matchingDocuments = ownedDocuments.filter((document) =>
+      recordBelongsToBusiness(document.data(), plan.businessProfileId));
+    deletedPublicRecordCount += await recursiveDeleteDocuments(
+      firestore,
+      matchingDocuments,
+    );
+  }
+
+  for (const target of plan.configDocuments) {
+    await firestore.recursiveDelete(
+      userRef.collection(target.collection).doc(target.docId),
+    );
+  }
+  await firestore.recursiveDelete(publicConfigRef);
+
+  console.info(
+    `[BusinessDelete] uid=${plan.ownerUid} businessProfileId=${plan.businessProfileId} ` +
+    `archivedInvoices=${archivedInvoiceCount} archivedJobs=${archivedJobCount} ` +
+    `archivedQuotes=${archivedQuoteCount} deletedPrivate=${deletedPrivateRecordCount} ` +
+    `deletedPublic=${deletedPublicRecordCount} configDocs=${plan.configDocuments.length} ` +
+    `logos=${deletedLogoCount}`,
+  );
+  return {
+    success: true,
+    businessProfileId: plan.businessProfileId,
+    archivedInvoiceCount,
+    archivedJobCount,
+    archivedQuoteCount,
+    deletedPrivateRecordCount,
+    deletedPublicRecordCount,
+    deletedConfigDocumentCount: plan.configDocuments.length + 1,
+    deletedLogoCount,
+  };
+});
 
 exports.onVanPinRequestReceived = onDocumentUpdated(
   `${PIN_REQUEST_COLLECTION}/{requestId}`,
@@ -5264,6 +5606,9 @@ function chunk(items, size) {
 }
 
 exports.__test__ = {
+  buildBusinessDeletionPlan,
+  recordBelongsToBusiness,
+  shouldPreserveBusinessJob,
   buildQuoteResponseWritePayload,
   buildQuoteExactLocationPayload,
   buildDriverJobQuoteResponsePayload,

@@ -428,16 +428,21 @@
           <div>
             <h2>Contact details</h2>
             <input id="customerName" name="customer_name" class="field" type="text" placeholder="Full name" autocomplete="name" autocapitalize="words" />
-            <div style="height: 10px;"></div>
-            <input id="phoneNumber" name="customer_phone" class="field" type="tel" placeholder="Phone number" autocomplete="tel" inputmode="tel" autocorrect="off" spellcheck="false" />
-            <div style="height: 10px;"></div>
-            <input id="customerEmail" name="customer_email" class="field" type="email" placeholder="Email (optional)" autocomplete="email" autocapitalize="off" />
+            <div id="phoneNumberWrap">
+              <div style="height: 10px;"></div>
+              <input id="phoneNumber" name="customer_phone" class="field" type="tel" placeholder="Phone number" autocomplete="tel" inputmode="tel" autocorrect="off" spellcheck="false" />
+            </div>
+            <div id="customerEmailWrap">
+              <div style="height: 10px;"></div>
+              <input id="customerEmail" name="customer_email" class="field" type="email" placeholder="Email (optional)" autocomplete="email" autocapitalize="off" />
+            </div>
           </div>
         </div>
 
         <div id="addressSection" class="section hidden">
           <div>
             <h2 id="addressHeading">Address or postcode</h2>
+            <p id="addressHelper" class="helper hidden"></p>
             <textarea id="address" class="field" placeholder="Address" autocomplete="off"></textarea>
             <div style="height: 10px;"></div>
             <input id="postcode" class="field" type="text" placeholder="Postcode" autocomplete="off" inputmode="text" autocorrect="off" autocapitalize="characters" spellcheck="false" />
@@ -475,12 +480,12 @@
             <h2>Handover arrangement</h2>
             <p id="handoverSummary" class="section-text"></p>
             <div id="startHandoverChoiceWrap" class="hidden" style="margin-top: 12px;">
-              <label class="helper" for="startHandoverChoice">Start of service</label>
-              <select id="startHandoverChoice" class="field"></select>
+              <p class="helper">How would you like to begin?</p>
+              <div id="startHandoverChoice" class="choice-row" role="radiogroup" aria-label="How would you like to begin?"></div>
             </div>
             <div id="endHandoverChoiceWrap" class="hidden" style="margin-top: 12px;">
-              <label class="helper" for="endHandoverChoice">End of service</label>
-              <select id="endHandoverChoice" class="field"></select>
+              <p class="helper">How would you like it returned?</p>
+              <div id="endHandoverChoice" class="choice-row" role="radiogroup" aria-label="How would you like it returned?"></div>
             </div>
             <p id="businessHandoverInstructions" class="helper" style="margin-top: 12px;"></p>
             <div id="collectionAddressWrap" class="hidden" style="margin-top: 12px;">
@@ -621,7 +626,10 @@
     const customerName = document.getElementById("customerName");
     const phoneNumber = document.getElementById("phoneNumber");
     const customerEmail = document.getElementById("customerEmail");
+    const phoneNumberWrap = document.getElementById("phoneNumberWrap");
+    const customerEmailWrap = document.getElementById("customerEmailWrap");
     const addressSection = document.getElementById("addressSection");
+    const addressHelper = document.getElementById("addressHelper");
     const addressHeading = document.getElementById("addressHeading");
     const address = document.getElementById("address");
     const postcode = document.getElementById("postcode");
@@ -698,10 +706,12 @@
       selectedServiceId: "",
       submitting: false,
       submitted: false,
+      clientSubmissionId: "",
       answers: {},
       selectedPhotos: [],
     };
-    const PHOTO_LIMIT = 5;
+    const DEFAULT_PHOTO_LIMIT = 5;
+    const SUBMISSION_TIMEOUT_MS = 45 * 1000;
     const DEPRECATED_DUPLICATE_PRESET_IDS = new Set([
       "prefill_photos_items",
       "prefill_photos_access",
@@ -762,6 +772,27 @@
 
     function readText(value) {
       return String(value || "").trim();
+    }
+
+    function createClientSubmissionId() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+      }
+      return `booking_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    }
+
+    function withSubmissionTimeout(promise) {
+      let timeoutId;
+      const timeout = new Promise((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          const error = new Error("Request timed out. Check your connection and try again.");
+          error.bookingLinkTimeout = true;
+          reject(error);
+        }, SUBMISSION_TIMEOUT_MS);
+      });
+      return Promise.race([promise, timeout]).finally(() => {
+        window.clearTimeout(timeoutId);
+      });
     }
 
     const REQUEST_TYPES = new Set([
@@ -869,8 +900,13 @@
 
     function handoverForService(service) {
       const requestType = inferredRequestType(service);
-      const relevant = requestType === "dropOffPickupRequest" || requestType === "pickupDeliveryRequest";
-      if (!relevant) return null;
+      const legacyRelevant = requestType === "dropOffPickupRequest" || requestType === "pickupDeliveryRequest";
+      const hasCapabilityFlags = [
+        "allowCustomerDropOff",
+        "allowBusinessCollection",
+        "allowCustomerCollection",
+        "allowBusinessReturn",
+      ].some(key => service && Object.prototype.hasOwnProperty.call(service, key));
       const legacyMode = readText(service && (service.handoverMode || service.transportMode)).toLowerCase();
       const legacyBusinessMoves = legacyMode === "businesscollectreturn" || legacyMode === "business_collect_return";
       const legacyCustomerChooses = legacyMode === "customerchooses" || legacyMode === "customer_chooses";
@@ -880,44 +916,78 @@
       const validEnds = new Set(["customerCollects", "businessReturns"]);
       const configuredStart = readText(service && service.startHandover);
       const configuredEnd = readText(service && service.endHandover);
-      let allowedStarts = Array.isArray(service && service.allowedStartHandoverOptions)
-        ? service.allowedStartHandoverOptions.map(readText).filter(value => validStarts.has(value))
-        : [];
-      let allowedEnds = Array.isArray(service && service.allowedEndHandoverOptions)
-        ? service.allowedEndHandoverOptions.map(readText).filter(value => validEnds.has(value))
-        : [];
-      if (legacyCustomerChooses && !allowedStarts.length) allowedStarts = [...validStarts];
-      if (legacyCustomerChooses && !allowedEnds.length) allowedEnds = [...validEnds];
-      const start = validStarts.has(readText(startHandoverChoice.value))
-        ? readText(startHandoverChoice.value)
-        : (validStarts.has(configuredStart) ? configuredStart : defaultStart);
-      const end = validEnds.has(readText(endHandoverChoice.value))
-        ? readText(endHandoverChoice.value)
-        : (validEnds.has(configuredEnd) ? configuredEnd : defaultEnd);
+      let allowedStarts = hasCapabilityFlags
+        ? [
+            ...(service.allowCustomerDropOff === true ? ["customerDropsOff"] : []),
+            ...(service.allowBusinessCollection === true ? ["businessCollects"] : []),
+          ]
+        : (Array.isArray(service && service.allowedStartHandoverOptions)
+          ? service.allowedStartHandoverOptions.map(readText).filter(value => validStarts.has(value))
+          : []);
+      let allowedEnds = hasCapabilityFlags
+        ? [
+            ...(service.allowCustomerCollection === true ? ["customerCollects"] : []),
+            ...(service.allowBusinessReturn === true ? ["businessReturns"] : []),
+          ]
+        : (Array.isArray(service && service.allowedEndHandoverOptions)
+          ? service.allowedEndHandoverOptions.map(readText).filter(value => validEnds.has(value))
+          : []);
+      if (!hasCapabilityFlags && !legacyRelevant) return null;
+      if (!hasCapabilityFlags && !allowedStarts.length) {
+        allowedStarts = legacyCustomerChooses ? [...validStarts] : [defaultStart];
+      }
+      if (!hasCapabilityFlags && !allowedEnds.length) {
+        allowedEnds = legacyCustomerChooses ? [...validEnds] : [defaultEnd];
+      }
+      if (!allowedStarts.length || !allowedEnds.length) return null;
+      const selectedStart = handoverChoiceValue(startHandoverChoice);
+      const selectedEnd = handoverChoiceValue(endHandoverChoice);
+      const start = allowedStarts.includes(selectedStart)
+        ? selectedStart
+        : (allowedStarts.includes(configuredStart) ? configuredStart : allowedStarts[0]);
+      const end = allowedEnds.includes(selectedEnd)
+        ? selectedEnd
+        : (allowedEnds.includes(configuredEnd) ? configuredEnd : allowedEnds[0]);
       return {
         start,
         end,
-        allowedStarts: allowedStarts.length ? [...new Set([start, ...allowedStarts])] : [start],
-        allowedEnds: allowedEnds.length ? [...new Set([end, ...allowedEnds])] : [end],
+        allowedStarts: [...new Set(allowedStarts)],
+        allowedEnds: [...new Set(allowedEnds)],
       };
     }
 
     function customerHandoverSummary(handover) {
       if (!handover) return "";
-      if (handover.start === "customerDropsOff" && handover.end === "customerCollects") return "You will drop off and collect.";
-      if (handover.start === "customerDropsOff" && handover.end === "businessReturns") return "You will drop off; we will return it to you.";
-      if (handover.start === "businessCollects" && handover.end === "customerCollects") return "We will collect; you will collect when ready.";
-      return "We will collect and return.";
+      if (handover.start === "customerDropsOff" && handover.end === "customerCollects") return "You'll drop off your item and collect it when ready.";
+      if (handover.start === "customerDropsOff" && handover.end === "businessReturns") return "You'll drop off your item. We'll return it when finished.";
+      if (handover.start === "businessCollects" && handover.end === "customerCollects") return "We'll collect your item. You'll collect it when ready.";
+      return "We'll collect your item and return it when finished.";
     }
 
-    function populateHandoverChoice(select, values, selected, labels) {
-      select.innerHTML = "";
+    function handoverChoiceValue(container) {
+      const selected = container.querySelector(".choice-btn.active");
+      return selected ? readText(selected.dataset.value) : "";
+    }
+
+    function populateHandoverChoice(container, values, selected, labels) {
+      container.innerHTML = "";
       values.forEach(value => {
-        const option = document.createElement("option");
-        option.value = value;
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = `choice-btn${value === selected ? " active" : ""}`;
+        option.dataset.value = value;
+        option.setAttribute("role", "radio");
+        option.setAttribute("aria-checked", value === selected ? "true" : "false");
         option.textContent = labels[value] || value;
-        option.selected = value === selected;
-        select.appendChild(option);
+        option.addEventListener("click", () => {
+          container.querySelectorAll(".choice-btn").forEach(button => {
+            const active = button === option;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-checked", active ? "true" : "false");
+          });
+          renderServiceFields();
+        });
+        container.appendChild(option);
       });
     }
 
@@ -926,12 +996,12 @@
       handoverSection.classList.toggle("hidden", !handover);
       if (!handover) return null;
       populateHandoverChoice(startHandoverChoice, handover.allowedStarts, handover.start, {
-        customerDropsOff: "Customer drops off",
-        businessCollects: "Business collects",
+        customerDropsOff: "I'll drop it off",
+        businessCollects: "Please collect it",
       });
       populateHandoverChoice(endHandoverChoice, handover.allowedEnds, handover.end, {
-        customerCollects: "Customer collects",
-        businessReturns: "Business returns",
+        customerCollects: "I'll collect it",
+        businessReturns: "Please return it",
       });
       startHandoverChoiceWrap.classList.toggle("hidden", handover.allowedStarts.length < 2);
       endHandoverChoiceWrap.classList.toggle("hidden", handover.allowedEnds.length < 2);
@@ -1003,6 +1073,7 @@
     }
 
     function resetFlowFields() {
+      state.clientSubmissionId = "";
       setFulfilmentChoice("");
       orderDeliveryAddress.value = "";
       pickupAddress.value = "";
@@ -1047,6 +1118,18 @@
         return null;
       }
       return (state.config.services || []).find((item) => readText(item.id) === state.selectedServiceId) || null;
+    }
+
+    function builtInQuestionSetting(service, key) {
+      const settings = service && service.builtInQuestionSettings;
+      const value = settings && typeof settings === "object" ? settings[key] : null;
+      return value && typeof value === "object" ? value : {};
+    }
+
+    function photoLimitForService(service = selectedService()) {
+      const value = Number(service && service.maxCustomerPhotos);
+      if (!Number.isFinite(value)) return DEFAULT_PHOTO_LIMIT;
+      return Math.max(1, Math.min(5, Math.round(value)));
     }
 
     function isSeededQuestionCoveredByFlow(service, question) {
@@ -1169,7 +1252,7 @@
         photoGrid.innerHTML = "";
         return;
       }
-      photoList.textContent = `${photos.length} photo${photos.length === 1 ? "" : "s"} selected (max ${PHOTO_LIMIT}).`;
+      photoList.textContent = `${photos.length} photo${photos.length === 1 ? "" : "s"} selected (max ${photoLimitForService()}).`;
       photoGrid.innerHTML = "";
       photos.forEach((photo, index) => {
         const item = document.createElement("div");
@@ -1248,9 +1331,10 @@
       if (incomingFiles.length === 0) {
         return;
       }
-      const remainingSlots = PHOTO_LIMIT - state.selectedPhotos.length;
+      const photoLimit = photoLimitForService();
+      const remainingSlots = photoLimit - state.selectedPhotos.length;
       if (remainingSlots <= 0) {
-        showBanner(`You can add up to ${PHOTO_LIMIT} photos.`);
+        showBanner(`You can add up to ${photoLimit} photos.`);
         if (inputElement) {
           inputElement.value = "";
         }
@@ -1390,14 +1474,32 @@
       const handover = renderHandoverFields(service);
       document.documentElement.style.setProperty("--accent", flow.accent);
       const flowOptions = flowOptionsForService(service, flow.requestType);
-      serviceDescription.textContent = readText(service.description);
+      serviceDescription.textContent =
+        readText(service.customerMessage) || readText(service.description);
+      const showPhone = service.showPhoneNumber !== false;
+      const requirePhone = service.requirePhoneNumber !== false;
+      const showEmail = service.showEmailAddress !== false;
+      const requireEmail = service.requireEmailAddress === true;
+      phoneNumberWrap.classList.toggle("hidden", !showPhone);
+      customerEmailWrap.classList.toggle("hidden", !showEmail);
+      phoneNumber.placeholder = requirePhone ? "Phone number" : "Phone number (optional)";
+      customerEmail.placeholder = requireEmail ? "Email address" : "Email (optional)";
+      const hasExplicitShowAddress = Object.prototype.hasOwnProperty.call(service, "showAddress");
+      const configuredShowAddress = hasExplicitShowAddress
+        ? Boolean(service.showAddress)
+        : Boolean(service.requireAddress);
       const showStandardAddress =
-        Boolean(service.requireAddress) &&
+        configuredShowAddress &&
         !handover &&
         flow.requestType !== "orderRequest" &&
         flow.requestType !== "pickupDeliveryRequest";
       addressSection.classList.toggle("hidden", !showStandardAddress);
-      addressHeading.textContent = "Address or postcode";
+      addressHeading.textContent = service.requireAddress
+        ? "Address or postcode"
+        : "Address or postcode (optional)";
+      const addressHelperValue = readText(builtInQuestionSetting(service, "address").helperText);
+      addressHelper.classList.toggle("hidden", !addressHelperValue);
+      addressHelper.textContent = addressHelperValue;
       fulfilmentSection.classList.toggle(
         "hidden",
         flow.requestType !== "orderRequest" || !flowOptions.showFulfilmentChoice,
@@ -1428,7 +1530,9 @@
       preferredFlexibleWrap.classList.toggle("hidden", !showPreferredTiming);
       notesSection.classList.toggle("hidden", !flowOptions.showNotes);
       photosSection.classList.toggle("hidden", !service.requestPhotos);
-      photoHelperText.textContent = bookingPhotoHelperText();
+      photoHelperText.textContent =
+        readText(builtInQuestionSetting(service, "photos").helperText) ||
+        bookingPhotoHelperText();
       preferredTimingHeading.textContent = flow.preferredHeading;
       preferredDateLabel.textContent = "Preferred date";
       preferredTimeLabel.textContent = "Preferred time";
@@ -1545,11 +1649,19 @@
           serviceId: service.id,
         });
       }
-      if (!readText(phoneNumber.value)) {
+      if (service.showPhoneNumber !== false && service.requirePhoneNumber !== false && !readText(phoneNumber.value)) {
         return failValidation({
           message: "Please enter your phone number.",
           field: phoneNumber,
           reason: "missing_phone",
+          serviceId: service.id,
+        });
+      }
+      if (service.showEmailAddress !== false && service.requireEmailAddress === true && !readText(customerEmail.value)) {
+        return failValidation({
+          message: "Please enter your email address.",
+          field: customerEmail,
+          reason: "missing_email",
           serviceId: service.id,
         });
       }
@@ -1666,6 +1778,18 @@
         });
       }
       const linkedQuestions = linkedQuestionsForService(service);
+      if (
+        service.requestPhotos &&
+        builtInQuestionSetting(service, "photos").required === true &&
+        state.selectedPhotos.length === 0
+      ) {
+        return failValidation({
+          message: "Please add at least one photo.",
+          field: photoInput,
+          reason: "missing_required_photo",
+          serviceId: service.id,
+        });
+      }
       for (const question of linkedQuestions) {
         if (question.optional === true) {
           continue;
@@ -1751,6 +1875,7 @@
       });
 
       state.submitting = true;
+      state.clientSubmissionId = state.clientSubmissionId || createClientSubmissionId();
       submitButton.disabled = true;
       submitButton.textContent = flow.sendingLabel;
       submitButton.setAttribute("aria-busy", "true");
@@ -1774,12 +1899,13 @@
             ? readText(preferredTimingNote.value)
             : "",
         });
-        const response = await submitBookingLinkRequest({
+        const response = await withSubmissionTimeout(submitBookingLinkRequest({
           ownerUid: state.driverOwnerUid || ownerUid,
           publicConfigId: state.publicConfigId || ownerUid,
           businessProfileId: state.businessProfileId || "",
           serviceId: readText(service.id),
           serviceName: readText(service.name),
+          clientSubmissionId: state.clientSubmissionId,
           requestType: flow.requestType,
           startHandover: handover ? handover.start : "",
           endHandover: handover ? handover.end : "",
@@ -1860,7 +1986,7 @@
             dataBase64: readText(photo.dataBase64),
           })),
           answers: collectedAnswers,
-        });
+        }));
 
         console.log("[BookingLink] submit success", {
           requestId: response && response.data ? response.data.requestId : "",
@@ -1868,7 +1994,6 @@
           photosUploadedCount: response && response.data ? Number(response.data.photosUploadedCount || 0) : 0,
           requestedPhotoCount: response && response.data ? Number(response.data.requestedPhotoCount || 0) : 0,
         });
-        state.submitting = false;
         state.submitted = true;
         formCard.classList.add("hidden");
         showSubmittedHeader();
@@ -1890,19 +2015,22 @@
           details: errorDetails,
           error,
         });
-        state.submitting = false;
-        submitButton.disabled = false;
-        submitButton.textContent = flow.submitLabel;
-        submitButton.removeAttribute("aria-busy");
-        if (mergedError.toLowerCase().includes("photo")) {
-          showBanner("Could not upload photos, please remove photos and try again.");
+        if (error && error.bookingLinkTimeout) {
+          showBanner("Request timed out. Check your connection and try again.");
+        } else if (mergedError.toLowerCase().includes("photo")) {
+          showBanner("Could not upload photos. Please try again.");
         } else {
           showBanner(mergedError);
         }
         focusAndScrollTo(submitButton);
-        return;
+      } finally {
+        state.submitting = false;
+        submitButton.removeAttribute("aria-busy");
+        if (!state.submitted) {
+          submitButton.disabled = false;
+          submitButton.textContent = flow.submitLabel;
+        }
       }
-      submitButton.removeAttribute("aria-busy");
     }
 
     async function loadBookingLink() {
@@ -1967,8 +2095,6 @@
       state.selectedServiceId = readText(serviceSelect.value);
       renderServiceFields();
     });
-    startHandoverChoice.addEventListener("change", () => renderServiceFields());
-    endHandoverChoice.addEventListener("change", () => renderServiceFields());
     sameReturnAddress.addEventListener("change", () => renderServiceFields());
     collectionChoice.addEventListener("click", () => {
       setFulfilmentChoice("collection");
@@ -1983,15 +2109,17 @@
       }
     });
     takePhotoButton.addEventListener("click", () => {
-      if (state.selectedPhotos.length >= PHOTO_LIMIT) {
-        showBanner(`You can add up to ${PHOTO_LIMIT} photos.`);
+      const photoLimit = photoLimitForService();
+      if (state.selectedPhotos.length >= photoLimit) {
+        showBanner(`You can add up to ${photoLimit} photos.`);
         return;
       }
       cameraInput.click();
     });
     choosePhotosButton.addEventListener("click", () => {
-      if (state.selectedPhotos.length >= PHOTO_LIMIT) {
-        showBanner(`You can add up to ${PHOTO_LIMIT} photos.`);
+      const photoLimit = photoLimitForService();
+      if (state.selectedPhotos.length >= photoLimit) {
+        showBanner(`You can add up to ${photoLimit} photos.`);
         return;
       }
       photoInput.click();

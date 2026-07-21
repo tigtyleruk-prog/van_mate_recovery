@@ -65,6 +65,18 @@ class VanBusinessProfileSummary {
   }
 }
 
+class VanBusinessProfileDeletionTransition {
+  const VanBusinessProfileDeletionTransition({
+    required this.deletedProfileId,
+    required this.activeProfile,
+    required this.requiresBusinessSetup,
+  });
+
+  final String deletedProfileId;
+  final VanBusinessProfileSummary activeProfile;
+  final bool requiresBusinessSetup;
+}
+
 class VanBusinessProfileScopeStorage extends ChangeNotifier {
   VanBusinessProfileScopeStorage._();
 
@@ -103,6 +115,10 @@ class VanBusinessProfileScopeStorage extends ChangeNotifier {
   Future<VanBusinessProfileSummary> activeProfile() async {
     await ensureLoaded();
     final profiles = _readProfiles();
+    if (profiles.isEmpty) {
+      await _ensureDefaultProfile();
+      return _readProfiles().first;
+    }
     final activeId = _preferences?.getString(_activeProfileIdKey)?.trim() ?? '';
     return profiles.firstWhere(
       (profile) => profile.id == activeId,
@@ -181,6 +197,49 @@ class VanBusinessProfileScopeStorage extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<VanBusinessProfileDeletionTransition> deleteProfile(
+    String profileId,
+  ) async {
+    await ensureLoaded();
+    final normalizedId = profileId.trim();
+    final profiles = _readProfiles();
+    final deletedIndex = profiles.indexWhere(
+      (profile) => profile.id == normalizedId,
+    );
+    if (normalizedId.isEmpty || deletedIndex < 0) {
+      throw StateError('Business profile could not be found.');
+    }
+
+    final remaining = <VanBusinessProfileSummary>[
+      for (final profile in profiles)
+        if (profile.id != normalizedId) profile,
+    ];
+    late final VanBusinessProfileSummary nextActive;
+    final requiresBusinessSetup = remaining.isEmpty;
+    if (requiresBusinessSetup) {
+      final now = DateTime.now();
+      nextActive = VanBusinessProfileSummary(
+        id: defaultBusinessId,
+        name: 'New business',
+        createdAt: now,
+        updatedAt: now,
+      );
+      remaining.add(nextActive);
+    } else {
+      final nextIndex = deletedIndex.clamp(0, remaining.length - 1);
+      nextActive = remaining[nextIndex];
+    }
+
+    await _writeProfiles(remaining);
+    await _preferences?.setString(_activeProfileIdKey, nextActive.id);
+    notifyListeners();
+    return VanBusinessProfileDeletionTransition(
+      deletedProfileId: normalizedId,
+      activeProfile: nextActive,
+      requiresBusinessSetup: requiresBusinessSetup,
+    );
+  }
+
   Future<String> scopedLocalKey(String baseKey) async {
     final activeId = await activeBusinessId();
     if (activeId == defaultBusinessId) {
@@ -214,6 +273,17 @@ class VanBusinessProfileScopeStorage extends ChangeNotifier {
     return expected;
   }
 
+  String publicConfigIdForBusiness(String ownerUid, String businessProfileId) {
+    final normalizedOwnerUid = ownerUid.trim();
+    final normalizedBusinessProfileId = businessProfileId.trim();
+    if (normalizedOwnerUid.isEmpty || normalizedBusinessProfileId.isEmpty) {
+      return '';
+    }
+    return normalizedBusinessProfileId == defaultBusinessId
+        ? normalizedOwnerUid
+        : '${normalizedOwnerUid}_$normalizedBusinessProfileId';
+  }
+
   List<VanBusinessProfileSummary> _readProfiles() {
     final raw = _preferences?.getString(_profilesKey);
     if (raw == null || raw.trim().isEmpty) {
@@ -233,12 +303,7 @@ class VanBusinessProfileScopeStorage extends ChangeNotifier {
           }
         }
         if (profiles.isNotEmpty) {
-          final hasDefault = profiles.any(
-            (profile) => profile.id == defaultBusinessId,
-          );
-          return hasDefault
-              ? profiles
-              : <VanBusinessProfileSummary>[_defaultProfile(), ...profiles];
+          return profiles;
         }
       }
     } catch (error) {
@@ -256,12 +321,9 @@ class VanBusinessProfileScopeStorage extends ChangeNotifier {
 
   Future<void> _ensureDefaultProfile() async {
     final profiles = _readProfiles();
-    final hasDefault = profiles.any(
-      (profile) => profile.id == defaultBusinessId,
-    );
-    final normalizedProfiles = hasDefault
-        ? profiles
-        : <VanBusinessProfileSummary>[_defaultProfile(), ...profiles];
+    final normalizedProfiles = profiles.isEmpty
+        ? <VanBusinessProfileSummary>[_defaultProfile()]
+        : profiles;
     await _writeProfiles(normalizedProfiles);
 
     final activeId = _preferences?.getString(_activeProfileIdKey)?.trim() ?? '';

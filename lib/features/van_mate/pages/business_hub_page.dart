@@ -263,26 +263,28 @@ class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
     await WidgetsBinding.instance.endOfFrame;
   }
 
-  Future<void> _renameActiveBusiness() async {
-    final active = _activeProfile;
-    if (active == null) {
+  Future<void> _editActiveBusiness() async {
+    final result = await openVanBusinessProfilePage(context);
+    if (!mounted) {
       return;
     }
-    final name = await _showBusinessNameDialog(
-      title: 'Rename business',
-      actionLabel: 'Save',
-      initialValue: active.name,
-    );
-    if (name == null || name.trim().isEmpty) {
-      return;
-    }
-    await _profileScopeStorage.renameProfile(profileId: active.id, name: name);
-    final currentProfile = await VanBusinessProfileStorage.instance.load();
-    await VanBusinessProfileStorage.instance.save(
-      currentProfile.copyWith(businessName: name.trim()),
-      syncCloud: active.id == VanBusinessProfileScopeStorage.defaultBusinessId,
-    );
     await _loadProfiles(showLoader: false);
+    if (!mounted) {
+      return;
+    }
+    if (result?.businessDeleted == true) {
+      final activeName = _activeProfile?.name.trim() ?? '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            activeName.isEmpty
+                ? 'Business deleted.'
+                : 'Business deleted. Switched to $activeName.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<String?> _showBusinessNameDialog({
@@ -358,7 +360,7 @@ class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
                   loading: _loadingProfiles,
                   onSwitch: _switchBusiness,
                   onAdd: _addBusiness,
-                  onRename: _renameActiveBusiness,
+                  onEdit: _editActiveBusiness,
                 ),
                 const SizedBox(height: 12),
                 _BusinessHubSectionCard(
@@ -366,6 +368,7 @@ class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
                   subtitle:
                       'Manage your profile, services, booking link and customer jobs.',
                   incomingJobsAttention: incomingJobsAttention,
+                  onOpenBusinessProfile: () => unawaited(_editActiveBusiness()),
                   onOpenIncomingJobs: () => unawaited(_openIncomingJobs()),
                   items: const <_BusinessHubActionItem>[
                     _BusinessHubActionItem(
@@ -373,7 +376,7 @@ class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
                       icon: Icons.badge_outlined,
                     ),
                     _BusinessHubActionItem(
-                      title: 'Job Types / Services',
+                      title: 'Services',
                       icon: Icons.design_services_outlined,
                     ),
                     _BusinessHubActionItem(
@@ -551,7 +554,7 @@ class _BusinessProfileSwitcherCard extends StatelessWidget {
     required this.loading,
     required this.onSwitch,
     required this.onAdd,
-    required this.onRename,
+    required this.onEdit,
   });
 
   final List<VanBusinessProfileSummary> profiles;
@@ -559,7 +562,7 @@ class _BusinessProfileSwitcherCard extends StatelessWidget {
   final bool loading;
   final ValueChanged<String> onSwitch;
   final VoidCallback onAdd;
-  final VoidCallback onRename;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -613,13 +616,25 @@ class _BusinessProfileSwitcherCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Rename business',
-                onPressed: loading ? null : onRename,
+                tooltip: 'Edit business',
+                onPressed: loading ? null : onEdit,
                 icon: const Icon(Icons.edit_outlined, color: Colors.white),
               ),
             ],
           ),
           const SizedBox(height: 12),
+          Text(
+            profiles.length > 1
+                ? 'Tap a business to switch. Use the pencil to edit the active business.'
+                : 'Use the pencil to edit this business or manage deletion safely.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.66),
+              fontSize: 12.2,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -665,6 +680,7 @@ class _BusinessHubSectionCard extends StatelessWidget {
   final String subtitle;
   final List<_BusinessHubActionItem> items;
   final VanIncomingJobsAttention? incomingJobsAttention;
+  final VoidCallback? onOpenBusinessProfile;
   final VoidCallback? onOpenIncomingJobs;
 
   const _BusinessHubSectionCard({
@@ -672,6 +688,7 @@ class _BusinessHubSectionCard extends StatelessWidget {
     required this.subtitle,
     required this.items,
     this.incomingJobsAttention,
+    this.onOpenBusinessProfile,
     this.onOpenIncomingJobs,
   });
 
@@ -722,11 +739,11 @@ class _BusinessHubSectionCard extends StatelessWidget {
                         : null,
                     onTap: () {
                       if (item.title == 'Business Profile') {
-                        unawaited(openVanBusinessProfilePage(context));
+                        onOpenBusinessProfile?.call();
                         return;
                       }
 
-                      if (item.title == 'Job Types / Services') {
+                      if (item.title == 'Services') {
                         unawaited(openVanJobTypesServicesPage(context));
                         return;
                       }

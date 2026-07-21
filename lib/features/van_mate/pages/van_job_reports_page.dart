@@ -15,6 +15,7 @@ import '../models/van_job_report.dart';
 import '../services/van_business_profile_storage.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 import 'driver_customer_reply_mock_page.dart';
+import 'van_quick_invoice_page.dart';
 
 Future<void> openVanJobReportsPage(BuildContext context) {
   return Navigator.of(
@@ -848,6 +849,13 @@ class _VanJobReportsPageState extends State<VanJobReportsPage>
                                   color: Colors.white.withValues(alpha: 0.74),
                                   height: 1.45,
                                 ),
+                              ),
+                              const SizedBox(height: 14),
+                              FilledButton.icon(
+                                onPressed: () =>
+                                    unawaited(openVanQuickInvoicePage(context)),
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Create an invoice'),
                               ),
                             ],
                           ),
