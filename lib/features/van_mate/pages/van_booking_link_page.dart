@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../helpers/app_theme.dart';
 import '../helpers/van_business_logo_support.dart';
+import '../helpers/van_booking_delivery_timing.dart';
 import '../helpers/van_customer_request_questions.dart';
 import '../helpers/van_text_formatters.dart';
 import '../models/van_business_profile.dart';
@@ -784,6 +785,12 @@ class _VanBookingLinkCustomerFormPageState
   final TextEditingController _postcodeController = TextEditingController();
   final TextEditingController _preferredDateController =
       TextEditingController();
+  final TextEditingController _collectionDateController =
+      TextEditingController();
+  final TextEditingController _collectionTimeController =
+      TextEditingController();
+  final TextEditingController _deliveryDateController = TextEditingController();
+  final TextEditingController _deliveryTimeController = TextEditingController();
   final TextEditingController _timingNoteController = TextEditingController();
   final Map<String, TextEditingController> _answerControllers =
       <String, TextEditingController>{};
@@ -792,6 +799,11 @@ class _VanBookingLinkCustomerFormPageState
 
   String? _selectedServiceId;
   DateTime? _preferredDate;
+  DateTime? _collectionDate;
+  TimeOfDay? _collectionTime;
+  DateTime? _deliveryDate;
+  TimeOfDay? _deliveryTime;
+  String? _journeyTimingError;
   String _preferredTimeWindow = 'anytime';
   bool _preferredIsFlexible = false;
   bool _submitting = false;
@@ -837,6 +849,13 @@ class _VanBookingLinkCustomerFormPageState
     return _selectedEndHandover ?? service.effectiveHandover.end;
   }
 
+  bool get _isBusinessDeliveryJourney =>
+      _effectiveStartHandover == VanStartHandover.businessCollects &&
+      _effectiveEndHandover == VanEndHandover.businessDelivers;
+
+  bool get _isSameDayDelivery =>
+      _selectedService?.starterTemplateId == 'courier_same_day_delivery';
+
   List<VanCustomJobQuestion> get _selectedServiceQuestions {
     final service = _selectedService;
     if (service == null) {
@@ -875,6 +894,21 @@ class _VanBookingLinkCustomerFormPageState
     final upper = value.toUpperCase();
     final plain = upper.replaceAll(RegExp(r'[^A-Z0-9 ]'), '');
     return plain.trim();
+  }
+
+  String? _validateJourneyTiming(VanJobService service) {
+    final flow = service.effectiveRequestFlowOptions;
+    return validateVanBookingDeliveryTiming(
+      collectionDate: _collectionDate,
+      collectionTime: _collectionTime,
+      deliveryDate: _deliveryDate,
+      deliveryTime: _deliveryTime,
+      sameDayDelivery: _isSameDayDelivery,
+      requireCollectionDate: flow.showDropOffDate,
+      requireCollectionTime: flow.showDropOffTime,
+      requireDeliveryDate: flow.showPickUpDate,
+      requireDeliveryTime: flow.showPickUpTime,
+    );
   }
 
   String? get _customerFacingCustomHeading {
@@ -924,6 +958,10 @@ class _VanBookingLinkCustomerFormPageState
     _returnAddressController.dispose();
     _postcodeController.dispose();
     _preferredDateController.dispose();
+    _collectionDateController.dispose();
+    _collectionTimeController.dispose();
+    _deliveryDateController.dispose();
+    _deliveryTimeController.dispose();
     _timingNoteController.dispose();
     for (final controller in _answerControllers.values) {
       controller.dispose();
@@ -1065,12 +1103,26 @@ class _VanBookingLinkCustomerFormPageState
     if (endHandover?.needsCustomerAddress == true &&
         effectiveReturnAddress.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add the business return address.'),
+        SnackBar(
+          content: Text(
+            endHandover == VanEndHandover.businessDelivers
+                ? 'Please add the delivery address.'
+                : 'Please add the business return address.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return false;
+    }
+
+    if (_isBusinessDeliveryJourney) {
+      final timingError = _validateJourneyTiming(service);
+      if (_journeyTimingError != timingError) {
+        setState(() => _journeyTimingError = timingError);
+      }
+      if (timingError != null) return false;
+    } else if (_journeyTimingError != null) {
+      setState(() => _journeyTimingError = null);
     }
 
     for (final question in _selectedServiceQuestions) {
@@ -1199,6 +1251,60 @@ class _VanBookingLinkCustomerFormPageState
     setState(() {
       _preferredDate = DateUtils.dateOnly(picked);
       _preferredDateController.text = _formatDate(_preferredDate!);
+    });
+  }
+
+  Future<void> _pickJourneyDate({required bool delivery}) async {
+    if (delivery && _isSameDayDelivery && _collectionDate != null) return;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final current = delivery ? _deliveryDate : _collectionDate;
+    final earliest = delivery && _collectionDate != null
+        ? _collectionDate!
+        : today;
+    final initial = current == null || current.isBefore(earliest)
+        ? earliest
+        : current;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: earliest,
+      lastDate: DateTime(today.year + 3),
+    );
+    if (picked == null || !mounted) return;
+    final normalized = DateUtils.dateOnly(picked);
+    setState(() {
+      if (delivery) {
+        _deliveryDate = normalized;
+        _deliveryDateController.text = _formatDate(normalized);
+      } else {
+        _collectionDate = normalized;
+        _collectionDateController.text = _formatDate(normalized);
+        if (_isSameDayDelivery ||
+            (_deliveryDate != null && _deliveryDate!.isBefore(normalized))) {
+          _deliveryDate = normalized;
+          _deliveryDateController.text = _formatDate(normalized);
+        }
+      }
+      _journeyTimingError = null;
+    });
+  }
+
+  Future<void> _pickJourneyTime({required bool delivery}) async {
+    final current = delivery ? _deliveryTime : _collectionTime;
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: current ?? TimeOfDay.now(),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (delivery) {
+        _deliveryTime = picked;
+        _deliveryTimeController.text = _formatTime(picked);
+      } else {
+        _collectionTime = picked;
+        _collectionTimeController.text = _formatTime(picked);
+      }
+      _journeyTimingError = null;
     });
   }
 
@@ -1492,9 +1598,23 @@ class _VanBookingLinkCustomerFormPageState
       final postcode = _normalizePostcode(_postcodeController.text);
       final startHandover = _effectiveStartHandover;
       final endHandover = _effectiveEndHandover;
-      final returnAddress = _returnAddressSameAsCollection
-          ? address
-          : sanitizeVanText(_returnAddressController.text).trim();
+      final destinationAddress = sanitizeVanText(
+        _returnAddressController.text,
+      ).trim();
+      final returnAddress = endHandover == VanEndHandover.businessReturns
+          ? (_returnAddressSameAsCollection ? address : destinationAddress)
+          : '';
+      final deliveryAddress = endHandover == VanEndHandover.businessDelivers
+          ? destinationAddress
+          : '';
+      final collectionDate = _collectionDate?.toIso8601String();
+      final collectionTime = _collectionTime == null
+          ? ''
+          : _formatTime(_collectionTime!);
+      final deliveryDate = _deliveryDate?.toIso8601String();
+      final deliveryTime = _deliveryTime == null
+          ? ''
+          : _formatTime(_deliveryTime!);
       final selectedQuestions = _selectedServiceQuestions;
       final collectedAnswers = selectedQuestions
           .asMap()
@@ -1506,6 +1626,7 @@ class _VanBookingLinkCustomerFormPageState
             final payload = <String, dynamic>{
               'questionId': question.id.trim(),
               'questionText': question.questionText.trim(),
+              'libraryQuestionId': question.libraryQuestionId.trim(),
               'type': question.answerType.storageKey,
               'answerType': question.answerType.storageKey,
               'category': question.category?.storageKey ?? '',
@@ -1567,10 +1688,20 @@ class _VanBookingLinkCustomerFormPageState
             'collectionAddress': startHandover?.needsCustomerAddress == true
                 ? address
                 : '',
-            'returnAddress': endHandover?.needsCustomerAddress == true
-                ? returnAddress
-                : '',
-            'returnAddressSameAsCollection': _returnAddressSameAsCollection,
+            'pickupAddress': _isBusinessDeliveryJourney ? address : '',
+            'deliveryAddress': deliveryAddress,
+            'returnAddress': returnAddress,
+            'returnAddressSameAsCollection':
+                endHandover == VanEndHandover.businessReturns &&
+                _returnAddressSameAsCollection,
+            'collectionDate': collectionDate,
+            'collectionTime': collectionTime,
+            'deliveryDate': deliveryDate,
+            'deliveryTime': deliveryTime,
+            'dropOffDate': collectionDate,
+            'dropOffTime': collectionTime,
+            'pickUpDate': deliveryDate,
+            'pickUpTime': deliveryTime,
             'postcode': service.hasHandoverConfiguration ? '' : postcode,
             'additionalNotes': additionalNotes,
             'preferredDate': _preferredDate?.toIso8601String(),
@@ -1618,10 +1749,20 @@ class _VanBookingLinkCustomerFormPageState
                 'collectionAddress': startHandover?.needsCustomerAddress == true
                     ? address
                     : '',
-                'returnAddress': endHandover?.needsCustomerAddress == true
-                    ? returnAddress
-                    : '',
-                'returnAddressSameAsCollection': _returnAddressSameAsCollection,
+                'pickupAddress': _isBusinessDeliveryJourney ? address : '',
+                'deliveryAddress': deliveryAddress,
+                'returnAddress': returnAddress,
+                'returnAddressSameAsCollection':
+                    endHandover == VanEndHandover.businessReturns &&
+                    _returnAddressSameAsCollection,
+                'collectionDate': collectionDate,
+                'collectionTime': collectionTime,
+                'deliveryDate': deliveryDate,
+                'deliveryTime': deliveryTime,
+                'dropOffDate': collectionDate,
+                'dropOffTime': collectionTime,
+                'pickUpDate': deliveryDate,
+                'pickUpTime': deliveryTime,
                 'businessDropOffInstructions':
                     service.businessDropOffInstructions,
                 'businessCollectionInstructions':
@@ -2032,6 +2173,15 @@ class _VanBookingLinkCustomerFormPageState
                                     _clientSubmissionId = '';
                                     _addressController.clear();
                                     _returnAddressController.clear();
+                                    _collectionDate = null;
+                                    _collectionTime = null;
+                                    _deliveryDate = null;
+                                    _deliveryTime = null;
+                                    _collectionDateController.clear();
+                                    _collectionTimeController.clear();
+                                    _deliveryDateController.clear();
+                                    _deliveryTimeController.clear();
+                                    _journeyTimingError = null;
                                     _syncQuestionControllers();
                                   });
                                 },
@@ -2232,8 +2382,11 @@ class _VanBookingLinkCustomerFormPageState
                                   .effectiveHandover
                                   .customerChoosesEnd) ...[
                                 const SizedBox(height: 12),
-                                const Text(
-                                  'How would you like it returned?',
+                                Text(
+                                  _effectiveEndHandover ==
+                                          VanEndHandover.businessDelivers
+                                      ? 'How should it reach the destination?'
+                                      : 'How would you like it returned?',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
@@ -2243,10 +2396,14 @@ class _VanBookingLinkCustomerFormPageState
                                 for (final value
                                     in service.effectiveHandover.allowedEnds)
                                   _HandoverRadioTile(
-                                    label:
-                                        value == VanEndHandover.customerCollects
-                                        ? "I'll collect it"
-                                        : 'Please return it',
+                                    label: switch (value) {
+                                      VanEndHandover.customerCollects =>
+                                        "I'll collect it",
+                                      VanEndHandover.businessReturns =>
+                                        'Please return it',
+                                      VanEndHandover.businessDelivers =>
+                                        'Please deliver it',
+                                    },
                                     selected: _effectiveEndHandover == value,
                                     onTap: () => setState(
                                       () => _selectedEndHandover = value,
@@ -2278,6 +2435,18 @@ class _VanBookingLinkCustomerFormPageState
                                 ),
                               ],
                               if (_effectiveEndHandover ==
+                                  VanEndHandover.businessDelivers) ...[
+                                const SizedBox(height: 12),
+                                _BookingTextField(
+                                  controller: _returnAddressController,
+                                  label: 'Delivery address',
+                                  hint: 'Where should the business deliver to?',
+                                  icon: Icons.flag_outlined,
+                                  minLines: 2,
+                                  maxLines: 3,
+                                  autofillHints: const <String>[],
+                                ),
+                              ] else if (_effectiveEndHandover ==
                                   VanEndHandover.customerCollects) ...[
                                 const SizedBox(height: 12),
                                 Text(
@@ -2315,6 +2484,74 @@ class _VanBookingLinkCustomerFormPageState
                                     maxLines: 3,
                                     autofillHints: const <String>[],
                                   ),
+                              ],
+                              if (_isBusinessDeliveryJourney) ...[
+                                const SizedBox(height: 16),
+                                _BookingTextField(
+                                  controller: _collectionDateController,
+                                  label: 'Preferred collection date',
+                                  hint: 'Choose a preferred date',
+                                  icon: Icons.event_outlined,
+                                  readOnly: true,
+                                  onTap: () =>
+                                      _pickJourneyDate(delivery: false),
+                                ),
+                                const SizedBox(height: 10),
+                                _BookingTextField(
+                                  controller: _collectionTimeController,
+                                  label: 'Preferred collection time',
+                                  hint: 'Choose a preferred time',
+                                  icon: Icons.schedule_outlined,
+                                  readOnly: true,
+                                  onTap: () =>
+                                      _pickJourneyTime(delivery: false),
+                                ),
+                                const SizedBox(height: 10),
+                                _BookingTextField(
+                                  controller: _deliveryDateController,
+                                  label: _isSameDayDelivery
+                                      ? 'Preferred delivery date (same as collection)'
+                                      : 'Preferred delivery date',
+                                  hint: _isSameDayDelivery
+                                      ? 'Matches the collection date'
+                                      : 'Choose a preferred date',
+                                  icon: Icons.event_available_outlined,
+                                  readOnly: true,
+                                  onTap: _isSameDayDelivery
+                                      ? null
+                                      : () => _pickJourneyDate(delivery: true),
+                                ),
+                                const SizedBox(height: 10),
+                                _BookingTextField(
+                                  controller: _deliveryTimeController,
+                                  label:
+                                      'Preferred delivery time or delivery window',
+                                  hint: 'Choose a preferred time',
+                                  icon: Icons.access_time_rounded,
+                                  readOnly: true,
+                                  onTap: () => _pickJourneyTime(delivery: true),
+                                ),
+                                if (_journeyTimingError != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _journeyTimingError!,
+                                    key: const Key(
+                                      'journey_timing_validation_error',
+                                    ),
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFA3A3),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  'These are preferred times. The business will confirm the schedule with your quote.',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: .62),
+                                    height: 1.35,
+                                  ),
+                                ),
                               ],
                             ],
                           ),

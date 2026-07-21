@@ -358,6 +358,7 @@ class VanResolvedServiceCapabilities {
     required this.allowBusinessCollection,
     required this.allowCustomerCollection,
     required this.allowBusinessReturn,
+    required this.allowBusinessDelivery,
     required this.requireAddress,
     required this.requestPhotos,
     required this.builtInQuestionKeys,
@@ -376,6 +377,7 @@ class VanResolvedServiceCapabilities {
   final bool allowBusinessCollection;
   final bool allowCustomerCollection;
   final bool allowBusinessReturn;
+  final bool allowBusinessDelivery;
   final bool requireAddress;
   final bool requestPhotos;
   final Set<String> builtInQuestionKeys;
@@ -448,6 +450,10 @@ VanResolvedServiceCapabilities resolveVanServiceCapabilities(
     allowBusinessReturn:
         hasCompleteHandover &&
         ids.contains(VanServiceCapabilityIds.businessReturns),
+    // Delivery is an explicit handover destination. Do not infer it from
+    // legacy fulfilment capabilities because doing so would reinterpret
+    // existing saved services when their capability selection is edited.
+    allowBusinessDelivery: false,
     requireAddress: requireAddress,
     requestPhotos:
         ids.contains(VanServiceCapabilityIds.photoUpload) ||

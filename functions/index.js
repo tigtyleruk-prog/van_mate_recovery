@@ -1281,7 +1281,9 @@ function normalizeStartHandover(value, fallback = 'customerDropsOff') {
 
 function normalizeEndHandover(value, fallback = 'customerCollects') {
   const normalized = readString(value);
-  return normalized === 'businessReturns' || normalized === 'customerCollects'
+  return normalized === 'businessReturns' ||
+    normalized === 'businessDelivers' ||
+    normalized === 'customerCollects'
     ? normalized
     : fallback;
 }
@@ -1297,6 +1299,15 @@ function normalizeFulfilmentType(value) {
   return normalized === 'collection' || normalized === 'delivery'
     ? normalized
     : '';
+}
+
+function timeOfDayMinutes(value) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(readString(value));
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
 }
 
 function shouldRequireExactPinAfterQuoteAccepted({
@@ -2868,10 +2879,22 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const returnAddressSameAsCollection = readBool(
     data.returnAddressSameAsCollection,
   );
-  let dropOffDate = toDateOrNull(data.dropOffDate);
-  let dropOffTime = readString(data.dropOffTime);
-  let pickUpDate = toDateOrNull(data.pickUpDate);
-  let pickUpTime = readString(data.pickUpTime);
+  let dropOffDate = toDateOrNull(firstNonEmpty([
+    data.collectionDate,
+    data.dropOffDate,
+  ]));
+  let dropOffTime = readString(firstNonEmpty([
+    data.collectionTime,
+    data.dropOffTime,
+  ]));
+  let pickUpDate = toDateOrNull(firstNonEmpty([
+    data.deliveryDate,
+    data.pickUpDate,
+  ]));
+  let pickUpTime = readString(firstNonEmpty([
+    data.deliveryTime,
+    data.pickUpTime,
+  ]));
   let additionalNotes = readString(data.additionalNotes);
   const preferredDateInput = firstNonEmpty([
     data.preferredDate,
@@ -2901,6 +2924,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
         .map((item) => {
           const source = item && typeof item === 'object' ? item : {};
           const questionId = readString(source.questionId);
+          const libraryQuestionId = readString(source.libraryQuestionId);
           const questionText = readString(source.questionText);
           const answerType = readString(source.answerType || source.type);
           const category = readString(source.category);
@@ -2911,6 +2935,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
           }
           return {
             questionId,
+            libraryQuestionId,
             questionText,
             answerType,
             category,
@@ -3011,6 +3036,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     'allowBusinessCollection',
     'allowCustomerCollection',
     'allowBusinessReturn',
+    'allowBusinessDelivery',
   ];
   const hasHandoverCapabilityFlags = handoverCapabilityKeys.some(
     (key) => Object.prototype.hasOwnProperty.call(selectedService, key),
@@ -3068,6 +3094,9 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
       ...(readBool(selectedService.allowBusinessReturn)
         ? ['businessReturns']
         : []),
+      ...(readBool(selectedService.allowBusinessDelivery)
+        ? ['businessDelivers']
+        : []),
     ]
     : (legacySupportsHandover
       ? normalizeHandoverOptions(
@@ -3076,7 +3105,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
           : (legacyCustomerChooses
             ? ['customerCollects', 'businessReturns']
             : []),
-        ['customerCollects', 'businessReturns'],
+        ['customerCollects', 'businessReturns', 'businessDelivers'],
         configuredEndHandover,
       )
       : []);
@@ -3114,11 +3143,23 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   if (supportsHandover && !collectionAddress) {
     collectionAddress = pickupAddress;
   }
-  if (supportsHandover && !returnAddress) {
+  if (
+    supportsHandover &&
+    endHandover === 'businessReturns' &&
+    !returnAddress
+  ) {
     returnAddress = deliveryAddress;
   }
-  if (returnAddressSameAsCollection && startHandover === 'businessCollects') {
+  if (
+    returnAddressSameAsCollection &&
+    startHandover === 'businessCollects' &&
+    endHandover === 'businessReturns'
+  ) {
     returnAddress = collectionAddress;
+  }
+  if (supportsHandover && endHandover === 'businessDelivers') {
+    pickupAddress = collectionAddress;
+    returnAddress = '';
   }
   const requestFlowOptions = normalizeRequestFlowOptions(
     selectedService.requestFlowOptions,
@@ -3132,19 +3173,20 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
       fulfilmentType = '';
     }
     if (
-      supportsHandover ||
+      (supportsHandover && endHandover !== 'businessDelivers') ||
       requestType !== 'pickupDeliveryRequest' ||
       !requestFlowOptions.showPickupAddress
     ) {
       pickupAddress = '';
     }
     const keepsDeliveryAddress =
-      !supportsHandover &&
+      (supportsHandover && endHandover === 'businessDelivers') ||
+      (!supportsHandover &&
       ((requestType === 'orderRequest' &&
         requestFlowOptions.showFulfilmentChoice &&
         fulfilmentType === 'delivery') ||
       (requestType === 'pickupDeliveryRequest' &&
-        requestFlowOptions.showDeliveryAddress));
+        requestFlowOptions.showDeliveryAddress)));
     if (!keepsDeliveryAddress) {
       deliveryAddress = '';
     }
@@ -3251,10 +3293,20 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'Pick-up date is required.');
   }
   if (supportsHandover && !dropOffDate) {
-    throw new HttpsError('invalid-argument', 'Start handover date is required.');
+    throw new HttpsError(
+      'invalid-argument',
+      endHandover === 'businessDelivers'
+        ? 'Preferred collection date is required.'
+        : 'Start handover date is required.',
+    );
   }
   if (supportsHandover && !pickUpDate) {
-    throw new HttpsError('invalid-argument', 'End handover date is required.');
+    throw new HttpsError(
+      'invalid-argument',
+      endHandover === 'businessDelivers'
+        ? 'Preferred delivery date is required.'
+        : 'End handover date is required.',
+    );
   }
   if (
     dropOffDate &&
@@ -3263,8 +3315,55 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   ) {
     throw new HttpsError(
       'invalid-argument',
-      'End handover date must be on or after the start handover date.',
+      endHandover === 'businessDelivers'
+        ? 'Preferred delivery must not be earlier than collection.'
+        : 'End handover date must be on or after the start handover date.',
     );
+  }
+  if (supportsHandover && endHandover === 'businessDelivers') {
+    if (!dropOffTime) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Preferred collection time is required.',
+      );
+    }
+    if (!pickUpTime) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Preferred delivery time or delivery window is required.',
+      );
+    }
+    const sameCalendarDate =
+      dropOffDate &&
+      pickUpDate &&
+      dropOffDate.toISOString().slice(0, 10) ===
+        pickUpDate.toISOString().slice(0, 10);
+    const isSameDayService =
+      readString(selectedService.starterTemplateId) ===
+      'courier_same_day_delivery';
+    if (isSameDayService && !sameCalendarDate) {
+      throw new HttpsError(
+        'invalid-argument',
+        'Same-day delivery must use the collection date.',
+      );
+    }
+    if (sameCalendarDate) {
+      const collectionMinutes = timeOfDayMinutes(dropOffTime);
+      const deliveryMinutes = timeOfDayMinutes(pickUpTime);
+      if (
+        collectionMinutes != null &&
+        deliveryMinutes != null &&
+        (deliveryMinutes < collectionMinutes ||
+          (isSameDayService && deliveryMinutes === collectionMinutes))
+      ) {
+        throw new HttpsError(
+          'invalid-argument',
+          isSameDayService
+            ? 'Preferred delivery time must be later than collection time.'
+            : 'Preferred delivery must not be earlier than collection.',
+        );
+      }
+    }
   }
   for (const [label, date] of [
     [supportsHandover ? 'Start handover' : 'Drop-off', dropOffDate],
@@ -3366,7 +3465,9 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const addressSummary = supportsHandover
     ? [
         startHandover === 'businessCollects' ? collectionAddress : '',
-        endHandover === 'businessReturns' ? returnAddress : '',
+        endHandover === 'businessReturns'
+          ? returnAddress
+          : (endHandover === 'businessDelivers' ? deliveryAddress : ''),
       ].filter(Boolean).join(' → ')
     : supportsStructuredRequestFlow && requestType === 'pickupDeliveryRequest'
       ? [pickupAddress, deliveryAddress].filter(Boolean).join(' → ')
@@ -3416,10 +3517,10 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     !supportsHandover && pickupAddress ? `Pickup address: ${pickupAddress}` : '',
     !supportsHandover && deliveryAddress ? `Delivery address: ${deliveryAddress}` : '',
     dropOffDate
-      ? `Drop-off: ${dropOffDate.toISOString().slice(0, 10)}${dropOffTime ? ` at ${dropOffTime}` : ''}`
+      ? `${endHandover === 'businessDelivers' ? 'Preferred collection' : 'Drop-off'}: ${dropOffDate.toISOString().slice(0, 10)}${dropOffTime ? ` at ${dropOffTime}` : ''}`
       : '',
     pickUpDate
-      ? `Pick-up: ${pickUpDate.toISOString().slice(0, 10)}${pickUpTime ? ` at ${pickUpTime}` : ''}`
+      ? `${endHandover === 'businessDelivers' ? 'Preferred delivery' : 'Pick-up'}: ${pickUpDate.toISOString().slice(0, 10)}${pickUpTime ? ` at ${pickUpTime}` : ''}`
       : '',
     additionalNotes,
     requestPhotos
@@ -3458,7 +3559,16 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     allowedEndHandoverOptions,
     collectionAddress,
     returnAddress,
-    returnAddressSameAsCollection,
+    returnAddressSameAsCollection:
+      endHandover === 'businessReturns' && returnAddressSameAsCollection,
+    collectionDate: endHandover === 'businessDelivers' && dropOffDate
+      ? admin.firestore.Timestamp.fromDate(dropOffDate)
+      : null,
+    collectionTime: endHandover === 'businessDelivers' ? dropOffTime : '',
+    deliveryDate: endHandover === 'businessDelivers' && pickUpDate
+      ? admin.firestore.Timestamp.fromDate(pickUpDate)
+      : null,
+    deliveryTime: endHandover === 'businessDelivers' ? pickUpTime : '',
     businessDropOffInstructions: readString(
       selectedService.businessDropOffInstructions,
     ),

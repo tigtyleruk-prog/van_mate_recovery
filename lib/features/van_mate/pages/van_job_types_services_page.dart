@@ -744,6 +744,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     final ends = <VanEndHandover>[
       if (resolved.allowCustomerCollection) VanEndHandover.customerCollects,
       if (resolved.allowBusinessReturn) VanEndHandover.businessReturns,
+      if (resolved.allowBusinessDelivery) VanEndHandover.businessDelivers,
     ];
     final updated = service.copyWith(
       requestType: resolved.requestType,
@@ -760,6 +761,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       allowBusinessCollection: resolved.allowBusinessCollection,
       allowCustomerCollection: resolved.allowCustomerCollection,
       allowBusinessReturn: resolved.allowBusinessReturn,
+      allowBusinessDelivery: resolved.allowBusinessDelivery,
       serviceCapabilityIds: resolved.capabilityIds,
       pricingMode: resolved.pricingMode,
       updatedAt: DateTime.now(),

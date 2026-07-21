@@ -98,10 +98,12 @@ class VanJobService {
     bool? allowBusinessCollection,
     bool? allowCustomerCollection,
     bool? allowBusinessReturn,
+    bool? allowBusinessDelivery,
   }) : _allowCustomerDropOff = allowCustomerDropOff,
        _allowBusinessCollection = allowBusinessCollection,
        _allowCustomerCollection = allowCustomerCollection,
-       _allowBusinessReturn = allowBusinessReturn;
+       _allowBusinessReturn = allowBusinessReturn,
+       _allowBusinessDelivery = allowBusinessDelivery;
 
   final String id;
   final String name;
@@ -161,6 +163,7 @@ class VanJobService {
   final bool? _allowBusinessCollection;
   final bool? _allowCustomerCollection;
   final bool? _allowBusinessReturn;
+  final bool? _allowBusinessDelivery;
 
   bool get isCapabilityDriven => capabilitySchemaVersion > 0;
 
@@ -168,7 +171,8 @@ class VanJobService {
       _allowCustomerDropOff != null ||
       _allowBusinessCollection != null ||
       _allowCustomerCollection != null ||
-      _allowBusinessReturn != null;
+      _allowBusinessReturn != null ||
+      _allowBusinessDelivery != null;
 
   bool get allowCustomerDropOff => hasExplicitHandoverCapabilities
       ? _allowCustomerDropOff ?? false
@@ -182,6 +186,9 @@ class VanJobService {
   bool get allowBusinessReturn => hasExplicitHandoverCapabilities
       ? _allowBusinessReturn ?? false
       : _legacyAllowsEnd(VanEndHandover.businessReturns);
+  bool get allowBusinessDelivery => hasExplicitHandoverCapabilities
+      ? _allowBusinessDelivery ?? false
+      : _legacyAllowsEnd(VanEndHandover.businessDelivers);
 
   bool _legacyAllowsStart(VanStartHandover value) {
     if (!vanRequestTypeSupportsHandover(requestType)) return false;
@@ -205,7 +212,7 @@ class VanJobService {
 
   bool get hasHandoverConfiguration =>
       (allowCustomerDropOff || allowBusinessCollection) &&
-      (allowCustomerCollection || allowBusinessReturn);
+      (allowCustomerCollection || allowBusinessReturn || allowBusinessDelivery);
 
   bool get hasDescription => description.trim().isNotEmpty;
   int get linkedQuestionCount => linkedQuestionIds.length;
@@ -235,6 +242,7 @@ class VanJobService {
         allowBusinessCollection: allowBusinessCollection,
         allowCustomerCollection: allowCustomerCollection,
         allowBusinessReturn: allowBusinessReturn,
+        allowBusinessDelivery: allowBusinessDelivery,
         preferredStart: startHandover,
         preferredEnd: endHandover,
       );
@@ -326,6 +334,7 @@ class VanJobService {
     bool? allowBusinessCollection,
     bool? allowCustomerCollection,
     bool? allowBusinessReturn,
+    bool? allowBusinessDelivery,
   }) {
     return VanJobService(
       id: id ?? this.id,
@@ -408,6 +417,7 @@ class VanJobService {
       allowCustomerCollection:
           allowCustomerCollection ?? _allowCustomerCollection,
       allowBusinessReturn: allowBusinessReturn ?? _allowBusinessReturn,
+      allowBusinessDelivery: allowBusinessDelivery ?? _allowBusinessDelivery,
     );
   }
 
@@ -484,6 +494,7 @@ class VanJobService {
       'allowBusinessCollection': allowBusinessCollection,
       'allowCustomerCollection': allowCustomerCollection,
       'allowBusinessReturn': allowBusinessReturn,
+      'allowBusinessDelivery': allowBusinessDelivery,
     };
   }
 
@@ -761,6 +772,7 @@ class VanJobService {
       allowBusinessCollection: readNullableBool('allowBusinessCollection'),
       allowCustomerCollection: readNullableBool('allowCustomerCollection'),
       allowBusinessReturn: readNullableBool('allowBusinessReturn'),
+      allowBusinessDelivery: readNullableBool('allowBusinessDelivery'),
     );
   }
 }

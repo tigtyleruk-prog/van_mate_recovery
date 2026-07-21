@@ -35,6 +35,12 @@ function bookingLinkAddressValidationError({
         message: 'Return address is required.',
       };
     }
+    if (endHandover === 'businessDelivers' && !clean(deliveryAddress)) {
+      return {
+        code: 'missing_delivery_address',
+        message: 'Delivery address is required.',
+      };
+    }
     return null;
   }
 

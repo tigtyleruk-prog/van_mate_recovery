@@ -73,6 +73,8 @@ class VanBookingLinkCloudService {
                 'id': service.id,
                 'name': service.name.trim(),
                 'description': service.description.trim(),
+                'starterPackId': service.starterPackId,
+                'starterTemplateId': service.starterTemplateId,
                 'customerMessage': service.customerMessage.trim(),
                 'appointmentDurationMinutes':
                     service.appointmentDurationMinutes,
@@ -95,6 +97,7 @@ class VanBookingLinkCloudService {
                 'allowBusinessCollection': service.allowBusinessCollection,
                 'allowCustomerCollection': service.allowCustomerCollection,
                 'allowBusinessReturn': service.allowBusinessReturn,
+                'allowBusinessDelivery': service.allowBusinessDelivery,
                 'businessDropOffInstructions':
                     service.businessDropOffInstructions,
                 'businessCollectionInstructions':
@@ -131,6 +134,7 @@ class VanBookingLinkCloudService {
                         'id': question.id,
                         'questionText': question.questionText.trim(),
                         'helperText': question.helperText.trim(),
+                        'libraryQuestionId': question.libraryQuestionId,
                         'answerType': question.answerType.storageKey,
                         'category': question.category?.storageKey ?? '',
                         'choiceOptions': question.choiceOptions,

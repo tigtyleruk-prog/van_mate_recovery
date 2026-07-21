@@ -66,6 +66,8 @@ class VanServiceTemplateQuestion {
   const VanServiceTemplateQuestion({
     required this.text,
     this.libraryId = '',
+    this.helperText = '',
+    this.requiredByDefault = true,
     this.answerType = VanCustomQuestionAnswerType.shortText,
     this.category = VanCustomQuestionCategory.jobDetails,
     this.choiceOptions = const <String>[],
@@ -74,6 +76,8 @@ class VanServiceTemplateQuestion {
 
   final String text;
   final String libraryId;
+  final String helperText;
+  final bool requiredByDefault;
   final VanCustomQuestionAnswerType answerType;
   final VanCustomQuestionCategory category;
   final List<String> choiceOptions;

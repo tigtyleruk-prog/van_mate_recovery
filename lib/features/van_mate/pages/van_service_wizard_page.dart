@@ -697,7 +697,10 @@ class _VanServiceCreationEntryPageState
       }
       final hasStart =
           setup.allowCustomerDropOff || setup.allowBusinessCollection;
-      final hasEnd = setup.allowCustomerCollection || setup.allowBusinessReturn;
+      final hasEnd =
+          setup.allowCustomerCollection ||
+          setup.allowBusinessReturn ||
+          setup.allowBusinessDelivery;
       if (hasStart != hasEnd) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -810,6 +813,7 @@ class _VanServiceCreationEntryPageState
     _allowedEnds = <VanEndHandover>[
       if (resolved.allowCustomerCollection) VanEndHandover.customerCollects,
       if (resolved.allowBusinessReturn) VanEndHandover.businessReturns,
+      if (resolved.allowBusinessDelivery) VanEndHandover.businessDelivers,
     ];
     if (_allowedStarts.isNotEmpty) _startHandover = _allowedStarts.first;
     if (_allowedEnds.isNotEmpty) _endHandover = _allowedEnds.first;
@@ -962,6 +966,7 @@ class _VanServiceCreationEntryPageState
         final serviceId =
             'service_${setup.packId}_${setup.serviceKey}_${stamp + serviceIndex}';
         final linkedQuestionIds = <String>[];
+        final optionalQuestionIds = <String>[];
         final capabilityGeneratedQuestionIds = <String>[];
         final capabilityGeneratedQuestionKeys = <String, String>{};
         final resolvedCapabilityDefaults = resolveVanServiceCapabilities(
@@ -973,7 +978,10 @@ class _VanServiceCreationEntryPageState
             .map((question) => question.text.trim().toLowerCase())
             .toSet();
         final selectedBuiltIns = <String>{...setup.builtInQuestionKeys};
-        final builtInSettings = <String, Map<String, dynamic>>{};
+        final builtInSettings = <String, Map<String, dynamic>>{
+          for (final entry in setup.builtInQuestionSettings.entries)
+            entry.key: <String, dynamic>{...entry.value},
+        };
         for (final key in setup.builtInQuestionKeys) {
           builtInSettings.putIfAbsent(
             key,
@@ -1003,7 +1011,7 @@ class _VanServiceCreationEntryPageState
             VanCustomJobQuestion(
               id: questionId,
               questionText: recommendation.text,
-              helperText: '',
+              helperText: recommendation.helperText,
               libraryQuestionId: recommendation.libraryId,
               tags: recommendation.tags,
               answerType: recommendation.answerType,
@@ -1016,6 +1024,9 @@ class _VanServiceCreationEntryPageState
             ),
           );
           linkedQuestionIds.add(questionId);
+          if (!recommendation.requiredByDefault) {
+            optionalQuestionIds.add(questionId);
+          }
           final normalizedQuestionText = recommendation.text
               .trim()
               .toLowerCase();
@@ -1046,14 +1057,23 @@ class _VanServiceCreationEntryPageState
         final allowedEnds = <VanEndHandover>[
           if (setup.allowCustomerCollection) VanEndHandover.customerCollects,
           if (setup.allowBusinessReturn) VanEndHandover.businessReturns,
+          if (setup.allowBusinessDelivery) VanEndHandover.businessDelivers,
         ];
-        final flowOptions =
-            VanCustomerRequestFlowOptions.defaultsFor(
-              setup.requestType,
-            ).copyWith(
-              askPreferredDate: selectedBuiltIns.contains('preferred_date'),
-              askPreferredTime: selectedBuiltIns.contains('preferred_time'),
-            );
+        final flowOptions = setup.requestFlowOptions.copyWith(
+          askPreferredDate: selectedBuiltIns.contains('preferred_date'),
+          askPreferredTime: selectedBuiltIns.contains('preferred_time'),
+        );
+        final availabilityByDay = <int, VanServiceDaySchedule>{
+          for (final day in setup.availability)
+            day.day: VanServiceDaySchedule(
+              startMinutes: day.startMinutes,
+              endMinutes: day.endMinutes,
+            ),
+        };
+        final availabilityDays = availabilityByDay.keys.toList()..sort();
+        final firstAvailability = availabilityDays.isEmpty
+            ? null
+            : availabilityByDay[availabilityDays.first];
         createdServices.add(
           VanJobService(
             id: serviceId,
@@ -1074,26 +1094,29 @@ class _VanServiceCreationEntryPageState
             allowBusinessCollection: setup.allowBusinessCollection,
             allowCustomerCollection: setup.allowCustomerCollection,
             allowBusinessReturn: setup.allowBusinessReturn,
+            allowBusinessDelivery: setup.allowBusinessDelivery,
             requestFlowOptions: flowOptions,
             linkedQuestionIds: linkedQuestionIds,
-            quoteExtraDefaults: _businessSetupExtrasFor(
-              setup.quoteExtraDefaults(),
-            ),
+            optionalQuestionIds: optionalQuestionIds,
+            quoteExtraDefaults: setup.quoteExtraDefaults(),
             extraChargeUnits: Map.unmodifiable(<String, String>{
               for (final extra in setup.extras)
                 extra.key: extra.defaultChargeUnit,
-              ..._extraChargeUnits,
             }),
             createdAt: now,
             updatedAt: now,
             category: setup.category,
             iconKey: setup.iconKey,
             colorValue: setup.colorValue,
-            workingDays: _workingDays.toList(growable: false),
-            businessStartMinutes: _startMinutes,
-            businessEndMinutes: _endMinutes,
+            workingDays: availabilityDays,
+            businessStartMinutes:
+                firstAvailability?.startMinutes ?? _startMinutes,
+            businessEndMinutes: firstAvailability?.endMinutes ?? _endMinutes,
+            availabilityByDay: availabilityByDay.isEmpty
+                ? null
+                : availabilityByDay,
             noticeHours: setup.suggestedNoticeHours,
-            maxBookingsPerDay: _maxBookings,
+            maxBookingsPerDay: setup.maximumBookingsPerDay,
             selectedBuiltInQuestionKeys: selectedBuiltIns.toList(
               growable: false,
             ),
@@ -1361,6 +1384,9 @@ class _VanServiceCreationEntryPageState
       ),
       allowBusinessReturn: _allowedEnds.contains(
         VanEndHandover.businessReturns,
+      ),
+      allowBusinessDelivery: _allowedEnds.contains(
+        VanEndHandover.businessDelivers,
       ),
       businessDropOffInstructions: sanitizeVanText(
         _dropOffController.text,
@@ -1935,16 +1961,6 @@ class _VanServiceCreationEntryPageState
               text:
                   'No business templates are available yet. Create a service manually while the verified library is rebuilt.',
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                key: const Key('create_service_manually'),
-                onPressed: _startBlankService,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Create Service Manually'),
-              ),
-            ),
           ] else if (_businessSearchQuery.isNotEmpty) ...[
             if (searchResults.isNotEmpty)
               _BusinessResultList(
@@ -1994,6 +2010,16 @@ class _VanServiceCreationEntryPageState
               const SizedBox(height: 8),
             ],
           ],
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('create_service_manually'),
+              onPressed: _startBlankService,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Create Service Manually'),
+            ),
+          ),
         ],
         if (selectedPack != null && !_showStarterBrowser) ...[
           const SizedBox(height: 20),
@@ -2216,9 +2242,11 @@ class _VanServiceCreationEntryPageState
       if (setup.allowBusinessCollection) 'Business collects',
       if (setup.allowCustomerCollection) 'Customer collects',
       if (setup.allowBusinessReturn) 'Business returns',
+      if (setup.allowBusinessDelivery) 'Business delivers',
       if (setup.requireAddress &&
           !setup.allowBusinessCollection &&
-          !setup.allowBusinessReturn)
+          !setup.allowBusinessReturn &&
+          !setup.allowBusinessDelivery)
         'Customer address required',
     ];
     return values.isEmpty ? 'No handover required' : values.join(' · ');
@@ -2556,6 +2584,32 @@ class _VanServiceCreationEntryPageState
             } else {
               _allowedEnds = _allowedEnds
                   .where((value) => value != VanEndHandover.businessReturns)
+                  .toList(growable: false);
+            }
+            if (_allowedEnds.isNotEmpty &&
+                !_allowedEnds.contains(_endHandover)) {
+              _endHandover = _allowedEnds.first;
+            }
+          }),
+        ),
+        const SizedBox(height: 10),
+        _HandoverCapabilityTile(
+          icon: Icons.local_shipping_outlined,
+          title: 'Business delivers item',
+          subtitle: 'You deliver it to a destination address.',
+          selected: _allowedEnds.contains(VanEndHandover.businessDelivers),
+          onChanged: (selected) => setState(() {
+            _handoverTouched = true;
+            if (selected) {
+              if (!_allowedEnds.contains(VanEndHandover.businessDelivers)) {
+                _allowedEnds = [
+                  ..._allowedEnds,
+                  VanEndHandover.businessDelivers,
+                ];
+              }
+            } else {
+              _allowedEnds = _allowedEnds
+                  .where((value) => value != VanEndHandover.businessDelivers)
                   .toList(growable: false);
             }
             if (_allowedEnds.isNotEmpty &&

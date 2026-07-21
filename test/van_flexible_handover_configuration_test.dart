@@ -20,6 +20,7 @@ void main() {
     expect(pickup.allowBusinessCollection, isTrue);
     expect(pickup.allowCustomerCollection, isFalse);
     expect(pickup.allowBusinessReturn, isTrue);
+    expect(pickup.allowBusinessDelivery, isFalse);
 
     final dropOff = _legacyService(VanCustomerRequestType.dropOffPickupRequest);
     expect(dropOff.allowCustomerDropOff, isTrue);
@@ -40,12 +41,49 @@ void main() {
 
     expect(restored.hasHandoverConfiguration, isTrue);
     expect(restored.effectiveHandover.allowedStarts, VanStartHandover.values);
-    expect(restored.effectiveHandover.allowedEnds, VanEndHandover.values);
+    expect(restored.effectiveHandover.allowedEnds, const <VanEndHandover>[
+      VanEndHandover.customerCollects,
+      VanEndHandover.businessReturns,
+    ]);
     expect(restored.toJson()['allowCustomerDropOff'], isTrue);
     expect(restored.toJson()['allowBusinessCollection'], isTrue);
     expect(restored.toJson()['allowCustomerCollection'], isTrue);
     expect(restored.toJson()['allowBusinessReturn'], isTrue);
   });
+
+  test(
+    'business delivery persists without changing legacy return semantics',
+    () {
+      final delivery =
+          _service(
+            requestType: VanCustomerRequestType.pickupDeliveryRequest,
+            allowBusinessCollection: true,
+            allowBusinessDelivery: true,
+          ).copyWith(
+            startHandover: VanStartHandover.businessCollects,
+            endHandover: VanEndHandover.businessDelivers,
+            allowedStartHandoverOptions: const <VanStartHandover>[
+              VanStartHandover.businessCollects,
+            ],
+            allowedEndHandoverOptions: const <VanEndHandover>[
+              VanEndHandover.businessDelivers,
+            ],
+          );
+      final restored = VanJobService.fromJson(delivery.toJson());
+
+      expect(restored.allowBusinessDelivery, isTrue);
+      expect(restored.allowBusinessReturn, isFalse);
+      expect(restored.effectiveHandover.end, VanEndHandover.businessDelivers);
+      expect(restored.toJson()['endHandover'], 'businessDelivers');
+      expect(restored.toJson()['allowBusinessDelivery'], isTrue);
+
+      final legacy = _legacyService(
+        VanCustomerRequestType.pickupDeliveryRequest,
+      );
+      expect(legacy.effectiveHandover.end, VanEndHandover.businessReturns);
+      expect(legacy.allowBusinessDelivery, isFalse);
+    },
+  );
 
   test('customers choose only when a stage has multiple enabled options', () {
     final singleRoute = _service(
@@ -109,6 +147,7 @@ VanJobService _legacyService(VanCustomerRequestType requestType) {
     ..remove('allowBusinessCollection')
     ..remove('allowCustomerCollection')
     ..remove('allowBusinessReturn')
+    ..remove('allowBusinessDelivery')
     ..remove('allowedStartHandoverOptions')
     ..remove('allowedEndHandoverOptions');
   return VanJobService.fromJson(json);
@@ -120,6 +159,7 @@ VanJobService _service({
   bool? allowBusinessCollection,
   bool? allowCustomerCollection,
   bool? allowBusinessReturn,
+  bool? allowBusinessDelivery,
 }) {
   final now = DateTime(2026, 7, 20);
   return VanJobService(
@@ -139,5 +179,6 @@ VanJobService _service({
     allowBusinessCollection: allowBusinessCollection,
     allowCustomerCollection: allowCustomerCollection,
     allowBusinessReturn: allowBusinessReturn,
+    allowBusinessDelivery: allowBusinessDelivery,
   );
 }

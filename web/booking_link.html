@@ -484,7 +484,7 @@
               <div id="startHandoverChoice" class="choice-row" role="radiogroup" aria-label="How would you like to begin?"></div>
             </div>
             <div id="endHandoverChoiceWrap" class="hidden" style="margin-top: 12px;">
-              <p class="helper">How would you like it returned?</p>
+              <p id="endHandoverChoicePrompt" class="helper">How would you like it returned?</p>
               <div id="endHandoverChoice" class="choice-row" role="radiogroup" aria-label="How would you like it returned?"></div>
             </div>
             <p id="businessHandoverInstructions" class="helper" style="margin-top: 12px;"></p>
@@ -497,7 +497,7 @@
               <label for="sameReturnAddress">Same as collection address</label>
             </div>
             <div id="returnAddressWrap" class="hidden" style="margin-top: 12px;">
-              <label class="helper" for="returnAddress">Return address</label>
+              <label id="returnAddressLabel" class="helper" for="returnAddress">Return address</label>
               <textarea id="returnAddress" class="field" placeholder="Where should the business return it?" autocomplete="off"></textarea>
             </div>
           </div>
@@ -522,6 +522,8 @@
               <label id="pickUpTimeLabel" class="helper" for="pickUpTime">Pick-up time</label>
               <input id="pickUpTime" class="field" type="time" />
             </div>
+            <p id="journeyTimingError" class="error hidden" style="margin-top: 10px;"></p>
+            <p id="journeyTimingHelper" class="helper hidden" style="margin-top: 10px;">These are preferred times. The business will confirm the schedule with your quote.</p>
           </div>
         </div>
 
@@ -645,6 +647,7 @@
     const startHandoverChoiceWrap = document.getElementById("startHandoverChoiceWrap");
     const startHandoverChoice = document.getElementById("startHandoverChoice");
     const endHandoverChoiceWrap = document.getElementById("endHandoverChoiceWrap");
+    const endHandoverChoicePrompt = document.getElementById("endHandoverChoicePrompt");
     const endHandoverChoice = document.getElementById("endHandoverChoice");
     const businessHandoverInstructions = document.getElementById("businessHandoverInstructions");
     const collectionAddressWrap = document.getElementById("collectionAddressWrap");
@@ -652,6 +655,7 @@
     const sameReturnAddressWrap = document.getElementById("sameReturnAddressWrap");
     const sameReturnAddress = document.getElementById("sameReturnAddress");
     const returnAddressWrap = document.getElementById("returnAddressWrap");
+    const returnAddressLabel = document.getElementById("returnAddressLabel");
     const returnAddress = document.getElementById("returnAddress");
     const pickupAddressWrap = document.getElementById("pickupAddressWrap");
     const pickupAddress = document.getElementById("pickupAddress");
@@ -670,6 +674,8 @@
     const pickUpTimeWrap = document.getElementById("pickUpTimeWrap");
     const pickUpTime = document.getElementById("pickUpTime");
     const pickUpTimeLabel = document.getElementById("pickUpTimeLabel");
+    const journeyTimingError = document.getElementById("journeyTimingError");
+    const journeyTimingHelper = document.getElementById("journeyTimingHelper");
     const photosSection = document.getElementById("photosSection");
     const photoHelperText = document.getElementById("photoHelperText");
     const takePhotoButton = document.getElementById("takePhotoButton");
@@ -888,6 +894,7 @@
         "allowBusinessCollection",
         "allowCustomerCollection",
         "allowBusinessReturn",
+        "allowBusinessDelivery",
       ].some(key => service && Object.prototype.hasOwnProperty.call(service, key));
       const legacyMode = readText(service && (service.handoverMode || service.transportMode)).toLowerCase();
       const legacyBusinessMoves = legacyMode === "businesscollectreturn" || legacyMode === "business_collect_return";
@@ -895,7 +902,7 @@
       const defaultStart = requestType === "pickupDeliveryRequest" || legacyBusinessMoves ? "businessCollects" : "customerDropsOff";
       const defaultEnd = requestType === "pickupDeliveryRequest" || legacyBusinessMoves ? "businessReturns" : "customerCollects";
       const validStarts = new Set(["customerDropsOff", "businessCollects"]);
-      const validEnds = new Set(["customerCollects", "businessReturns"]);
+      const validEnds = new Set(["customerCollects", "businessReturns", "businessDelivers"]);
       const configuredStart = readText(service && service.startHandover);
       const configuredEnd = readText(service && service.endHandover);
       let allowedStarts = hasCapabilityFlags
@@ -910,6 +917,7 @@
         ? [
             ...(service.allowCustomerCollection === true ? ["customerCollects"] : []),
             ...(service.allowBusinessReturn === true ? ["businessReturns"] : []),
+            ...(service.allowBusinessDelivery === true ? ["businessDelivers"] : []),
           ]
         : (Array.isArray(service && service.allowedEndHandoverOptions)
           ? service.allowedEndHandoverOptions.map(readText).filter(value => validEnds.has(value))
@@ -919,7 +927,9 @@
         allowedStarts = legacyCustomerChooses ? [...validStarts] : [defaultStart];
       }
       if (!hasCapabilityFlags && !allowedEnds.length) {
-        allowedEnds = legacyCustomerChooses ? [...validEnds] : [defaultEnd];
+        allowedEnds = legacyCustomerChooses
+          ? ["customerCollects", "businessReturns"]
+          : [defaultEnd];
       }
       if (!allowedStarts.length || !allowedEnds.length) return null;
       const selectedStart = handoverChoiceValue(startHandoverChoice);
@@ -943,6 +953,7 @@
       if (handover.start === "customerDropsOff" && handover.end === "customerCollects") return "You'll drop off your item and collect it when ready.";
       if (handover.start === "customerDropsOff" && handover.end === "businessReturns") return "You'll drop off your item. We'll return it when finished.";
       if (handover.start === "businessCollects" && handover.end === "customerCollects") return "We'll collect your item. You'll collect it when ready.";
+      if (handover.start === "businessCollects" && handover.end === "businessDelivers") return "We'll collect from the collection address and deliver to the destination.";
       return "We'll collect your item and return it when finished.";
     }
 
@@ -984,6 +995,7 @@
       populateHandoverChoice(endHandoverChoice, handover.allowedEnds, handover.end, {
         customerCollects: "I'll collect it",
         businessReturns: "Please return it",
+        businessDelivers: "Please deliver it",
       });
       startHandoverChoiceWrap.classList.toggle("hidden", handover.allowedStarts.length < 2);
       endHandoverChoiceWrap.classList.toggle("hidden", handover.allowedEnds.length < 2);
@@ -999,13 +1011,21 @@
       businessHandoverInstructions.classList.toggle("hidden", instructionLines.length === 0);
       const needsCollectionAddress = handover.start === "businessCollects";
       const needsReturnAddress = handover.end === "businessReturns";
+      const needsDeliveryAddress = handover.end === "businessDelivers";
       collectionAddressWrap.classList.toggle("hidden", !needsCollectionAddress);
       sameReturnAddressWrap.classList.toggle("hidden", !(needsCollectionAddress && needsReturnAddress));
-      returnAddressWrap.classList.toggle("hidden", !needsReturnAddress || (needsCollectionAddress && sameReturnAddress.checked));
-      dropOffDateLabel.textContent = handover.start === "businessCollects" ? "Business collection date" : "Customer drop-off date";
-      dropOffTimeLabel.textContent = handover.start === "businessCollects" ? "Business collection time" : "Customer drop-off time";
-      pickUpDateLabel.textContent = handover.end === "businessReturns" ? "Business return date" : "Customer collection date";
-      pickUpTimeLabel.textContent = handover.end === "businessReturns" ? "Business return time" : "Customer collection time";
+      returnAddressWrap.classList.toggle("hidden", (!needsReturnAddress && !needsDeliveryAddress) || (needsReturnAddress && needsCollectionAddress && sameReturnAddress.checked));
+      endHandoverChoicePrompt.textContent = needsDeliveryAddress ? "How should it reach the destination?" : "How would you like it returned?";
+      returnAddressLabel.textContent = needsDeliveryAddress ? "Delivery address" : "Return address";
+      returnAddress.placeholder = needsDeliveryAddress ? "Where should the business deliver to?" : "Where should the business return it?";
+      dropOffDateLabel.textContent = handover.start === "businessCollects" ? "Preferred collection date" : "Customer drop-off date";
+      dropOffTimeLabel.textContent = handover.start === "businessCollects" ? "Preferred collection time" : "Customer drop-off time";
+      pickUpDateLabel.textContent = needsDeliveryAddress ? "Preferred delivery date" : (needsReturnAddress ? "Business return date" : "Customer collection date");
+      pickUpTimeLabel.textContent = needsDeliveryAddress ? "Preferred delivery time or delivery window" : (needsReturnAddress ? "Business return time" : "Customer collection time");
+      const deliveryDateFollowsCollection = needsDeliveryAddress && isSameDayCourierService(service);
+      pickUpDate.readOnly = deliveryDateFollowsCollection;
+      pickUpDate.setAttribute("aria-readonly", deliveryDateFollowsCollection ? "true" : "false");
+      journeyTimingHelper.classList.toggle("hidden", !needsDeliveryAddress);
       return handover;
     }
 
@@ -1035,6 +1055,38 @@
           typeof saved[key] === "boolean" ? saved[key] : fallback,
         ]),
       );
+    }
+
+    function isSameDayCourierService(service) {
+      return readText(service && service.starterTemplateId) === "courier_same_day_delivery";
+    }
+
+    function deliveryTimingValidationMessage(service, handover) {
+      if (!handover || handover.end !== "businessDelivers") return "";
+      const collectionDateValue = readText(dropOffDate.value);
+      const deliveryDateValue = readText(pickUpDate.value);
+      const collectionTimeValue = readText(dropOffTime.value);
+      const deliveryTimeValue = readText(pickUpTime.value);
+      if (!collectionDateValue || !deliveryDateValue) return "";
+      if (deliveryDateValue < collectionDateValue) {
+        return "Preferred delivery must not be earlier than collection.";
+      }
+      if (isSameDayCourierService(service) && deliveryDateValue !== collectionDateValue) {
+        return "Same-day delivery must use the collection date.";
+      }
+      if (
+        collectionTimeValue &&
+        deliveryTimeValue &&
+        deliveryDateValue === collectionDateValue
+      ) {
+        if (deliveryTimeValue < collectionTimeValue) {
+          return "Preferred delivery must not be earlier than collection.";
+        }
+        if (isSameDayCourierService(service) && deliveryTimeValue === collectionTimeValue) {
+          return "Preferred delivery time must be later than collection time.";
+        }
+      }
+      return "";
     }
 
     function setFulfilmentChoice(value) {
@@ -1073,6 +1125,8 @@
       preferredTimeWindow.value = "anytime";
       preferredIsFlexible.checked = false;
       preferredTimingNote.value = "";
+      journeyTimingError.textContent = "";
+      journeyTimingError.classList.add("hidden");
     }
 
     function normalizePostcode(value) {
@@ -1403,6 +1457,11 @@
 
       const flow = requestFlowForService(service);
       const handover = renderHandoverFields(service);
+      journeyTimingError.textContent = "";
+      journeyTimingError.classList.add("hidden");
+      if (handover && handover.end === "businessDelivers" && isSameDayCourierService(service) && readText(dropOffDate.value)) {
+        pickUpDate.value = dropOffDate.value;
+      }
       document.documentElement.style.setProperty("--accent", flow.accent);
       const flowOptions = flowOptionsForService(service, flow.requestType);
       serviceDescription.textContent =
@@ -1667,7 +1726,7 @@
       ) {
         return failValidation({
           message: handover && handover.start === "businessCollects"
-            ? "Please choose a business collection date."
+            ? "Please choose a preferred collection date."
             : "Please choose a customer drop-off date.",
           field: dropOffDate,
           reason: "missing_drop_off_date",
@@ -1681,6 +1740,8 @@
         return failValidation({
           message: handover && handover.end === "businessReturns"
             ? "Please choose a business return date."
+            : handover && handover.end === "businessDelivers"
+              ? "Please choose a preferred delivery date."
             : "Please choose a customer collection date.",
           field: pickUpDate,
           reason: "missing_pick_up_date",
@@ -1705,6 +1766,45 @@
           message: "Please add the business return address.",
           field: returnAddress,
           reason: "missing_return_address",
+          serviceId: service.id,
+        });
+      }
+      if (
+        handover &&
+        handover.end === "businessDelivers" &&
+        !readText(returnAddress.value)
+      ) {
+        return failValidation({
+          message: "Please add the delivery address.",
+          field: returnAddress,
+          reason: "missing_delivery_address",
+          serviceId: service.id,
+        });
+      }
+      if (handover && handover.end === "businessDelivers" && !readText(dropOffTime.value)) {
+        return failValidation({
+          message: "Please choose a preferred collection time.",
+          field: dropOffTime,
+          reason: "missing_collection_time",
+          serviceId: service.id,
+        });
+      }
+      if (handover && handover.end === "businessDelivers" && !readText(pickUpTime.value)) {
+        return failValidation({
+          message: "Please choose a preferred delivery time or delivery window.",
+          field: pickUpTime,
+          reason: "missing_delivery_time",
+          serviceId: service.id,
+        });
+      }
+      const timingError = deliveryTimingValidationMessage(service, handover);
+      journeyTimingError.textContent = timingError;
+      journeyTimingError.classList.toggle("hidden", !timingError);
+      if (timingError) {
+        return failValidation({
+          message: timingError,
+          field: pickUpTime,
+          reason: "invalid_delivery_timing",
           serviceId: service.id,
         });
       }
@@ -1773,6 +1873,7 @@
       const collectedAnswers = linkedQuestionsForService(service)
         .map((question, index) => ({
           questionId: readText(question.id),
+          libraryQuestionId: readText(question.libraryQuestionId),
           questionText: readText(question.questionText),
           type: readText(question.answerType),
           answerType: readText(question.answerType),
@@ -1852,6 +1953,18 @@
               : "",
           returnAddressSameAsCollection:
             Boolean(handover && handover.start === "businessCollects" && handover.end === "businessReturns" && sameReturnAddress.checked),
+          collectionDate: handover && handover.start === "businessCollects"
+            ? readText(dropOffDate.value) || null
+            : null,
+          collectionTime: handover && handover.start === "businessCollects"
+            ? readText(dropOffTime.value)
+            : "",
+          deliveryDate: handover && handover.end === "businessDelivers"
+            ? readText(pickUpDate.value) || null
+            : null,
+          deliveryTime: handover && handover.end === "businessDelivers"
+            ? readText(pickUpTime.value)
+            : "",
           customerName: readText(customerName.value),
           phoneNumber: readText(phoneNumber.value),
           customerEmail: readText(customerEmail.value),
@@ -1866,11 +1979,15 @@
           fulfilmentType: flowOptions.showFulfilmentChoice
             ? readText(fulfilmentType.value)
             : "",
-          pickupAddress: flowOptions.showPickupAddress
-            ? readText(pickupAddress.value)
+          pickupAddress: handover && handover.start === "businessCollects"
+            ? readText(collectionAddress.value)
+            : flowOptions.showPickupAddress
+              ? readText(pickupAddress.value)
             : "",
           deliveryAddress:
-            flow.requestType === "orderRequest" && flowOptions.showFulfilmentChoice
+            handover && handover.end === "businessDelivers"
+              ? readText(returnAddress.value)
+              : flow.requestType === "orderRequest" && flowOptions.showFulfilmentChoice
               ? readText(orderDeliveryAddress.value)
               : flowOptions.showDeliveryAddress
                 ? readText(deliveryAddress.value)
@@ -2027,6 +2144,27 @@
       renderServiceFields();
     });
     sameReturnAddress.addEventListener("change", () => renderServiceFields());
+    dropOffDate.addEventListener("change", () => {
+      const service = selectedService();
+      const handover = handoverForService(service);
+      if (
+        handover &&
+        handover.end === "businessDelivers" &&
+        isSameDayCourierService(service)
+      ) {
+        pickUpDate.value = dropOffDate.value;
+      } else if (pickUpDate.value && pickUpDate.value < dropOffDate.value) {
+        pickUpDate.value = dropOffDate.value;
+      }
+      journeyTimingError.textContent = "";
+      journeyTimingError.classList.add("hidden");
+    });
+    [dropOffTime, pickUpDate, pickUpTime].forEach(field => {
+      field.addEventListener("change", () => {
+        journeyTimingError.textContent = "";
+        journeyTimingError.classList.add("hidden");
+      });
+    });
     collectionChoice.addEventListener("click", () => {
       setFulfilmentChoice("collection");
     });

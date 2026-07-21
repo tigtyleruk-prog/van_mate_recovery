@@ -51,6 +51,7 @@ test('hosted booking page supports every independent handover combination', () =
     ['customerDropsOff', 'businessReturns', "You'll drop off your item. We'll return it when finished."],
     ['businessCollects', 'customerCollects', "We'll collect your item. You'll collect it when ready."],
     ['businessCollects', 'businessReturns', "We'll collect your item and return it when finished."],
+    ['businessCollects', 'businessDelivers', "We'll collect from the collection address and deliver to the destination."],
   ];
 
   for (const [startHandover, endHandover, summary] of combinations) {
@@ -62,6 +63,7 @@ test('hosted booking page supports every independent handover combination', () =
       allowBusinessCollection: startHandover === 'businessCollects',
       allowCustomerCollection: endHandover === 'customerCollects',
       allowBusinessReturn: endHandover === 'businessReturns',
+      allowBusinessDelivery: endHandover === 'businessDelivers',
     });
     assert.equal(handover.start, startHandover);
     assert.equal(handover.end, endHandover);

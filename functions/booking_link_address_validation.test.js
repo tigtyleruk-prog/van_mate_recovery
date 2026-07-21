@@ -45,7 +45,30 @@ test('business collects and returns accepts collection for both addresses', () =
   );
   assert.match(
     functionSource,
-    /if \(returnAddressSameAsCollection && startHandover === 'businessCollects'\) {[\s\S]*returnAddress = collectionAddress;/,
+    /returnAddressSameAsCollection &&[\s\S]*startHandover === 'businessCollects' &&[\s\S]*endHandover === 'businessReturns'[\s\S]*returnAddress = collectionAddress;/,
+  );
+});
+
+test('business collects and delivers uses collection and delivery addresses', () => {
+  assert.equal(
+    validate({
+      endHandover: 'businessDelivers',
+      collectionAddress: '10 Collection Road, SW1A 1AA',
+      deliveryAddress: '20 Delivery Street, E1 1AA',
+      returnAddress: '',
+    }),
+    null,
+  );
+  assert.deepEqual(
+    validate({
+      endHandover: 'businessDelivers',
+      collectionAddress: '10 Collection Road, SW1A 1AA',
+      deliveryAddress: '',
+    }),
+    {
+      code: 'missing_delivery_address',
+      message: 'Delivery address is required.',
+    },
   );
 });
 

@@ -2,7 +2,7 @@ import 'van_customer_request_flow.dart';
 
 enum VanStartHandover { customerDropsOff, businessCollects }
 
-enum VanEndHandover { customerCollects, businessReturns }
+enum VanEndHandover { customerCollects, businessReturns, businessDelivers }
 
 extension VanStartHandoverX on VanStartHandover {
   String get storageKey => name;
@@ -22,12 +22,16 @@ extension VanEndHandoverX on VanEndHandover {
   String get label => switch (this) {
     VanEndHandover.customerCollects => 'Customer collects',
     VanEndHandover.businessReturns => 'Business returns',
+    VanEndHandover.businessDelivers => 'Business delivers',
   };
   String get calendarLabel => switch (this) {
     VanEndHandover.customerCollects => 'Customer collection',
     VanEndHandover.businessReturns => 'Business return',
+    VanEndHandover.businessDelivers => 'Business delivery',
   };
-  bool get needsCustomerAddress => this == VanEndHandover.businessReturns;
+  bool get needsCustomerAddress =>
+      this == VanEndHandover.businessReturns ||
+      this == VanEndHandover.businessDelivers;
 }
 
 VanStartHandover? tryVanStartHandoverFromStorage(Object? value) {
@@ -50,6 +54,9 @@ VanEndHandover? tryVanEndHandoverFromStorage(Object? value) {
     'businessreturns' ||
     'business_returns' ||
     'businessreturn' => VanEndHandover.businessReturns,
+    'businessdelivers' ||
+    'business_delivers' ||
+    'businessdelivery' => VanEndHandover.businessDelivers,
     _ => null,
   };
 }
@@ -80,6 +87,7 @@ class VanServiceHandoverConfig {
     required bool allowBusinessCollection,
     required bool allowCustomerCollection,
     required bool allowBusinessReturn,
+    bool allowBusinessDelivery = false,
     VanStartHandover? preferredStart,
     VanEndHandover? preferredEnd,
   }) {
@@ -90,6 +98,7 @@ class VanServiceHandoverConfig {
     final ends = <VanEndHandover>[
       if (allowCustomerCollection) VanEndHandover.customerCollects,
       if (allowBusinessReturn) VanEndHandover.businessReturns,
+      if (allowBusinessDelivery) VanEndHandover.businessDelivers,
     ];
     return VanServiceHandoverConfig(
       start: preferredStart != null && starts.contains(preferredStart)
@@ -173,10 +182,14 @@ String vanBusinessHandoverSummary(VanStartHandover start, VanEndHandover end) {
       'Customer drops off and collects',
     (VanStartHandover.customerDropsOff, VanEndHandover.businessReturns) =>
       'Customer drops off; business returns',
+    (VanStartHandover.customerDropsOff, VanEndHandover.businessDelivers) =>
+      'Customer drops off; business delivers',
     (VanStartHandover.businessCollects, VanEndHandover.customerCollects) =>
       'Business collects; customer collects',
     (VanStartHandover.businessCollects, VanEndHandover.businessReturns) =>
       'Business collects and returns',
+    (VanStartHandover.businessCollects, VanEndHandover.businessDelivers) =>
+      'Business collects and delivers',
   };
 }
 
@@ -186,9 +199,13 @@ String vanCustomerHandoverSummary(VanStartHandover start, VanEndHandover end) {
       "You'll drop off your item and collect it when ready.",
     (VanStartHandover.customerDropsOff, VanEndHandover.businessReturns) =>
       "You'll drop off your item. We'll return it when finished.",
+    (VanStartHandover.customerDropsOff, VanEndHandover.businessDelivers) =>
+      "You'll drop off the item. We'll deliver it to the destination.",
     (VanStartHandover.businessCollects, VanEndHandover.customerCollects) =>
       "We'll collect your item. You'll collect it when ready.",
     (VanStartHandover.businessCollects, VanEndHandover.businessReturns) =>
       "We'll collect your item and return it when finished.",
+    (VanStartHandover.businessCollects, VanEndHandover.businessDelivers) =>
+      "We'll collect from the collection address and deliver to the destination.",
   };
 }

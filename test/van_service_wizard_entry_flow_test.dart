@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:van_mate_app/features/van_mate/pages/van_job_types_services_page.dart';
+import 'package:van_mate_app/features/van_mate/models/van_service_handover.dart';
 import 'package:van_mate_app/features/van_mate/services/van_business_hub_onboarding_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_custom_job_questions_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_job_services_storage.dart';
@@ -21,7 +22,7 @@ void main() {
     await VanJobServicesStorage.instance.saveAll(const [], syncCloud: false);
   });
 
-  testWidgets('empty business library offers and completes manual creation', (
+  testWidgets('curated business library still offers manual creation', (
     tester,
   ) async {
     _setPhoneView(tester);
@@ -34,15 +35,12 @@ void main() {
     await tester.tap(find.text('Choose Business Type'));
     await tester.pumpAndSettle();
     expect(find.text('What business do you run?'), findsOneWidget);
-    expect(
-      find.textContaining('No business templates are available yet.'),
-      findsOneWidget,
-    );
-    expect(find.text('Popular businesses'), findsNothing);
-    expect(find.text('Browse businesses'), findsNothing);
+    expect(find.text('Browse businesses'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.byKey(const Key('create_service_manually')));
+    final manual = find.byKey(const Key('create_service_manually'));
+    await tester.ensureVisible(manual);
+    await tester.tap(manual);
     await tester.pumpAndSettle();
     expect(find.text('Step 1 of 8'), findsNothing);
     expect(find.text('Basic information'), findsNothing);
@@ -97,6 +95,95 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Courier templates materialise independently into four stages', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    await tester.pumpWidget(const MaterialApp(home: VanJobTypesServicesPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Create Service'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose Business Type'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('business_search_field')),
+      'courier',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Courier').first);
+    await tester.pumpAndSettle();
+
+    for (final name in <String>['Same-day Delivery', 'Scheduled Delivery']) {
+      final choice = find.widgetWithText(CheckboxListTile, name);
+      await tester.ensureVisible(choice);
+      await tester.tap(choice);
+      await tester.pump();
+    }
+    await _tapWizardAction(tester, 'Review Business');
+    expect(find.text('Review business'), findsOneWidget);
+    await _tapWizardAction(tester, 'Create 2 Services');
+
+    expect(find.text('Review Services'), findsOneWidget);
+    expect(find.text('Service 1 of 2'), findsOneWidget);
+    expect(find.text('Same-day Delivery'), findsWidgets);
+    expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
+
+    await _tapReviewNext(tester);
+    expect(find.text('What are we collecting and delivering?'), findsOneWidget);
+    await _tapReviewNext(tester);
+    expect(find.text('Additional stop'), findsOneWidget);
+    expect(find.text('Waiting time'), findsNothing);
+    await _tapReviewNext(tester);
+    await _tapReviewDefaults(tester);
+
+    expect(find.text('Service 2 of 2'), findsOneWidget);
+    expect(find.text('Scheduled Delivery'), findsWidgets);
+    await _tapReviewNext(tester);
+    expect(
+      find.text('Are there any collection or delivery access restrictions?'),
+      findsOneWidget,
+    );
+    await _tapReviewNext(tester);
+    expect(find.text('Weekend or bank holiday delivery'), findsOneWidget);
+    expect(find.text('Evening or out-of-hours delivery'), findsNothing);
+    await _tapReviewNext(tester);
+    await _tapReviewDefaults(tester);
+
+    final services = await VanJobServicesStorage.instance.loadAll();
+    final questions = await VanCustomJobQuestionsStorage.instance.loadAll();
+    expect(services, hasLength(2));
+    final sameDay = services.singleWhere(
+      (service) => service.starterTemplateId == 'courier_same_day_delivery',
+    );
+    final scheduled = services.singleWhere(
+      (service) => service.starterTemplateId == 'courier_scheduled_delivery',
+    );
+    expect(sameDay.endHandover?.storageKey, 'businessDelivers');
+    expect(scheduled.endHandover?.storageKey, 'businessDelivers');
+    expect(sameDay.quoteExtraDefaults.orderedExtras, hasLength(3));
+    expect(scheduled.quoteExtraDefaults.orderedExtras, hasLength(3));
+    expect(
+      sameDay.quoteExtraDefaults.orderedExtras
+          .map((extra) => extra.key)
+          .toSet()
+          .intersection(
+            scheduled.quoteExtraDefaults.orderedExtras
+                .map((extra) => extra.key)
+                .toSet(),
+          ),
+      isEmpty,
+    );
+    expect(sameDay.effectiveAvailabilityByDay.keys, <int>[1, 2, 3, 4, 5, 6]);
+    expect(scheduled.effectiveAvailabilityByDay.keys, <int>[1, 2, 3, 4, 5]);
+    expect(
+      questions.where(
+        (question) => question.libraryQuestionId.startsWith('courier_'),
+      ),
+      hasLength(10),
+    );
+  });
+
   testWidgets('cancelling manual configuration leaves no partial service', (
     tester,
   ) async {
@@ -107,7 +194,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Choose Business Type'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('create_service_manually')));
+    final manual = find.byKey(const Key('create_service_manually'));
+    await tester.ensureVisible(manual);
+    await tester.tap(manual);
     await tester.pumpAndSettle();
     final nameField = find.byWidgetPredicate(
       (widget) =>
@@ -139,6 +228,14 @@ Future<void> _tapReviewNext(WidgetTester tester) async {
   await tester.ensureVisible(action);
   await tester.pumpAndSettle();
   await tester.tap(action);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapReviewDefaults(WidgetTester tester) async {
+  final target = find.byKey(const Key('service_review_use_defaults'));
+  await tester.ensureVisible(target);
+  await tester.pumpAndSettle();
+  await tester.tap(target);
   await tester.pumpAndSettle();
 }
 
