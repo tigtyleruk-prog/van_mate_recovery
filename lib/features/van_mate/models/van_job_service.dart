@@ -708,12 +708,12 @@ class VanJobService {
       isDraft: json['isDraft'] == true,
       optionalQuestionIds: readStringList('optionalQuestionIds'),
       workingDays: effectiveWorkingDays,
-      businessStartMinutes:
-          firstStoredSchedule?.startMinutes ??
-          readInt('businessStartMinutes', 9 * 60),
-      businessEndMinutes:
-          firstStoredSchedule?.endMinutes ??
-          readInt('businessEndMinutes', 17 * 60),
+      businessStartMinutes: json.containsKey('businessStartMinutes')
+          ? readInt('businessStartMinutes', 9 * 60)
+          : firstStoredSchedule?.startMinutes ?? 9 * 60,
+      businessEndMinutes: json.containsKey('businessEndMinutes')
+          ? readInt('businessEndMinutes', 17 * 60)
+          : firstStoredSchedule?.endMinutes ?? 17 * 60,
       availabilityByDay: storedAvailabilityByDay,
       noticeHours: readInt('noticeHours', 24),
       maxBookingsPerDay: readInt('maxBookingsPerDay', 8),
