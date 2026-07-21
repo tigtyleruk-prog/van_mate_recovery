@@ -57,8 +57,11 @@ const helperNames = [
   'quoteContactNoun',
   'proposedTimeLabel',
   'exactPinPrompt',
+  'normaliseQuoteToken',
+  'quoteTokenFromPath',
+  'quoteReferenceFromLocation',
 ];
-const context = {};
+const context = { URLSearchParams };
 vm.createContext(context);
 vm.runInContext(helperNames.map(readFunction).join('\n'), context);
 
@@ -241,17 +244,117 @@ test('public quote publishing and hosted rendering use explicit delivery fields'
 test('quote page is versioned and served with no-store cache headers', () => {
   assert.match(
     pageSource,
-    /QUOTE_RESPONSE_PAGE_VERSION = "2026-07-21-courier-delivery-v1"/,
+    /QUOTE_RESPONSE_PAGE_VERSION = "2026-07-22-quote-link-v1"/,
   );
   const quoteHeaders = firebaseConfig.hosting.headers.filter((entry) =>
-    entry.source === '/quote/**' || entry.source === '/quote_response.html'
+    entry.source === '/quote/**' ||
+      entry.source === '/quote' ||
+      entry.source === '/quote_response.html'
   );
-  assert.equal(quoteHeaders.length, 2);
+  assert.equal(quoteHeaders.length, 3);
   for (const entry of quoteHeaders) {
     assert.ok(entry.headers.some((header) =>
       header.key === 'Cache-Control' && header.value.includes('no-store')
     ));
   }
+});
+
+test('hosted quote parser accepts current and legacy URL formats', () => {
+  const pathLink = context.quoteReferenceFromLocation('', '/quote/token-123');
+  const queryLink = context.quoteReferenceFromLocation('?token=token-456', '/quote');
+  const htmlTokenLink = context.quoteReferenceFromLocation(
+    '?token=token-789',
+    '/quote_response.html',
+  );
+  const legacyIdLink = context.quoteReferenceFromLocation(
+    '?id=legacy-quote',
+    '/quote_response.html',
+  );
+  const legacyResponseIdLink = context.quoteReferenceFromLocation(
+    '?quoteResponseId=legacy-response-quote',
+    '/quote_response.html',
+  );
+
+  assert.deepEqual(JSON.parse(JSON.stringify(pathLink)), {
+    quoteId: '',
+    quoteToken: 'token-123',
+  });
+  assert.equal(queryLink.quoteToken, 'token-456');
+  assert.equal(htmlTokenLink.quoteToken, 'token-789');
+  assert.equal(legacyIdLink.quoteId, 'legacy-quote');
+  assert.equal(legacyResponseIdLink.quoteId, 'legacy-response-quote');
+});
+
+test('absent quote identifiers keep the missing-link safety state', () => {
+  const missing = context.quoteReferenceFromLocation('', '/quote');
+  const loadSource = readFunction('loadQuote');
+
+  assert.deepEqual(JSON.parse(JSON.stringify(missing)), {
+    quoteId: '',
+    quoteToken: '',
+  });
+  assert.match(
+    loadSource,
+    /Missing quote link\. Please reopen the quote from the original message\./,
+  );
+});
+
+test('legacy path identifiers and superseded tokens resolve explicitly', () => {
+  const resolveSource = readFunction('resolveQuoteReference');
+  const exactQuoteRewrite = firebaseConfig.hosting.rewrites.find(
+    (entry) => entry.source === '/quote',
+  );
+
+  assert.match(resolveSource, /quoteId = quoteToken/);
+  assert.match(resolveSource, /tokenData\.currentQuoteId/);
+  assert.deepEqual(exactQuoteRewrite, {
+    source: '/quote',
+    destination: '/quote_response.html',
+  });
+});
+
+test('token resolution opens the authoritative current quote at runtime', async () => {
+  const runtime = {
+    quoteRef: null,
+    quoteToken: 'superseded-token',
+    quoteId: '',
+    quoteTokenCollectionName: 'public_quote_response_tokens',
+    quoteCollectionName: 'public_quote_responses',
+    db: {
+      collection(name) {
+        return {
+          doc(id) {
+            if (name === 'public_quote_response_tokens') {
+              return {
+                async get() {
+                  return {
+                    exists: true,
+                    data: () => ({ currentQuoteId: 'quote-current' }),
+                  };
+                },
+              };
+            }
+            return { collection: name, id };
+          },
+        };
+      },
+    },
+  };
+  vm.createContext(runtime);
+  const resolveQuoteReferenceSource = readFunction(
+    'resolveQuoteReference',
+  ).replace(/^function /, 'async function ');
+  vm.runInContext(
+    [readFunction('text'), resolveQuoteReferenceSource].join('\n'),
+    runtime,
+  );
+
+  const resolved = await runtime.resolveQuoteReference();
+  assert.equal(runtime.quoteId, 'quote-current');
+  assert.deepEqual(JSON.parse(JSON.stringify(resolved)), {
+    collection: 'public_quote_responses',
+    id: 'quote-current',
+  });
 });
 
 test('hosted quote page listens to exactly one current quote without reloading', () => {

@@ -404,6 +404,18 @@ class VanPublicQuoteCloudService {
       deleted: job.deleted,
       archived: job.archived,
     );
+    // Customer-link identity is transaction-owned. Callers may supply
+    // display payload fields, but cannot replace a complete link with an
+    // empty value or the bare Hosting origin during a retry.
+    payload.addAll(<String, dynamic>{
+      'quoteResponseId': docId,
+      'currentQuoteId': docId,
+      'quoteResponseToken': quoteResponseToken,
+      'quoteResponseLink': quoteResponseLink,
+      'quotePublishKey': quotePublishKey,
+      'isCurrent': true,
+      'lifecycleStatus': 'current',
+    });
     final collectionPath = 'public_quote_responses';
     logVanFirebaseWriteStart(
       collectionPath: collectionPath,

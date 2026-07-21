@@ -32,7 +32,7 @@ String buildVanJobRequestHostedLink(String requestId, {String shortCode = ''}) {
 }
 
 String buildVanQuoteResponseLink(String quoteId) {
-  return buildVanQuoteResponseHostedLink(quoteId);
+  return buildVanQuoteResponseHostedLink(buildVanQuoteResponseToken(quoteId));
 }
 
 String buildVanQuoteResponseToken(String quoteId) {
@@ -51,7 +51,12 @@ String buildVanLegacyQuoteResponseLink(String quoteId) {
   if (normalizedId.isEmpty) {
     return '';
   }
-  return '$vanQuoteResponseHostedBaseUrl/quote_response.html?id=$normalizedId';
+  return Uri.parse(vanQuoteResponseHostedBaseUrl)
+      .replace(
+        path: '/quote_response.html',
+        queryParameters: <String, String>{'id': normalizedId},
+      )
+      .toString();
 }
 
 String buildVanQuoteResponseHostedLink(String quoteToken) {
@@ -59,7 +64,63 @@ String buildVanQuoteResponseHostedLink(String quoteToken) {
   if (normalizedToken.isEmpty) {
     return '';
   }
-  return '$vanQuoteResponseHostedBaseUrl/quote/$normalizedToken';
+  return Uri.parse(
+    vanQuoteResponseHostedBaseUrl,
+  ).replace(pathSegments: <String>['quote', normalizedToken]).toString();
+}
+
+String vanQuoteResponseIdentifierFromLink(String value) {
+  final uri = Uri.tryParse(value.trim());
+  final hostedBaseUri = Uri.parse(vanQuoteResponseHostedBaseUrl);
+  if (uri == null ||
+      uri.scheme.toLowerCase() != 'https' ||
+      uri.host.toLowerCase() != hostedBaseUri.host.toLowerCase() ||
+      uri.userInfo.isNotEmpty) {
+    return '';
+  }
+
+  String validIdentifier(String? candidate) {
+    final normalized = candidate?.trim() ?? '';
+    if (normalized.isEmpty ||
+        normalized.contains(RegExp(r'\s')) ||
+        normalized.contains('/')) {
+      return '';
+    }
+    return normalized;
+  }
+
+  final segments = uri.pathSegments
+      .map((segment) => segment.trim())
+      .where((segment) => segment.isNotEmpty)
+      .toList(growable: false);
+  if (segments.length == 2 && segments.first.toLowerCase() == 'quote') {
+    return validIdentifier(segments.last);
+  }
+
+  final isQuoteQueryRoute =
+      (segments.length == 1 && segments.first.toLowerCase() == 'quote') ||
+      (segments.length == 1 &&
+          segments.first.toLowerCase() == 'quote_response.html');
+  if (!isQuoteQueryRoute) {
+    return '';
+  }
+
+  for (final key in const <String>[
+    'token',
+    'id',
+    'quoteResponseId',
+    'quoteId',
+  ]) {
+    final identifier = validIdentifier(uri.queryParameters[key]);
+    if (identifier.isNotEmpty) {
+      return identifier;
+    }
+  }
+  return '';
+}
+
+bool isCompleteVanQuoteResponseLink(String value) {
+  return vanQuoteResponseIdentifierFromLink(value).isNotEmpty;
 }
 
 String resolveVanQuoteResponseDisplayLink({
@@ -73,7 +134,7 @@ String resolveVanQuoteResponseDisplayLink({
   }
 
   final cleanedLink = quoteResponseLink.trim();
-  if (cleanedLink.startsWith('http://') || cleanedLink.startsWith('https://')) {
+  if (isCompleteVanQuoteResponseLink(cleanedLink)) {
     return cleanedLink;
   }
 

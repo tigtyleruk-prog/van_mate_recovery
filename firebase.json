@@ -69,6 +69,15 @@
             "value": "no-store, no-cache, must-revalidate, max-age=0"
           }
         ]
+      },
+      {
+        "source": "/quote",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, no-cache, must-revalidate, max-age=0"
+          }
+        ]
       }
     ],
     "predeploy": [
@@ -76,6 +85,10 @@
       "node scripts/copy_customer_pages.mjs"
     ],
     "rewrites": [
+      {
+        "source": "/quote",
+        "destination": "/quote_response.html"
+      },
       {
         "source": "/r/**",
         "destination": "/request.html"

@@ -792,7 +792,7 @@
   </div>
 
   <script>
-    const QUOTE_RESPONSE_PAGE_VERSION = "2026-07-21-courier-delivery-v1";
+    const QUOTE_RESPONSE_PAGE_VERSION = "2026-07-22-quote-link-v1";
     const firebaseConfig = {
       apiKey: "AIzaSyD1FUKyO00FC0IYXfZzgPCE2SNooQF4jvg",
       authDomain: "vanmate-56eac.firebaseapp.com",
@@ -810,11 +810,14 @@
     const acceptQuoteArrangeTime = functions.httpsCallable("acceptQuoteArrangeTime");
     const declineQuote = functions.httpsCallable("declineQuote");
     const submitExactLocation = functions.httpsCallable("submitExactLocation");
-    const params = new URLSearchParams(window.location.search);
     const quoteCollectionName = "public_quote_responses";
     const quoteTokenCollectionName = "public_quote_response_tokens";
-    let quoteId = (params.get("id") || "").trim();
-    let quoteToken = (params.get("token") || "").trim();
+    const initialQuoteReference = quoteReferenceFromLocation(
+      window.location.search,
+      window.location.pathname,
+    );
+    let quoteId = initialQuoteReference.quoteId;
+    let quoteToken = initialQuoteReference.quoteToken;
     let quoteRef = quoteId ? db.collection(quoteCollectionName).doc(quoteId) : null;
     let quoteUnsubscribe = null;
     let lastDisplayedQuoteFingerprint = "";
@@ -842,11 +845,28 @@
       if (segments.length < 2 || segments[0].toLowerCase() !== "quote") {
         return "";
       }
-      return normaliseQuoteToken(decodeURIComponent(segments[1] || ""));
+      try {
+        return normaliseQuoteToken(decodeURIComponent(segments[1] || ""));
+      } catch (_) {
+        return "";
+      }
     }
 
-    if (!quoteToken) {
-      quoteToken = quoteTokenFromPath(window.location.pathname);
+    function quoteReferenceFromLocation(search, pathname) {
+      const locationParams = new URLSearchParams(String(search || ""));
+      const quoteIdFromQuery = String(
+        locationParams.get("id") ||
+          locationParams.get("quoteResponseId") ||
+          locationParams.get("quoteId") ||
+          "",
+      ).trim();
+      const quoteTokenFromQuery = normaliseQuoteToken(
+        locationParams.get("token") || "",
+      );
+      return {
+        quoteId: quoteIdFromQuery,
+        quoteToken: quoteTokenFromQuery || quoteTokenFromPath(pathname),
+      };
     }
 
     const state = {
@@ -2037,7 +2057,12 @@
       const tokenRef = db.collection(quoteTokenCollectionName).doc(quoteToken);
       const tokenSnapshot = await tokenRef.get();
       if (!tokenSnapshot.exists) {
-        return null;
+        // Early tokenised links used the quoteResponseId directly in the
+        // /quote/<value> path. Preserve that explicit legacy identifier; a
+        // genuinely unknown value will safely render as unavailable.
+        quoteId = quoteToken;
+        quoteRef = db.collection(quoteCollectionName).doc(quoteId);
+        return quoteRef;
       }
 
       const tokenData = tokenSnapshot.data() || {};

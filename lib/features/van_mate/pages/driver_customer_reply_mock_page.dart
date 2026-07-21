@@ -12457,7 +12457,19 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       return;
     }
 
-    final message = _quotePreviewText();
+    final customerQuoteLink = DriverReplyMockState.instance
+        .resolveQuoteResponseLinkForJob(
+          reply,
+          creatingFreshQuote: reply.isQuoteDeclined,
+        );
+    if (!isCompleteVanQuoteResponseLink(customerQuoteLink)) {
+      _showSnack(
+        'Could not create a valid customer quote link. Quote was not sent.',
+      );
+      setState(() => _openingSendChannel = false);
+      return;
+    }
+    final message = _quotePreviewText(quoteResponseLink: customerQuoteLink);
     final notes = _quoteNotesController.text.trim();
     final instructions = resolveVanMatePaymentInstructions(
       _paymentInstructionsController.text,
@@ -12477,6 +12489,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     final publicQuoteData = <String, dynamic>{
       'jobDescription': _descriptionController.text.trim(),
       'quoteMessage': message,
+      'quoteResponseLink': customerQuoteLink,
       'quoteNotes': notes,
       'paymentInstructions': instructions,
       'businessName': _businessName,
@@ -12500,9 +12513,41 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     debugPrint(
       '[QuoteSend] customerPhone=$cleanedPhone customerEmail=$cleanedEmail mode=$mode',
     );
-    var handoffOpened = false;
-
+    var quotePublished = false;
     try {
+      await DriverReplyMockState.instance.setQuoteSent(
+        true,
+        jobId: _jobId,
+        amount: amount,
+        publicQuoteData: publicQuoteData,
+        proposedDate: proposedDate,
+        proposedStartTime: proposedStartTime,
+        estimatedDurationMinutes: durationMinutes,
+        proposedAppointmentNote: proposedAppointmentNote,
+        schedulingStatus:
+            proposedDate.isNotEmpty && proposedStartTime.isNotEmpty
+            ? 'proposed_time'
+            : '',
+      );
+      quotePublished = true;
+      if (!mounted) {
+        return;
+      }
+      final publishedQuote = DriverReplyMockState.instance.jobById(_jobId);
+      final publishedQuoteLink = publishedQuote?.activeQuoteResponseLink ?? '';
+      if (!isCompleteVanQuoteResponseLink(publishedQuoteLink) ||
+          publishedQuoteLink != customerQuoteLink) {
+        _showSnack(
+          'Could not verify the customer quote link. Messages was not opened.',
+        );
+        return;
+      }
+      setState(() {
+        _saved = true;
+        _sent = true;
+      });
+
+      var handoffOpened = false;
       if (cleanedPhone.isNotEmpty) {
         final smsUri = Uri(
           scheme: 'sms',
@@ -12542,33 +12587,22 @@ class _CreateQuotePageState extends State<CreateQuotePage>
         _showSnack('Quote shared.');
       }
 
-      if (handoffOpened) {
-        await DriverReplyMockState.instance.setQuoteSent(
-          true,
-          jobId: _jobId,
-          amount: amount,
-          publicQuoteData: publicQuoteData,
-          proposedDate: proposedDate,
-          proposedStartTime: proposedStartTime,
-          estimatedDurationMinutes: durationMinutes,
-          proposedAppointmentNote: proposedAppointmentNote,
-          schedulingStatus:
-              proposedDate.isNotEmpty && proposedStartTime.isNotEmpty
-              ? 'proposed_time'
-              : '',
-        );
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _saved = true;
-          _sent = true;
-        });
-      } else if (cleanedPhone.isNotEmpty || cleanedEmail.isNotEmpty) {
+      if (!handoffOpened &&
+          (cleanedPhone.isNotEmpty || cleanedEmail.isNotEmpty)) {
         if (!mounted) {
           return;
         }
         _showSnack('Could not open quote in Messages or email.');
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[QuoteSend] publish or handoff failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        _showSnack(
+          quotePublished
+              ? 'Quote published, but the message could not be opened. Please try again.'
+              : 'Could not publish the customer quote link. Please try again.',
+        );
       }
     } finally {
       if (mounted) {
@@ -12990,7 +13024,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     return '${formatDate(dateTime)} at ${_formatTwentyFourHour(TimeOfDay.fromDateTime(dateTime))}';
   }
 
-  String _quotePreviewText() {
+  String _quotePreviewText({String? quoteResponseLink}) {
     final jobDescription = _descriptionController.text.trim().isNotEmpty
         ? sanitizeVanText(_descriptionController.text).trim()
         : sanitizeVanText(reply.jobTitle).trim();
@@ -13001,10 +13035,11 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       jobTitle: jobDescription,
       quoteAmountText: formatCurrency(quoteAmountValue),
       quoteResponseLink: quoteAmountValue > 0
-          ? DriverReplyMockState.instance.resolveQuoteResponseLinkForJob(
-              reply,
-              creatingFreshQuote: reply.isQuoteDeclined,
-            )
+          ? (quoteResponseLink ??
+                DriverReplyMockState.instance.resolveQuoteResponseLinkForJob(
+                  reply,
+                  creatingFreshQuote: reply.isQuoteDeclined,
+                ))
           : '',
       businessName: _resolvedBusinessName(),
       proposedAppointmentText: proposedDateTime == null
