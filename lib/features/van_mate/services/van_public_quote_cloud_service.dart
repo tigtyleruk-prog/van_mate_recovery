@@ -52,7 +52,7 @@ class VanPublicQuoteCloudService {
   }
 
   String _quoteDocId(DriverCustomerReplyMockData job) {
-    final activeQuoteId = job.quoteResponseId.trim();
+    final activeQuoteId = job.authoritativeCurrentQuoteId;
     if (activeQuoteId.isNotEmpty) {
       return activeQuoteId;
     }

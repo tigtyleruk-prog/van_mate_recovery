@@ -491,6 +491,7 @@ class DriverCustomerReplyMockData {
     this.quoteResponseStatus = '',
     this.quoteTimingChoice = '',
     this.agreedDateTime,
+    this.currentQuoteId = '',
     this.quoteResponseId = '',
     this.quoteResponseToken = '',
     this.quoteResponseLink = '',
@@ -594,6 +595,7 @@ class DriverCustomerReplyMockData {
   final String quoteResponseStatus;
   final String quoteTimingChoice;
   final DateTime? agreedDateTime;
+  final String currentQuoteId;
   final String quoteResponseId;
   final String quoteResponseToken;
   final String quoteResponseLink;
@@ -692,8 +694,15 @@ class DriverCustomerReplyMockData {
   String get activeQuoteResponseLink => resolveVanQuoteResponseDisplayLink(
     quoteResponseLink: quoteResponseLink,
     quoteResponseToken: quoteResponseToken,
-    quoteId: quoteResponseId.trim().isNotEmpty ? quoteResponseId.trim() : jobId,
+    quoteId: authoritativeCurrentQuoteId.isNotEmpty
+        ? authoritativeCurrentQuoteId
+        : jobId,
   );
+
+  String get authoritativeCurrentQuoteId {
+    final currentId = currentQuoteId.trim();
+    return currentId.isNotEmpty ? currentId : quoteResponseId.trim();
+  }
 
   DateTime? get scheduledAtOrParsed {
     final direct = scheduledAt;
@@ -1108,6 +1117,7 @@ class DriverCustomerReplyMockData {
   };
 
   bool get _hasExplicitQuoteResponseLink =>
+      currentQuoteId.trim().isNotEmpty ||
       quoteResponseId.trim().isNotEmpty ||
       quoteResponseToken.trim().isNotEmpty ||
       quoteResponseLink.trim().isNotEmpty;
@@ -1443,6 +1453,7 @@ class DriverCustomerReplyMockData {
     String? quoteResponseStatus,
     String? quoteTimingChoice,
     DateTime? agreedDateTime,
+    String? currentQuoteId,
     String? quoteResponseId,
     String? quoteResponseToken,
     String? quoteResponseLink,
@@ -1557,6 +1568,7 @@ class DriverCustomerReplyMockData {
       quoteResponseStatus: quoteResponseStatus ?? this.quoteResponseStatus,
       quoteTimingChoice: quoteTimingChoice ?? this.quoteTimingChoice,
       agreedDateTime: agreedDateTime ?? this.agreedDateTime,
+      currentQuoteId: currentQuoteId ?? this.currentQuoteId,
       quoteResponseId: quoteResponseId ?? this.quoteResponseId,
       quoteResponseToken: quoteResponseToken ?? this.quoteResponseToken,
       quoteResponseLink: quoteResponseLink ?? this.quoteResponseLink,
@@ -1706,7 +1718,8 @@ class DriverCustomerReplyMockData {
       'quoteResponseStatus': quoteResponseStatus,
       'quoteTimingChoice': quoteTimingChoice,
       'agreedDateTime': agreedDateTime?.toIso8601String(),
-      'quoteResponseId': quoteResponseId,
+      'currentQuoteId': authoritativeCurrentQuoteId,
+      'quoteResponseId': authoritativeCurrentQuoteId,
       'quoteResponseToken': quoteResponseToken,
       'quoteResponseLink': quoteResponseLink,
       'quoteExtras': quoteExtras,
@@ -1879,6 +1892,13 @@ class DriverCustomerReplyMockData {
       effectiveJson['quoteResponseStatus'],
     );
     final rawQuoteStatus = _jsonText(effectiveJson['quoteStatus']);
+    final parsedCurrentQuoteId = _jsonText(
+      effectiveJson['currentQuoteId'],
+      fallback: _jsonText(effectiveJson['quoteResponseId']),
+    ).trim();
+    final parsedQuoteResponseId = parsedCurrentQuoteId.isNotEmpty
+        ? parsedCurrentQuoteId
+        : _jsonText(effectiveJson['quoteResponseId']).trim();
     final normalizedRequestStatus = normalizeVanJobRequestStatus(
       effectiveJson['requestStatus'],
     );
@@ -2097,12 +2117,13 @@ class DriverCustomerReplyMockData {
           : rawQuoteResponseStatus,
       quoteTimingChoice: parsedQuoteTimingChoice,
       agreedDateTime: parsedAgreedDateTime,
-      quoteResponseId: _jsonTextOrNull(effectiveJson['quoteResponseId']) ?? '',
+      currentQuoteId: parsedCurrentQuoteId,
+      quoteResponseId: parsedQuoteResponseId,
       quoteResponseToken: _jsonText(effectiveJson['quoteResponseToken']),
       quoteResponseLink: resolveVanQuoteResponseDisplayLink(
         quoteResponseLink: _jsonText(effectiveJson['quoteResponseLink']),
         quoteResponseToken: _jsonText(effectiveJson['quoteResponseToken']),
-        quoteId: _jsonTextOrNull(effectiveJson['quoteResponseId']) ?? '',
+        quoteId: parsedQuoteResponseId,
       ),
       quoteExtras:
           (effectiveJson['quoteExtras'] as List?)
@@ -7140,7 +7161,7 @@ class DriverReplyMockState extends ChangeNotifier {
   int _nextQuoteVersion(DriverCustomerReplyMockData job) {
     final versions = <int>[
       for (final entry in job.quoteHistory) entry.version,
-      _quoteVersionFromId(job.quoteResponseId),
+      _quoteVersionFromId(job.authoritativeCurrentQuoteId),
     ].where((value) => value > 0).toList(growable: false);
     if (versions.isEmpty) {
       return 1;
@@ -7163,7 +7184,7 @@ class DriverReplyMockState extends ChangeNotifier {
       return _buildRevisedQuoteResponseId(job);
     }
 
-    final quoteResponseId = job.quoteResponseId.trim();
+    final quoteResponseId = job.authoritativeCurrentQuoteId;
     return quoteResponseId.isNotEmpty ? quoteResponseId : job.jobId.trim();
   }
 
@@ -7188,7 +7209,7 @@ class DriverReplyMockState extends ChangeNotifier {
   VanQuoteHistoryEntry? _buildCurrentQuoteHistoryEntry(
     DriverCustomerReplyMockData job,
   ) {
-    final quoteResponseId = job.quoteResponseId.trim();
+    final quoteResponseId = job.authoritativeCurrentQuoteId;
     if (quoteResponseId.isEmpty) {
       return null;
     }
@@ -7245,7 +7266,7 @@ class DriverReplyMockState extends ChangeNotifier {
     final shouldCreateFreshQuote =
         value && existingJob != null && existingJob.isQuoteDeclined;
     final supersedesQuoteId = shouldCreateFreshQuote
-        ? existingJob.quoteResponseId.trim()
+        ? existingJob.authoritativeCurrentQuoteId
         : '';
     final normalizedQuoteResponseId = existingJob == null
         ? ((jobId?.trim().isNotEmpty ?? false) ? jobId!.trim() : '')
@@ -7319,6 +7340,7 @@ class DriverReplyMockState extends ChangeNotifier {
         quoteSavedAt: job.quoteSavedAt ?? DateTime.now(),
         quoteSentAt: value ? DateTime.now() : job.quoteSentAt,
         quoteOpenedAt: value ? DateTime.now() : job.quoteOpenedAt,
+        currentQuoteId: value ? normalizedQuoteResponseId : job.currentQuoteId,
         quoteResponseId: value
             ? normalizedQuoteResponseId
             : job.quoteResponseId,
@@ -8317,7 +8339,11 @@ class DriverReplyMockState extends ChangeNotifier {
         continue;
       }
 
-      final mergedCloudJob = preserveQuoteWorkflowState(existing, cloudJob);
+      final mergedCloudJob = preserveQuoteWorkflowState(
+        existing,
+        cloudJob,
+        candidateIsAuthoritativeQuoteSource: isPublicQuoteSource,
+      );
       final existingUpdated =
           existing.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final cloudUpdated =
@@ -8336,7 +8362,38 @@ class DriverReplyMockState extends ChangeNotifier {
         }
         continue;
       }
-      if (cloudUpdated.isAfter(existingUpdated) ||
+      final existingQuoteEventAt =
+          existing.quoteRespondedAt ??
+          existing.quoteAcceptedAt ??
+          existing.quoteDeclinedAt ??
+          existing.quoteSentAt ??
+          existing.quoteSavedAt ??
+          existingUpdated;
+      final cloudQuoteEventAt =
+          cloudJob.quoteRespondedAt ??
+          cloudJob.quoteAcceptedAt ??
+          cloudJob.quoteDeclinedAt ??
+          cloudJob.quoteSentAt ??
+          cloudJob.quoteSavedAt ??
+          cloudUpdated;
+      final sameAuthoritativeQuote =
+          existing.authoritativeCurrentQuoteId.isNotEmpty &&
+          cloudJob.authoritativeCurrentQuoteId ==
+              existing.authoritativeCurrentQuoteId;
+      final existingCurrentQuoteIsIncomplete =
+          existing.hasQuote &&
+          (existing.quoteSentAt == null || existing.quoteAmount == null);
+      final shouldApplyAuthoritativeQuote =
+          isPublicQuoteSource &&
+          cloudJob.hasQuote &&
+          (!existing.hasQuote ||
+              (sameAuthoritativeQuote &&
+                  (existingCurrentQuoteIsIncomplete ||
+                      !cloudQuoteEventAt.isBefore(existingQuoteEventAt))) ||
+              (!sameAuthoritativeQuote &&
+                  cloudQuoteEventAt.isAfter(existingQuoteEventAt)));
+      if (shouldApplyAuthoritativeQuote ||
+          cloudUpdated.isAfter(existingUpdated) ||
           (mergedCloudJob.isHiddenFromNormalLists &&
               existing.isHiddenFromNormalLists)) {
         _recordJobChangeNotification(
@@ -9992,8 +10049,8 @@ bool shouldPreserveDeclinedQuoteWorkflowState(
     return false;
   }
 
-  final originalQuoteId = original.quoteResponseId.trim();
-  final candidateQuoteId = candidate.quoteResponseId.trim();
+  final originalQuoteId = original.authoritativeCurrentQuoteId;
+  final candidateQuoteId = candidate.authoritativeCurrentQuoteId;
   final originalDeclinedAt = original.quoteDeclinedAt;
   final candidateSentAt = candidate.quoteSentAt;
   final candidateRespondedAt = candidate.quoteRespondedAt;
@@ -10149,11 +10206,126 @@ DriverCustomerReplyMockData preserveAcceptedQuoteWorkflowState(
 
 DriverCustomerReplyMockData preserveQuoteWorkflowState(
   DriverCustomerReplyMockData original,
-  DriverCustomerReplyMockData candidate,
-) {
+  DriverCustomerReplyMockData candidate, {
+  bool candidateIsAuthoritativeQuoteSource = false,
+}) {
+  final candidateWithCurrentQuote = preserveAuthoritativeCurrentQuoteState(
+    original,
+    candidate,
+    candidateIsAuthoritativeQuoteSource: candidateIsAuthoritativeQuoteSource,
+  );
   return preserveDeclinedQuoteWorkflowState(
     original,
-    preserveAcceptedQuoteWorkflowState(original, candidate),
+    preserveAcceptedQuoteWorkflowState(original, candidateWithCurrentQuote),
+  );
+}
+
+bool shouldPreserveAuthoritativeCurrentQuoteState(
+  DriverCustomerReplyMockData original,
+  DriverCustomerReplyMockData candidate, {
+  bool candidateIsAuthoritativeQuoteSource = false,
+}) {
+  if (!original.hasQuote || candidateIsAuthoritativeQuoteSource) {
+    return false;
+  }
+
+  final originalQuoteId = original.authoritativeCurrentQuoteId;
+  final candidateQuoteId = candidate.authoritativeCurrentQuoteId;
+  if (candidateQuoteId.isNotEmpty &&
+      originalQuoteId.isNotEmpty &&
+      candidateQuoteId != originalQuoteId) {
+    return false;
+  }
+
+  if (!candidate.hasQuote) {
+    return originalQuoteId.isNotEmpty || original.quoteSentAt != null;
+  }
+
+  final sameCurrentQuote =
+      originalQuoteId.isNotEmpty && candidateQuoteId == originalQuoteId;
+  if (!sameCurrentQuote) {
+    return false;
+  }
+
+  return (original.quoteSentAt != null && candidate.quoteSentAt == null) ||
+      (original.quoteAmount != null && candidate.quoteAmount == null) ||
+      (original.quoteExtras.isNotEmpty && candidate.quoteExtras.isEmpty) ||
+      (original.proposedDate.trim().isNotEmpty &&
+          candidate.proposedDate.trim().isEmpty) ||
+      (original.proposedStartTime.trim().isNotEmpty &&
+          candidate.proposedStartTime.trim().isEmpty);
+}
+
+DriverCustomerReplyMockData preserveAuthoritativeCurrentQuoteState(
+  DriverCustomerReplyMockData original,
+  DriverCustomerReplyMockData candidate, {
+  bool candidateIsAuthoritativeQuoteSource = false,
+}) {
+  if (!shouldPreserveAuthoritativeCurrentQuoteState(
+    original,
+    candidate,
+    candidateIsAuthoritativeQuoteSource: candidateIsAuthoritativeQuoteSource,
+  )) {
+    return candidate;
+  }
+
+  final candidateHasLaterWorkflowState =
+      candidate.quoteAccepted ||
+      candidate.quoteDeclined ||
+      candidate.isConfirmed ||
+      candidate.isCompletedJob ||
+      candidate.isScheduledInCalendarState ||
+      candidate.isCancelled;
+  return candidate.copyWith(
+    status: candidateHasLaterWorkflowState ? candidate.status : original.status,
+    requestStatus: candidateHasLaterWorkflowState
+        ? candidate.requestStatus
+        : original.requestStatus,
+    quoteSavedAt: original.quoteSavedAt,
+    quoteSentAt: original.quoteSentAt,
+    quoteOpenedAt: original.quoteOpenedAt,
+    currentQuoteId: original.authoritativeCurrentQuoteId,
+    quoteResponseId: original.authoritativeCurrentQuoteId,
+    quoteResponseToken: original.quoteResponseToken,
+    quoteResponseLink: original.quoteResponseLink,
+    quoteAmount: original.quoteAmount,
+    quoteExtras: original.quoteExtras,
+    quoteJobDescription: original.quoteJobDescription,
+    quoteNotes: original.quoteNotes,
+    quotePaymentInstructions: original.quotePaymentInstructions,
+    quoteMessage: original.quoteMessage,
+    quoteStatus: candidateHasLaterWorkflowState
+        ? candidate.quoteStatus
+        : original.quoteStatus,
+    quoteAccepted: candidateHasLaterWorkflowState
+        ? candidate.quoteAccepted
+        : original.quoteAccepted,
+    quoteAcceptedAt: candidateHasLaterWorkflowState
+        ? candidate.quoteAcceptedAt
+        : original.quoteAcceptedAt,
+    quoteDeclined: candidateHasLaterWorkflowState
+        ? candidate.quoteDeclined
+        : original.quoteDeclined,
+    quoteDeclinedAt: candidateHasLaterWorkflowState
+        ? candidate.quoteDeclinedAt
+        : original.quoteDeclinedAt,
+    quoteRespondedAt: candidateHasLaterWorkflowState
+        ? candidate.quoteRespondedAt
+        : original.quoteRespondedAt,
+    quoteResponseStatus: candidateHasLaterWorkflowState
+        ? candidate.quoteResponseStatus
+        : original.quoteResponseStatus,
+    quoteTimingChoice: candidateHasLaterWorkflowState
+        ? candidate.quoteTimingChoice
+        : original.quoteTimingChoice,
+    agreedDateTime: candidateHasLaterWorkflowState
+        ? candidate.agreedDateTime
+        : original.agreedDateTime,
+    proposedDate: original.proposedDate,
+    proposedStartTime: original.proposedStartTime,
+    proposedAppointmentNote: original.proposedAppointmentNote,
+    estimatedDurationMinutes: original.estimatedDurationMinutes,
+    quoteHistory: original.quoteHistory,
   );
 }
 
