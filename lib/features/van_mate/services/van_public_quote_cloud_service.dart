@@ -242,6 +242,12 @@ class VanPublicQuoteCloudService {
         extraData['declineReasonText']?.toString() ?? job.declineReasonText;
     final effectiveDeclineNote =
         extraData['declineNote']?.toString() ?? job.declineNote;
+    final effectiveHandover = job.effectiveHandover;
+    final destinationAddress = job.returnAddress.trim();
+    final isBusinessDelivery =
+        effectiveHandover.end == VanEndHandover.businessDelivers;
+    final isBusinessReturn =
+        effectiveHandover.end == VanEndHandover.businessReturns;
 
     final payload = buildVanCloudDocPayload(
       id: docId,
@@ -257,13 +263,15 @@ class VanPublicQuoteCloudService {
         'customerJourneyType': job.customerJourneyType.trim().isEmpty
             ? 'quote'
             : job.customerJourneyType.trim(),
-        'startHandover': job.effectiveHandover.start.storageKey,
-        'endHandover': job.effectiveHandover.end.storageKey,
+        'startHandover': effectiveHandover.start.storageKey,
+        'endHandover': effectiveHandover.end.storageKey,
         'allowedStartHandoverOptions': job.allowedStartHandoverOptions,
         'allowedEndHandoverOptions': job.allowedEndHandoverOptions,
         'collectionAddress': job.collectionAddress.trim(),
-        'returnAddress': job.returnAddress.trim(),
-        'returnAddressSameAsCollection': job.returnAddressSameAsCollection,
+        'deliveryAddress': isBusinessDelivery ? destinationAddress : '',
+        'returnAddress': isBusinessReturn ? destinationAddress : '',
+        'returnAddressSameAsCollection':
+            isBusinessReturn && job.returnAddressSameAsCollection,
         'businessDropOffInstructions': job.businessDropOffInstructions.trim(),
         'businessCollectionInstructions': job.businessCollectionInstructions
             .trim(),
@@ -277,6 +285,14 @@ class VanPublicQuoteCloudService {
         'dropOffTime': job.dropOffTime.trim(),
         'pickUpDate': job.pickUpDate?.toIso8601String(),
         'pickUpTime': job.pickUpTime.trim(),
+        'collectionDate': isBusinessDelivery
+            ? job.dropOffDate?.toIso8601String()
+            : null,
+        'collectionTime': isBusinessDelivery ? job.dropOffTime.trim() : '',
+        'deliveryDate': isBusinessDelivery
+            ? job.pickUpDate?.toIso8601String()
+            : null,
+        'deliveryTime': isBusinessDelivery ? job.pickUpTime.trim() : '',
         'quoteResponseId': docId,
         'quoteResponseToken': quoteResponseToken,
         'quoteResponseLink': quoteResponseLink,

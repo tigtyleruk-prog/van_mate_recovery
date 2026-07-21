@@ -98,6 +98,26 @@ test('acceptQuoteProposedTime writes accepted and agreed-time fields for the dri
   assert.equal(typeof payload.agreedStartAt.toDate, 'function');
 });
 
+test('acceptQuoteProposedTime uses the quote proposal, not requested collection time', () => {
+  const payload = __test__.buildQuoteResponseWritePayload({
+    quoteData: {
+      proposedDate: '2026-07-27',
+      proposedStartTime: '10:00',
+      collectionDate: '2026-07-27',
+      collectionTime: '09:00',
+      dropOffDate: '2026-07-27',
+      dropOffTime: '09:00',
+    },
+    action: 'accept_proposed_time',
+  });
+
+  assert.equal(payload.agreedDate, '2026-07-27');
+  assert.equal(payload.agreedTime, '10:00');
+  assert.equal(payload.scheduledStartTime, '10:00');
+  assert.equal(payload.acceptedProposedStartTime, '10:00');
+  assert.equal(payload.agreedStartAt.toDate().getHours(), 10);
+});
+
 test('acceptQuoteArrangeTime requires an alternative date and time', () => {
   assert.throws(
     () => __test__.buildQuoteResponseWritePayload({
@@ -123,6 +143,7 @@ test('acceptQuoteArrangeTime writes accepted quote with timing decision pending'
       proposedDate: '2026-06-14',
       proposedStartTime: '10:00',
       estimatedDurationMinutes: 90,
+      quoteAmount: 125,
       quoteStatus: 'sent',
       requestStatus: 'quote_sent',
     },
@@ -164,6 +185,9 @@ test('acceptQuoteArrangeTime writes accepted quote with timing decision pending'
   assert.equal(payload.preferredTimeWindow, '14:30');
   assert.equal(payload.preferredTimingNote, 'After school pickup');
   assert.equal(payload.preferredTimingDecision, 'suggested_alternative');
+  assert.equal(payload.proposedDate, '2026-06-14');
+  assert.equal(payload.proposedStartTime, '10:00');
+  assert.equal(payload.quoteAmount, 125);
 
   const requestUpdate = __test__.buildLinkedRequestQuoteStateUpdate({
     driverPayload: payload,
@@ -178,6 +202,47 @@ test('acceptQuoteArrangeTime writes accepted quote with timing decision pending'
   assert.equal(requestUpdate.timingNeedsDecision, true);
   assert.equal(requestUpdate.preferredDate, '2026-06-15');
   assert.equal(requestUpdate.preferredTimeWindow, '14:30');
+});
+
+test('Function quote mirroring preserves explicit Courier delivery semantics', () => {
+  const payload = __test__.buildQuoteJobMirror({
+    before: {},
+    after: {
+      requestId: 'courier-request',
+      requestType: 'pickupDeliveryRequest',
+      startHandover: 'businessCollects',
+      endHandover: 'businessDelivers',
+      collectionAddress: '1 Collection Road',
+      deliveryAddress: '2 Delivery Avenue',
+      returnAddress: '',
+      collectionDate: '2026-07-27T00:00:00.000Z',
+      collectionTime: '09:00',
+      deliveryDate: '2026-07-27T00:00:00.000Z',
+      deliveryTime: '14:00',
+      dropOffDate: '2026-07-27T00:00:00.000Z',
+      dropOffTime: '09:00',
+      pickUpDate: '2026-07-27T00:00:00.000Z',
+      pickUpTime: '14:00',
+      quoteStatus: 'sent',
+      quoteResponseStatus: 'pending',
+    },
+    existingJob: {
+      returnAddress: 'stale legacy destination',
+      returnAddressSameAsCollection: true,
+    },
+    quoteId: 'courier-quote',
+    ownerUid: 'driver-1',
+    jobId: 'courier-job',
+  });
+
+  assert.equal(payload.startHandover, 'businessCollects');
+  assert.equal(payload.endHandover, 'businessDelivers');
+  assert.equal(payload.collectionAddress, '1 Collection Road');
+  assert.equal(payload.deliveryAddress, '2 Delivery Avenue');
+  assert.equal(payload.returnAddress, '');
+  assert.equal(payload.returnAddressSameAsCollection, false);
+  assert.equal(payload.collectionTime, '09:00');
+  assert.equal(payload.deliveryTime, '14:00');
 });
 
 test('submitExactLocation preserves accepted proposed-time and calendar-ready fields', () => {

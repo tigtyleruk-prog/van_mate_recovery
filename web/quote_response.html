@@ -792,6 +792,7 @@
   </div>
 
   <script>
+    const QUOTE_RESPONSE_PAGE_VERSION = "2026-07-21-courier-delivery-v1";
     const firebaseConfig = {
       apiKey: "AIzaSyD1FUKyO00FC0IYXfZzgPCE2SNooQF4jvg",
       authDomain: "vanmate-56eac.firebaseapp.com",
@@ -1321,7 +1322,9 @@
       const start = rawStart === "businesscollects" || rawStart === "customerdropsoff"
         ? rawStart
         : (legacyBusinessMoves ? "businesscollects" : "customerdropsoff");
-      const end = rawEnd === "businessreturns" || rawEnd === "customercollects"
+      const end = rawEnd === "businessreturns" ||
+          rawEnd === "businessdelivers" ||
+          rawEnd === "customercollects"
         ? rawEnd
         : (legacyBusinessMoves ? "businessreturns" : "customercollects");
       return { start, end };
@@ -1341,7 +1344,55 @@
       if (handover.end === "customercollects") {
         return "We will collect; you will collect when ready.";
       }
+      if (handover.end === "businessdelivers") {
+        return handover.start === "businesscollects"
+          ? "We will collect and deliver."
+          : "You will drop off; we will deliver.";
+      }
       return "We will collect and return.";
+    }
+
+    function customerHandoverView(quote) {
+      const handover = handoverForQuote(quote);
+      if (!handover) {
+        return null;
+      }
+      const endView = handover.end === "businessdelivers"
+        ? {
+            label: "Business delivery",
+            date: quote.deliveryDate || quote.pickUpDate,
+            time: quote.deliveryTime || quote.pickUpTime,
+            addressLabel: "Delivery address",
+            address: quote.deliveryAddress,
+          }
+        : (handover.end === "businessreturns"
+            ? {
+                label: "Business return",
+                date: quote.pickUpDate,
+                time: quote.pickUpTime,
+                addressLabel: "Return address",
+                address: quote.returnAddress,
+              }
+            : {
+                label: "Your collection",
+                date: quote.pickUpDate,
+                time: quote.pickUpTime,
+                addressLabel: "",
+                address: "",
+              });
+      return {
+        handover,
+        summary: customerHandoverSummary(quote),
+        startLabel: handover.start === "businesscollects"
+          ? "Business collection"
+          : "Your drop-off",
+        startDate: quote.collectionDate || quote.dropOffDate,
+        startTime: quote.collectionTime || quote.dropOffTime,
+        collectionAddress: handover.start === "businesscollects"
+          ? quote.collectionAddress
+          : "",
+        ...endView,
+      };
     }
 
     function customerJourneyType(quote) {
@@ -1514,6 +1565,12 @@
         startHandover: String(data.startHandover || "").trim(),
         endHandover: String(data.endHandover || "").trim(),
         collectionAddress: text(data.collectionAddress),
+        deliveryAddress: text(
+          data.deliveryAddress ||
+          (normaliseRequestFlowValue(data.endHandover) === "businessdelivers"
+            ? data.returnAddress
+            : ""),
+        ),
         returnAddress: text(data.returnAddress),
         returnAddressSameAsCollection: asBool(data.returnAddressSameAsCollection),
         handoverSummary: text(data.handoverSummary),
@@ -1528,6 +1585,10 @@
         dropOffTime: String(data.dropOffTime || "").trim(),
         pickUpDate: asDate(data.pickUpDate),
         pickUpTime: String(data.pickUpTime || "").trim(),
+        collectionDate: asDate(data.collectionDate || data.dropOffDate),
+        collectionTime: String(data.collectionTime || data.dropOffTime || "").trim(),
+        deliveryDate: asDate(data.deliveryDate || data.pickUpDate),
+        deliveryTime: String(data.deliveryTime || data.pickUpTime || "").trim(),
         schedulingStatus: String(data.schedulingStatus || "").trim().toLowerCase(),
         estimatedDurationMinutes:
           typeof data.estimatedDurationMinutes === "number"
@@ -1727,33 +1788,36 @@
 
       summaryGrid.innerHTML = "";
       const proposedAppointment = formatProposedAppointmentLabel(quote.proposedDate, quote.proposedStartTime);
-      const handover = handoverForQuote(quote);
+      const handoverView = customerHandoverView(quote);
       renderRow("Customer", quote.customerName);
       renderRow("Job", quote.jobTitle);
-      if (handover) {
-        renderRow("Handover", customerHandoverSummary(quote));
+      if (proposedAppointment) {
+        renderRow(proposedTimeLabel(quote), proposedAppointment);
+      }
+      if (handoverView) {
+        renderRow("Handover", handoverView.summary);
         renderRow(
-          handover.start === "businesscollects" ? "Business collection" : "Your drop-off",
-          formatProposedAppointmentLabel(quote.dropOffDate, quote.dropOffTime) || "Not set",
+          handoverView.startLabel,
+          `Requested: ${formatProposedAppointmentLabel(handoverView.startDate, handoverView.startTime) || "Not set"}`,
         );
         renderRow(
-          handover.end === "businessreturns" ? "Business return" : "Your collection",
-          formatProposedAppointmentLabel(quote.pickUpDate, quote.pickUpTime) || "Not set",
+          handoverView.label,
+          `Requested: ${formatProposedAppointmentLabel(handoverView.date, handoverView.time) || "Not set"}`,
         );
-        if (handover.start === "businesscollects" && quote.collectionAddress) {
-          renderRow("Collection address", quote.collectionAddress);
+        if (handoverView.collectionAddress) {
+          renderRow("Collection address", handoverView.collectionAddress);
         }
-        if (handover.end === "businessreturns" && quote.returnAddress) {
-          renderRow("Return address", quote.returnAddress);
+        if (handoverView.addressLabel && handoverView.address) {
+          renderRow(handoverView.addressLabel, handoverView.address);
         }
-      } else {
+      } else if (!proposedAppointment) {
         renderRow(
           proposedTimeLabel(quote),
-          proposedAppointment || formatDate(quote.scheduledAt, `${quote.jobDateLabel} ${quote.jobTimeLabel}`.trim()),
+          formatDate(quote.scheduledAt, `${quote.jobDateLabel} ${quote.jobTimeLabel}`.trim()),
         );
-        if (Number.isFinite(quote.estimatedDurationMinutes) && quote.estimatedDurationMinutes > 0) {
-          renderRow("Estimated duration", `${quote.estimatedDurationMinutes} minutes`);
-        }
+      }
+      if (Number.isFinite(quote.estimatedDurationMinutes) && quote.estimatedDurationMinutes > 0) {
+        renderRow("Estimated duration", `${quote.estimatedDurationMinutes} minutes`);
       }
       if (quote.proposedAppointmentNote) {
         renderRow("Appointment note", formatDetails(quote.proposedAppointmentNote));

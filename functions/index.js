@@ -1649,6 +1649,15 @@ function buildRequestJobMirror({
     readString(after.fulfilmentType),
     readString(existingJob.fulfilmentType),
   ]);
+  const startHandover = firstNonEmpty([
+    readString(after.startHandover),
+    readString(existingJob.startHandover),
+  ]);
+  const endHandover = firstNonEmpty([
+    readString(after.endHandover),
+    readString(existingJob.endHandover),
+  ]);
+  const usesBusinessDelivery = endHandover.toLowerCase() === 'businessdelivers';
   const configuredExactPinAfterQuoteAccepted =
     requestType === 'dropOffPickupRequest'
       ? readBool(after.requiresExactPinAfterQuoteAccepted) ||
@@ -1713,14 +1722,8 @@ function buildRequestJobMirror({
     requestType,
     customerJourneyType,
     fulfilmentType,
-    startHandover: firstNonEmpty([
-      readString(after.startHandover),
-      readString(existingJob.startHandover),
-    ]),
-    endHandover: firstNonEmpty([
-      readString(after.endHandover),
-      readString(existingJob.endHandover),
-    ]),
+    startHandover,
+    endHandover,
     allowedStartHandoverOptions: Array.isArray(after.allowedStartHandoverOptions)
       ? after.allowedStartHandoverOptions
       : (Array.isArray(existingJob.allowedStartHandoverOptions)
@@ -1735,13 +1738,20 @@ function buildRequestJobMirror({
       readString(after.collectionAddress),
       readString(existingJob.collectionAddress),
     ]),
-    returnAddress: firstNonEmpty([
-      readString(after.returnAddress),
-      readString(existingJob.returnAddress),
+    deliveryAddress: firstNonEmpty([
+      readString(after.deliveryAddress),
+      readString(existingJob.deliveryAddress),
     ]),
-    returnAddressSameAsCollection:
-      readBool(after.returnAddressSameAsCollection) ||
-      readBool(existingJob.returnAddressSameAsCollection),
+    returnAddress: usesBusinessDelivery
+      ? ''
+      : firstNonEmpty([
+        readString(after.returnAddress),
+        readString(existingJob.returnAddress),
+      ]),
+    returnAddressSameAsCollection: usesBusinessDelivery
+      ? false
+      : readBool(after.returnAddressSameAsCollection) ||
+        readBool(existingJob.returnAddressSameAsCollection),
     businessDropOffInstructions: firstNonEmpty([
       readString(after.businessDropOffInstructions),
       readString(existingJob.businessDropOffInstructions),
@@ -1760,6 +1770,22 @@ function buildRequestJobMirror({
       toIsoStringOrNull(existingJob.pickUpDate),
     ]) || null,
     pickUpTime: firstNonEmpty([after.pickUpTime, existingJob.pickUpTime]),
+    collectionDate: firstNonEmpty([
+      toIsoStringOrNull(after.collectionDate),
+      toIsoStringOrNull(existingJob.collectionDate),
+    ]) || null,
+    collectionTime: firstNonEmpty([
+      after.collectionTime,
+      existingJob.collectionTime,
+    ]),
+    deliveryDate: firstNonEmpty([
+      toIsoStringOrNull(after.deliveryDate),
+      toIsoStringOrNull(existingJob.deliveryDate),
+    ]) || null,
+    deliveryTime: firstNonEmpty([
+      after.deliveryTime,
+      existingJob.deliveryTime,
+    ]),
     requestExactPin: requestType === 'dropOffPickupRequest'
       ? false
       : readBool(after.exactPinRequested) || readBool(existingJob.requestExactPin),
@@ -2015,6 +2041,15 @@ function buildQuoteJobMirror({
     readString(after.fulfilmentType),
     readString(existingJob.fulfilmentType),
   ]);
+  const startHandover = firstNonEmpty([
+    readString(after.startHandover),
+    readString(existingJob.startHandover),
+  ]);
+  const endHandover = firstNonEmpty([
+    readString(after.endHandover),
+    readString(existingJob.endHandover),
+  ]);
+  const usesBusinessDelivery = endHandover.toLowerCase() === 'businessdelivers';
   const configuredExactPinAfterQuoteAccepted =
     requestType === 'dropOffPickupRequest'
       ? readBool(after.requiresExactPinAfterQuoteAccepted) ||
@@ -2137,14 +2172,8 @@ function buildQuoteJobMirror({
     requestType,
     customerJourneyType,
     fulfilmentType,
-    startHandover: firstNonEmpty([
-      readString(after.startHandover),
-      readString(existingJob.startHandover),
-    ]),
-    endHandover: firstNonEmpty([
-      readString(after.endHandover),
-      readString(existingJob.endHandover),
-    ]),
+    startHandover,
+    endHandover,
     allowedStartHandoverOptions: Array.isArray(after.allowedStartHandoverOptions)
       ? after.allowedStartHandoverOptions
       : (Array.isArray(existingJob.allowedStartHandoverOptions)
@@ -2159,13 +2188,20 @@ function buildQuoteJobMirror({
       readString(after.collectionAddress),
       readString(existingJob.collectionAddress),
     ]),
-    returnAddress: firstNonEmpty([
-      readString(after.returnAddress),
-      readString(existingJob.returnAddress),
+    deliveryAddress: firstNonEmpty([
+      readString(after.deliveryAddress),
+      readString(existingJob.deliveryAddress),
     ]),
-    returnAddressSameAsCollection:
-      readBool(after.returnAddressSameAsCollection) ||
-      readBool(existingJob.returnAddressSameAsCollection),
+    returnAddress: usesBusinessDelivery
+      ? ''
+      : firstNonEmpty([
+        readString(after.returnAddress),
+        readString(existingJob.returnAddress),
+      ]),
+    returnAddressSameAsCollection: usesBusinessDelivery
+      ? false
+      : readBool(after.returnAddressSameAsCollection) ||
+        readBool(existingJob.returnAddressSameAsCollection),
     businessDropOffInstructions: firstNonEmpty([
       readString(after.businessDropOffInstructions),
       readString(existingJob.businessDropOffInstructions),
@@ -2184,6 +2220,22 @@ function buildQuoteJobMirror({
       toIsoStringOrNull(existingJob.pickUpDate),
     ]) || null,
     pickUpTime: firstNonEmpty([after.pickUpTime, existingJob.pickUpTime]),
+    collectionDate: firstNonEmpty([
+      toIsoStringOrNull(after.collectionDate),
+      toIsoStringOrNull(existingJob.collectionDate),
+    ]) || null,
+    collectionTime: firstNonEmpty([
+      after.collectionTime,
+      existingJob.collectionTime,
+    ]),
+    deliveryDate: firstNonEmpty([
+      toIsoStringOrNull(after.deliveryDate),
+      toIsoStringOrNull(existingJob.deliveryDate),
+    ]) || null,
+    deliveryTime: firstNonEmpty([
+      after.deliveryTime,
+      existingJob.deliveryTime,
+    ]),
     requestExactPin: requestType === 'dropOffPickupRequest'
       ? false
       : readBool(after.requestExactPin) || readBool(existingJob.requestExactPin),

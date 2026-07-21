@@ -8,6 +8,22 @@ const pageSource = fs.readFileSync(
   path.join(__dirname, '..', 'web', 'quote_response.html'),
   'utf8',
 );
+const firebaseConfig = JSON.parse(fs.readFileSync(
+  path.join(__dirname, '..', 'firebase.json'),
+  'utf8',
+));
+const quotePublisherSource = fs.readFileSync(
+  path.join(
+    __dirname,
+    '..',
+    'lib',
+    'features',
+    'van_mate',
+    'services',
+    'van_public_quote_cloud_service.dart',
+  ),
+  'utf8',
+);
 
 function readFunction(name) {
   const start = pageSource.indexOf(`function ${name}(`);
@@ -32,6 +48,7 @@ const helperNames = [
   'isDropOffPickupRequest',
   'handoverForQuote',
   'customerHandoverSummary',
+  'customerHandoverView',
   'customerJourneyType',
   'quoteResponseCopy',
   'quoteNeedsCustomerLocation',
@@ -137,10 +154,103 @@ test('drop-off/pick-up flows request a pin only when configured', () => {
     context.customerHandoverSummary(quote),
     'You will drop off and collect.',
   );
-  assert.match(pageSource, /"Business collection"\s*:\s*"Your drop-off"/);
-  assert.match(pageSource, /"Business return"\s*:\s*"Your collection"/);
   assert.match(pageSource, /dropOffDate: asDate\(data\.dropOffDate\)/);
   assert.match(pageSource, /pickUpDate: asDate\(data\.pickUpDate\)/);
+});
+
+test('Courier delivery quotes use collect-and-deliver labels and addresses', () => {
+  const quote = {
+    requestType: 'pickupDeliveryRequest',
+    startHandover: 'businessCollects',
+    endHandover: 'businessDelivers',
+    collectionAddress: '1 Collection Road',
+    deliveryAddress: '2 Delivery Avenue',
+    returnAddress: 'legacy destination fallback',
+    collectionDate: '2026-07-27',
+    collectionTime: '09:00',
+    deliveryDate: '2026-07-27',
+    deliveryTime: '14:00',
+  };
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(context.handoverForQuote(quote))),
+    { start: 'businesscollects', end: 'businessdelivers' },
+  );
+  assert.equal(context.customerHandoverSummary(quote), 'We will collect and deliver.');
+  const view = JSON.parse(JSON.stringify(context.customerHandoverView(quote)));
+  assert.equal(view.startLabel, 'Business collection');
+  assert.equal(view.label, 'Business delivery');
+  assert.equal(view.collectionAddress, '1 Collection Road');
+  assert.equal(view.addressLabel, 'Delivery address');
+  assert.equal(view.address, '2 Delivery Avenue');
+  assert.notEqual(view.label, 'Business return');
+  assert.notEqual(view.addressLabel, 'Return address');
+});
+
+test('genuine businessReturns quotes retain return wording', () => {
+  const quote = {
+    requestType: 'pickupDeliveryRequest',
+    startHandover: 'businessCollects',
+    endHandover: 'businessReturns',
+    collectionAddress: '1 Collection Road',
+    returnAddress: '1 Collection Road',
+  };
+
+  assert.equal(context.customerHandoverSummary(quote), 'We will collect and return.');
+  const view = JSON.parse(JSON.stringify(context.customerHandoverView(quote)));
+  assert.equal(view.label, 'Business return');
+  assert.equal(view.addressLabel, 'Return address');
+  assert.equal(view.address, '1 Collection Road');
+});
+
+test('the proposed quote appointment is rendered separately from requested journey times', () => {
+  const renderSource = readFunction('renderQuote');
+  const proposedIndex = renderSource.indexOf('if (proposedAppointment)');
+  const handoverIndex = renderSource.indexOf('if (handoverView)');
+
+  assert.notEqual(proposedIndex, -1);
+  assert.ok(proposedIndex < handoverIndex);
+  assert.match(
+    renderSource,
+    /renderRow\(proposedTimeLabel\(quote\), proposedAppointment\)/,
+  );
+  assert.match(renderSource, /`Requested: \$\{/);
+  assert.doesNotMatch(
+    renderSource,
+    /proposedAppointment \|\| formatDate\(quote\.scheduledAt/,
+  );
+});
+
+test('public quote publishing and hosted rendering use explicit delivery fields', () => {
+  assert.match(
+    quotePublisherSource,
+    /effectiveHandover\.end == VanEndHandover\.businessDelivers/,
+  );
+  assert.match(
+    quotePublisherSource,
+    /'deliveryAddress': isBusinessDelivery \? destinationAddress : ''/,
+  );
+  assert.match(
+    pageSource,
+    /normaliseRequestFlowValue\(data\.endHandover\) === "businessdelivers"/,
+  );
+  assert.match(pageSource, /addressLabel: "Delivery address"/);
+});
+
+test('quote page is versioned and served with no-store cache headers', () => {
+  assert.match(
+    pageSource,
+    /QUOTE_RESPONSE_PAGE_VERSION = "2026-07-21-courier-delivery-v1"/,
+  );
+  const quoteHeaders = firebaseConfig.hosting.headers.filter((entry) =>
+    entry.source === '/quote/**' || entry.source === '/quote_response.html'
+  );
+  assert.equal(quoteHeaders.length, 2);
+  for (const entry of quoteHeaders) {
+    assert.ok(entry.headers.some((header) =>
+      header.key === 'Cache-Control' && header.value.includes('no-store')
+    ));
+  }
 });
 
 test('legacy booking journeys keep booking decline wording', () => {
