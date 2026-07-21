@@ -11,6 +11,7 @@ import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
 import '../models/van_quote_extra_defaults.dart';
 import '../models/van_service_capability.dart';
+import '../models/van_service_configuration_draft.dart';
 import '../models/van_service_template.dart';
 import '../models/van_service_handover.dart';
 import '../models/van_starter_capability_pack.dart';
@@ -20,6 +21,7 @@ import '../services/van_business_hub_onboarding_storage.dart';
 import '../services/van_business_profile_scope_storage.dart';
 import '../services/van_custom_job_questions_storage.dart';
 import '../services/van_job_services_storage.dart';
+import '../services/van_service_configuration_repository.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 import '../widgets/van_form_field_styles.dart';
 import '../widgets/van_quote_extra_defaults_sheet.dart';
@@ -34,15 +36,54 @@ Future<bool?> openVanExistingServiceEditor(
   BuildContext context, {
   required String serviceId,
 }) {
+  return openVanServiceConfiguration(context, serviceId: serviceId);
+}
+
+Future<bool?> openVanServiceConfiguration(
+  BuildContext context, {
+  required String serviceId,
+  VanServiceConfigurationStage initialStage =
+      VanServiceConfigurationStage.features,
+}) {
   return Navigator.of(context).push<bool>(
     MaterialPageRoute<bool>(
-      builder: (_) => VanJobServiceDetailPage(
-        serviceId: serviceId,
-        reviewServiceIds: <String>[serviceId],
-        existingServiceConfiguration: true,
+      builder: (_) => VanServiceConfigurationPage(
+        serviceIds: <String>[serviceId],
+        initialStage: initialStage,
       ),
     ),
   );
+}
+
+class VanServiceConfigurationPage extends StatelessWidget {
+  const VanServiceConfigurationPage({
+    required this.serviceIds,
+    this.initialStage = VanServiceConfigurationStage.features,
+    this.existingServiceConfiguration = true,
+    this.initialService,
+    super.key,
+  }) : assert(serviceIds.length > 0 || initialService != null);
+
+  final List<String> serviceIds;
+  final VanServiceConfigurationStage initialStage;
+  final bool existingServiceConfiguration;
+  final VanJobService? initialService;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstServiceId = serviceIds.isNotEmpty
+        ? serviceIds.first
+        : initialService!.id;
+    return VanJobServiceDetailPage(
+      serviceId: firstServiceId,
+      reviewServiceIds: serviceIds.isEmpty
+          ? <String>[firstServiceId]
+          : serviceIds,
+      existingServiceConfiguration: existingServiceConfiguration,
+      initialConfigurationStage: initialStage,
+      initialConfigurationService: initialService,
+    );
+  }
 }
 
 class VanJobTypesServicesPage extends StatefulWidget {
@@ -166,9 +207,9 @@ class _VanJobTypesServicesPageState extends State<VanJobTypesServicesPage> {
     if (result.createdServiceIds.isNotEmpty) {
       await Navigator.of(context).push<bool>(
         MaterialPageRoute<bool>(
-          builder: (_) => VanJobServiceDetailPage(
-            serviceId: result.createdServiceIds.first,
-            reviewServiceIds: result.createdServiceIds,
+          builder: (_) => VanServiceConfigurationPage(
+            serviceIds: result.createdServiceIds,
+            existingServiceConfiguration: false,
           ),
         ),
       );
@@ -230,18 +271,28 @@ class _VanJobTypesServicesPageState extends State<VanJobTypesServicesPage> {
   }
 
   Future<void> _resumeDraftService(VanJobService service) async {
-    final edited = await Navigator.of(context).push<VanJobService>(
-      MaterialPageRoute<VanJobService>(
-        builder: (_) => VanJobServiceEditorPage(initialService: service),
-      ),
+    final edited = await openVanServiceConfiguration(
+      context,
+      serviceId: service.id,
     );
-    if (edited != null) await _loadServices(showLoader: false);
+    if (edited == true) await _loadServices(showLoader: false);
   }
 
   Future<void> _duplicateService(VanJobService service) async {
+    final now = DateTime.now();
+    final duplicate = service.copyWith(
+      id: 'service_${now.microsecondsSinceEpoch}',
+      name: '${service.name} copy',
+      createdAt: now,
+      updatedAt: now,
+      isDraft: false,
+    );
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => VanJobServiceEditorPage(duplicateFrom: service),
+        builder: (_) => VanServiceConfigurationPage(
+          serviceIds: const <String>[],
+          initialService: duplicate,
+        ),
       ),
     );
     if (changed == true) {
@@ -416,11 +467,15 @@ class VanJobServiceDetailPage extends StatefulWidget {
     required this.serviceId,
     this.reviewServiceIds = const <String>[],
     this.existingServiceConfiguration = false,
+    this.initialConfigurationStage = VanServiceConfigurationStage.features,
+    this.initialConfigurationService,
   });
 
   final String serviceId;
   final List<String> reviewServiceIds;
   final bool existingServiceConfiguration;
+  final VanServiceConfigurationStage initialConfigurationStage;
+  final VanJobService? initialConfigurationService;
 
   @override
   State<VanJobServiceDetailPage> createState() =>
@@ -433,6 +488,8 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       VanCustomJobQuestionsStorage.instance;
   final VanBusinessHubOnboardingStorage _onboardingStorage =
       VanBusinessHubOnboardingStorage.instance;
+  final VanServiceConfigurationRepository _configurationRepository =
+      VanServiceConfigurationRepository();
 
   VanJobService? _service;
   Map<String, VanCustomJobQuestion> _questionLookup =
@@ -443,8 +500,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   bool _checkedSettingsHelp = false;
   int _reviewServiceIndex = 0;
   int _reviewSectionIndex = 0;
-  Set<String> _configurationOriginalQuestionIds = const <String>{};
-  bool _capturedConfigurationOriginals = false;
+  VanServiceConfigurationDraft? _configurationDraft;
   int _guidedExtrasResetRevision = 0;
   String _guidedExtraDraftServiceId = '';
   String? _guidedNewExtraKey;
@@ -452,6 +508,8 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   GlobalKey<_GuidedPricingExtraRowState>? _guidedNewExtraRowKey;
   final Map<String, VanJobService> _guidedAvailabilityDefaults =
       <String, VanJobService>{};
+  final Map<String, VanQuoteExtraDefaults> _guidedExtrasDefaults =
+      <String, VanQuoteExtraDefaults>{};
   final Map<String, Map<int, VanServiceDaySchedule>> _guidedAvailabilityDrafts =
       <String, Map<int, VanServiceDaySchedule>>{};
 
@@ -470,6 +528,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   @override
   void initState() {
     super.initState();
+    _reviewSectionIndex = widget.initialConfigurationStage.index;
     if (!_isGuidedReview) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(_maybeShowServiceSettingsHelpDialog());
@@ -540,9 +599,39 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     final lookup = <String, VanCustomJobQuestion>{
       for (final question in customQuestions) question.id: question,
     };
-    final service = services
-        .where((item) => item.id == _activeServiceId)
-        .firstOrNull;
+    final service =
+        services.where((item) => item.id == _activeServiceId).firstOrNull ??
+        (widget.initialConfigurationService?.id == _activeServiceId
+            ? widget.initialConfigurationService
+            : null);
+    VanServiceConfigurationDraft? configurationDraft = _configurationDraft;
+    if (widget.existingServiceConfiguration &&
+        configurationDraft == null &&
+        service != null) {
+      final businessProfileId = await VanBusinessProfileScopeStorage.instance
+          .activeBusinessId();
+      final linkedIds = service.linkedQuestionIds.toSet();
+      final linkedQuestions = <String, VanCustomJobQuestion>{
+        for (final entry in lookup.entries)
+          if (linkedIds.contains(entry.key)) entry.key: entry.value,
+      };
+      configurationDraft = VanServiceConfigurationDraft(
+        businessProfileId: businessProfileId,
+        mode: widget.initialConfigurationService == null
+            ? (service.isDraft
+                  ? VanServiceConfigurationMode.resumedDraft
+                  : VanServiceConfigurationMode.existing)
+            : VanServiceConfigurationMode.duplicate,
+        originalService: widget.initialConfigurationService == null
+            ? service
+            : null,
+        service: service,
+        originalQuestions: widget.initialConfigurationService == null
+            ? linkedQuestions
+            : const <String, VanCustomJobQuestion>{},
+        questions: linkedQuestions,
+      );
+    }
     if (!mounted) {
       return;
     }
@@ -551,53 +640,37 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       if ((_isGuidedReview || widget.existingServiceConfiguration) &&
           service != null) {
         _guidedAvailabilityDefaults.putIfAbsent(service.id, () => service);
+        _guidedExtrasDefaults.putIfAbsent(
+          service.id,
+          () => service.quoteExtraDefaults,
+        );
       }
       _questionLookup = lookup;
-      if (widget.existingServiceConfiguration &&
-          !_capturedConfigurationOriginals &&
-          service != null) {
-        _configurationOriginalQuestionIds = service.linkedQuestionIds.toSet();
-        _capturedConfigurationOriginals = true;
+      _configurationDraft = configurationDraft;
+      if (widget.initialConfigurationService != null ||
+          (widget.existingServiceConfiguration && service?.isDraft == true)) {
+        _changed = true;
       }
       _loading = false;
     });
   }
 
-  Future<void> _save() async {
-    final service = _service;
-    if (service == null || _saving) {
-      return;
-    }
-
-    setState(() {
-      _saving = true;
-    });
-    await _serviceStorage.upsert(service.copyWith(updatedAt: DateTime.now()));
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _saving = false;
-      _changed = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Service saved.'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Future<void> _editService() async {
+    await _configureService(
+      initialStage: VanServiceConfigurationStage.questions,
     );
   }
 
-  Future<void> _editService() async {
-    await _configureService();
-  }
-
-  Future<void> _configureService() async {
+  Future<void> _configureService({
+    VanServiceConfigurationStage initialStage =
+        VanServiceConfigurationStage.features,
+  }) async {
     final service = _service;
     if (service == null) return;
-    final changed = await openVanExistingServiceEditor(
+    final changed = await openVanServiceConfiguration(
       context,
       serviceId: service.id,
+      initialStage: initialStage,
     );
     if (changed != true || !mounted) return;
     await _load();
@@ -687,95 +760,8 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
 
   Future<void> _editQuoteExtras() async {
     final service = _service;
-    if (service == null) {
-      return;
-    }
-    final businessProfileId = await VanBusinessProfileScopeStorage.instance
-        .activeBusinessId();
-    if (!mounted) {
-      return;
-    }
-    final serviceId = service.id;
-    final updated = await showModalBottomSheet<VanQuoteExtraDefaults>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => VanQuoteExtraDefaultsSheet(
-        initialDefaults: service.quoteExtraDefaults,
-        resetDefaults:
-            findVanServiceTemplateForService(
-              serviceId: service.id,
-              serviceName: service.name,
-            )?.quoteExtraDefaults() ??
-            VanQuoteExtraDefaults.empty(),
-        title: '${service.name} extras',
-        description: 'Set the quote extras shown for this service.',
-      ),
-    );
-    if (updated == null || !mounted) {
-      return;
-    }
-    final activeBusinessProfileId = await VanBusinessProfileScopeStorage
-        .instance
-        .activeBusinessId();
-    if (!mounted) {
-      return;
-    }
-    if (activeBusinessProfileId != businessProfileId) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'The active business changed. Reopen the service before saving extras.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    final updatedService = service.copyWith(
-      quoteExtraDefaults: updated,
-      updatedAt: DateTime.now(),
-    );
-    if (widget.existingServiceConfiguration) {
-      setState(() {
-        _service = updatedService;
-        _changed = true;
-      });
-      return;
-    }
-    setState(() {
-      _saving = true;
-    });
-    try {
-      await _serviceStorage.upsert(updatedService);
-      await _load();
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _saving = false;
-        _changed = true;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _service = updatedService;
-        _saving = false;
-        _changed = true;
-      });
-      debugPrint(
-        '[ServiceDetailPage] extras save failed businessProfileId=$businessProfileId serviceId=$serviceId error=$error',
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not save service extras. Please try again.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+    if (service == null) return;
+    await _configureService(initialStage: VanServiceConfigurationStage.extras);
   }
 
   VanQuoteExtraDefaults _guidedStarterExtras(VanJobService service) {
@@ -797,6 +783,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
               : service.starterTemplateId,
           serviceName: service.name,
         )?.quoteExtraDefaults() ??
+        _guidedExtrasDefaults[service.id] ??
         service.quoteExtraDefaults;
   }
 
@@ -1310,7 +1297,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   Widget _flowOptionSwitch({
     required String label,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    ValueChanged<bool>? onChanged,
   }) {
     return SwitchListTile.adaptive(
       contentPadding: EdgeInsets.zero,
@@ -1326,7 +1313,10 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     );
   }
 
-  List<Widget> _requestFlowOptionTiles(VanJobService service) {
+  List<Widget> _requestFlowOptionTiles(
+    VanJobService service, {
+    bool readOnly = false,
+  }) {
     final options = service.effectiveRequestFlowOptions;
     final tiles = <Widget>[];
 
@@ -1339,8 +1329,10 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
         _flowOptionSwitch(
           label: label,
           value: value,
-          onChanged: (enabled) =>
-              _updateRequestFlowOptions(service, update(enabled)),
+          onChanged: readOnly
+              ? null
+              : (enabled) =>
+                    _updateRequestFlowOptions(service, update(enabled)),
         ),
       );
     }
@@ -1351,15 +1343,17 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
           _flowOptionSwitch(
             label: 'Customer address',
             value: service.requireAddress,
-            onChanged: (enabled) {
-              setState(() {
-                _service = service.copyWith(
-                  requireAddress: enabled,
-                  updatedAt: DateTime.now(),
-                );
-                _changed = true;
-              });
-            },
+            onChanged: readOnly
+                ? null
+                : (enabled) {
+                    setState(() {
+                      _service = service.copyWith(
+                        requireAddress: enabled,
+                        updatedAt: DateTime.now(),
+                      );
+                      _changed = true;
+                    });
+                  },
           ),
         );
         break;
@@ -1420,15 +1414,17 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       _flowOptionSwitch(
         label: 'Photos',
         value: service.requestPhotos,
-        onChanged: (enabled) {
-          setState(() {
-            _service = service.copyWith(
-              requestPhotos: enabled,
-              updatedAt: DateTime.now(),
-            );
-            _changed = true;
-          });
-        },
+        onChanged: readOnly
+            ? null
+            : (enabled) {
+                setState(() {
+                  _service = service.copyWith(
+                    requestPhotos: enabled,
+                    updatedAt: DateTime.now(),
+                  );
+                  _changed = true;
+                });
+              },
       ),
     );
     return tiles;
@@ -1512,7 +1508,9 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     if (!_changed) return true;
     setState(() => _saving = true);
     try {
-      await _serviceStorage.upsert(service.copyWith(updatedAt: DateTime.now()));
+      await _serviceStorage.upsert(
+        service.copyWith(isDraft: false, updatedAt: DateTime.now()),
+      );
       if (!mounted) return false;
       setState(() {
         _saving = false;
@@ -1605,6 +1603,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
 
   Future<void> _completeExistingServiceConfiguration() async {
     final service = _service;
+    final originalDraft = _configurationDraft;
     if (service == null || _saving) return;
     if (!_changed) {
       Navigator.of(context).pop(false);
@@ -1612,24 +1611,33 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     }
     setState(() => _saving = true);
     try {
+      if (originalDraft == null) {
+        throw StateError('Service configuration was not loaded.');
+      }
+      final linkedQuestions = <String, VanCustomJobQuestion>{};
       for (final questionId in service.linkedQuestionIds) {
         final question = _questionLookup[questionId];
-        if (question != null) await _questionsStorage.upsert(question);
+        if (question != null) linkedQuestions[questionId] = question;
       }
-      await _serviceStorage.upsert(service.copyWith(updatedAt: DateTime.now()));
-      for (final removedQuestionId
-          in _configurationOriginalQuestionIds.difference(
-            service.linkedQuestionIds.toSet(),
-          )) {
-        await _deleteQuestionDefinitionIfUnused(removedQuestionId);
-      }
+      await _configurationRepository.commit(
+        originalDraft.copyWith(
+          service: service.copyWith(isDraft: false),
+          questions: linkedQuestions,
+        ),
+      );
       if (!mounted) return;
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save service configuration.')),
+        SnackBar(
+          content: Text(
+            error is VanServiceConfigurationConflict
+                ? error.message
+                : 'Could not save service configuration.',
+          ),
+        ),
       );
     }
   }
@@ -2574,7 +2582,14 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            ..._requestFlowOptionTiles(service),
+                            ..._requestFlowOptionTiles(service, readOnly: true),
+                            const SizedBox(height: 6),
+                            OutlinedButton.icon(
+                              key: const Key('edit_service_booking_options'),
+                              onPressed: _saving ? null : _configureService,
+                              icon: const Icon(Icons.tune_outlined),
+                              label: const Text('Edit booking options'),
+                            ),
                           ],
                         ),
                       ),
@@ -2656,7 +2671,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                                           const NeverScrollableScrollPhysics(),
                                       buildDefaultDragHandles: false,
                                       itemCount: linkedQuestions.length,
-                                      onReorderItem: _reorderLinkedQuestions,
+                                      onReorderItem: (_, _) {},
                                       itemBuilder: (context, index) {
                                         final linkedQuestion =
                                             linkedQuestions[index];
@@ -2675,7 +2690,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                                           metadata:
                                               '${_linkedQuestionMetaLabel(question)}${questionEnabled ? '' : ' · Disabled'}',
                                           enabled: questionEnabled,
-                                          actionsEnabled: !_saving,
+                                          actionsEnabled: false,
                                           onToggleEnabled: () =>
                                               _setLinkedQuestionEnabled(
                                                 linkedQuestion.id,
@@ -2701,18 +2716,11 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                               children: [
                                 SizedBox(
                                   height: 40,
-                                  child: FilledButton.icon(
-                                    onPressed: canAddQuestions
-                                        ? _addQuestion
-                                        : null,
-                                    icon: const Icon(Icons.add),
-                                    label: const Text('+ Add Question'),
-                                  ),
-                                ),
-                                SizedBox(
-                                  height: 40,
                                   child: OutlinedButton.icon(
-                                    onPressed: _editService,
+                                    key: const Key('edit_service_questions'),
+                                    onPressed: canAddQuestions
+                                        ? _editService
+                                        : null,
                                     icon: const Icon(Icons.edit_outlined),
                                     label: const Text('Edit Service'),
                                   ),
@@ -2783,15 +2791,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                             SwitchListTile.adaptive(
                               contentPadding: EdgeInsets.zero,
                               value: service.requestExactPinAfterQuoteAccepted,
-                              onChanged: (value) {
-                                setState(() {
-                                  _service = service.copyWith(
-                                    requestExactPinAfterQuoteAccepted: value,
-                                    updatedAt: DateTime.now(),
-                                  );
-                                  _changed = true;
-                                });
-                              },
+                              onChanged: null,
                               title: const Text(
                                 'Request exact pin after quote accepted',
                                 style: TextStyle(
@@ -2808,23 +2808,6 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          SizedBox(
-                            height: 42,
-                            child: FilledButton.icon(
-                              onPressed: _saving ? null : _save,
-                              icon: _saving
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(Icons.save_outlined),
-                              label: const Text('Save'),
-                            ),
-                          ),
                           SizedBox(
                             height: 42,
                             child: OutlinedButton.icon(

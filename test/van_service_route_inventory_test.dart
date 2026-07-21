@@ -10,16 +10,20 @@ void main() {
 
     expect(source, contains('Future<bool?> openVanExistingServiceEditor('));
     expect(source, contains('Future<void> _editService('));
-    expect(source, contains('Future<void> _configureService()'));
+    expect(source, contains('Future<void> _configureService({'));
+    expect(source, contains('class VanServiceConfigurationPage'));
+    expect(source, contains('Future<bool?> openVanServiceConfiguration('));
     expect(
-      RegExp(r'openVanExistingServiceEditor\(').allMatches(source).length,
-      greaterThanOrEqualTo(3),
+      RegExp(r'openVanServiceConfiguration\(').allMatches(source).length,
+      greaterThanOrEqualTo(4),
     );
     expect(
       source,
-      contains('existingServiceConfiguration: true'),
+      contains('this.existingServiceConfiguration = true'),
       reason: 'Existing edits must be staged until final save.',
     );
+    expect(source, isNot(contains('VanJobServiceEditorPage(initialService:')));
+    expect(source, isNot(contains('VanJobServiceEditorPage(duplicateFrom:')));
   });
 
   test('legacy wizard remains present during the redirect phase', () {

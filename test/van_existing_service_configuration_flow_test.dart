@@ -18,8 +18,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    await VanBusinessHubOnboardingStorage.instance
-        .dismissJobTypesOnboarding();
+    await VanBusinessHubOnboardingStorage.instance.dismissJobTypesOnboarding();
     await VanBusinessHubOnboardingStorage.instance
         .dismissServiceDetailSettingsHelp();
   });
@@ -76,7 +75,7 @@ void main() {
 
       expect(find.text('Configure Service'), findsOneWidget);
       expect(find.text('Same-day Delivery'), findsOneWidget);
-      expect(find.text('1 of 4 · Service Features'), findsOneWidget);
+      expect(find.text('2 of 4 · Customer Questions'), findsOneWidget);
       expect(find.text('Basic information'), findsNothing);
       expect(find.text('Step 1 of 8'), findsNothing);
       expect(tester.takeException(), isNull);
