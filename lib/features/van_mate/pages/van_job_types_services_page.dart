@@ -508,6 +508,8 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   GlobalKey<_GuidedPricingExtraRowState>? _guidedNewExtraRowKey;
   final Map<String, VanJobService> _guidedAvailabilityDefaults =
       <String, VanJobService>{};
+  final Map<String, VanQuoteExtraDefaults> _guidedExtrasDefaults =
+      <String, VanQuoteExtraDefaults>{};
   final Map<String, Map<int, VanServiceDaySchedule>> _guidedAvailabilityDrafts =
       <String, Map<int, VanServiceDaySchedule>>{};
 
@@ -638,6 +640,10 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       if ((_isGuidedReview || widget.existingServiceConfiguration) &&
           service != null) {
         _guidedAvailabilityDefaults.putIfAbsent(service.id, () => service);
+        _guidedExtrasDefaults.putIfAbsent(
+          service.id,
+          () => service.quoteExtraDefaults,
+        );
       }
       _questionLookup = lookup;
       _configurationDraft = configurationDraft;
@@ -672,6 +678,8 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     setState(() => _changed = true);
   }
 
+  // Retained until the direct stage-one route regression suite is green.
+  // ignore: unused_element
   Future<void> _editServiceFeatures() async {
     final service = _service;
     if (service == null) return;
@@ -687,6 +695,54 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     setState(() {
       _service = edited;
       _changed = widget.existingServiceConfiguration;
+    });
+  }
+
+  void _setGuidedCapability(
+    VanJobService service,
+    String capabilityId,
+    bool selected,
+  ) {
+    final selectedIds = toggleVanServiceCapability(
+      service.serviceCapabilityIds.toSet(),
+      capabilityId,
+      selected,
+    );
+    final resolved = resolveVanServiceCapabilities(
+      selectedIds,
+      recommendedDurationMinutes: service.appointmentDurationMinutes,
+      recommendedNoticeHours: service.noticeHours,
+    );
+    final starts = <VanStartHandover>[
+      if (resolved.allowCustomerDropOff) VanStartHandover.customerDropsOff,
+      if (resolved.allowBusinessCollection) VanStartHandover.businessCollects,
+    ];
+    final ends = <VanEndHandover>[
+      if (resolved.allowCustomerCollection) VanEndHandover.customerCollects,
+      if (resolved.allowBusinessReturn) VanEndHandover.businessReturns,
+    ];
+    final updated = service.copyWith(
+      requestType: resolved.requestType,
+      customerJourneyType: resolved.journeyType,
+      startHandover: starts.contains(service.startHandover)
+          ? service.startHandover
+          : starts.firstOrNull,
+      endHandover: ends.contains(service.endHandover)
+          ? service.endHandover
+          : ends.firstOrNull,
+      allowedStartHandoverOptions: starts,
+      allowedEndHandoverOptions: ends,
+      allowCustomerDropOff: resolved.allowCustomerDropOff,
+      allowBusinessCollection: resolved.allowBusinessCollection,
+      allowCustomerCollection: resolved.allowCustomerCollection,
+      allowBusinessReturn: resolved.allowBusinessReturn,
+      serviceCapabilityIds: resolved.capabilityIds,
+      pricingMode: resolved.pricingMode,
+      updatedAt: DateTime.now(),
+    );
+    setState(() {
+      _service = updated;
+      _changed = true;
     });
   }
 
@@ -777,6 +833,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
               : service.starterTemplateId,
           serviceName: service.name,
         )?.quoteExtraDefaults() ??
+        _guidedExtrasDefaults[service.id] ??
         service.quoteExtraDefaults;
   }
 
@@ -1464,6 +1521,22 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   Future<bool> _saveGuidedChanges() async {
     var service = _service;
     if (service == null || _saving) return false;
+    if (_reviewSectionIndex == 0 && service.serviceCapabilityIds.isNotEmpty) {
+      final capabilityIds = service.serviceCapabilityIds.toSet();
+      final hasJourney = capabilityIds.any(
+        const <String>{
+          VanServiceCapabilityIds.placeOrder,
+          VanServiceCapabilityIds.requestQuote,
+          VanServiceCapabilityIds.bookAppointment,
+        }.contains,
+      );
+      if (!hasJourney) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose one customer journey.')),
+        );
+        return false;
+      }
+    }
     if (_reviewSectionIndex == 2) {
       final cleanedExtras = _withoutBlankGuidedExtras(
         service.quoteExtraDefaults,
@@ -1757,11 +1830,6 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   }
 
   Widget _buildGuidedFeatures(VanJobService service) {
-    final capabilities = <VanServiceCapabilityDefinition>[
-      for (final id in service.serviceCapabilityIds)
-        for (final capability in kVanServiceCapabilities)
-          if (capability.id == id) capability,
-    ];
     return _GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1783,26 +1851,54 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
             ),
           ),
           const SizedBox(height: 14),
-          if (capabilities.isEmpty)
+          if (service.serviceCapabilityIds.isEmpty)
             const _InfoChip(label: 'Standard service')
-          else
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                for (final capability in capabilities)
-                  Tooltip(
-                    message: capability.description,
-                    child: _InfoChip(label: capability.label),
-                  ),
-              ],
+          else ...[
+            const Text(
+              'Service features',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: _saving ? null : _editServiceFeatures,
-            icon: const Icon(Icons.tune_rounded),
-            label: const Text('Edit service features'),
-          ),
+            const SizedBox(height: 9),
+            for (final group in VanServiceCapabilityGroup.values) ...[
+              Text(
+                group.label,
+                style: const TextStyle(
+                  color: Color(0xFF91E8CE),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  for (final capability in kVanServiceCapabilities)
+                    if (capability.group == group)
+                      FilterChip(
+                        key: ValueKey<String>(
+                          'service_feature_${capability.id}',
+                        ),
+                        selected: service.serviceCapabilityIds.contains(
+                          capability.id,
+                        ),
+                        onSelected: _saving
+                            ? null
+                            : (selected) => _setGuidedCapability(
+                                service,
+                                capability.id,
+                                selected,
+                              ),
+                        label: Text(capability.label),
+                        tooltip: capability.description,
+                      ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
           const SizedBox(height: 14),
           const Text(
             'Booking options',
@@ -2287,96 +2383,101 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
           Container(color: Colors.black.withValues(alpha: .38)),
           SafeArea(
             top: false,
-            child: ListView(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
-              children: [
-                if (!widget.existingServiceConfiguration) ...[
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (!widget.existingServiceConfiguration) ...[
+                    Text(
+                      'Service ${_reviewServiceIndex + 1} of $total',
+                      key: const Key('service_review_progress'),
+                      style: const TextStyle(
+                        color: Color(0xFF91E8CE),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   Text(
-                    'Service ${_reviewServiceIndex + 1} of $total',
-                    key: const Key('service_review_progress'),
+                    service.name,
                     style: const TextStyle(
-                      color: Color(0xFF91E8CE),
+                      color: Colors.white,
+                      fontSize: 26,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 4),
-                ],
-                Text(
-                  service.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_reviewSectionIndex + 1} of ${_reviewSectionTitles.length} · $sectionTitle',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: .68),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                LinearProgressIndicator(
-                  value:
-                      ((_reviewServiceIndex * _reviewSectionTitles.length) +
-                          _reviewSectionIndex +
-                          1) /
-                      (total * _reviewSectionTitles.length),
-                ),
-                const SizedBox(height: 14),
-                section,
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    key: const Key('service_review_next'),
-                    onPressed: _saving ? null : _nextGuidedSection,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Icon(
-                            isLastService && isLastSection
-                                ? Icons.check_rounded
-                                : Icons.arrow_forward_rounded,
-                          ),
-                    label: Text(
-                      widget.existingServiceConfiguration && isLastSection
-                          ? 'Save and Return'
-                          : isLastService && isLastSection
-                          ? 'Finish Setup'
-                          : isLastSection
-                          ? 'Next Service'
-                          : 'Next',
+                  Text(
+                    '${_reviewSectionIndex + 1} of ${_reviewSectionTitles.length} · $sectionTitle',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: .68),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-                if (!widget.existingServiceConfiguration) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  LinearProgressIndicator(
+                    value:
+                        ((_reviewServiceIndex * _reviewSectionTitles.length) +
+                            _reviewSectionIndex +
+                            1) /
+                        (total * _reviewSectionTitles.length),
+                  ),
+                  const SizedBox(height: 14),
+                  section,
+                  const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      key: const Key('service_review_use_defaults'),
-                      onPressed: _saving ? null : _useGuidedDefaultsAndContinue,
-                      icon: const Icon(Icons.auto_awesome_outlined),
+                    child: FilledButton.icon(
+                      key: const Key('service_review_next'),
+                      onPressed: _saving ? null : _nextGuidedSection,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Icon(
+                              isLastService && isLastSection
+                                  ? Icons.check_rounded
+                                  : Icons.arrow_forward_rounded,
+                            ),
                       label: Text(
-                        _reviewSectionIndex == 2
-                            ? 'Use Defaults & Continue'
-                            : isLastService
-                            ? 'Use Defaults & Finish'
-                            : 'Use Defaults & Continue',
+                        widget.existingServiceConfiguration && isLastSection
+                            ? 'Save and Return'
+                            : isLastService && isLastSection
+                            ? 'Finish Setup'
+                            : isLastSection
+                            ? 'Next Service'
+                            : 'Next',
                       ),
                     ),
                   ),
+                  if (!widget.existingServiceConfiguration) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        key: const Key('service_review_use_defaults'),
+                        onPressed: _saving
+                            ? null
+                            : _useGuidedDefaultsAndContinue,
+                        icon: const Icon(Icons.auto_awesome_outlined),
+                        label: Text(
+                          _reviewSectionIndex == 2
+                              ? 'Use Defaults & Continue'
+                              : isLastService
+                              ? 'Use Defaults & Finish'
+                              : 'Use Defaults & Continue',
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],

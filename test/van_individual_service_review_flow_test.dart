@@ -52,14 +52,12 @@ void main() {
       expect(find.text('Request a quote'), findsWidgets);
       expect(find.text('Use Defaults & Finish'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('service_review_next')));
-      await tester.pumpAndSettle();
+      await _tapReviewNext(tester);
       expect(find.text('2 of 4 · Customer Questions'), findsOneWidget);
       expect(find.text('What is being delivered?'), findsOneWidget);
       expect(find.text('Add custom question'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('service_review_next')));
-      await tester.pumpAndSettle();
+      await _tapReviewNext(tester);
       expect(find.text('3 of 4 · Pricing Extras'), findsOneWidget);
       expect(find.textContaining('Waiting time'), findsOneWidget);
       expect(find.text('Enable, edit or add extras'), findsNothing);
@@ -70,8 +68,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const Key('service_review_next')));
-      await tester.pumpAndSettle();
+      await _tapReviewNext(tester);
       expect(find.text('4 of 4 · Availability'), findsOneWidget);
       expect(find.text('Working days'), findsOneWidget);
       expect(find.text('Typical duration'), findsOneWidget);
@@ -153,7 +150,7 @@ void main() {
   });
 
   testWidgets(
-    'feature edit opens the active service editor and cancel returns in place',
+    'feature controls are directly editable for the active reviewed service',
     (tester) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1;
@@ -178,20 +175,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Service 1 of 2'), findsOneWidget);
 
-      await tester.tap(find.text('Edit service features'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Service Features'), findsOneWidget);
+      expect(find.text('Service features'), findsOneWidget);
       expect(find.text('Same-day Delivery'), findsOneWidget);
       expect(
-        find.byKey(const ValueKey<String>('service_features_same-day')),
+        find.byKey(const ValueKey<String>('service_feature_recurring')),
         findsOneWidget,
       );
+      expect(find.text('Edit service features'), findsNothing);
       expect(find.text('Basic information'), findsNothing);
       expect(find.text('Step 1 of 8'), findsNothing);
-
-      await tester.tap(find.byKey(const Key('cancel_service_features')));
-      await tester.pumpAndSettle();
 
       expect(find.text('Service 1 of 2'), findsOneWidget);
       expect(find.text('Same-day Delivery'), findsOneWidget);
@@ -224,9 +216,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit service features'));
-    await tester.pumpAndSettle();
-
     final recurring = find.byKey(
       const ValueKey<String>('service_feature_recurring'),
     );
@@ -234,14 +223,15 @@ void main() {
     await tester.tap(recurring);
     await tester.pump();
     await tester.scrollUntilVisible(
-      find.byKey(const Key('save_service_features')),
+      find.byKey(const Key('service_review_next')),
       400,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.byKey(const Key('save_service_features')));
+    await tester.tap(find.byKey(const Key('service_review_next')));
     await tester.pumpAndSettle();
 
     expect(find.text('Service 1 of 2'), findsOneWidget);
+    expect(find.text('2 of 4 · Customer Questions'), findsOneWidget);
     final stored = await VanJobServicesStorage.instance.loadAll();
     final editedSameDay = stored.singleWhere((item) => item.id == sameDay.id);
     final untouchedScheduled = stored.singleWhere(
@@ -397,6 +387,14 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+}
+
+Future<void> _tapReviewNext(WidgetTester tester) async {
+  final next = find.byKey(const Key('service_review_next'));
+  await tester.ensureVisible(next);
+  await tester.pumpAndSettle();
+  await tester.tap(next);
+  await tester.pumpAndSettle();
 }
 
 VanJobService _service(String id, String name) {
