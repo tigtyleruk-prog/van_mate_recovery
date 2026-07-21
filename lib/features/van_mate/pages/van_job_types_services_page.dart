@@ -508,8 +508,6 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   GlobalKey<_GuidedPricingExtraRowState>? _guidedNewExtraRowKey;
   final Map<String, VanJobService> _guidedAvailabilityDefaults =
       <String, VanJobService>{};
-  final Map<String, VanQuoteExtraDefaults> _guidedExtrasDefaults =
-      <String, VanQuoteExtraDefaults>{};
   final Map<String, Map<int, VanServiceDaySchedule>> _guidedAvailabilityDrafts =
       <String, Map<int, VanServiceDaySchedule>>{};
 
@@ -640,10 +638,6 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       if ((_isGuidedReview || widget.existingServiceConfiguration) &&
           service != null) {
         _guidedAvailabilityDefaults.putIfAbsent(service.id, () => service);
-        _guidedExtrasDefaults.putIfAbsent(
-          service.id,
-          () => service.quoteExtraDefaults,
-        );
       }
       _questionLookup = lookup;
       _configurationDraft = configurationDraft;
@@ -783,7 +777,6 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
               : service.starterTemplateId,
           serviceName: service.name,
         )?.quoteExtraDefaults() ??
-        _guidedExtrasDefaults[service.id] ??
         service.quoteExtraDefaults;
   }
 
