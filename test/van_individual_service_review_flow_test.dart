@@ -50,7 +50,7 @@ void main() {
       expect(find.text('Service 1 of 1'), findsOneWidget);
       expect(find.text('1 of 4 · Service Features'), findsOneWidget);
       expect(find.text('Request a quote'), findsWidgets);
-      expect(find.text('Use Defaults & Finish'), findsOneWidget);
+      expect(find.text('Use Defaults & Continue'), findsOneWidget);
 
       await _tapReviewNext(tester);
       expect(find.text('2 of 4 · Customer Questions'), findsOneWidget);
@@ -117,27 +117,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Service 1 of 2'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.text('Use Defaults & Continue'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Use Defaults & Continue'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Service 2 of 2'),
-      -300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    for (var stage = 0; stage < 4; stage++) {
+      await _tapReviewDefaults(tester);
+    }
     expect(find.text('Service 2 of 2'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.text('Use Defaults & Finish'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Use Defaults & Finish'));
-    await tester.pumpAndSettle();
+    for (var stage = 0; stage < 4; stage++) {
+      await _tapReviewDefaults(tester);
+    }
 
     final afterServices = await VanJobServicesStorage.instance.loadAll();
     final afterQuestions = await VanCustomJobQuestionsStorage.instance
@@ -147,6 +134,43 @@ void main() {
       equals(beforeServices),
     );
     expect(afterQuestions.single.toJson(), beforeQuestion);
+  });
+
+  testWidgets('new multi-service session saves only after every review', (
+    tester,
+  ) async {
+    final first = _service('pending-one', 'Pending Courier');
+    final second = _service('pending-two', 'Pending Legal Runs');
+    await VanJobServicesStorage.instance.saveAll(
+      const <VanJobService>[],
+      syncCloud: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: VanServiceConfigurationPage(
+          serviceIds: <String>[first.id, second.id],
+          initialServices: <VanJobService>[first, second],
+          existingServiceConfiguration: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (var stage = 0; stage < 4; stage++) {
+      await _tapReviewDefaults(tester);
+    }
+    expect(find.text('Service 2 of 2'), findsOneWidget);
+    expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
+
+    for (var stage = 0; stage < 4; stage++) {
+      await _tapReviewDefaults(tester);
+    }
+    final stored = await VanJobServicesStorage.instance.loadAll();
+    expect(stored.map((service) => service.id).toSet(), <String>{
+      first.id,
+      second.id,
+    });
   });
 
   testWidgets(
@@ -244,14 +268,13 @@ void main() {
   testWidgets('transport category dropdown uses one stable unique item', (
     tester,
   ) async {
-    final transportService = _service(
-      'transport-service',
-      'Same-day Delivery',
-    ).copyWith(category: 'Transport & Delivery');
-
     await tester.pumpWidget(
-      MaterialApp(home: VanServiceWizardPage(initialService: transportService)),
+      const MaterialApp(home: VanServiceCreationEntryPage()),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choose Business Type'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('create_service_manually')));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
@@ -259,7 +282,7 @@ void main() {
       find.byType(DropdownButton<String>),
     );
     final items = dropdown.items!;
-    expect(dropdown.value, 'transport_delivery');
+    expect(dropdown.value, 'general');
     expect(items.map((item) => item.value).toSet(), hasLength(items.length));
     expect(
       items.where(
@@ -269,6 +292,17 @@ void main() {
       ),
       hasLength(1),
     );
+
+    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Transport & Delivery').last);
+    await tester.pumpAndSettle();
+
+    final selected = tester.widget<DropdownButton<String>>(
+      find.byType(DropdownButton<String>),
+    );
+    expect(selected.value, 'transport_delivery');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -394,6 +428,14 @@ Future<void> _tapReviewNext(WidgetTester tester) async {
   await tester.ensureVisible(next);
   await tester.pumpAndSettle();
   await tester.tap(next);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tapReviewDefaults(WidgetTester tester) async {
+  final defaults = find.byKey(const Key('service_review_use_defaults'));
+  await tester.ensureVisible(defaults);
+  await tester.pumpAndSettle();
+  await tester.tap(defaults);
   await tester.pumpAndSettle();
 }
 

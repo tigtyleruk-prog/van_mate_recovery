@@ -4,7 +4,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../helpers/app_theme.dart';
-import '../helpers/van_text_formatters.dart';
 import '../models/van_customer_request_flow.dart';
 import '../models/van_customer_journey.dart';
 import '../models/van_custom_job_question.dart';
@@ -24,7 +23,6 @@ import '../services/van_job_services_storage.dart';
 import '../services/van_service_configuration_repository.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 import '../widgets/van_form_field_styles.dart';
-import '../widgets/van_quote_extra_defaults_sheet.dart';
 
 Future<void> openVanJobTypesServicesPage(BuildContext context) {
   return Navigator.of(context).push(
@@ -61,27 +59,42 @@ class VanServiceConfigurationPage extends StatelessWidget {
     this.initialStage = VanServiceConfigurationStage.features,
     this.existingServiceConfiguration = true,
     this.initialService,
+    this.initialServices = const <VanJobService>[],
+    this.initialQuestions = const <VanCustomJobQuestion>[],
     super.key,
-  }) : assert(serviceIds.length > 0 || initialService != null);
+  }) : assert(
+         serviceIds.length > 0 ||
+             initialService != null ||
+             initialServices.length > 0,
+       );
 
   final List<String> serviceIds;
   final VanServiceConfigurationStage initialStage;
   final bool existingServiceConfiguration;
   final VanJobService? initialService;
+  final List<VanJobService> initialServices;
+  final List<VanCustomJobQuestion> initialQuestions;
 
   @override
   Widget build(BuildContext context) {
-    final firstServiceId = serviceIds.isNotEmpty
-        ? serviceIds.first
-        : initialService!.id;
+    final stagedServices = initialServices.isNotEmpty
+        ? initialServices
+        : initialService == null
+        ? const <VanJobService>[]
+        : <VanJobService>[initialService!];
+    final resolvedServiceIds = serviceIds.isNotEmpty
+        ? serviceIds
+        : stagedServices.map((service) => service.id).toList(growable: false);
+    final firstServiceId = resolvedServiceIds.first;
     return VanJobServiceDetailPage(
       serviceId: firstServiceId,
-      reviewServiceIds: serviceIds.isEmpty
-          ? <String>[firstServiceId]
-          : serviceIds,
+      reviewServiceIds: resolvedServiceIds,
       existingServiceConfiguration: existingServiceConfiguration,
       initialConfigurationStage: initialStage,
       initialConfigurationService: initialService,
+      initialConfigurationServices: stagedServices,
+      initialConfigurationQuestions: initialQuestions,
+      stageChangesUntilCompletion: stagedServices.isNotEmpty,
     );
   }
 }
@@ -197,25 +210,28 @@ class _VanJobTypesServicesPageState extends State<VanJobTypesServicesPage> {
   Future<void> _openAddService() async {
     final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute<Object?>(
-        builder: (_) => const VanJobServiceEditorPage(),
+        builder: (_) => const VanServiceCreationEntryPage(),
       ),
     );
-    if (result == true || result is VanServiceWizardBuildResult) {
+    if (result == true || result is VanServiceCreationEntryResult) {
       await _loadServices(showLoader: false);
     }
-    if (!mounted || result is! VanServiceWizardBuildResult) return;
+    if (!mounted || result is! VanServiceCreationEntryResult) return;
     if (result.createdServiceIds.isNotEmpty) {
-      await Navigator.of(context).push<bool>(
+      final completed = await Navigator.of(context).push<bool>(
         MaterialPageRoute<bool>(
           builder: (_) => VanServiceConfigurationPage(
             serviceIds: result.createdServiceIds,
             existingServiceConfiguration: false,
+            initialServices: result.pendingServices,
+            initialQuestions: result.pendingQuestions,
           ),
         ),
       );
       if (!mounted) return;
       await _loadServices(showLoader: false);
       if (!mounted) return;
+      if (completed != true) return;
     }
     final createdCount = result.createdServiceIds.length;
     final existingCount = result.existingServiceIds.length;
@@ -469,6 +485,9 @@ class VanJobServiceDetailPage extends StatefulWidget {
     this.existingServiceConfiguration = false,
     this.initialConfigurationStage = VanServiceConfigurationStage.features,
     this.initialConfigurationService,
+    this.initialConfigurationServices = const <VanJobService>[],
+    this.initialConfigurationQuestions = const <VanCustomJobQuestion>[],
+    this.stageChangesUntilCompletion = false,
   });
 
   final String serviceId;
@@ -476,6 +495,9 @@ class VanJobServiceDetailPage extends StatefulWidget {
   final bool existingServiceConfiguration;
   final VanServiceConfigurationStage initialConfigurationStage;
   final VanJobService? initialConfigurationService;
+  final List<VanJobService> initialConfigurationServices;
+  final List<VanCustomJobQuestion> initialConfigurationQuestions;
+  final bool stageChangesUntilCompletion;
 
   @override
   State<VanJobServiceDetailPage> createState() =>
@@ -501,6 +523,10 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   int _reviewServiceIndex = 0;
   int _reviewSectionIndex = 0;
   VanServiceConfigurationDraft? _configurationDraft;
+  final Map<String, VanJobService> _stagedServices = <String, VanJobService>{};
+  final Map<String, VanCustomJobQuestion> _stagedQuestions =
+      <String, VanCustomJobQuestion>{};
+  String? _configurationBusinessProfileId;
   int _guidedExtrasResetRevision = 0;
   String _guidedExtraDraftServiceId = '';
   String? _guidedNewExtraKey;
@@ -508,6 +534,8 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   GlobalKey<_GuidedPricingExtraRowState>? _guidedNewExtraRowKey;
   final Map<String, VanJobService> _guidedAvailabilityDefaults =
       <String, VanJobService>{};
+  final Map<String, VanQuoteExtraDefaults> _guidedExtrasDefaults =
+      <String, VanQuoteExtraDefaults>{};
   final Map<String, Map<int, VanServiceDaySchedule>> _guidedAvailabilityDrafts =
       <String, Map<int, VanServiceDaySchedule>>{};
 
@@ -519,6 +547,8 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   ];
 
   bool get _isGuidedReview => widget.reviewServiceIds.isNotEmpty;
+  bool get _stagesConfigurationChanges =>
+      widget.existingServiceConfiguration || widget.stageChangesUntilCompletion;
   String get _activeServiceId => _isGuidedReview
       ? widget.reviewServiceIds[_reviewServiceIndex]
       : widget.serviceId;
@@ -526,6 +556,17 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   @override
   void initState() {
     super.initState();
+    _stagedServices.addEntries(
+      widget.initialConfigurationServices.map(
+        (service) => MapEntry<String, VanJobService>(service.id, service),
+      ),
+    );
+    _stagedQuestions.addEntries(
+      widget.initialConfigurationQuestions.map(
+        (question) =>
+            MapEntry<String, VanCustomJobQuestion>(question.id, question),
+      ),
+    );
     _reviewSectionIndex = widget.initialConfigurationStage.index;
     if (!_isGuidedReview) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -596,12 +637,17 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     }
     final lookup = <String, VanCustomJobQuestion>{
       for (final question in customQuestions) question.id: question,
+      ..._stagedQuestions,
     };
     final service =
         services.where((item) => item.id == _activeServiceId).firstOrNull ??
+        _stagedServices[_activeServiceId] ??
         (widget.initialConfigurationService?.id == _activeServiceId
             ? widget.initialConfigurationService
             : null);
+    _configurationBusinessProfileId ??= await VanBusinessProfileScopeStorage
+        .instance
+        .activeBusinessId();
     VanServiceConfigurationDraft? configurationDraft = _configurationDraft;
     if (widget.existingServiceConfiguration &&
         configurationDraft == null &&
@@ -638,6 +684,10 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       if ((_isGuidedReview || widget.existingServiceConfiguration) &&
           service != null) {
         _guidedAvailabilityDefaults.putIfAbsent(service.id, () => service);
+        _guidedExtrasDefaults.putIfAbsent(
+          service.id,
+          () => service.quoteExtraDefaults,
+        );
       }
       _questionLookup = lookup;
       _configurationDraft = configurationDraft;
@@ -670,26 +720,6 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     await _load();
     if (!mounted) return;
     setState(() => _changed = true);
-  }
-
-  // Retained until the direct stage-one route regression suite is green.
-  // ignore: unused_element
-  Future<void> _editServiceFeatures() async {
-    final service = _service;
-    if (service == null) return;
-    final edited = await Navigator.of(context).push<VanJobService>(
-      MaterialPageRoute<VanJobService>(
-        builder: (_) => _VanServiceFeaturesEditorPage(
-          service: service,
-          persistChanges: !widget.existingServiceConfiguration,
-        ),
-      ),
-    );
-    if (edited == null || !mounted) return;
-    setState(() {
-      _service = edited;
-      _changed = widget.existingServiceConfiguration;
-    });
   }
 
   void _setGuidedCapability(
@@ -768,7 +798,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       ]),
       updatedAt: DateTime.now(),
     );
-    if (widget.existingServiceConfiguration) {
+    if (_stagesConfigurationChanges) {
       setState(() {
         _questionLookup[question.id] = question;
         _service = updatedService;
@@ -827,6 +857,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
               : service.starterTemplateId,
           serviceName: service.name,
         )?.quoteExtraDefaults() ??
+        _guidedExtrasDefaults[service.id] ??
         service.quoteExtraDefaults;
   }
 
@@ -834,12 +865,15 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     VanJobService service,
     VanQuoteExtraDefaults defaults,
   ) {
+    final changed =
+        defaults.toJson().toString() !=
+        service.quoteExtraDefaults.toJson().toString();
     setState(() {
       _service = service.copyWith(
         quoteExtraDefaults: defaults,
-        updatedAt: DateTime.now(),
+        updatedAt: changed ? DateTime.now() : service.updatedAt,
       );
-      _changed = true;
+      _changed = _changed || changed;
     });
   }
 
@@ -1174,7 +1208,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       updatedAt: DateTime.now(),
     );
 
-    if (widget.existingServiceConfiguration) {
+    if (_stagesConfigurationChanges) {
       setState(() {
         _service = updatedService;
         _changed = true;
@@ -1236,7 +1270,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       disabledLinkedQuestionIds: disabledIds.toList(growable: false),
       updatedAt: DateTime.now(),
     );
-    if (widget.existingServiceConfiguration) {
+    if (_stagesConfigurationChanges) {
       setState(() {
         _service = updated;
         _changed = true;
@@ -1291,7 +1325,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       disabledLinkedQuestionIds: disabledIds,
       updatedAt: DateTime.now(),
     );
-    if (widget.existingServiceConfiguration) {
+    if (_stagesConfigurationChanges) {
       setState(() {
         _questionLookup[edited.id] = edited;
         _service = updated;
@@ -1514,7 +1548,10 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
   Future<bool> _saveGuidedChanges() async {
     var service = _service;
     if (service == null || _saving) return false;
-    if (_reviewSectionIndex == 0 && service.serviceCapabilityIds.isNotEmpty) {
+    if (_reviewSectionIndex == 0 &&
+        (service.serviceCapabilityIds.isNotEmpty ||
+            (widget.stageChangesUntilCompletion &&
+                !widget.existingServiceConfiguration))) {
       final capabilityIds = service.serviceCapabilityIds.toSet();
       final hasJourney = capabilityIds.any(
         const <String>{
@@ -1563,6 +1600,14 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
         return false;
       }
     }
+    if (widget.stageChangesUntilCompletion) {
+      _stagedServices[service.id] = service;
+      for (final questionId in service.linkedQuestionIds) {
+        final question = _questionLookup[questionId];
+        if (question != null) _stagedQuestions[questionId] = question;
+      }
+      return true;
+    }
     if (widget.existingServiceConfiguration) return true;
     if (!_changed) return true;
     setState(() => _saving = true);
@@ -1592,6 +1637,12 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
         _reviewSectionIndex == _reviewSectionTitles.length - 1;
     if (widget.existingServiceConfiguration && isLastSection) {
       await _completeExistingServiceConfiguration();
+      return;
+    }
+    if (widget.stageChangesUntilCompletion &&
+        isLastSection &&
+        _reviewServiceIndex >= widget.reviewServiceIds.length - 1) {
+      await _completeNewServiceSession();
       return;
     }
     if (!nextService && !isLastSection) {
@@ -1625,10 +1676,32 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       await _nextGuidedSection(nextService: true);
       return;
     }
-    await _nextGuidedSection(nextService: true);
+    await _nextGuidedSection();
   }
 
   Future<void> _previousGuidedSection() async {
+    if (widget.stageChangesUntilCompletion &&
+        !widget.existingServiceConfiguration) {
+      final service = _service;
+      if (service != null) _stagedServices[service.id] = service;
+      if (_reviewSectionIndex > 0) {
+        setState(() => _reviewSectionIndex--);
+        return;
+      }
+      if (_reviewServiceIndex == 0) {
+        Navigator.of(context).pop(false);
+        return;
+      }
+      setState(() {
+        _clearGuidedNewExtraFeedback();
+        _reviewServiceIndex--;
+        _reviewSectionIndex = _reviewSectionTitles.length - 1;
+        _service = null;
+        _loading = true;
+      });
+      await _load();
+      return;
+    }
     if (widget.existingServiceConfiguration) {
       if (_reviewSectionIndex > 0) {
         setState(() => _reviewSectionIndex--);
@@ -1701,6 +1774,54 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     }
   }
 
+  Future<void> _completeNewServiceSession() async {
+    if (_saving) return;
+    final businessProfileId = _configurationBusinessProfileId;
+    if (businessProfileId == null || businessProfileId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Service configuration was not loaded.')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final orderedServices = <VanJobService>[];
+      for (final serviceId in widget.reviewServiceIds) {
+        final service = _stagedServices[serviceId];
+        if (service != null) orderedServices.add(service);
+      }
+      if (orderedServices.length != widget.reviewServiceIds.length) {
+        throw StateError('One or more service drafts could not be loaded.');
+      }
+      final linkedQuestionIds = <String>{
+        for (final service in orderedServices) ...service.linkedQuestionIds,
+      };
+      final questions = <String, VanCustomJobQuestion>{
+        for (final entry in _stagedQuestions.entries)
+          if (linkedQuestionIds.contains(entry.key)) entry.key: entry.value,
+      };
+      await _configurationRepository.commitNewSession(
+        businessProfileId: businessProfileId,
+        services: orderedServices,
+        questions: questions,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error is VanServiceConfigurationConflict
+                ? error.message
+                : 'Could not save these services. Please try again.',
+          ),
+        ),
+      );
+    }
+  }
+
   String _guidedTimeLabel(int minutes) {
     final hour = minutes ~/ 60;
     final minute = minutes % 60;
@@ -1761,19 +1882,24 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     final original = _guidedAvailabilityDefaults[service.id] ?? service;
     final schedules = original.effectiveAvailabilityByDay;
     final sortedDays = schedules.keys.toList()..sort();
+    final restored = service.copyWith(
+      workingDays: sortedDays,
+      businessStartMinutes: original.businessStartMinutes,
+      businessEndMinutes: original.businessEndMinutes,
+      availabilityByDay: original.availabilityByDay,
+      clearAvailabilityByDay: original.availabilityByDay == null,
+      appointmentDurationMinutes: original.appointmentDurationMinutes,
+      noticeHours: original.noticeHours,
+      maxBookingsPerDay: original.maxBookingsPerDay,
+      updatedAt: service.updatedAt,
+    );
+    final changed = restored.toJson().toString() != service.toJson().toString();
     setState(() {
       _guidedAvailabilityDrafts[service.id] = Map.of(schedules);
-      _service = service.copyWith(
-        workingDays: sortedDays,
-        businessStartMinutes: original.businessStartMinutes,
-        businessEndMinutes: original.businessEndMinutes,
-        availabilityByDay: Map.of(schedules),
-        appointmentDurationMinutes: original.appointmentDurationMinutes,
-        noticeHours: original.noticeHours,
-        maxBookingsPerDay: original.maxBookingsPerDay,
-        updatedAt: DateTime.now(),
+      _service = restored.copyWith(
+        updatedAt: changed ? DateTime.now() : service.updatedAt,
       );
-      _changed = true;
+      _changed = _changed || changed;
     });
   }
 
@@ -1844,53 +1970,48 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
             ),
           ),
           const SizedBox(height: 14),
-          if (service.serviceCapabilityIds.isEmpty)
-            const _InfoChip(label: 'Standard service')
-          else ...[
-            const Text(
-              'Service features',
-              style: TextStyle(
-                color: Colors.white,
+          if (service.serviceCapabilityIds.isEmpty) ...[
+            const _InfoChip(label: 'Standard service'),
+            const SizedBox(height: 12),
+          ],
+          const Text(
+            'Service features',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 9),
+          for (final group in VanServiceCapabilityGroup.values) ...[
+            Text(
+              group.label,
+              style: const TextStyle(
+                color: Color(0xFF91E8CE),
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 9),
-            for (final group in VanServiceCapabilityGroup.values) ...[
-              Text(
-                group.label,
-                style: const TextStyle(
-                  color: Color(0xFF91E8CE),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 7),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [
-                  for (final capability in kVanServiceCapabilities)
-                    if (capability.group == group)
-                      FilterChip(
-                        key: ValueKey<String>(
-                          'service_feature_${capability.id}',
-                        ),
-                        selected: service.serviceCapabilityIds.contains(
-                          capability.id,
-                        ),
-                        onSelected: _saving
-                            ? null
-                            : (selected) => _setGuidedCapability(
-                                service,
-                                capability.id,
-                                selected,
-                              ),
-                        label: Text(capability.label),
-                        tooltip: capability.description,
+            const SizedBox(height: 7),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final capability in kVanServiceCapabilities)
+                  if (capability.group == group)
+                    FilterChip(
+                      key: ValueKey<String>('service_feature_${capability.id}'),
+                      selected: service.serviceCapabilityIds.contains(
+                        capability.id,
                       ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
+                      onSelected: _saving
+                          ? null
+                          : (selected) => _setGuidedCapability(
+                              service,
+                              capability.id,
+                              selected,
+                            ),
+                      label: Text(capability.label),
+                      tooltip: capability.description,
+                    ),
+              ],
+            ),
+            const SizedBox(height: 12),
           ],
           const SizedBox(height: 14),
           const Text(
@@ -2460,9 +2581,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                             : _useGuidedDefaultsAndContinue,
                         icon: const Icon(Icons.auto_awesome_outlined),
                         label: Text(
-                          _reviewSectionIndex == 2
-                              ? 'Use Defaults & Continue'
-                              : isLastService
+                          isLastService && isLastSection
                               ? 'Use Defaults & Finish'
                               : 'Use Defaults & Continue',
                         ),
@@ -2915,1099 +3034,6 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
                       ),
                     ],
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VanServiceFeaturesEditorPage extends StatefulWidget {
-  const _VanServiceFeaturesEditorPage({
-    required this.service,
-    this.persistChanges = true,
-  });
-
-  final VanJobService service;
-  final bool persistChanges;
-
-  @override
-  State<_VanServiceFeaturesEditorPage> createState() =>
-      _VanServiceFeaturesEditorPageState();
-}
-
-class _VanServiceFeaturesEditorPageState
-    extends State<_VanServiceFeaturesEditorPage> {
-  final VanJobServicesStorage _storage = VanJobServicesStorage.instance;
-  late Set<String> _selectedCapabilityIds;
-  late VanCustomerRequestFlowOptions _flowOptions;
-  late bool _requestPhotos;
-  late bool _requireAddress;
-  bool _saving = false;
-  bool _dirty = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedCapabilityIds = widget.service.serviceCapabilityIds.toSet();
-    _flowOptions = widget.service.effectiveRequestFlowOptions;
-    _requestPhotos = widget.service.requestPhotos;
-    _requireAddress = widget.service.requireAddress;
-  }
-
-  void _toggleCapability(String capabilityId, bool selected) {
-    setState(() {
-      _selectedCapabilityIds = toggleVanServiceCapability(
-        _selectedCapabilityIds,
-        capabilityId,
-        selected,
-      );
-      _dirty = true;
-    });
-  }
-
-  void _updateFlowOptions(
-    VanCustomerRequestFlowOptions Function(
-      VanCustomerRequestFlowOptions current,
-    )
-    update,
-  ) {
-    setState(() {
-      _flowOptions = update(_flowOptions);
-      _dirty = true;
-    });
-  }
-
-  bool _validateCapabilities() {
-    final hasJourney = _selectedCapabilityIds.any(
-      const <String>{
-        VanServiceCapabilityIds.placeOrder,
-        VanServiceCapabilityIds.requestQuote,
-        VanServiceCapabilityIds.bookAppointment,
-      }.contains,
-    );
-    if (!hasJourney) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose one customer journey.')),
-      );
-      return false;
-    }
-    final hasStart = _selectedCapabilityIds.any(
-      const <String>{
-        VanServiceCapabilityIds.customerDropsOff,
-        VanServiceCapabilityIds.businessCollects,
-      }.contains,
-    );
-    final hasEnd = _selectedCapabilityIds.any(
-      const <String>{
-        VanServiceCapabilityIds.customerCollects,
-        VanServiceCapabilityIds.businessReturns,
-      }.contains,
-    );
-    if (hasStart != hasEnd) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Choose at least one matching start and end handover option.',
-          ),
-        ),
-      );
-      return false;
-    }
-    return true;
-  }
-
-  Future<void> _save() async {
-    if (_saving) return;
-    final original = widget.service;
-    if (!_dirty) {
-      Navigator.of(context).pop(original);
-      return;
-    }
-    if (!_validateCapabilities()) return;
-    final resolved = resolveVanServiceCapabilities(
-      _selectedCapabilityIds,
-      recommendedDurationMinutes: original.appointmentDurationMinutes,
-      recommendedNoticeHours: original.noticeHours,
-    );
-    final starts = <VanStartHandover>[
-      if (resolved.allowCustomerDropOff) VanStartHandover.customerDropsOff,
-      if (resolved.allowBusinessCollection) VanStartHandover.businessCollects,
-    ];
-    final ends = <VanEndHandover>[
-      if (resolved.allowCustomerCollection) VanEndHandover.customerCollects,
-      if (resolved.allowBusinessReturn) VanEndHandover.businessReturns,
-    ];
-    final existingStart = original.startHandover;
-    final existingEnd = original.endHandover;
-    final updated = original.copyWith(
-      requestPhotos: _requestPhotos,
-      requireAddress: _requireAddress,
-      requestType: resolved.requestType,
-      customerJourneyType: resolved.journeyType,
-      startHandover: existingStart != null && starts.contains(existingStart)
-          ? existingStart
-          : starts.firstOrNull,
-      endHandover: existingEnd != null && ends.contains(existingEnd)
-          ? existingEnd
-          : ends.firstOrNull,
-      allowedStartHandoverOptions: starts,
-      allowedEndHandoverOptions: ends,
-      allowCustomerDropOff: resolved.allowCustomerDropOff,
-      allowBusinessCollection: resolved.allowBusinessCollection,
-      allowCustomerCollection: resolved.allowCustomerCollection,
-      allowBusinessReturn: resolved.allowBusinessReturn,
-      requestFlowOptions: _flowOptions,
-      serviceCapabilityIds: resolved.capabilityIds,
-      pricingMode: resolved.pricingMode,
-      updatedAt: DateTime.now(),
-    );
-    if (!widget.persistChanges) {
-      Navigator.of(context).pop(updated);
-      return;
-    }
-    setState(() => _saving = true);
-    try {
-      await _storage.upsert(updated);
-      if (!mounted) return;
-      Navigator.of(context).pop(updated);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not save service features.')),
-      );
-    }
-  }
-
-  Widget _flowSwitch({
-    required String label,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) => SwitchListTile.adaptive(
-    contentPadding: EdgeInsets.zero,
-    value: value,
-    onChanged: _saving ? null : onChanged,
-    title: Text(
-      label,
-      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-    ),
-  );
-
-  List<Widget> _bookingOptionTiles(VanServiceFlow flow) {
-    final tiles = <Widget>[];
-    if (flow == VanServiceFlow.standard) {
-      tiles.add(
-        _flowSwitch(
-          label: 'Customer address',
-          value: _requireAddress,
-          onChanged: (value) => setState(() {
-            _requireAddress = value;
-            _dirty = true;
-          }),
-        ),
-      );
-    } else if (flow == VanServiceFlow.pickupDelivery) {
-      tiles.addAll(<Widget>[
-        _flowSwitch(
-          label: 'Pickup address',
-          value: _flowOptions.showPickupAddress,
-          onChanged: (value) => _updateFlowOptions(
-            (current) => current.copyWith(showPickupAddress: value),
-          ),
-        ),
-        _flowSwitch(
-          label: 'Delivery address',
-          value: _flowOptions.showDeliveryAddress,
-          onChanged: (value) => _updateFlowOptions(
-            (current) => current.copyWith(showDeliveryAddress: value),
-          ),
-        ),
-      ]);
-    } else {
-      tiles.addAll(<Widget>[
-        _flowSwitch(
-          label: 'Drop-off date',
-          value: _flowOptions.showDropOffDate,
-          onChanged: (value) => _updateFlowOptions(
-            (current) => current.copyWith(showDropOffDate: value),
-          ),
-        ),
-        _flowSwitch(
-          label: 'Drop-off time',
-          value: _flowOptions.showDropOffTime,
-          onChanged: (value) => _updateFlowOptions(
-            (current) => current.copyWith(showDropOffTime: value),
-          ),
-        ),
-        _flowSwitch(
-          label: 'Pick-up date',
-          value: _flowOptions.showPickUpDate,
-          onChanged: (value) => _updateFlowOptions(
-            (current) => current.copyWith(showPickUpDate: value),
-          ),
-        ),
-        _flowSwitch(
-          label: 'Pick-up time',
-          value: _flowOptions.showPickUpTime,
-          onChanged: (value) => _updateFlowOptions(
-            (current) => current.copyWith(showPickUpTime: value),
-          ),
-        ),
-      ]);
-    }
-    if (flow != VanServiceFlow.dropOffPickup) {
-      tiles.addAll(<Widget>[
-        _flowSwitch(
-          label: 'Preferred date',
-          value: _flowOptions.askPreferredDate,
-          onChanged: (value) => _updateFlowOptions(
-            (current) => current.copyWith(askPreferredDate: value),
-          ),
-        ),
-        _flowSwitch(
-          label: 'Preferred time',
-          value: _flowOptions.askPreferredTime,
-          onChanged: (value) => _updateFlowOptions(
-            (current) => current.copyWith(askPreferredTime: value),
-          ),
-        ),
-      ]);
-    }
-    tiles.addAll(<Widget>[
-      _flowSwitch(
-        label: 'Notes',
-        value: _flowOptions.showNotes,
-        onChanged: (value) =>
-            _updateFlowOptions((current) => current.copyWith(showNotes: value)),
-      ),
-      _flowSwitch(
-        label: 'Photos',
-        value: _requestPhotos,
-        onChanged: (value) => setState(() {
-          _requestPhotos = value;
-          _dirty = true;
-        }),
-      ),
-    ]);
-    return tiles;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final service = widget.service;
-    final resolved = resolveVanServiceCapabilities(
-      _selectedCapabilityIds,
-      recommendedDurationMinutes: service.appointmentDurationMinutes,
-      recommendedNoticeHours: service.noticeHours,
-    );
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text('Service Features'),
-        leading: IconButton(
-          key: const Key('cancel_service_features'),
-          onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.close_rounded),
-        ),
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          AppTheme.backgroundImage(),
-          Container(color: Colors.black.withValues(alpha: .38)),
-          SafeArea(
-            top: false,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
-              children: [
-                _GlassCard(
-                  key: ValueKey<String>('service_features_${service.id}'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        service.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Edit only this service. Questions, extras and availability are kept as configured.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: .68),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Service features',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      for (final group in VanServiceCapabilityGroup.values) ...[
-                        Text(
-                          group.label,
-                          style: const TextStyle(
-                            color: Color(0xFF91E8CE),
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        Wrap(
-                          spacing: 7,
-                          runSpacing: 7,
-                          children: [
-                            for (final capability in kVanServiceCapabilities)
-                              if (capability.group == group)
-                                FilterChip(
-                                  key: ValueKey<String>(
-                                    'service_feature_${capability.id}',
-                                  ),
-                                  selected: _selectedCapabilityIds.contains(
-                                    capability.id,
-                                  ),
-                                  onSelected: _saving
-                                      ? null
-                                      : (selected) => _toggleCapability(
-                                          capability.id,
-                                          selected,
-                                        ),
-                                  label: Text(capability.label),
-                                  tooltip: capability.description,
-                                ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Booking options',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      ..._bookingOptionTiles(resolved.requestType.serviceFlow),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                FilledButton.icon(
-                  key: const Key('save_service_features'),
-                  onPressed: _saving ? null : _save,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.save_outlined),
-                  label: const Text('Save Service Features'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: _saving ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class VanJobServiceEditorPage extends StatelessWidget {
-  const VanJobServiceEditorPage({
-    super.key,
-    this.initialService,
-    this.duplicateFrom,
-    this.suggestedName,
-    this.starterTemplate,
-  });
-
-  final VanJobService? initialService;
-  final VanJobService? duplicateFrom;
-  final String? suggestedName;
-  final VanServiceTemplate? starterTemplate;
-
-  @override
-  Widget build(BuildContext context) => VanServiceWizardPage(
-    initialService: initialService,
-    duplicateFrom: duplicateFrom,
-    suggestedName: suggestedName,
-    starterTemplate: starterTemplate,
-  );
-}
-
-class _LegacyVanJobServiceEditorPage extends StatefulWidget {
-  const _LegacyVanJobServiceEditorPage({
-    required this.initialService,
-    required this.suggestedName,
-  });
-
-  final VanJobService? initialService;
-  final String? suggestedName;
-
-  @override
-  State<_LegacyVanJobServiceEditorPage> createState() =>
-      _VanJobServiceEditorPageState();
-}
-
-class _VanJobServiceEditorPageState
-    extends State<_LegacyVanJobServiceEditorPage> {
-  final VanJobServicesStorage _storage = VanJobServicesStorage.instance;
-
-  late final TextEditingController _nameController;
-  late final TextEditingController _descriptionController;
-  bool _isActive = true;
-  bool _requestPhotos = false;
-  bool _requireAddress = true;
-  bool _requestExactPinAfterQuoteAccepted = true;
-  late VanCustomerJourneyType _customerJourneyType;
-  late VanCustomerRequestType _requestType;
-  late VanStartHandover _startHandover;
-  late VanEndHandover _endHandover;
-  late List<VanStartHandover> _allowedStartHandoverOptions;
-  late List<VanEndHandover> _allowedEndHandoverOptions;
-  late final TextEditingController _businessDropOffInstructionsController;
-  late final TextEditingController _businessCollectionInstructionsController;
-  late VanQuoteExtraDefaults _quoteExtraDefaults;
-  bool _saving = false;
-
-  bool get _isEditing => widget.initialService != null;
-
-  VanQuoteExtraDefaults _serviceTemplateDefaults({
-    required String serviceId,
-    required String serviceName,
-  }) {
-    if (widget.initialService == null) {
-      return VanQuoteExtraDefaults.empty();
-    }
-    return findVanServiceTemplateForService(
-          serviceId: serviceId,
-          serviceName: serviceName,
-        )?.quoteExtraDefaults() ??
-        VanQuoteExtraDefaults.empty();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    final service = widget.initialService;
-    _nameController = TextEditingController(
-      text: service?.name ?? (widget.suggestedName ?? ''),
-    );
-    _descriptionController = TextEditingController(
-      text: service?.description ?? '',
-    );
-    _isActive = service?.isActive ?? true;
-    _requestPhotos = service?.requestPhotos ?? false;
-    _requireAddress = service?.requireAddress ?? true;
-    _requestExactPinAfterQuoteAccepted =
-        service?.requestExactPinAfterQuoteAccepted ?? true;
-    _customerJourneyType =
-        service?.customerJourneyType ??
-        defaultVanCustomerJourneyTypeForService(
-          serviceId: '',
-          serviceName: widget.suggestedName ?? '',
-        );
-    _requestType =
-        service?.requestType ??
-        defaultVanServiceFlowForService(
-          serviceId: '',
-          serviceName: widget.suggestedName ?? '',
-        ).requestType;
-    final handover =
-        service?.effectiveHandover ??
-        VanServiceHandoverConfig.resolve(requestType: _requestType);
-    _startHandover = handover.start;
-    _endHandover = handover.end;
-    _allowedStartHandoverOptions = handover.allowedStarts;
-    _allowedEndHandoverOptions = handover.allowedEnds;
-    _businessDropOffInstructionsController = TextEditingController(
-      text: service?.businessDropOffInstructions ?? '',
-    );
-    _businessCollectionInstructionsController = TextEditingController(
-      text: service?.businessCollectionInstructions ?? '',
-    );
-    _quoteExtraDefaults =
-        service?.quoteExtraDefaults ?? VanQuoteExtraDefaults.empty();
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    _businessDropOffInstructionsController.dispose();
-    _businessCollectionInstructionsController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _editQuoteExtras() async {
-    final initialDefaults = _quoteExtraDefaults;
-    final updated = await showModalBottomSheet<VanQuoteExtraDefaults>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => VanQuoteExtraDefaultsSheet(
-        initialDefaults: initialDefaults,
-        resetDefaults: _serviceTemplateDefaults(
-          serviceId: widget.initialService?.id ?? '',
-          serviceName: _nameController.text,
-        ),
-        title: 'Service extras',
-        description: 'Set the quote extras shown for this service.',
-      ),
-    );
-    if (updated == null || !mounted) {
-      return;
-    }
-    setState(() {
-      _quoteExtraDefaults = updated;
-    });
-  }
-
-  Future<void> _save() async {
-    if (_saving) {
-      return;
-    }
-    final name = sanitizeVanText(_nameController.text).trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a service name.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    final now = DateTime.now();
-    final existing = widget.initialService;
-    final quoteExtraDefaults = _quoteExtraDefaults;
-    final requestType = _requestType;
-    final service = VanJobService(
-      id: existing?.id ?? now.microsecondsSinceEpoch.toString(),
-      name: name,
-      description: sanitizeVanText(_descriptionController.text).trim(),
-      isActive: _isActive,
-      requestPhotos: _requestPhotos,
-      requireAddress: _requireAddress,
-      requestExactPinAfterQuoteAccepted: _requestExactPinAfterQuoteAccepted,
-      requestType: requestType,
-      customerJourneyType: _customerJourneyType,
-      startHandover: _startHandover,
-      endHandover: _endHandover,
-      allowedStartHandoverOptions: _allowedStartHandoverOptions,
-      allowedEndHandoverOptions: _allowedEndHandoverOptions,
-      businessDropOffInstructions: sanitizeVanText(
-        _businessDropOffInstructionsController.text,
-      ).trim(),
-      businessCollectionInstructions: sanitizeVanText(
-        _businessCollectionInstructionsController.text,
-      ).trim(),
-      requestFlowOptions:
-          (existing != null && existing.serviceFlow == requestType.serviceFlow)
-          ? existing.requestFlowOptions
-          : VanCustomerRequestFlowOptions.defaultsFor(requestType),
-      linkedQuestionIds: existing?.linkedQuestionIds ?? const <String>[],
-      quoteExtraDefaults: quoteExtraDefaults,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      isArchived: existing?.isArchived ?? false,
-    );
-
-    setState(() {
-      _saving = true;
-    });
-    await _storage.upsert(service);
-    if (!mounted) {
-      return;
-    }
-    if (_isEditing) {
-      Navigator.of(context).pop(service);
-    } else {
-      Navigator.of(context).pop(true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    final title = _isEditing ? 'Edit Service' : 'Add Service';
-
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text(title),
-        leadingWidth: 96,
-        leading: Padding(
-          padding: const EdgeInsetsDirectional.only(start: 8),
-          child: VanBackBusinessHubButtons(
-            onBack: () => Navigator.of(context).pop(false),
-          ),
-        ),
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          AppTheme.backgroundImage(),
-          Container(color: Colors.black.withValues(alpha: 0.34)),
-          SafeArea(
-            bottom: false,
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                12,
-                16,
-                bottomInset + keyboardInset + 24,
-              ),
-              children: [
-                _GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          height: 1.0,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Create a service your business offers.',
-                        style: TextStyle(
-                          fontSize: 13.2,
-                          height: 1.45,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(alpha: 0.76),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ServiceTextField(
-                        controller: _nameController,
-                        label: 'Service name',
-                        hint: 'Gardening',
-                      ),
-                      const SizedBox(height: 12),
-                      _ServiceTextField(
-                        controller: _descriptionController,
-                        label: 'Description (optional)',
-                        hint: 'What this service covers',
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Customer journey',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Choose how customers buy or request this service.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.66),
-                          height: 1.4,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<VanCustomerJourneyType>(
-                        key: ValueKey<VanCustomerJourneyType>(
-                          _customerJourneyType,
-                        ),
-                        initialValue: _customerJourneyType,
-                        dropdownColor: const Color(0xFF17253A),
-                        iconEnabledColor: Colors.white70,
-                        decoration: vanMateFieldDecoration(
-                          label: 'Customer journey',
-                          prefixIcon: const Icon(Icons.signpost_outlined),
-                        ),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        items: [
-                          for (final type in VanCustomerJourneyType.values)
-                            DropdownMenuItem<VanCustomerJourneyType>(
-                              value: type,
-                              child: Text(type.selectorLabel),
-                            ),
-                        ],
-                        onChanged: _saving
-                            ? null
-                            : (value) {
-                                if (value == null) return;
-                                setState(() => _customerJourneyType = value);
-                              },
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Service flow',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Choose how this service is carried out.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.66),
-                          height: 1.4,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<VanServiceFlow>(
-                        key: ValueKey<VanServiceFlow>(_requestType.serviceFlow),
-                        initialValue: _requestType.serviceFlow,
-                        dropdownColor: const Color(0xFF17253A),
-                        iconEnabledColor: Colors.white70,
-                        decoration: vanMateFieldDecoration(
-                          label: 'Service flow',
-                          prefixIcon: const Icon(Icons.alt_route_rounded),
-                        ),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        items: [
-                          for (final flow in kVanServiceFlows)
-                            DropdownMenuItem<VanServiceFlow>(
-                              value: flow,
-                              child: Text(flow.label),
-                            ),
-                        ],
-                        onChanged: _saving
-                            ? null
-                            : (value) {
-                                if (value == null) return;
-                                final defaults =
-                                    VanServiceHandoverConfig.resolve(
-                                      requestType: value.requestType,
-                                    );
-                                setState(() {
-                                  _requestType = value.requestType;
-                                  _requireAddress =
-                                      value == VanServiceFlow.standard;
-                                  _startHandover = defaults.start;
-                                  _endHandover = defaults.end;
-                                  _allowedStartHandoverOptions =
-                                      defaults.allowedStarts;
-                                  _allowedEndHandoverOptions =
-                                      defaults.allowedEnds;
-                                });
-                              },
-                      ),
-                      if (vanRequestTypeSupportsHandover(_requestType)) ...[
-                        const SizedBox(height: 14),
-                        const Text(
-                          'Start of service',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<VanStartHandover>(
-                          initialValue: _startHandover,
-                          dropdownColor: const Color(0xFF17253A),
-                          decoration: vanMateFieldDecoration(
-                            label: 'Start handover',
-                          ),
-                          items: [
-                            for (final option in VanStartHandover.values)
-                              DropdownMenuItem<VanStartHandover>(
-                                value: option,
-                                child: Text(option.label),
-                              ),
-                          ],
-                          onChanged: _saving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _startHandover = value;
-                                      if (_allowedStartHandoverOptions.length <=
-                                          1) {
-                                        _allowedStartHandoverOptions =
-                                            <VanStartHandover>[value];
-                                      }
-                                    });
-                                  }
-                                },
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'End of service',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<VanEndHandover>(
-                          initialValue: _endHandover,
-                          dropdownColor: const Color(0xFF17253A),
-                          decoration: vanMateFieldDecoration(
-                            label: 'End handover',
-                          ),
-                          items: [
-                            for (final option in VanEndHandover.values)
-                              DropdownMenuItem<VanEndHandover>(
-                                value: option,
-                                child: Text(option.label),
-                              ),
-                          ],
-                          onChanged: _saving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _endHandover = value;
-                                      if (_allowedEndHandoverOptions.length <=
-                                          1) {
-                                        _allowedEndHandoverOptions =
-                                            <VanEndHandover>[value];
-                                      }
-                                    });
-                                  }
-                                },
-                        ),
-                        const SizedBox(height: 10),
-                        _InfoChip(
-                          label: vanBusinessHandoverSummary(
-                            _startHandover,
-                            _endHandover,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _ServiceTextField(
-                          controller: _businessDropOffInstructionsController,
-                          label: 'Business drop-off location/instructions',
-                          hint: 'Shown when the customer drops off or collects',
-                          maxLines: 2,
-                        ),
-                        const SizedBox(height: 12),
-                        _ServiceTextField(
-                          controller: _businessCollectionInstructionsController,
-                          label: 'Business collection location/instructions',
-                          hint: 'Shown when the customer collects at the end',
-                          maxLines: 2,
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        value: _isActive,
-                        onChanged: (value) {
-                          setState(() {
-                            _isActive = value;
-                          });
-                        },
-                        title: const Text(
-                          'Active service',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        value: _requestPhotos,
-                        onChanged: (value) {
-                          setState(() {
-                            _requestPhotos = value;
-                          });
-                        },
-                        title: const Text(
-                          'Request photos',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        value: _requireAddress,
-                        onChanged: (value) {
-                          setState(() {
-                            _requireAddress = value;
-                          });
-                        },
-                        title: const Text(
-                          'Require address',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        value: _requestExactPinAfterQuoteAccepted,
-                        onChanged: (value) {
-                          setState(() {
-                            _requestExactPinAfterQuoteAccepted = value;
-                          });
-                        },
-                        title: const Text(
-                          'Request exact pin after quote accepted',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: Colors.white.withValues(alpha: 0.05),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.10),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Extras',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                                _InfoChip(
-                                  label:
-                                      '${_quoteExtraDefaults.enabledExtras.length} enabled',
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _quoteExtraSummary(_quoteExtraDefaults),
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.68),
-                                height: 1.35,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              height: 40,
-                              child: OutlinedButton.icon(
-                                onPressed: _editQuoteExtras,
-                                icon: const Icon(Icons.tune),
-                                label: const Text('Edit extras'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    SizedBox(
-                      height: 42,
-                      child: OutlinedButton(
-                        onPressed: _saving
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 42,
-                      child: FilledButton.icon(
-                        onPressed: _saving ? null : _save,
-                        icon: _saving
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.save_outlined),
-                        label: const Text('Save'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -4779,35 +3805,6 @@ class _ServiceListCard extends StatelessWidget {
   }
 }
 
-class _ServiceTextField extends StatelessWidget {
-  const _ServiceTextField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    this.maxLines = 1,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      style: kVanMateFieldTextStyle,
-      decoration: vanMateFieldDecoration(
-        label: label,
-        hintText: hint,
-        labelOpacity: 0.68,
-        hintOpacity: 0.48,
-      ),
-    );
-  }
-}
-
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.label, required this.color});
 
@@ -4913,7 +3910,7 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _GlassCard extends StatelessWidget {
-  const _GlassCard({super.key, required this.child, this.onTap});
+  const _GlassCard({required this.child, this.onTap});
 
   final Widget child;
   final VoidCallback? onTap;

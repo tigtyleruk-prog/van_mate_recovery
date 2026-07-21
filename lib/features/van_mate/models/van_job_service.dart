@@ -298,6 +298,7 @@ class VanJobService {
     int? businessStartMinutes,
     int? businessEndMinutes,
     Map<int, VanServiceDaySchedule>? availabilityByDay,
+    bool clearAvailabilityByDay = false,
     int? noticeHours,
     int? maxBookingsPerDay,
     List<String>? selectedBuiltInQuestionKeys,
@@ -364,7 +365,9 @@ class VanJobService {
       workingDays: workingDays ?? this.workingDays,
       businessStartMinutes: businessStartMinutes ?? this.businessStartMinutes,
       businessEndMinutes: businessEndMinutes ?? this.businessEndMinutes,
-      availabilityByDay: availabilityByDay ?? this.availabilityByDay,
+      availabilityByDay: clearAvailabilityByDay
+          ? null
+          : availabilityByDay ?? this.availabilityByDay,
       noticeHours: noticeHours ?? this.noticeHours,
       maxBookingsPerDay: maxBookingsPerDay ?? this.maxBookingsPerDay,
       selectedBuiltInQuestionKeys: clearSelectedBuiltInQuestionKeys

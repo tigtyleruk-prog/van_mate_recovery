@@ -22,14 +22,18 @@ import '../widgets/van_back_business_hub_buttons.dart';
 import '../widgets/van_form_field_styles.dart';
 import '../widgets/van_quote_extra_defaults_sheet.dart';
 
-class VanServiceWizardBuildResult {
-  const VanServiceWizardBuildResult({
+class VanServiceCreationEntryResult {
+  const VanServiceCreationEntryResult({
     required this.createdServiceIds,
     this.existingServiceIds = const <String>[],
+    this.pendingServices = const <VanJobService>[],
+    this.pendingQuestions = const <VanCustomJobQuestion>[],
   });
 
   final List<String> createdServiceIds;
   final List<String> existingServiceIds;
+  final List<VanJobService> pendingServices;
+  final List<VanCustomJobQuestion> pendingQuestions;
 
   List<String> get serviceIds => <String>[
     ...createdServiceIds,
@@ -45,25 +49,16 @@ enum _BusinessSetupStage {
   review,
 }
 
-class VanServiceWizardPage extends StatefulWidget {
-  const VanServiceWizardPage({
-    super.key,
-    this.initialService,
-    this.duplicateFrom,
-    this.suggestedName,
-    this.starterTemplate,
-  });
-
-  final VanJobService? initialService;
-  final VanJobService? duplicateFrom;
-  final String? suggestedName;
-  final VanServiceTemplate? starterTemplate;
+class VanServiceCreationEntryPage extends StatefulWidget {
+  const VanServiceCreationEntryPage({super.key});
 
   @override
-  State<VanServiceWizardPage> createState() => _VanServiceWizardPageState();
+  State<VanServiceCreationEntryPage> createState() =>
+      _VanServiceCreationEntryPageState();
 }
 
-class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
+class _VanServiceCreationEntryPageState
+    extends State<VanServiceCreationEntryPage> {
   static const _stepTitles = <String>[
     'Basic information',
     'Customer journey',
@@ -176,10 +171,15 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
   bool _configuringExtras = false;
   bool _handoverTouched = false;
 
-  VanJobService? get _source => widget.initialService ?? widget.duplicateFrom;
-  bool get _isEditing => widget.initialService != null;
-  bool get _isDuplicating => widget.duplicateFrom != null;
+  VanJobService? get _source => null;
+  bool get _isEditing => false;
+  bool get _isDuplicating => false;
   bool get _showWizardChrome => _source != null || _showBasicFields;
+  bool get _isManualIdentityPreflight =>
+      _source == null &&
+      _creationSource == 'blank' &&
+      _showBasicFields &&
+      _step == 0;
   bool get _usesUniversalCapabilityEditor =>
       (_source?.isCapabilityDriven ?? false) ||
       (_source == null && _creationSource == 'blank');
@@ -232,7 +232,7 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     super.initState();
     final source = _source;
     final now = DateTime.now();
-    _selectedStarterTemplate = widget.starterTemplate;
+    _selectedStarterTemplate = null;
     if (_selectedStarterTemplate == null &&
         source?.starterTemplateId.isNotEmpty == true) {
       _selectedStarterTemplate = findVanServiceTemplateById(
@@ -246,7 +246,7 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         : source != null && !source.isDraft
         ? 'existing'
         : (_selectedStarterTemplate == null ? '' : 'starterPack');
-    _showBasicFields = source != null || widget.starterTemplate != null;
+    _showBasicFields = source != null;
     _showStarterBrowser =
         _creationSource == 'starterPack' && _selectedStarterTemplate == null;
     _expandedTemplateCategoryId = null;
@@ -258,7 +258,7 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
           ? '${source!.name} Copy'
           : (source?.isDraft == true && source?.name == 'Untitled service')
           ? ''
-          : source?.name ?? widget.suggestedName ?? '',
+          : source?.name ?? '',
     );
     _descriptionController = TextEditingController(
       text: source?.description ?? _selectedStarterTemplate?.description ?? '',
@@ -280,15 +280,13 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         source?.customerJourneyType ??
         defaultVanCustomerJourneyTypeForService(
           serviceId: '',
-          serviceName:
-              _selectedStarterTemplate?.name ?? widget.suggestedName ?? '',
+          serviceName: _selectedStarterTemplate?.name ?? '',
         );
     _requestType =
         source?.requestType ??
         defaultVanServiceFlowForService(
           serviceId: '',
-          serviceName:
-              _selectedStarterTemplate?.name ?? widget.suggestedName ?? '',
+          serviceName: _selectedStarterTemplate?.name ?? '',
         ).requestType;
     _flowOptions =
         source?.effectiveRequestFlowOptions ??
@@ -306,13 +304,6 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         source?.quoteExtraDefaults ??
         _selectedStarterTemplate?.quoteExtraDefaults() ??
         VanQuoteExtraDefaults.empty();
-    if (source == null && _selectedStarterTemplate?.id == 'courier') {
-      _extras = _extras.copyWithExtra(
-        VanQuoteExtraDefault.fallback(
-          kVanQuoteExtraMileageKey,
-        ).copyWith(enabled: true, defaultPrice: 1),
-      );
-    }
     _workingDays = {...?source?.workingDays};
     if (_workingDays.isEmpty) _workingDays.addAll(const [1, 2, 3, 4, 5]);
     _startMinutes = source?.businessStartMinutes ?? 9 * 60;
@@ -416,14 +407,6 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         'helperText': '',
       };
       if (key == 'photos') _requestPhotos = true;
-    }
-    if (template.id == 'courier') {
-      _selectedBuiltInQuestions.add('photos');
-      _builtInQuestionSettings['photos'] = <String, dynamic>{
-        'required': false,
-        'helperText': 'Add a photo if it helps identify the parcel.',
-      };
-      _requestPhotos = true;
     }
     _flowOptions = _flowOptions.copyWith(
       askPreferredDate: _selectedBuiltInQuestions.contains('preferred_date'),
@@ -944,7 +927,6 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     setState(() => _saving = true);
     try {
       final existingServices = await _servicesStorage.loadAll();
-      final existingQuestions = await _questionsStorage.loadAll();
       final now = DateTime.now();
       final stamp = now.microsecondsSinceEpoch;
       final createdServices = <VanJobService>[];
@@ -990,15 +972,8 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
         final generatedQuestionTexts = resolvedCapabilityDefaults.questions
             .map((question) => question.text.trim().toLowerCase())
             .toSet();
-        final selectedBuiltIns = <String>{
-          'phone',
-          'email',
-          ...setup.builtInQuestionKeys,
-        };
-        final builtInSettings = <String, Map<String, dynamic>>{
-          'phone': <String, dynamic>{'required': true, 'helperText': ''},
-          'email': <String, dynamic>{'required': false, 'helperText': ''},
-        };
+        final selectedBuiltIns = <String>{...setup.builtInQuestionKeys};
+        final builtInSettings = <String, Map<String, dynamic>>{};
         for (final key in setup.builtInQuestionKeys) {
           builtInSettings.putIfAbsent(
             key,
@@ -1146,29 +1121,19 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
           ),
         );
       }
-      if (createdQuestions.isNotEmpty) {
-        await _questionsStorage.saveAll(<VanCustomJobQuestion>[
-          ...createdQuestions,
-          ...existingQuestions,
-        ]);
-      }
-      if (createdServices.isNotEmpty) {
-        await _servicesStorage.saveAll(<VanJobService>[
-          ...createdServices,
-          ...existingServices,
-        ]);
-      }
       if (!mounted) return;
       setState(() => _saving = false);
       if (mounted) {
         Navigator.of(context).pop(
-          VanServiceWizardBuildResult(
+          VanServiceCreationEntryResult(
             createdServiceIds: createdServices
                 .map((service) => service.id)
                 .toList(growable: false),
             existingServiceIds: existingMatches
                 .map((service) => service.id)
                 .toList(growable: false),
+            pendingServices: createdServices,
+            pendingQuestions: createdQuestions,
           ),
         );
       }
@@ -1230,6 +1195,19 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
       _businessSearchController.clear();
       _businessSearchQuery = '';
       _expandedTemplateCategoryId = null;
+    });
+  }
+
+  void _startBlankService() {
+    setState(() {
+      _resetNewServiceState();
+      _selectedStarterTemplate = null;
+      _selectedCapabilityPack = null;
+      _selectedRecommendedServiceIds.clear();
+      _capabilityIdsByService.clear();
+      _creationSource = 'blank';
+      _showStarterBrowser = false;
+      _showBasicFields = true;
     });
   }
 
@@ -1497,6 +1475,24 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     }
   }
 
+  Future<void> _continueManualServiceToReview() async {
+    if (_saving || !_validateStep(0)) return;
+    setState(() => _saving = true);
+    final service = _buildService(isDraft: false).copyWith(
+      isActive: true,
+      isDraft: false,
+      workingDays: const <int>[],
+      wizardStep: 0,
+    );
+    if (!mounted) return;
+    Navigator.of(context).pop(
+      VanServiceCreationEntryResult(
+        createdServiceIds: <String>[service.id],
+        pendingServices: <VanJobService>[service],
+      ),
+    );
+  }
+
   Future<void> _publish() async {
     if (_saving ||
         !_validateStep(0) ||
@@ -1578,6 +1574,13 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
 
   void _next() {
     if (!_validateStep(_step)) return;
+    if (_step == 0 &&
+        _source == null &&
+        _creationSource == 'blank' &&
+        _showBasicFields) {
+      unawaited(_continueManualServiceToReview());
+      return;
+    }
     if (_step == 1 && _usesUniversalCapabilityEditor) {
       setState(_applyManualCapabilityDefaults);
     }
@@ -1662,106 +1665,6 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
     }
   }
 
-  // ignore: unused_element
-  Future<void> _showQuestionTemplates() async {
-    final templates = _questionTemplates();
-    final selected = await showModalBottomSheet<_QuestionTemplate>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-          children: [
-            Text(
-              'Question templates',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 4),
-            const Text('Choose a useful starting question. You can edit it.'),
-            const SizedBox(height: 10),
-            for (final template in templates)
-              ListTile(
-                leading: Icon(template.icon),
-                title: Text(template.text),
-                subtitle: Text(template.answerType.label),
-                onTap: () => Navigator.of(sheetContext).pop(template),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (selected == null || !mounted) return;
-    final now = DateTime.now();
-    final id = 'service_question_${_serviceId}_${now.microsecondsSinceEpoch}';
-    setState(() {
-      _questions[id] = VanCustomJobQuestion(
-        id: id,
-        questionText: selected.text,
-        helperText: '',
-        answerType: selected.answerType,
-        category: selected.category,
-        isActive: true,
-        isArchived: false,
-        createdAt: now,
-        updatedAt: now,
-      );
-      _linkedQuestionIds.add(id);
-    });
-  }
-
-  List<_QuestionTemplate> _questionTemplates() {
-    final name = _nameController.text.toLowerCase();
-    if (name.contains('dog') || name.contains('pet') || _category == 'Pets') {
-      return const [
-        _QuestionTemplate('Pet name', Icons.pets_outlined),
-        _QuestionTemplate('Breed', Icons.badge_outlined),
-        _QuestionTemplate(
-          'Behaviour or handling notes',
-          Icons.notes_outlined,
-          answerType: VanCustomQuestionAnswerType.longText,
-        ),
-        _QuestionTemplate(
-          'Medical notes',
-          Icons.medical_information_outlined,
-          answerType: VanCustomQuestionAnswerType.longText,
-        ),
-      ];
-    }
-    if (_requestType.serviceFlow == VanServiceFlow.pickupDelivery ||
-        name.contains('courier')) {
-      return const [
-        _QuestionTemplate('Parcel size', Icons.inventory_2_outlined),
-        _QuestionTemplate('Approximate weight', Icons.scale_outlined),
-        _QuestionTemplate(
-          'Delivery instructions',
-          Icons.notes_outlined,
-          answerType: VanCustomQuestionAnswerType.longText,
-        ),
-      ];
-    }
-    return const [
-      _QuestionTemplate('Property type', Icons.home_outlined),
-      _QuestionTemplate(
-        'Is there easy access?',
-        Icons.door_front_door_outlined,
-        answerType: VanCustomQuestionAnswerType.yesNo,
-        category: VanCustomQuestionCategory.access,
-      ),
-      _QuestionTemplate(
-        'Parking details',
-        Icons.local_parking_outlined,
-        answerType: VanCustomQuestionAnswerType.longText,
-        category: VanCustomQuestionCategory.parking,
-      ),
-      _QuestionTemplate(
-        'Anything else we should know?',
-        Icons.notes_outlined,
-        answerType: VanCustomQuestionAnswerType.longText,
-      ),
-    ];
-  }
-
   Future<void> _previewCustomerExperience() async {
     if (!_validateStep(0)) return;
     final profile = await VanBusinessProfileStorage.instance.load();
@@ -1840,7 +1743,7 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
               top: false,
               child: Column(
                 children: [
-                  if (_showWizardChrome)
+                  if (_showWizardChrome && !_isManualIdentityPreflight)
                     _WizardProgress(step: _step, titles: _stepTitles),
                   Expanded(
                     child: LayoutBuilder(
@@ -1901,7 +1804,9 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
                   step: _step,
                   lastStep: _stepTitles.length - 1,
                   saving: _saving,
-                  nextLabel: _step == 3
+                  nextLabel: _isManualIdentityPreflight
+                      ? 'Continue to Service Features'
+                      : _step == 3
                       ? 'Configure questions'
                       : _step == 5 && !_configuringExtras
                       ? 'Configure extras'
@@ -1960,13 +1865,15 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
       children: [
         if (!_showBasicFields) _buildCreationStart(),
         if (_showBasicFields) ...[
-          _CreationSourceBanner(
-            title: 'Starter Pack: ${_selectedStarterTemplate!.name}',
-            subtitle:
-                'Recommended settings are loaded and everything remains editable.',
-            onChange: _chooseDifferentStarterPack,
-          ),
-          const SizedBox(height: 18),
+          if (_selectedStarterTemplate != null) ...[
+            _CreationSourceBanner(
+              title: 'Starter Pack: ${_selectedStarterTemplate!.name}',
+              subtitle:
+                  'Recommended settings are loaded and everything remains editable.',
+              onChange: _chooseDifferentStarterPack,
+            ),
+            const SizedBox(height: 18),
+          ],
           _buildBasicInformationFields(),
         ],
       ],
@@ -2022,7 +1929,23 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
                 ),
           ),
           const SizedBox(height: 14),
-          if (_businessSearchQuery.isNotEmpty) ...[
+          if (kVanStarterCapabilityPacks.isEmpty) ...[
+            const _EmptyWizardCard(
+              icon: Icons.inventory_2_outlined,
+              text:
+                  'No business templates are available yet. Create a service manually while the verified library is rebuilt.',
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const Key('create_service_manually'),
+                onPressed: _startBlankService,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Create Service Manually'),
+              ),
+            ),
+          ] else if (_businessSearchQuery.isNotEmpty) ...[
             if (searchResults.isNotEmpty)
               _BusinessResultList(
                 results: searchResults,
@@ -2784,7 +2707,6 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
       final key = _builtInQuestionKeyForText(question.text);
       if (key != null) keys.add(key);
     }
-    if (_selectedStarterTemplate?.id == 'courier') keys.add('photos');
     return keys;
   }
 
@@ -2997,6 +2919,8 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
             label: extra.resolvedLabel,
             icon: Icons.add_card_outlined,
             defaultPrice: extra.defaultPrice,
+            units: const <String>['Fixed'],
+            defaultUnit: 'Fixed',
           ),
         );
       }
@@ -3327,17 +3251,23 @@ class _VanServiceWizardPageState extends State<VanServiceWizardPage> {
           onEdit: () => setState(() => _step = 6),
         ),
         const SizedBox(height: 14),
-        SwitchListTile.adaptive(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          value: _isActive,
-          onChanged: (value) => setState(() => _isActive = value),
-          title: const Text(
-            'Publish as active',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-          ),
-          subtitle: Text(
-            'Customers can choose this service immediately.',
-            style: TextStyle(color: Colors.white.withValues(alpha: .62)),
+        Material(
+          color: Colors.transparent,
+          child: SwitchListTile.adaptive(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            value: _isActive,
+            onChanged: (value) => setState(() => _isActive = value),
+            title: const Text(
+              'Publish as active',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            subtitle: Text(
+              'Customers can choose this service immediately.',
+              style: TextStyle(color: Colors.white.withValues(alpha: .62)),
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -4258,26 +4188,13 @@ class _EmptyWizardCard extends StatelessWidget {
   );
 }
 
-class _QuestionTemplate {
-  const _QuestionTemplate(
-    this.text,
-    this.icon, {
-    this.answerType = VanCustomQuestionAnswerType.shortText,
-    this.category,
-  });
-  final String text;
-  final IconData icon;
-  final VanCustomQuestionAnswerType answerType;
-  final VanCustomQuestionCategory? category;
-}
-
 class _QuestionLibraryItem {
   const _QuestionLibraryItem({
     required this.key,
     required this.label,
     required this.icon,
-    this.answerType = VanCustomQuestionAnswerType.shortText,
-    this.category = VanCustomQuestionCategory.jobDetails,
+    required this.answerType,
+    required this.category,
   }) : builtIn = false;
 
   const _QuestionLibraryItem.builtIn({
@@ -4296,50 +4213,8 @@ class _QuestionLibraryItem {
   final VanCustomQuestionCategory category;
 }
 
-const List<_QuestionLibraryItem> _customQuestionLibrary = [
-  _QuestionLibraryItem(
-    key: 'access_instructions',
-    label: 'Access Instructions',
-    icon: Icons.door_front_door_outlined,
-    answerType: VanCustomQuestionAnswerType.longText,
-    category: VanCustomQuestionCategory.access,
-  ),
-  _QuestionLibraryItem(
-    key: 'parking',
-    label: 'Parking',
-    icon: Icons.local_parking_outlined,
-    answerType: VanCustomQuestionAnswerType.longText,
-    category: VanCustomQuestionCategory.parking,
-  ),
-  _QuestionLibraryItem(
-    key: 'measurements',
-    label: 'Measurements',
-    icon: Icons.straighten_outlined,
-  ),
-  _QuestionLibraryItem(
-    key: 'colours',
-    label: 'Colours',
-    icon: Icons.palette_outlined,
-  ),
-  _QuestionLibraryItem(
-    key: 'gate_code',
-    label: 'Gate Code',
-    icon: Icons.password_outlined,
-  ),
-  _QuestionLibraryItem(key: 'pets', label: 'Pets', icon: Icons.pets_outlined),
-  _QuestionLibraryItem(
-    key: 'allergies',
-    label: 'Allergies',
-    icon: Icons.health_and_safety_outlined,
-    answerType: VanCustomQuestionAnswerType.longText,
-  ),
-  _QuestionLibraryItem(
-    key: 'vehicle_details',
-    label: 'Vehicle Details',
-    icon: Icons.directions_car_outlined,
-    answerType: VanCustomQuestionAnswerType.longText,
-  ),
-];
+const List<_QuestionLibraryItem> _customQuestionLibrary =
+    <_QuestionLibraryItem>[];
 
 class _ExtraLibraryItem {
   const _ExtraLibraryItem({
@@ -4347,8 +4222,8 @@ class _ExtraLibraryItem {
     required this.label,
     required this.icon,
     required this.defaultPrice,
-    this.units = const ['Fixed'],
-    this.defaultUnit = 'Fixed',
+    required this.units,
+    required this.defaultUnit,
   });
 
   final String key;
@@ -4359,66 +4234,7 @@ class _ExtraLibraryItem {
   final String defaultUnit;
 }
 
-const List<_ExtraLibraryItem> _defaultExtrasLibrary = [
-  _ExtraLibraryItem(
-    key: kVanQuoteExtraMileageKey,
-    label: 'Mileage',
-    icon: Icons.route_outlined,
-    defaultPrice: 1,
-    units: ['Mile', 'Km', 'Fixed'],
-    defaultUnit: 'Mile',
-  ),
-  _ExtraLibraryItem(
-    key: kVanQuoteExtraWaitingTimeKey,
-    label: 'Waiting Time',
-    icon: Icons.timer_outlined,
-    defaultPrice: 15,
-    units: ['15 Minutes', '30 Minutes', 'Hour'],
-    defaultUnit: '15 Minutes',
-  ),
-  _ExtraLibraryItem(
-    key: 'custom_extra_materials',
-    label: 'Materials',
-    icon: Icons.inventory_2_outlined,
-    defaultPrice: 20,
-  ),
-  _ExtraLibraryItem(
-    key: 'custom_extra_weekend',
-    label: 'Weekend',
-    icon: Icons.weekend_outlined,
-    defaultPrice: 20,
-  ),
-  _ExtraLibraryItem(
-    key: 'custom_extra_emergency_callout',
-    label: 'Emergency Call-out',
-    icon: Icons.emergency_outlined,
-    defaultPrice: 30,
-  ),
-  _ExtraLibraryItem(
-    key: 'custom_extra_rush_order',
-    label: 'Rush Order',
-    icon: Icons.bolt_outlined,
-    defaultPrice: 20,
-  ),
-  _ExtraLibraryItem(
-    key: kVanQuoteExtraCollectionDeliveryKey,
-    label: 'Delivery',
-    icon: Icons.local_shipping_outlined,
-    defaultPrice: 15,
-  ),
-  _ExtraLibraryItem(
-    key: 'custom_extra_installation',
-    label: 'Installation',
-    icon: Icons.build_outlined,
-    defaultPrice: 25,
-  ),
-  _ExtraLibraryItem(
-    key: 'custom_extra_gift_wrapping',
-    label: 'Gift Wrapping',
-    icon: Icons.card_giftcard_outlined,
-    defaultPrice: 5,
-  ),
-];
+const List<_ExtraLibraryItem> _defaultExtrasLibrary = <_ExtraLibraryItem>[];
 
 class _RecommendationBanner extends StatelessWidget {
   const _RecommendationBanner({required this.text});
@@ -4470,78 +4286,24 @@ class _BusinessBrowseCategory {
 }
 
 List<_BusinessChoice> _popularBusinessChoices() {
-  const choices = <(String, String)>[
-    ('Plumber', 'plumber_business'),
-    ('Electrician', 'electrician_business'),
-    ('Gardener', 'gardening_business'),
-    ('Cleaner', 'cleaning_business'),
-    ('Window Cleaner', 'window_cleaning_business'),
-    ('Cake Orders', 'cake_orders_business'),
-    ('Dog Groomer', 'dog_groomer_business'),
-    ('Photographer', 'photography_business'),
-    ('Courier', 'courier_business'),
-    ('Hairdresser', 'mobile_hairdresser_business'),
-  ];
-  return <_BusinessChoice>[
-    for (final choice in choices)
-      if (findVanStarterCapabilityPackById(choice.$2) case final pack?)
-        _BusinessChoice(label: choice.$1, pack: pack),
-  ];
+  return const <_BusinessChoice>[];
 }
 
 List<_BusinessBrowseCategory> _businessBrowseCategories() {
-  const definitions = <(String, String, IconData)>[
-    (
-      'transport_delivery',
-      'Transport & Delivery',
-      Icons.local_shipping_outlined,
-    ),
-    ('home_property', 'Home & Property', Icons.home_repair_service_outlined),
-    ('trades', 'Trades', Icons.handyman_outlined),
-    ('food_local', 'Food & Local Businesses', Icons.cake_outlined),
-    ('pet_services', 'Pet Services', Icons.pets_outlined),
-    ('creative_events', 'Creative & Events', Icons.photo_camera_outlined),
-    ('professional', 'Professional Services', Icons.business_center_outlined),
-    ('entertainment', 'Entertainment', Icons.celebration_outlined),
-    ('health_beauty', 'Health & Beauty', Icons.spa_outlined),
-    ('other', 'Other', Icons.add_circle_outline_rounded),
-  ];
   final grouped = <String, List<VanStarterCapabilityPack>>{};
   for (final pack in kVanStarterCapabilityPacks) {
-    grouped.putIfAbsent(_browseCategoryIdFor(pack), () => []).add(pack);
+    grouped.putIfAbsent(pack.category, () => []).add(pack);
   }
   return <_BusinessBrowseCategory>[
-    for (final definition in definitions)
-      if (grouped[definition.$1]?.isNotEmpty == true)
-        _BusinessBrowseCategory(
-          id: definition.$1,
-          title: definition.$2,
-          icon: definition.$3,
-          packs: grouped[definition.$1]!
-            ..sort((left, right) => left.name.compareTo(right.name)),
-        ),
+    for (final entry in grouped.entries)
+      _BusinessBrowseCategory(
+        id: entry.key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_'),
+        title: entry.key,
+        icon: Icons.business_center_outlined,
+        packs: entry.value
+          ..sort((left, right) => left.name.compareTo(right.name)),
+      ),
   ];
-}
-
-String _browseCategoryIdFor(VanStarterCapabilityPack pack) {
-  final id = pack.id;
-  if (id.contains('dog') || id.contains('pet')) return 'pet_services';
-  if (id.contains('hairdresser') || id.contains('beautician')) {
-    return 'health_beauty';
-  }
-  if (id.contains('dj') || id.contains('party') || id.contains('balloon')) {
-    return 'entertainment';
-  }
-  if (id.contains('photo') || id.contains('event_setup')) {
-    return 'creative_events';
-  }
-  return switch (pack.category.toLowerCase()) {
-    'transport & delivery' => 'transport_delivery',
-    'home & property' => 'home_property',
-    'trades' => 'trades',
-    'food & local business' => 'food_local',
-    _ => 'other',
-  };
 }
 
 class _BusinessShortcutSection extends StatelessWidget {

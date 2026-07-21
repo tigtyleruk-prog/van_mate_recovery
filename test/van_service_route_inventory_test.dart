@@ -26,12 +26,35 @@ void main() {
     expect(source, isNot(contains('VanJobServiceEditorPage(duplicateFrom:')));
   });
 
-  test('legacy wizard remains present during the redirect phase', () {
-    final source = File(
+  test('service creation is the only production legacy-wizard entry', () {
+    final servicesSource = File(
+      'lib/features/van_mate/pages/van_job_types_services_page.dart',
+    ).readAsStringSync();
+    final wizardSource = File(
       'lib/features/van_mate/pages/van_service_wizard_page.dart',
     ).readAsStringSync();
 
-    expect(source, contains("'Basic information'"));
-    expect(source, contains("'Review'"));
+    expect(
+      RegExp(
+        r'VanServiceCreationEntryPage\(',
+      ).allMatches(servicesSource).length,
+      1,
+      reason: 'Only the new-service identity/preflight route may enter it.',
+    );
+    expect(
+      servicesSource,
+      contains('builder: (_) => const VanServiceCreationEntryPage()'),
+    );
+    expect(servicesSource, isNot(contains('class VanJobServiceEditorPage')));
+    expect(
+      servicesSource,
+      isNot(contains('class _LegacyVanJobServiceEditorPage')),
+    );
+    expect(
+      servicesSource,
+      isNot(contains('class _VanServiceFeaturesEditorPage')),
+    );
+    expect(wizardSource, contains("_creationSource == 'blank' &&"));
+    expect(wizardSource, contains("'Continue to Service Features'"));
   });
 }

@@ -94,6 +94,38 @@ void main() {
       otherBefore,
     );
   });
+
+  test('new session commits all drafts together after configuration', () async {
+    final existing = _service('existing');
+    final first = _service('new-first').copyWith(isActive: false);
+    final second = _service('new-second').copyWith(isActive: false);
+    final question = _question('new-first-question');
+    await VanJobServicesStorage.instance.saveAll(<VanJobService>[
+      existing,
+    ], syncCloud: false);
+
+    await VanServiceConfigurationRepository().commitNewSession(
+      businessProfileId: 'default_business',
+      services: <VanJobService>[first, second],
+      questions: <String, VanCustomJobQuestion>{question.id: question},
+    );
+
+    final stored = await VanJobServicesStorage.instance.loadAll();
+    expect(
+      stored.map((service) => service.id),
+      containsAll(<String>[existing.id, first.id, second.id]),
+    );
+    expect(
+      stored.where((service) => service.id != existing.id),
+      everyElement(predicate<VanJobService>((service) => service.isActive)),
+    );
+    expect(
+      (await VanCustomJobQuestionsStorage.instance.loadAll()).map(
+        (item) => item.id,
+      ),
+      contains(question.id),
+    );
+  });
 }
 
 VanServiceConfigurationDraft _draft(VanJobService service) {

@@ -9,88 +9,26 @@ import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.d
 import 'package:van_mate_app/features/van_mate/models/van_service_template.dart';
 
 void main() {
-  test('template services ship with their own starter questions', () {
-    final bakery = findVanServiceTemplateById('bakery')!;
-    final courier = findVanServiceTemplateById('courier')!;
-
-    expect(
-      bakery.questions.map((question) => question.text),
-      containsAll(<String>[
-        'What would you like to order?',
-        'Quantity',
-        'Allergies or dietary notes?',
-        'Anything else about your order?',
-      ]),
-    );
-    expect(
-      courier.questions.map((question) => question.text),
-      containsAll(<String>[
-        'Collection address',
-        'Delivery address',
-        'Parcel size',
-        'Fragile item?',
-        'Same-day delivery needed?',
-      ]),
-    );
+  test('template library contains no starter questions', () {
+    expect(kVanServiceTemplateCategories, isEmpty);
+    expect(findVanServiceTemplateById('courier'), isNull);
   });
-
-  test(
-    'pet sitting template keeps care questions without logistics duplicates',
-    () {
-      final petSitting = findVanServiceTemplateById('pet_sitting')!;
-      final texts = petSitting.questions.map((question) => question.text);
-
-      expect(
-        texts,
-        containsAll(<String>[
-          'Pet or dog name',
-          'Breed or type',
-          'Feeding notes',
-          'Medication notes',
-          'Emergency contact',
-          'Any special requirements?',
-        ]),
-      );
-      expect(texts, isNot(contains('Event date')));
-      expect(texts, isNot(contains('Event time')));
-      expect(texts, isNot(contains('Location')));
-    },
-  );
 
   test('custom service starts with no linked questions', () {
     final service = _service(id: 'custom-service', linkedIds: const <String>[]);
     expect(service.linkedQuestionIds, isEmpty);
   });
 
-  test('service request flow uses template-aware safe defaults', () {
-    expect(
-      defaultVanCustomerRequestTypeForService(
-        serviceId: 'bakery',
-        serviceName: 'Bakery',
-      ),
-      VanCustomerRequestType.orderRequest,
-    );
-    expect(
-      defaultVanCustomerRequestTypeForService(
-        serviceId: 'courier',
-        serviceName: 'Courier',
-      ),
-      VanCustomerRequestType.pickupDeliveryRequest,
-    );
-    expect(
-      defaultVanCustomerRequestTypeForService(
-        serviceId: 'cleaning',
-        serviceName: 'Cleaning',
-      ),
-      VanCustomerRequestType.bookingRequest,
-    );
-    expect(
-      defaultVanCustomerRequestTypeForService(
-        serviceId: 'custom-service',
-        serviceName: 'My custom work',
-      ),
-      VanCustomerRequestType.quoteRequest,
-    );
+  test('service names no longer infer template request flows', () {
+    for (final name in <String>['Bakery', 'Courier', 'Cleaning']) {
+      expect(
+        defaultVanCustomerRequestTypeForService(
+          serviceId: name.toLowerCase(),
+          serviceName: name,
+        ),
+        VanCustomerRequestType.quoteRequest,
+      );
+    }
   });
 
   test('legacy journey request types serialize as standard service flow', () {
@@ -191,47 +129,6 @@ void main() {
     );
   });
 
-  test('public flow hides only seeded drop-off logistics duplicates', () {
-    final service = _service(id: 'pet_sitting', linkedIds: const <String>[])
-        .copyWith(
-          requestType: VanCustomerRequestType.dropOffPickupRequest,
-          requestFlowOptions: VanCustomerRequestFlowOptions.defaultsFor(
-            VanCustomerRequestType.dropOffPickupRequest,
-          ),
-        );
-    final seededEventDate = _question(
-      'service_template_pet_sitting_1_seed',
-      'Event date?',
-    );
-    final customEventDate = _question('custom-event-date', 'Event date');
-    final usefulPetQuestion = _question(
-      'service_template_pet_sitting_2_seed',
-      'Medication notes',
-    );
-
-    expect(
-      isVanSeededQuestionCoveredByBuiltInFlow(
-        service: service,
-        question: seededEventDate,
-      ),
-      isTrue,
-    );
-    expect(
-      isVanSeededQuestionCoveredByBuiltInFlow(
-        service: service,
-        question: customEventDate,
-      ),
-      isFalse,
-    );
-    expect(
-      isVanSeededQuestionCoveredByBuiltInFlow(
-        service: service,
-        question: usefulPetQuestion,
-      ),
-      isFalse,
-    );
-  });
-
   test('photo helper wording does not infer journey from service flow', () {
     final labels = VanCustomerRequestType.values
         .map(vanBookingPhotoHelperText)
@@ -239,24 +136,16 @@ void main() {
     expect(labels, hasLength(1));
   });
 
-  test(
-    'hosted booking link mirrors seeded filtering and mobile time safety',
-    () {
-      final source = File('web/booking_link.html').readAsStringSync();
-      final functionsSource = File('functions/index.js').readAsStringSync();
+  test('hosted booking link has no seeded filtering and keeps time safety', () {
+    final source = File('web/booking_link.html').readAsStringSync();
+    final functionsSource = File('functions/index.js').readAsStringSync();
 
-      expect(source, contains('text === "event date"'));
-      expect(source, contains('text === "event time"'));
-      expect(source, contains('text === "location"'));
-      expect(source, contains('id.startsWith("service_template_")'));
-      expect(source, contains('input[type="time"]'));
-      expect(source, contains('min-inline-size: 0'));
-      expect(source, contains('bookingPhotoHelperText'));
-      expect(functionsSource, contains("text === 'event date'"));
-      expect(functionsSource, contains("text === 'event time'"));
-      expect(functionsSource, contains("text === 'location'"));
-    },
-  );
+    expect(source, isNot(contains('service_template_')));
+    expect(source, contains('input[type="time"]'));
+    expect(source, contains('min-inline-size: 0'));
+    expect(source, contains('bookingPhotoHelperText'));
+    expect(functionsSource, isNot(contains('service_template_')));
+  });
 
   test('New Job selection uses only ordered enabled service links', () {
     final questions = <VanCustomJobQuestion>[
@@ -383,20 +272,15 @@ void main() {
     );
   });
 
-  test('service settings expose independent journey and flow selectors', () {
+  test('canonical service features keep journey and flow state independent', () {
     final source = File(
       'lib/features/van_mate/pages/van_job_types_services_page.dart',
     ).readAsStringSync();
 
-    expect(source, contains("'Customer journey'"));
-    expect(source, contains("label: 'Service flow'"));
-    expect(
-      source,
-      contains("'Choose how customers buy or request this service.'"),
-    );
-    expect(source, contains("'Choose how this service is carried out.'"));
     expect(source, contains("'Booking options'"));
-    expect(source, contains('kVanServiceFlows'));
+    expect(source, contains('kVanServiceCapabilities'));
+    expect(source, contains('requestType: resolved.requestType'));
+    expect(source, contains('customerJourneyType: resolved.journeyType'));
     expect(source, isNot(contains('ReorderableListView<CustomerRequest')));
   });
 }

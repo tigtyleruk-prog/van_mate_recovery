@@ -19,11 +19,14 @@ void main() {
     expect(wizard, contains("'Selected Questions'"));
     expect(wizard, contains("'Configure extras'"));
     expect(wizard, contains("label: 'Address'"));
-    expect(wizard, contains("label: 'Measurements'"));
-    expect(wizard, contains("label: 'Vehicle Details'"));
-    expect(wizard, contains("label: 'Mileage'"));
-    expect(wizard, contains("label: 'Emergency Call-out'"));
-    expect(wizard, contains("label: 'Gift Wrapping'"));
+    expect(
+      wizard,
+      contains('const List<_QuestionLibraryItem> _customQuestionLibrary'),
+    );
+    expect(
+      wizard,
+      contains('const List<_ExtraLibraryItem> _defaultExtrasLibrary'),
+    );
     expect(wizard, contains("'Create Custom Question'"));
     expect(wizard, contains("'Add Custom Extra'"));
     expect(wizard, isNot(contains('_configuringQuestions')));
@@ -32,7 +35,7 @@ void main() {
     expect(questionEditor, contains('choiceOptions.length < 2'));
   });
 
-  test('business capability packs are browsed only inside the wizard', () {
+  test('empty business library keeps the wizard and manual path', () {
     final servicesPage = File(
       'lib/features/van_mate/pages/van_job_types_services_page.dart',
     ).readAsStringSync();
@@ -50,8 +53,8 @@ void main() {
     expect(wizard, isNot(contains('Create one service from scratch instead')));
     expect(wizard, contains('kVanStarterCapabilityPacks'));
     expect(wizard, contains("hintText: 'Search businesses...'"));
-    expect(wizard, contains("title: 'Popular businesses'"));
-    expect(wizard, contains("'Browse businesses'"));
+    expect(wizard, contains("key: const Key('create_service_manually')"));
+    expect(wizard, contains("'No business templates are available yet."));
     expect(wizard, contains('_recentBusinessChoices'));
     expect(wizard, contains('_BusinessCategoryCard'));
     expect(wizard, contains("'Which services do you offer?'"));
@@ -71,8 +74,8 @@ void main() {
     expect(wizard, isNot(contains('recommended capabilities')));
     expect(wizard, isNot(contains('Choose service capabilities')));
     expect(wizard, contains('kVanServiceCapabilities'));
-    expect(wizard, contains('VanServiceWizardBuildResult'));
-    expect(servicesPage, contains('result is VanServiceWizardBuildResult'));
+    expect(wizard, contains('VanServiceCreationEntryResult'));
+    expect(servicesPage, contains('result is VanServiceCreationEntryResult'));
     expect(wizard, contains('existingServiceIds'));
     expect(wizard, contains("service.id.startsWith("));
     expect(servicesPage, contains("label: 'Edit existing'"));
@@ -80,7 +83,10 @@ void main() {
     expect(servicesPage, contains('VanJobServiceDetailPage'));
     expect(wizard, contains('if (existingMatch != null)'));
     expect(wizard, contains('existingMatches.add(existingMatch)'));
-    expect(wizard, contains('...existingServices'));
+    expect(wizard, contains('pendingServices: createdServices'));
+    expect(wizard, contains('pendingQuestions: createdQuestions'));
+    expect(servicesPage, contains('initialServices: result.pendingServices'));
+    expect(servicesPage, contains('stageChangesUntilCompletion'));
   });
 
   test('selected built-ins are published to both customer experiences', () {

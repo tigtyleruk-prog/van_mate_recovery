@@ -1,4 +1,5 @@
 import '../models/van_custom_job_question.dart';
+import '../models/van_job_service.dart';
 import '../models/van_service_configuration_draft.dart';
 import 'van_business_profile_scope_storage.dart';
 import 'van_custom_job_questions_storage.dart';
@@ -100,5 +101,44 @@ class VanServiceConfigurationRepository {
       (id, _) => removedIds.contains(id) && !stillLinkedIds.contains(id),
     );
     await _questions.saveAll(mergedQuestions.values.toList());
+  }
+
+  Future<void> commitNewSession({
+    required String businessProfileId,
+    required List<VanJobService> services,
+    required Map<String, VanCustomJobQuestion> questions,
+  }) async {
+    if (services.isEmpty) return;
+    final activeBusinessId = await _businessScope.activeBusinessId();
+    if (activeBusinessId != businessProfileId) {
+      throw const VanServiceConfigurationConflict(
+        'The active business changed while these services were being configured.',
+      );
+    }
+
+    final existingServices = await _services.loadAll();
+    final existingIds = existingServices.map((service) => service.id).toSet();
+    if (services.any((service) => existingIds.contains(service.id))) {
+      throw const VanServiceConfigurationConflict(
+        'One of these services was created elsewhere. Reload before saving.',
+      );
+    }
+
+    final existingQuestions = await _questions.loadAll();
+    final mergedQuestions = <String, VanCustomJobQuestion>{
+      for (final question in existingQuestions) question.id: question,
+      ...questions,
+    };
+    await _questions.saveAll(mergedQuestions.values.toList());
+
+    final now = DateTime.now();
+    final completedServices = <VanJobService>[
+      for (final service in services)
+        service.copyWith(isDraft: false, isActive: true, updatedAt: now),
+    ];
+    await _services.saveAll(<VanJobService>[
+      ...completedServices,
+      ...existingServices,
+    ]);
   }
 }
