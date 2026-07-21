@@ -1,7 +1,5 @@
 import 'van_customer_journey.dart';
 import 'van_customer_request_flow.dart';
-import 'van_custom_job_question.dart';
-import 'van_quote_extra_defaults.dart';
 import 'van_service_template.dart';
 
 /// Stable, business-agnostic capability identifiers stored on new services.
@@ -407,109 +405,15 @@ VanResolvedServiceCapabilities resolveVanServiceCapabilities(
     VanCustomerJourneyType.booking => VanCustomerRequestType.bookingRequest,
     VanCustomerJourneyType.order => VanCustomerRequestType.orderRequest,
   };
-  final builtIns = <String>{'phone', 'email'};
-  final questions = <VanServiceTemplateQuestion>[];
-  final extras = <VanServiceTemplateExtra>[];
-  var requireAddress = false;
-
-  if (ids.contains(VanServiceCapabilityIds.photoUpload) ||
-      ids.contains(VanServiceCapabilityIds.videoUpload)) {
-    builtIns.add('photos');
-  }
-
-  if (ids.contains(VanServiceCapabilityIds.appointmentRequired) ||
-      ids.contains(VanServiceCapabilityIds.bookAppointment) ||
-      ids.contains(VanServiceCapabilityIds.preOrder)) {
-    builtIns.addAll(const <String>['preferred_date', 'preferred_time']);
-  }
-  if (ids.contains(VanServiceCapabilityIds.businessVisitsCustomer) ||
+  // Capabilities describe behaviour only. Questions, customer-detail fields,
+  // extras and availability must be explicitly declared by a future verified
+  // template or added manually by the user.
+  final requireAddress =
+      ids.contains(VanServiceCapabilityIds.businessVisitsCustomer) ||
       ids.contains(VanServiceCapabilityIds.businessCollects) ||
       ids.contains(VanServiceCapabilityIds.businessReturns) ||
       ids.contains(VanServiceCapabilityIds.localDelivery) ||
-      ids.contains(VanServiceCapabilityIds.nationwideDelivery)) {
-    builtIns.add('address');
-    requireAddress = true;
-  }
-  if (ids.contains(VanServiceCapabilityIds.businessCollects)) {
-    builtIns.add('collection_address');
-  }
-  if (ids.contains(VanServiceCapabilityIds.businessReturns)) {
-    builtIns.add('delivery_address');
-  }
-  if (ids.contains(VanServiceCapabilityIds.localDelivery)) {
-    questions.addAll(const <VanServiceTemplateQuestion>[
-      VanServiceTemplateQuestion(
-        text: 'Delivery instructions',
-        answerType: VanCustomQuestionAnswerType.longText,
-      ),
-      VanServiceTemplateQuestion(text: 'Preferred delivery date'),
-    ]);
-    extras.add(
-      const VanServiceTemplateExtra(
-        key: kVanQuoteExtraCollectionDeliveryKey,
-        label: 'Local delivery',
-        defaultPrice: 10,
-      ),
-    );
-  }
-  if (ids.contains(VanServiceCapabilityIds.nationwideDelivery)) {
-    questions.add(
-      const VanServiceTemplateQuestion(
-        text: 'Delivery instructions',
-        answerType: VanCustomQuestionAnswerType.longText,
-      ),
-    );
-    extras.add(
-      const VanServiceTemplateExtra(
-        key: 'custom_extra_nationwide_delivery',
-        label: 'Nationwide delivery',
-        defaultPrice: 8,
-      ),
-    );
-  }
-  if (ids.contains(VanServiceCapabilityIds.digitalDelivery)) {
-    builtIns.add('email');
-    questions.add(
-      const VanServiceTemplateQuestion(text: 'Preferred file format'),
-    );
-  }
-  if (ids.contains(VanServiceCapabilityIds.recurring)) {
-    questions.add(
-      const VanServiceTemplateQuestion(
-        text: 'How often do you need this service?',
-        answerType: VanCustomQuestionAnswerType.multipleChoice,
-        choiceOptions: <String>['Weekly', 'Fortnightly', 'Monthly', 'Other'],
-      ),
-    );
-  }
-  if (ids.contains(VanServiceCapabilityIds.sameDay)) {
-    extras.add(
-      const VanServiceTemplateExtra(
-        key: 'custom_extra_same_day',
-        label: 'Same-day service',
-        defaultPrice: 15,
-      ),
-    );
-  }
-  if (ids.contains(VanServiceCapabilityIds.depositRequired)) {
-    extras.add(
-      const VanServiceTemplateExtra(
-        key: 'custom_extra_deposit',
-        label: 'Deposit',
-        defaultPrice: 50,
-      ),
-    );
-  }
-  if (ids.contains(VanServiceCapabilityIds.businessVisitsCustomer) ||
-      ids.contains(VanServiceCapabilityIds.businessCollects)) {
-    extras.add(
-      const VanServiceTemplateExtra(
-        key: kVanQuoteExtraMileageKey,
-        label: 'Mileage',
-        defaultPrice: 1,
-      ),
-    );
-  }
+      ids.contains(VanServiceCapabilityIds.nationwideDelivery);
 
   final appointment = ids.contains(VanServiceCapabilityIds.appointmentRequired);
   final leadTime =
@@ -528,18 +432,6 @@ VanResolvedServiceCapabilities resolveVanServiceCapabilities(
       ids.contains(VanServiceCapabilityIds.businessReturns);
   final hasCompleteHandover = hasStartHandover && hasEndHandover;
   final orderedCapabilityIds = ids.toList(growable: false)..sort();
-  final questionsByKey = <String, VanServiceTemplateQuestion>{
-    for (final question in questions)
-      question.text
-              .trim()
-              .toLowerCase()
-              .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
-              .trim():
-          question,
-  };
-  final extrasByKey = <String, VanServiceTemplateExtra>{
-    for (final extra in extras) extra.key: extra,
-  };
   return VanResolvedServiceCapabilities(
     capabilityIds: orderedCapabilityIds,
     journeyType: journey,
@@ -560,9 +452,9 @@ VanResolvedServiceCapabilities resolveVanServiceCapabilities(
     requestPhotos:
         ids.contains(VanServiceCapabilityIds.photoUpload) ||
         ids.contains(VanServiceCapabilityIds.videoUpload),
-    builtInQuestionKeys: builtIns,
-    questions: questionsByKey.values.toList(growable: false),
-    extras: extrasByKey.values.toList(growable: false),
+    builtInQuestionKeys: const <String>{},
+    questions: const <VanServiceTemplateQuestion>[],
+    extras: const <VanServiceTemplateExtra>[],
     suggestedDurationMinutes:
         recommendedDurationMinutes ?? (appointment ? 60 : 30),
     suggestedNoticeHours: leadTime
@@ -570,9 +462,7 @@ VanResolvedServiceCapabilities resolveVanServiceCapabilities(
               ? 48
               : recommendedNoticeHours
         : recommendedNoticeHours,
-    suggestedReminderMinutes: appointment
-        ? const <int>[1440, 120]
-        : const <int>[],
+    suggestedReminderMinutes: const <int>[],
     pricingMode: pricingMode,
   );
 }

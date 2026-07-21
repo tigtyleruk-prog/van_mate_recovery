@@ -128,69 +128,24 @@ void main() {
       },
     );
 
-    test('provides service-specific starter templates', () {
-      final manAndVan = VanQuoteExtraDefaults.starterForServiceName(
+    test('service names no longer provide starter extras', () {
+      for (final name in <String>[
+        'Courier',
         'Man & Van',
-      );
-      expect(
-        manAndVan.enabledExtras.map((extra) => extra.resolvedLabel),
-        containsAll(<String>[
-          'Extra helper',
-          'Stairs / access',
-          'Mileage',
-          'Second van',
-        ]),
-      );
-      expect(
-        manAndVan.enabledExtras.map((extra) => extra.resolvedLabel),
-        isNot(contains('Waiting time')),
-      );
-
-      final gardening = VanQuoteExtraDefaults.starterForServiceName(
+        'Removals',
         'Gardening',
-      );
-      expect(
-        gardening.enabledExtras.map((extra) => extra.resolvedLabel),
-        containsAll(<String>['Green waste', 'Extra hour', 'Materials']),
-      );
-      expect(
-        gardening.enabledExtras.map((extra) => extra.key),
-        isNot(contains(kVanQuoteExtraHelperKey)),
-      );
-
-      final cleaning = VanQuoteExtraDefaults.starterForServiceName('Cleaning');
-      expect(
-        cleaning.enabledExtras.map((extra) => extra.resolvedLabel),
-        containsAll(<String>['Oven clean', 'Deep clean', 'Extra room']),
-      );
+        'Cleaning',
+      ]) {
+        expect(
+          VanQuoteExtraDefaults.starterForServiceName(name).orderedExtras,
+          isEmpty,
+        );
+      }
     });
 
-    test('template services contain only their declared extras', () {
-      final bakery = findVanServiceTemplateById('bakery')!.quoteExtraDefaults();
-      final courier = findVanServiceTemplateById(
-        'courier',
-      )!.quoteExtraDefaults();
-
-      expect(bakery.orderedExtras.map((extra) => extra.resolvedLabel), <String>[
-        'Delivery',
-        'Rush order',
-        'Gift box',
-      ]);
-      expect(
-        courier.orderedExtras.map((extra) => extra.resolvedLabel),
-        <String>[
-          'Two person lift',
-          'Waiting time',
-          'Stairs',
-          'Urgent delivery',
-          'Signature required',
-          'Evening delivery',
-        ],
-      );
-      expect(
-        bakery.orderedExtras.map((extra) => extra.key),
-        isNot(contains(kVanQuoteExtraHelperKey)),
-      );
+    test('empty template library provides no declared extras', () {
+      expect(kVanServiceTemplateCategories, isEmpty);
+      expect(findVanServiceTemplateById('courier'), isNull);
     });
 
     test('custom service starts with no extras', () {
@@ -252,29 +207,31 @@ void main() {
     });
 
     test(
-      'reset restores template extras and retains service custom extras',
+      'reset restores explicit defaults and retains service custom extras',
       () {
-        final gardening = findVanServiceTemplateById(
-          'gardening',
-        )!.quoteExtraDefaults();
-        final edited = gardening.copyWithCustomExtras(<VanQuoteExtraDefault>[
-          VanQuoteExtraDefault.custom(
-            key: 'custom_extra_soil_disposal',
-            label: 'Soil disposal',
-            defaultPrice: 20,
-          ),
-        ]);
+        final explicitDefaults = VanQuoteExtraDefaults.empty()
+            .copyWithCustomExtras(<VanQuoteExtraDefault>[
+              VanQuoteExtraDefault.custom(
+                key: 'custom_extra_materials',
+                label: 'Materials',
+                defaultPrice: 25,
+              ),
+            ]);
+        final edited = explicitDefaults
+            .copyWithCustomExtras(<VanQuoteExtraDefault>[
+              ...explicitDefaults.customExtras,
+              VanQuoteExtraDefault.custom(
+                key: 'custom_extra_soil_disposal',
+                label: 'Soil disposal',
+                defaultPrice: 20,
+              ),
+            ]);
 
-        final reset = edited.resetToStarter(gardening);
+        final reset = edited.resetToStarter(explicitDefaults);
 
         expect(
           reset.orderedExtras.map((extra) => extra.resolvedLabel),
-          <String>[
-            'Green waste removal',
-            'Extra labour',
-            'Materials',
-            'Soil disposal',
-          ],
+          <String>['Materials', 'Soil disposal'],
         );
         expect(
           reset.orderedExtras.map((extra) => extra.resolvedLabel),
@@ -283,7 +240,7 @@ void main() {
       },
     );
 
-    test('job services keep their own quote extras', () {
+    test('manually configured services keep their own quote extras', () {
       final now = DateTime(2026, 7, 10);
       final service = VanJobService(
         id: 'gardening',
@@ -294,21 +251,26 @@ void main() {
         requireAddress: true,
         requestExactPinAfterQuoteAccepted: false,
         linkedQuestionIds: const <String>[],
-        quoteExtraDefaults: VanQuoteExtraDefaults.starterForServiceName(
-          'Gardening',
-        ),
+        quoteExtraDefaults: VanQuoteExtraDefaults.empty()
+            .copyWithCustomExtras(<VanQuoteExtraDefault>[
+              VanQuoteExtraDefault.custom(
+                key: 'custom_extra_manual',
+                label: 'Manual extra',
+                defaultPrice: 18,
+              ),
+            ]),
         createdAt: now,
         updatedAt: now,
       );
 
       final restored = VanJobService.fromJson(service.toJson());
 
-      expect(restored.quoteExtraDefaults.enabledExtras, hasLength(3));
+      expect(restored.quoteExtraDefaults.enabledExtras, hasLength(1));
       expect(
         restored.quoteExtraDefaults.enabledExtras.map(
           (extra) => extra.resolvedLabel,
         ),
-        contains('Green waste'),
+        contains('Manual extra'),
       );
     });
   });

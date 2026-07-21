@@ -38,6 +38,27 @@ String _amountText(WidgetTester tester) {
   return tester.widget<TextField>(_amountField()).controller?.text ?? '';
 }
 
+VanQuoteExtraDefaults _manualCleaningExtras() {
+  return VanQuoteExtraDefaults.empty()
+      .copyWithCustomExtras(<VanQuoteExtraDefault>[
+        VanQuoteExtraDefault.custom(
+          key: 'custom_extra_oven_clean',
+          label: 'Oven clean',
+          defaultPrice: 40,
+        ),
+        VanQuoteExtraDefault.custom(
+          key: 'custom_extra_deep_clean',
+          label: 'Deep clean',
+          defaultPrice: 60,
+        ),
+        VanQuoteExtraDefault.custom(
+          key: 'custom_extra_extra_room',
+          label: 'Extra room',
+          defaultPrice: 15,
+        ),
+      ]);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -209,9 +230,7 @@ void main() {
         requireAddress: true,
         requestExactPinAfterQuoteAccepted: false,
         linkedQuestionIds: const <String>[],
-        quoteExtraDefaults: VanQuoteExtraDefaults.starterForServiceName(
-          'Cleaning',
-        ),
+        quoteExtraDefaults: _manualCleaningExtras(),
         createdAt: now,
         updatedAt: now,
       ),
@@ -279,14 +298,13 @@ void main() {
     await VanQuoteExtraDefaultsStorage.instance.saveForService(
       serviceKey: 'cleaning-request-service',
       serviceName: 'Cleaning',
-      defaults: VanQuoteExtraDefaults.starterForServiceName('Cleaning')
-          .copyWithCustomExtras([
-            VanQuoteExtraDefault.custom(
-              key: 'custom_extra_name_scoped_only',
-              label: 'Name scoped only',
-              defaultPrice: 22,
-            ),
-          ]),
+      defaults: VanQuoteExtraDefaults.empty().copyWithCustomExtras([
+        VanQuoteExtraDefault.custom(
+          key: 'custom_extra_name_scoped_only',
+          label: 'Name scoped only',
+          defaultPrice: 22,
+        ),
+      ]),
     );
 
     await tester.pumpWidget(MaterialApp(home: CreateQuotePage(reply: reply)));
@@ -340,7 +358,7 @@ void main() {
     await VanQuoteExtraDefaultsStorage.instance.saveForService(
       serviceKey: 'cleaning-request-service',
       serviceName: 'Cleaning',
-      defaults: VanQuoteExtraDefaults.starterForServiceName('Cleaning'),
+      defaults: _manualCleaningExtras(),
     );
 
     await tester.pumpWidget(MaterialApp(home: CreateQuotePage(reply: reply)));
@@ -354,6 +372,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add custom extra'));
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 1200));
 
     const labelKey = ValueKey('quote-extra-label-custom_extra_item_4');
     const priceKey = ValueKey('quote-extra-price-custom_extra_item_4');

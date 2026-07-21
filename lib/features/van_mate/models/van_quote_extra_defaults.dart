@@ -145,69 +145,8 @@ class VanQuoteExtraDefaults {
   }
 
   factory VanQuoteExtraDefaults.starterForServiceName(String serviceName) {
-    final normalized = serviceName.trim().toLowerCase();
-    if (normalized.contains('garden')) {
-      return _serviceStarterDefaults(
-        enabledBuiltInKeys: const <String>{},
-        customExtras: <VanQuoteExtraDefault>[
-          VanQuoteExtraDefault.custom(
-            key: 'custom_extra_green_waste',
-            label: 'Green waste',
-            defaultPrice: 20,
-          ),
-          VanQuoteExtraDefault.custom(
-            key: 'custom_extra_extra_hour',
-            label: 'Extra hour',
-            defaultPrice: 30,
-          ),
-          VanQuoteExtraDefault.custom(
-            key: 'custom_extra_materials',
-            label: 'Materials',
-            defaultPrice: 25,
-          ),
-        ],
-      );
-    }
-    if (normalized.contains('clean')) {
-      return _serviceStarterDefaults(
-        enabledBuiltInKeys: const <String>{},
-        customExtras: <VanQuoteExtraDefault>[
-          VanQuoteExtraDefault.custom(
-            key: 'custom_extra_oven_clean',
-            label: 'Oven clean',
-            defaultPrice: 40,
-          ),
-          VanQuoteExtraDefault.custom(
-            key: 'custom_extra_deep_clean',
-            label: 'Deep clean',
-            defaultPrice: 50,
-          ),
-          VanQuoteExtraDefault.custom(
-            key: 'custom_extra_extra_room',
-            label: 'Extra room',
-            defaultPrice: 15,
-          ),
-        ],
-      );
-    }
-    if (normalized.contains('man') && normalized.contains('van') ||
-        normalized.contains('removal') ||
-        normalized.contains('move')) {
-      return _serviceStarterDefaults(
-        enabledBuiltInKeys: const <String>{
-          kVanQuoteExtraHelperKey,
-          kVanQuoteExtraStairsKey,
-          kVanQuoteExtraMileageKey,
-        },
-        customExtras: <VanQuoteExtraDefault>[
-          VanQuoteExtraDefault.custom(
-            key: 'custom_extra_second_van',
-            label: 'Second van',
-            defaultPrice: 50,
-          ),
-        ],
-      );
-    }
+    // Retained as a compatibility API for old callers. Service names no
+    // longer generate seeded extras.
     return VanQuoteExtraDefaults.empty();
   }
 
@@ -462,17 +401,6 @@ class VanQuoteExtraDefaults {
       ],
     };
   }
-}
-
-VanQuoteExtraDefaults _serviceStarterDefaults({
-  required Set<String> enabledBuiltInKeys,
-  required List<VanQuoteExtraDefault> customExtras,
-}) {
-  var defaults = VanQuoteExtraDefaults.empty();
-  for (final key in enabledBuiltInKeys) {
-    defaults = defaults.copyWithExtra(VanQuoteExtraDefault.fallback(key));
-  }
-  return defaults.copyWithCustomExtras(customExtras);
 }
 
 List<VanQuoteExtraDefault> _customExtrasFromJson(

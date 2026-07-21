@@ -819,21 +819,6 @@
         }
         return "quoteRequest";
       }
-      const value = `${readText(service && service.id)} ${readText(service && service.name)}`
-        .toLowerCase()
-        .replace(/[_-]+/g, " ");
-      if (/(cake|cupcake|bakery|meal prep|farm shop|catering|balloon|florist|gift)/.test(value)) {
-        return "quoteRequest";
-      }
-      if (/(pet sitting|dog sitting|childmind|ironing|alteration)/.test(value)) {
-        return "dropOffPickupRequest";
-      }
-      if (/(courier|delivery|man van|man & van|removal|transport|store collection)/.test(value)) {
-        return "pickupDeliveryRequest";
-      }
-      if (/(cleaning|dog walking|hairdresser|beautician|groom|appointment)/.test(value)) {
-        return "quoteRequest";
-      }
       return "quoteRequest";
     }
 
@@ -843,9 +828,6 @@
       const legacy = readText(service && service.requestType);
       if (legacy === "bookingRequest") return "booking";
       if (legacy === "orderRequest") return "order";
-      const value = `${readText(service && service.id)} ${readText(service && service.name)}`.toLowerCase();
-      if (/(cake|cupcake|bakery|meal prep|farm shop|catering|balloon|florist|gift)/.test(value)) return "order";
-      if (/(cleaning|dog walking|hairdresser|beautician|groom|appointment)/.test(value)) return "booking";
       return "quote";
     }
 
@@ -1132,54 +1114,6 @@
       return Math.max(1, Math.min(5, Math.round(value)));
     }
 
-    function isSeededQuestionCoveredByFlow(service, question) {
-      const id = readText(question && question.id);
-      if (!id.startsWith("service_template_")) {
-        return false;
-      }
-      const requestType = inferredRequestType(service);
-      const options = flowOptionsForService(service, requestType);
-      const text = readText(question && question.questionText)
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (options.askPreferredDate && text === "preferred date") {
-        return true;
-      }
-      if (options.askPreferredTime && text === "preferred time") {
-        return true;
-      }
-      if (
-        requestType === "orderRequest" &&
-        options.showFulfilmentChoice &&
-        (text === "collection or delivery" || text === "delivery address")
-      ) {
-        return true;
-      }
-      if (requestType === "pickupDeliveryRequest") {
-        if (
-          options.showPickupAddress &&
-          (text === "pickup address" || text === "collection address")
-        ) {
-          return true;
-        }
-        if (options.showDeliveryAddress && text === "delivery address") {
-          return true;
-        }
-      }
-      if (requestType === "dropOffPickupRequest") {
-        return (
-          (options.showDropOffDate && (text === "drop off date" || text === "event date")) ||
-          (options.showDropOffTime && (text === "drop off time" || text === "event time")) ||
-          (options.showPickUpDate && text === "pick up date") ||
-          (options.showPickUpTime && text === "pick up time") ||
-          text === "location"
-        );
-      }
-      return false;
-    }
-
     function linkedQuestionsForService(service) {
       if (!service || !Array.isArray(service.linkedQuestions)) {
         return [];
@@ -1187,9 +1121,6 @@
       return service.linkedQuestions.filter((question) => {
         const id = readText(question && question.id);
         if (!id || DEPRECATED_DUPLICATE_PRESET_IDS.has(id)) {
-          return false;
-        }
-        if (isSeededQuestionCoveredByFlow(service, question)) {
           return false;
         }
         return true;

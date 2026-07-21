@@ -4,7 +4,6 @@ import 'package:van_mate_app/features/van_mate/models/van_business_profile.dart'
 import 'package:van_mate_app/features/van_mate/models/van_custom_job_question.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.dart';
-import 'package:van_mate_app/features/van_mate/models/van_service_template.dart';
 import 'package:van_mate_app/features/van_mate/services/van_business_profile_scope_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_business_profile_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_custom_job_questions_storage.dart';
@@ -46,45 +45,23 @@ void main() {
         syncCloud: false,
       );
 
-      final gardeningTemplate = findVanServiceTemplateById('gardening')!;
-      expect(
-        gardeningTemplate.questions.map((question) => question.text),
-        containsAll(<String>[
-          'What gardening work do you need?',
-          'Green waste removal needed?',
-          'Is there side access?',
-        ]),
-      );
-      expect(
-        gardeningTemplate.extras.map((extra) => extra.label),
-        containsAll(<String>[
-          'Green waste removal',
-          'Extra labour',
-          'Materials',
-        ]),
-      );
-
       final now = DateTime(2026, 7, 10);
       final gardeningQuestions = <VanCustomJobQuestion>[
-        for (var i = 0; i < gardeningTemplate.questions.length; i++)
-          VanCustomJobQuestion(
-            id: 'gardening_question_$i',
-            questionText: gardeningTemplate.questions[i].text,
-            helperText: '',
-            answerType: gardeningTemplate.questions[i].answerType,
-            category: gardeningTemplate.questions[i].category,
-            isActive: true,
-            isArchived: false,
-            createdAt: now,
-            updatedAt: now,
-          ),
+        VanCustomJobQuestion(
+          id: 'manual_question',
+          questionText: 'What should we know?',
+          helperText: 'Add any useful details.',
+          answerType: VanCustomQuestionAnswerType.longText,
+          isActive: true,
+          isArchived: false,
+          createdAt: now,
+          updatedAt: now,
+        ),
       ];
       await questionsStorage.saveAll(gardeningQuestions, syncCloud: false);
 
-      final gardeningExtras = gardeningTemplate
-          .quoteExtraDefaults()
+      final gardeningExtras = VanQuoteExtraDefaults.empty()
           .copyWithCustomExtras(<VanQuoteExtraDefault>[
-            ...gardeningTemplate.quoteExtraDefaults().customExtras,
             VanQuoteExtraDefault.custom(
               key: 'custom_extra_soil_disposal',
               label: 'Soil disposal',
@@ -92,15 +69,15 @@ void main() {
             ),
           ]);
       await extrasStorage.saveForService(
-        serviceKey: 'gardening',
-        serviceName: 'Gardening',
+        serviceKey: 'manual-service',
+        serviceName: 'Manual service',
         defaults: gardeningExtras,
       );
       await servicesStorage.saveAll(<VanJobService>[
         VanJobService(
-          id: 'gardening',
-          name: 'Gardening',
-          description: gardeningTemplate.description,
+          id: 'manual-service',
+          name: 'Manual service',
+          description: 'Configured without a seeded template.',
           isActive: true,
           requestPhotos: true,
           requireAddress: true,
@@ -122,8 +99,8 @@ void main() {
         "Dave's Delivery Services",
       );
       final defaultExtras = await extrasStorage.loadForService(
-        serviceKey: 'gardening',
-        serviceName: 'Gardening',
+        serviceKey: 'manual-service',
+        serviceName: 'Manual service',
         preferLocal: true,
       );
       expect(
@@ -135,15 +112,15 @@ void main() {
       final restoredServices = await servicesStorage.loadAll();
       final restoredQuestions = await questionsStorage.loadAll();
       final restoredExtras = await extrasStorage.loadForService(
-        serviceKey: 'gardening',
-        serviceName: 'Gardening',
+        serviceKey: 'manual-service',
+        serviceName: 'Manual service',
         preferLocal: true,
       );
 
-      expect(restoredServices.single.name, 'Gardening');
+      expect(restoredServices.single.name, 'Manual service');
       expect(
         restoredQuestions.map((question) => question.questionText),
-        contains('Green waste removal needed?'),
+        contains('What should we know?'),
       );
       expect(
         restoredExtras.enabledExtras.map((extra) => extra.resolvedLabel),

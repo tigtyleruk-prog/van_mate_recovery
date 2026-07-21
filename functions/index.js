@@ -1337,51 +1337,6 @@ function normalizeRequestFlowOptions(value, requestType) {
   );
 }
 
-function isSeededQuestionCoveredByRequestFlow(
-  question,
-  requestType,
-  options,
-) {
-  const id = readString(question && question.id);
-  if (!id.startsWith('service_template_')) {
-    return false;
-  }
-  const text = readString(question && question.questionText)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (options.askPreferredDate && text === 'preferred date') {
-    return true;
-  }
-  if (options.askPreferredTime && text === 'preferred time') {
-    return true;
-  }
-  if (requestType === 'pickupDeliveryRequest') {
-    if (
-      options.showPickupAddress &&
-      (text === 'pickup address' || text === 'collection address')
-    ) {
-      return true;
-    }
-    if (options.showDeliveryAddress && text === 'delivery address') {
-      return true;
-    }
-  }
-  if (requestType === 'dropOffPickupRequest') {
-    return (
-      (options.showDropOffDate &&
-        (text === 'drop off date' || text === 'event date')) ||
-      (options.showDropOffTime &&
-        (text === 'drop off time' || text === 'event time')) ||
-      (options.showPickUpDate && text === 'pick up date') ||
-      (options.showPickUpTime && text === 'pick up time') ||
-      text === 'location'
-    );
-  }
-  return false;
-}
-
 function bookingPastDateMessage() {
   return "You can't book a job in the past. Please choose today or a future date.";
 }
@@ -3236,14 +3191,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const rawLinkedQuestions = Array.isArray(selectedService.linkedQuestions)
     ? selectedService.linkedQuestions
     : [];
-  const linkedQuestions = rawLinkedQuestions.filter(
-    (question) =>
-      !isSeededQuestionCoveredByRequestFlow(
-        question,
-        requestType,
-        requestFlowOptions,
-      ),
-  );
+  const linkedQuestions = rawLinkedQuestions;
   const linkedQuestionIndex = new Map(
     linkedQuestions
       .map((item, index) => [readString(item && item.id), index])

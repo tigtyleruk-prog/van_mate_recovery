@@ -446,8 +446,12 @@ class VanJobService {
       'isDraft': isDraft,
       'optionalQuestionIds': optionalQuestionIds,
       'workingDays': workingDays,
-      'businessStartMinutes': businessStartMinutes,
-      'businessEndMinutes': businessEndMinutes,
+      'businessStartMinutes': availabilityByDay?.isNotEmpty == true
+          ? availabilityByDay!.values.first.startMinutes
+          : businessStartMinutes,
+      'businessEndMinutes': availabilityByDay?.isNotEmpty == true
+          ? availabilityByDay!.values.first.endMinutes
+          : businessEndMinutes,
       if (availabilityByDay != null)
         'availabilityByDay': <String, dynamic>{
           for (final entry in availabilityByDay!.entries)
@@ -711,12 +715,12 @@ class VanJobService {
       isDraft: json['isDraft'] == true,
       optionalQuestionIds: readStringList('optionalQuestionIds'),
       workingDays: effectiveWorkingDays,
-      businessStartMinutes: json.containsKey('businessStartMinutes')
-          ? readInt('businessStartMinutes', 9 * 60)
-          : firstStoredSchedule?.startMinutes ?? 9 * 60,
-      businessEndMinutes: json.containsKey('businessEndMinutes')
-          ? readInt('businessEndMinutes', 17 * 60)
-          : firstStoredSchedule?.endMinutes ?? 17 * 60,
+      businessStartMinutes:
+          firstStoredSchedule?.startMinutes ??
+          readInt('businessStartMinutes', 9 * 60),
+      businessEndMinutes:
+          firstStoredSchedule?.endMinutes ??
+          readInt('businessEndMinutes', 17 * 60),
       availabilityByDay: storedAvailabilityByDay,
       noticeHours: readInt('noticeHours', 24),
       maxBookingsPerDay: readInt('maxBookingsPerDay', 8),

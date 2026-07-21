@@ -221,53 +221,7 @@ VanCustomerRequestType defaultVanCustomerRequestTypeForService({
   required String serviceId,
   required String serviceName,
 }) {
-  final value = '${serviceId.trim()} ${serviceName.trim()}'
-      .toLowerCase()
-      .replaceAll(RegExp(r'[_-]+'), ' ');
-
-  if (_containsAny(value, const <String>[
-    'cake',
-    'cupcake',
-    'bakery',
-    'meal prep',
-    'farm shop',
-    'catering',
-    'balloon',
-    'florist',
-    'gift',
-  ])) {
-    return VanCustomerRequestType.orderRequest;
-  }
-  if (_containsAny(value, const <String>[
-    'pet sitting',
-    'dog sitting',
-    'childmind',
-    'ironing',
-    'alteration',
-  ])) {
-    return VanCustomerRequestType.dropOffPickupRequest;
-  }
-  if (_containsAny(value, const <String>[
-    'courier',
-    'delivery',
-    'man van',
-    'man & van',
-    'removal',
-    'transport',
-    'store collection',
-  ])) {
-    return VanCustomerRequestType.pickupDeliveryRequest;
-  }
-  if (_containsAny(value, const <String>[
-    'cleaning',
-    'dog walking',
-    'hairdresser',
-    'beautician',
-    'groom',
-    'appointment',
-  ])) {
-    return VanCustomerRequestType.bookingRequest;
-  }
+  // Names and legacy IDs no longer recreate seeded journey behaviour.
   return VanCustomerRequestType.quoteRequest;
 }
 
@@ -304,8 +258,4 @@ bool isVanCustomerRequestBuiltInQuestion(
           text == 'location',
     VanServiceFlow.standard => false,
   };
-}
-
-bool _containsAny(String value, List<String> terms) {
-  return terms.any(value.contains);
 }

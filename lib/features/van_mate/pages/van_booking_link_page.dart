@@ -845,13 +845,7 @@ class _VanBookingLinkCustomerFormPageState
     final questions = <VanCustomJobQuestion>[];
     for (final id in service.linkedQuestionIds) {
       final question = widget.questionLookup[id];
-      if (question != null &&
-          question.isActive &&
-          !question.isArchived &&
-          !isVanSeededQuestionCoveredByBuiltInFlow(
-            service: service,
-            question: question,
-          )) {
+      if (question != null && question.isActive && !question.isArchived) {
         questions.add(question);
       }
     }
@@ -2526,6 +2520,7 @@ class _VanBookingLinkCustomerFormPageState
                                 const SizedBox(height: 10),
                                 DropdownButtonFormField<String>(
                                   initialValue: _preferredTimeWindow,
+                                  isExpanded: true,
                                   decoration: vanMateFieldDecoration(
                                     label: 'Preferred time window',
                                     hintText: 'Choose a preferred time',
