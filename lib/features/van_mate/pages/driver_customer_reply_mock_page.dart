@@ -7244,6 +7244,9 @@ class DriverReplyMockState extends ChangeNotifier {
     final existingJob = resolvedJobId == null ? null : _jobsById[resolvedJobId];
     final shouldCreateFreshQuote =
         value && existingJob != null && existingJob.isQuoteDeclined;
+    final supersedesQuoteId = shouldCreateFreshQuote
+        ? existingJob.quoteResponseId.trim()
+        : '';
     final normalizedQuoteResponseId = existingJob == null
         ? ((jobId?.trim().isNotEmpty ?? false) ? jobId!.trim() : '')
         : resolveQuoteResponseIdForJob(
@@ -7404,6 +7407,7 @@ class DriverReplyMockState extends ChangeNotifier {
           'status': 'quote_sent',
           'requestStatus': 'quote_sent',
           'quoteStatus': 'sent',
+          'supersedesQuoteId': supersedesQuoteId,
         },
       );
     }
@@ -12252,10 +12256,16 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       _showSnack(amountError);
       return;
     }
+    setState(() {
+      _openingSendChannel = true;
+    });
     final amount = _currentQuoteAmount();
     if (amount >= kVanMateHighQuoteAmountWarningThreshold) {
       final confirmed = await _confirmHighQuoteAmount(amount);
       if (!confirmed) {
+        if (mounted) {
+          setState(() => _openingSendChannel = false);
+        }
         return;
       }
     }
@@ -12263,17 +12273,17 @@ class _CreateQuotePageState extends State<CreateQuotePage>
         (_proposedAppointmentDate == null ||
             _proposedAppointmentTime == null)) {
       _showSnack('Choose an exact proposed appointment before sending.');
+      setState(() => _openingSendChannel = false);
       return;
     }
     if (_blockIfProposedAppointmentIsInPast()) {
+      setState(() => _openingSendChannel = false);
       return;
     }
     if (_blockIfProposedAppointmentOverlaps()) {
+      setState(() => _openingSendChannel = false);
       return;
     }
-    setState(() {
-      _openingSendChannel = true;
-    });
 
     final message = _quotePreviewText();
     final notes = _quoteNotesController.text.trim();
@@ -12290,6 +12300,8 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     final durationMinutes = _estimatedDurationSelection;
     final proposedAppointmentNote = _proposedAppointmentNoteController.text
         .trim();
+    final quotePublishKey =
+        '${_jobId.trim()}:${DateTime.now().microsecondsSinceEpoch}';
     final publicQuoteData = <String, dynamic>{
       'jobDescription': _descriptionController.text.trim(),
       'quoteMessage': message,
@@ -12302,6 +12314,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       'proposedStartTime': proposedStartTime,
       'estimatedDurationMinutes': durationMinutes,
       'proposedAppointmentNote': proposedAppointmentNote,
+      'quotePublishKey': quotePublishKey,
       'schedulingStatus':
           proposedDate.isNotEmpty && proposedStartTime.isNotEmpty
           ? 'proposed_time'
@@ -13895,7 +13908,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                     : _sendQuote,
                                 icon: Icons.send,
                                 label: _openingSendChannel
-                                    ? 'Opening...'
+                                    ? 'Sending quote...'
                                     : journeyCopy.businessAction,
                               ),
                             if (quoteDeclined)
@@ -13906,7 +13919,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                     : _sendQuote,
                                 icon: Icons.refresh_rounded,
                                 label: _openingSendChannel
-                                    ? 'Opening...'
+                                    ? 'Sending quote...'
                                     : 'Revise / resend quote',
                               ),
                             if (actionState.canViewQuote)
@@ -14410,6 +14423,7 @@ class _DriverQuoteMockPageState extends State<DriverQuoteMockPage> {
   String _businessName = '';
   final bool _saved = DriverReplyMockState.instance.quoteSaved;
   bool _sent = false;
+  bool _sendingQuote = false;
 
   DriverCustomerReplyMockData get reply => widget.reply;
   String get _jobId => reply.jobId;
@@ -14489,25 +14503,39 @@ class _DriverQuoteMockPageState extends State<DriverQuoteMockPage> {
   }
 
   Future<void> _sendQuote() async {
+    if (_sendingQuote) {
+      return;
+    }
     final amount = parseCurrencyValue(_priceController.text);
     if (amount <= 0) {
       _showSnack('Please enter a quote amount before sending.');
       return;
     }
-    setState(() {
-      _sent = true;
-    });
+    setState(() => _sendingQuote = true);
     final publicQuoteData = <String, dynamic>{
       'quoteMessage': _quoteText(),
       'quoteAmountText': formatCurrency(amount),
+      'quotePublishKey':
+          '${_jobId.trim()}:${DateTime.now().microsecondsSinceEpoch}',
     };
-    await DriverReplyMockState.instance.setQuoteSent(
-      true,
-      jobId: _jobId,
-      amount: amount,
-      publicQuoteData: publicQuoteData,
-    );
-    _showSnack('Quote sent');
+    try {
+      await DriverReplyMockState.instance.setQuoteSent(
+        true,
+        jobId: _jobId,
+        amount: amount,
+        publicQuoteData: publicQuoteData,
+      );
+      if (!mounted) return;
+      setState(() => _sent = true);
+      _showSnack('Quote sent');
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('Could not send the quote. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _sendingQuote = false);
+      }
+    }
   }
 
   void _copyMessage() {
@@ -14858,10 +14886,12 @@ class _DriverQuoteMockPageState extends State<DriverQuoteMockPage> {
                           return SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: _sendQuote,
+                              onPressed: _sendingQuote ? null : _sendQuote,
                               icon: const Icon(Icons.send),
                               label: Text(
-                                _sent
+                                _sendingQuote
+                                    ? 'Sending quote...'
+                                    : _sent
                                     ? 'Resend ${journeyCopy.requestNoun.toLowerCase()}'
                                     : journeyCopy.businessAction,
                               ),

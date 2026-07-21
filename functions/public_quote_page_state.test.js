@@ -49,6 +49,7 @@ const helperNames = [
   'handoverForQuote',
   'customerHandoverSummary',
   'customerHandoverView',
+  'quoteDisplayFingerprint',
   'customerJourneyType',
   'quoteResponseCopy',
   'quoteNeedsCustomerLocation',
@@ -251,6 +252,62 @@ test('quote page is versioned and served with no-store cache headers', () => {
       header.key === 'Cache-Control' && header.value.includes('no-store')
     ));
   }
+});
+
+test('hosted quote page listens to exactly one current quote without reloading', () => {
+  const loadSource = readFunction('loadQuote');
+  const subscribeSource = readFunction('subscribeToCurrentQuote');
+  const resolveSource = readFunction('resolveQuoteReference');
+
+  assert.match(loadSource, /subscribeToCurrentQuote\(resolvedQuoteRef\)/);
+  assert.match(subscribeSource, /resolvedQuoteRef\.onSnapshot/);
+  assert.match(subscribeSource, /nextCurrentQuoteId !== snapshot\.id/);
+  assert.match(resolveSource, /tokenData\.currentQuoteId/);
+  assert.doesNotMatch(subscribeSource, /location\.reload|window\.location\s*=/);
+  assert.doesNotMatch(pageSource, /location\.reload\(/);
+});
+
+test('unrelated snapshot writes do not rerender displayed quote content', () => {
+  const baseQuote = {
+    quoteResponseId: 'quote-2',
+    currentQuoteId: 'quote-2',
+    quoteVersion: 2,
+    isCurrent: true,
+    quoteAmount: 175,
+    proposedDate: '2026-07-27',
+    proposedStartTime: '10:00',
+    quoteExtras: ['Stairs'],
+    quoteStatus: 'sent',
+  };
+  const first = context.quoteDisplayFingerprint(baseQuote);
+  const unrelatedFunctionWrite = context.quoteDisplayFingerprint({
+    ...baseQuote,
+    updatedAt: '2026-07-21T12:00:00.000Z',
+    quoteNotificationSentAt: '2026-07-21T12:00:00.000Z',
+  });
+  const revisedAmount = context.quoteDisplayFingerprint({
+    ...baseQuote,
+    quoteAmount: 200,
+  });
+  const revisedAppointment = context.quoteDisplayFingerprint({
+    ...baseQuote,
+    proposedStartTime: '11:30',
+  });
+
+  assert.equal(unrelatedFunctionWrite, first);
+  assert.notEqual(revisedAmount, first);
+  assert.notEqual(revisedAppointment, first);
+});
+
+test('meaningful quote updates preserve scroll position and render in place', () => {
+  const subscribeSource = readFunction('subscribeToCurrentQuote');
+  const preservingRenderSource = readFunction('renderQuotePreservingScroll');
+
+  assert.match(subscribeSource, /nextFingerprint === lastDisplayedQuoteFingerprint/);
+  assert.match(subscribeSource, /renderQuotePreservingScroll\(\)/);
+  assert.match(preservingRenderSource, /window\.scrollX/);
+  assert.match(preservingRenderSource, /window\.scrollY/);
+  assert.match(preservingRenderSource, /window\.scrollTo/);
 });
 
 test('legacy booking journeys keep booking decline wording', () => {

@@ -816,6 +816,8 @@
     let quoteId = (params.get("id") || "").trim();
     let quoteToken = (params.get("token") || "").trim();
     let quoteRef = quoteId ? db.collection(quoteCollectionName).doc(quoteId) : null;
+    let quoteUnsubscribe = null;
+    let lastDisplayedQuoteFingerprint = "";
     const debugMode =
       window.location.hostname.includes("localhost") ||
       window.location.hostname.includes("web.app") ||
@@ -1551,6 +1553,10 @@
 
       return {
         quoteResponseId: text(data.quoteResponseId || quoteId, quoteId),
+        currentQuoteId: text(data.currentQuoteId || data.quoteResponseId || quoteId, quoteId),
+        quoteVersion: Number(data.quoteVersion) || 1,
+        isCurrent: data.isCurrent !== false,
+        lifecycleStatus: String(data.lifecycleStatus || "").trim().toLowerCase(),
         quoteResponseToken: text(data.quoteResponseToken || quoteToken),
         quoteResponseLink: text(data.quoteResponseLink),
         quoteResponseStatus: String(data.quoteResponseStatus || "").trim().toLowerCase(),
@@ -1693,6 +1699,44 @@
           ""
         ).trim(),
       };
+    }
+
+    function quoteDisplayFingerprint(quote) {
+      if (!quote) return "";
+      return JSON.stringify({
+        quoteResponseId: quote.quoteResponseId,
+        currentQuoteId: quote.currentQuoteId,
+        quoteVersion: quote.quoteVersion,
+        isCurrent: quote.isCurrent,
+        lifecycleStatus: quote.lifecycleStatus,
+        customerName: quote.customerName,
+        businessName: quote.businessName,
+        jobTitle: quote.jobTitle,
+        startHandover: quote.startHandover,
+        endHandover: quote.endHandover,
+        collectionAddress: quote.collectionAddress,
+        deliveryAddress: quote.deliveryAddress,
+        returnAddress: quote.returnAddress,
+        proposedDate: quote.proposedDate,
+        proposedStartTime: quote.proposedStartTime,
+        proposedAppointmentNote: quote.proposedAppointmentNote,
+        collectionDate: quote.collectionDate,
+        collectionTime: quote.collectionTime,
+        deliveryDate: quote.deliveryDate,
+        deliveryTime: quote.deliveryTime,
+        quoteAmount: quote.quoteAmount,
+        quoteExtras: quote.quoteExtras,
+        quoteNotes: quote.quoteNotes,
+        quoteStatus: quote.quoteStatus,
+        quoteResponse: quote.quoteResponse,
+        quoteResponseStatus: quote.quoteResponseStatus,
+        quoteTimingChoice: quote.quoteTimingChoice,
+        quoteAccepted: quote.quoteAccepted,
+        quoteDeclined: quote.quoteDeclined,
+        schedulingStatus: quote.schedulingStatus,
+        exactPinShared: quote.exactPinShared,
+        exactPinNote: quote.exactPinNote,
+      });
     }
 
     function stripUndefined(payload) {
@@ -1998,7 +2042,7 @@
 
       const tokenData = tokenSnapshot.data() || {};
       const resolvedQuoteId = text(
-        tokenData.quoteResponseId || tokenData.quoteId || "",
+        tokenData.currentQuoteId || tokenData.quoteResponseId || tokenData.quoteId || "",
         "",
       );
       if (!resolvedQuoteId) {
@@ -2008,6 +2052,89 @@
       quoteId = resolvedQuoteId;
       quoteRef = db.collection(quoteCollectionName).doc(quoteId);
       return quoteRef;
+    }
+
+    function renderQuotePreservingScroll() {
+      const scrollLeft = window.scrollX;
+      const scrollTop = window.scrollY;
+      renderQuote();
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ left: scrollLeft, top: scrollTop, behavior: "auto" });
+      });
+    }
+
+    function showQuoteLoadError(error) {
+      console.error("Could not load quote", error);
+      state.loading = false;
+      statusPill.className = "status-pill warning";
+      statusPill.textContent = "Quote unavailable";
+      title.textContent = "Quote unavailable";
+      description.textContent = "We could not load this quote just now.";
+      setBanner("We could not load this quote just now.", "error");
+      acceptButton.disabled = true;
+      arrangeTimeButton.disabled = true;
+      declineButton.disabled = true;
+    }
+
+    function subscribeToCurrentQuote(resolvedQuoteRef) {
+      if (quoteUnsubscribe) {
+        quoteUnsubscribe();
+        quoteUnsubscribe = null;
+      }
+      quoteUnsubscribe = resolvedQuoteRef.onSnapshot((snapshot) => {
+        if (!snapshot.exists) {
+          showQuoteLoadError(new Error("Quote not found."));
+          return;
+        }
+        const rawQuote = snapshot.data() || {};
+        const nextCurrentQuoteId = text(rawQuote.currentQuoteId, "");
+        const superseded =
+          rawQuote.isCurrent === false ||
+          String(rawQuote.lifecycleStatus || "").trim().toLowerCase() === "superseded";
+        if (nextCurrentQuoteId && nextCurrentQuoteId !== snapshot.id) {
+          quoteId = nextCurrentQuoteId;
+          quoteRef = db.collection(quoteCollectionName).doc(quoteId);
+          lastDisplayedQuoteFingerprint = "";
+          subscribeToCurrentQuote(quoteRef);
+          return;
+        }
+        if (superseded) {
+          state.loading = false;
+          state.quote = null;
+          statusPill.className = "status-pill warning";
+          statusPill.textContent = "Quote updated";
+          title.textContent = "This quote has been updated";
+          description.textContent = "Please open the latest quote link from the business.";
+          setBanner("This quote has been updated. Please review the latest version.", "error");
+          acceptButton.disabled = true;
+          arrangeTimeButton.disabled = true;
+          declineButton.disabled = true;
+          return;
+        }
+
+        const nextQuote = normaliseQuote(rawQuote);
+        const nextFingerprint = quoteDisplayFingerprint(nextQuote);
+        if (nextFingerprint === lastDisplayedQuoteFingerprint) {
+          return;
+        }
+        const wasLoading = state.loading;
+        state.loading = false;
+        state.quote = nextQuote;
+        lastDisplayedQuoteFingerprint = nextFingerprint;
+        console.info("[QuoteResponseLoad]", {
+          quoteId,
+          quoteVersion: state.quote.quoteVersion,
+          requestId: state.quote.requestId || "",
+          quoteAccepted: state.quote.quoteAccepted,
+          schedulingStatus: state.quote.schedulingStatus || "",
+        });
+        clearBanner();
+        if (wasLoading) {
+          renderQuote();
+        } else {
+          renderQuotePreservingScroll();
+        }
+      }, showQuoteLoadError);
     }
 
     function setBusy(isBusy) {
@@ -2040,45 +2167,9 @@
           return;
         }
 
-        const snapshot = await resolvedQuoteRef.get();
-        if (!snapshot.exists) {
-          state.quote = null;
-          state.loading = false;
-          statusPill.className = "status-pill warning";
-          statusPill.textContent = "Quote not found";
-          title.textContent = "Quote not found";
-          description.textContent = "This quote link does not point to an active quote.";
-          setBanner("We could not find this quote.", "error");
-          acceptButton.disabled = true;
-          arrangeTimeButton.disabled = true;
-          declineButton.disabled = true;
-          return;
-        }
-
-        state.loading = false;
-        state.quote = normaliseQuote(snapshot.data() || {});
-        console.info("[QuoteResponseLoad]", {
-          quoteId,
-          requestId: state.quote.requestId || "",
-          requiresExactPinAfterQuoteAccepted: state.quote.requiresExactPinAfterQuoteAccepted,
-          requestExactPin: state.quote.requestExactPin,
-          exactPinAlreadyExists: quoteHasExactPin(state.quote),
-          quoteAccepted: state.quote.quoteAccepted,
-          schedulingStatus: state.quote.schedulingStatus || "",
-        });
-        clearBanner();
-        renderQuote();
+        subscribeToCurrentQuote(resolvedQuoteRef);
       } catch (error) {
-        console.error("Could not load quote", error);
-        state.loading = false;
-        statusPill.className = "status-pill warning";
-        statusPill.textContent = "Quote unavailable";
-        title.textContent = "Quote unavailable";
-        description.textContent = "We could not load this quote just now.";
-        setBanner("We could not load this quote just now.", "error");
-        acceptButton.disabled = true;
-        arrangeTimeButton.disabled = true;
-        declineButton.disabled = true;
+        showQuoteLoadError(error);
       }
     }
 
@@ -2241,10 +2332,21 @@
           decision,
           error,
         });
-        state.saveError = error && error.message
+        const responseErrorMessage = error && error.message
           ? error.message
           : "Could not update the quote. Please try again.";
-        setBanner("Sorry, we couldn’t save your response. Please try again or contact the business.", "error");
+        state.saveError = responseErrorMessage;
+        if (responseErrorMessage.includes("This quote has been updated")) {
+          setBanner("This quote has been updated. Please review the latest version.", "error");
+          if (quoteToken) {
+            quoteRef = null;
+            quoteId = "";
+            lastDisplayedQuoteFingerprint = "";
+            loadQuote();
+          }
+        } else {
+          setBanner("Sorry, we couldn’t save your response. Please try again or contact the business.", "error");
+        }
         state.declineSubmitting = false;
         setBusy(false);
       }

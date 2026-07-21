@@ -1,7 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { __test__ } = require('./index.js');
+const functionsSource = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
 
 test('collection Order Requests suppress exact pin after quote acceptance', () => {
   assert.equal(
@@ -243,6 +246,115 @@ test('Function quote mirroring preserves explicit Courier delivery semantics', (
   assert.equal(payload.returnAddressSameAsCollection, false);
   assert.equal(payload.collectionTime, '09:00');
   assert.equal(payload.deliveryTime, '14:00');
+});
+
+test('only the authoritative current quote can receive a customer response', () => {
+  assert.equal(
+    __test__.isPublicQuoteCurrentForJob({
+      quoteId: 'quote-2',
+      quoteData: {
+        currentQuoteId: 'quote-2',
+        isCurrent: true,
+      },
+      jobData: {
+        currentQuoteId: 'quote-2',
+        quoteResponseId: 'quote-2',
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    __test__.isPublicQuoteCurrentForJob({
+      quoteId: 'quote-1',
+      quoteData: {
+        currentQuoteId: 'quote-2',
+        isCurrent: false,
+        lifecycleStatus: 'superseded',
+      },
+      jobData: {
+        currentQuoteId: 'quote-2',
+        quoteResponseId: 'quote-2',
+      },
+    }),
+    false,
+  );
+  assert.throws(
+    () => __test__.assertPublicQuoteIsCurrent({
+      quoteId: 'quote-1',
+      quoteData: {
+        currentQuoteId: 'quote-2',
+        isCurrent: false,
+      },
+      jobData: { currentQuoteId: 'quote-2' },
+    }),
+    /This quote has been updated\. Please review the latest version\./,
+  );
+});
+
+test('legacy single-quote jobs remain current without version metadata', () => {
+  assert.equal(
+    __test__.isPublicQuoteCurrentForJob({
+      quoteId: 'legacy-quote',
+      quoteData: {
+        quoteResponseId: 'legacy-quote',
+        quoteStatus: 'sent',
+      },
+      jobData: {
+        quoteResponseId: 'legacy-quote',
+      },
+    }),
+    true,
+  );
+});
+
+test('repeated customer response actions are idempotent', () => {
+  assert.equal(
+    __test__.publicQuoteActionAlreadyApplied({
+      quoteAccepted: true,
+      quoteStatus: 'accepted',
+      quoteTimingChoice: 'accepted_proposed_time',
+    }, 'accept_proposed_time'),
+    true,
+  );
+  assert.equal(
+    __test__.publicQuoteActionAlreadyApplied({
+      quoteAccepted: true,
+      quoteStatus: 'accepted',
+      quoteTimingChoice: 'arrange_another_time',
+    }, 'accept_arrange_time'),
+    true,
+  );
+  assert.equal(
+    __test__.publicQuoteActionAlreadyApplied({
+      quoteDeclined: true,
+      quoteStatus: 'declined',
+    }, 'decline_quote'),
+    true,
+  );
+  assert.equal(
+    __test__.publicQuoteActionAlreadyApplied({
+      quoteAccepted: true,
+      quoteTimingChoice: 'accepted_proposed_time',
+    }, 'decline_quote'),
+    false,
+  );
+});
+
+test('customer responses switch state in one transaction and stale mirrors are ignored', () => {
+  const responseStart = functionsSource.indexOf(
+    'async function runPublicQuoteResponseAction',
+  );
+  const responseEnd = functionsSource.indexOf(
+    'exports.acceptQuoteProposedTime',
+    responseStart,
+  );
+  const responseSource = functionsSource.slice(responseStart, responseEnd);
+
+  assert.match(responseSource, /admin\.firestore\(\)\.runTransaction/);
+  assert.match(responseSource, /assertPublicQuoteIsCurrent/);
+  assert.match(responseSource, /publicQuoteActionAlreadyApplied/);
+  assert.match(responseSource, /transaction\.set\(target\.quoteRef/);
+  assert.match(functionsSource, /reason=not_current/);
 });
 
 test('submitExactLocation preserves accepted proposed-time and calendar-ready fields', () => {

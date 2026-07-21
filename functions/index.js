@@ -268,6 +268,16 @@ function assertPublicQuoteActionAllowed(quoteData, {
   ).toLowerCase();
   const archived = readBool(quoteData.archived);
   const deleted = readBool(quoteData.deleted);
+  const superseded =
+    quoteData.isCurrent === false ||
+    readString(quoteData.lifecycleStatus).toLowerCase() === 'superseded';
+
+  if (superseded) {
+    throw new HttpsError(
+      'failed-precondition',
+      'This quote has been updated. Please review the latest version.',
+    );
+  }
 
   if (archived || deleted || quoteStatus === 'cancelled') {
     throw new HttpsError(
@@ -307,6 +317,58 @@ function assertPublicQuoteActionAllowed(quoteData, {
       );
     }
   }
+}
+
+function isPublicQuoteCurrentForJob({ quoteId, quoteData = {}, jobData = {} }) {
+  const normalizedQuoteId = readString(quoteId);
+  if (!normalizedQuoteId) {
+    return false;
+  }
+  if (
+    quoteData.isCurrent === false ||
+    readString(quoteData.lifecycleStatus).toLowerCase() === 'superseded'
+  ) {
+    return false;
+  }
+  const quoteCurrentId = firstNonEmpty([
+    readString(quoteData.currentQuoteId),
+    normalizedQuoteId,
+  ]);
+  const jobCurrentId = firstNonEmpty([
+    readString(jobData.currentQuoteId),
+    readString(jobData.quoteResponseId),
+  ]);
+  return quoteCurrentId === normalizedQuoteId &&
+    (!jobCurrentId || jobCurrentId === normalizedQuoteId);
+}
+
+function assertPublicQuoteIsCurrent({ quoteId, quoteData, jobData }) {
+  if (isPublicQuoteCurrentForJob({ quoteId, quoteData, jobData })) {
+    return;
+  }
+  throw new HttpsError(
+    'failed-precondition',
+    'This quote has been updated. Please review the latest version.',
+  );
+}
+
+function publicQuoteActionAlreadyApplied(quoteData, action) {
+  const accepted =
+    readBool(quoteData.quoteAccepted) ||
+    readString(quoteData.quoteStatus).toLowerCase() === 'accepted' ||
+    readString(quoteData.quoteResponseStatus).toLowerCase() === 'accepted';
+  const declined =
+    readBool(quoteData.quoteDeclined) ||
+    readString(quoteData.quoteStatus).toLowerCase() === 'declined' ||
+    readString(quoteData.quoteResponseStatus).toLowerCase() === 'declined';
+  const timingChoice = readString(quoteData.quoteTimingChoice).toLowerCase();
+  if (action === 'accept_proposed_time') {
+    return accepted && timingChoice === 'accepted_proposed_time';
+  }
+  if (action === 'accept_arrange_time') {
+    return accepted && timingChoice === 'arrange_another_time';
+  }
+  return action === 'decline_quote' && declined;
 }
 
 function buildQuoteDeclineFieldSet({
@@ -886,6 +948,18 @@ function buildDriverJobQuoteResponsePayload({
     jobId,
     requestId: requestId || readString(existingJob.requestId),
     quoteResponseId: quoteId,
+    currentQuoteId: firstNonEmpty([
+      readString(quoteData.currentQuoteId),
+      quoteId,
+    ]),
+    quoteVersion:
+      readNullableInt(quoteData.quoteVersion) ??
+      readNullableInt(existingJob.quoteVersion) ??
+      1,
+    quotePublishKey: firstNonEmpty([
+      readString(quoteData.quotePublishKey),
+      readString(existingJob.quotePublishKey),
+    ]),
     quoteStatus: action === 'decline_quote' ? 'declined' : (action.startsWith('accept_') ? 'accepted' : mirrored.quoteStatus),
     quoteResponseStatus: action === 'decline_quote' ? 'declined' : (action.startsWith('accept_') ? 'accepted' : mirrored.quoteResponseStatus),
     quoteAccepted: action === 'decline_quote' ? false : action.startsWith('accept_'),
@@ -2272,6 +2346,18 @@ function buildQuoteJobMirror({
         readQuoteDeclineFields(existingJob).reasonText,
     }),
     quoteResponseId: quoteId,
+    currentQuoteId: firstNonEmpty([
+      readString(after.currentQuoteId),
+      quoteId,
+    ]),
+    quoteVersion:
+      readNullableInt(after.quoteVersion) ??
+      readNullableInt(existingJob.quoteVersion) ??
+      1,
+    quotePublishKey: firstNonEmpty([
+      readString(after.quotePublishKey),
+      readString(existingJob.quotePublishKey),
+    ]),
     quoteResponseToken,
     quoteResponseLink,
     quoteAmount: readNullableNumber(after.quoteAmount) ?? readNullableNumber(existingJob.quoteAmount),
@@ -2571,97 +2657,132 @@ async function runPublicQuoteResponseAction({ data, action }) {
     quoteResponseId: data.quoteResponseId,
     quoteResponseToken: data.quoteResponseToken,
   });
-  assertPublicQuoteActionAllowed(target.quoteData, {
-    requirePendingResponse: true,
-  });
-
-  const payload = buildQuoteResponseWritePayload({
-    quoteData: target.quoteData,
-    action,
-    data,
-  });
   const driverContext = await resolveLinkedDriverJobContext({
     quoteId: target.quoteId,
     quoteData: target.quoteData,
     tokenData: target.tokenData,
   });
-  const driverPayload = buildDriverJobQuoteResponsePayload({
-    quoteData: target.quoteData,
-    existingJob: driverContext.existingJob,
-    action,
-    quoteId: target.quoteId,
-    ownerUid: driverContext.ownerUid,
-    jobId: driverContext.jobId,
-    requestId: driverContext.requestId,
-    data,
-  });
   const docPath = `${PUBLIC_QUOTE_RESPONSE_COLLECTION}/${target.quoteId}`;
-  const linkedRequestId = firstNonEmpty([
-    driverContext.requestId,
-    readString(driverContext.existingJob.requestId),
-    readString(target.quoteData.requestId),
-  ]);
-  const requestUpdate = linkedRequestId
-    ? buildLinkedRequestQuoteStateUpdate({
-      driverPayload,
-      includeExactPin: true,
-      includeUpdatedAt: true,
-    })
-    : null;
-  console.info('[PublicQuoteResponseAction] write start', {
-    action,
-    quoteId: target.quoteId,
-    quoteToken: target.token,
-    docPath,
-    driverDocPath: driverContext.jobPath,
-    projectId: admin.app().options.projectId || '',
-    publicPayloadKeys: Object.keys(payload),
-    driverPayloadKeys: Object.keys(driverPayload),
-    linkedRequestId,
-    requestUpdateKeys: requestUpdate ? Object.keys(requestUpdate) : [],
-    payload,
-    driverPayload,
-    requestUpdate,
+  let responseResult = null;
+  await admin.firestore().runTransaction(async (transaction) => {
+    const liveQuoteSnapshot = await transaction.get(target.quoteRef);
+    const liveJobSnapshot = await transaction.get(driverContext.jobRef);
+    if (!liveQuoteSnapshot.exists) {
+      throw new HttpsError('not-found', 'Quote not found.');
+    }
+    const liveQuoteData = liveQuoteSnapshot.data() || {};
+    const liveJobData = liveJobSnapshot.exists
+      ? liveJobSnapshot.data() || {}
+      : {};
+    assertPublicQuoteActionAllowed(liveQuoteData);
+    assertPublicQuoteIsCurrent({
+      quoteId: target.quoteId,
+      quoteData: liveQuoteData,
+      jobData: liveJobData,
+    });
+
+    const linkedRequestId = firstNonEmpty([
+      driverContext.requestId,
+      readString(liveJobData.requestId),
+      readString(liveQuoteData.requestId),
+    ]);
+    if (publicQuoteActionAlreadyApplied(liveQuoteData, action)) {
+      responseResult = {
+        ok: true,
+        idempotent: true,
+        action,
+        quoteId: target.quoteId,
+        docPath,
+        driverDocPath: driverContext.jobPath,
+        linkedRequestId,
+        payloadKeys: [],
+        driverPayloadKeys: [],
+        requestUpdateKeys: [],
+      };
+      return;
+    }
+
+    assertPublicQuoteActionAllowed(liveQuoteData, {
+      requirePendingResponse: true,
+    });
+    const payload = buildQuoteResponseWritePayload({
+      quoteData: liveQuoteData,
+      action,
+      data,
+    });
+    const driverPayload = buildDriverJobQuoteResponsePayload({
+      quoteData: liveQuoteData,
+      existingJob: liveJobData,
+      action,
+      quoteId: target.quoteId,
+      ownerUid: driverContext.ownerUid,
+      jobId: driverContext.jobId,
+      requestId: linkedRequestId,
+      data,
+    });
+    const requestUpdate = linkedRequestId
+      ? buildLinkedRequestQuoteStateUpdate({
+        driverPayload,
+        includeExactPin: true,
+        includeUpdatedAt: true,
+      })
+      : null;
+    console.info('[PublicQuoteResponseAction] transaction write start', {
+      action,
+      quoteId: target.quoteId,
+      quoteToken: target.token,
+      docPath,
+      driverDocPath: driverContext.jobPath,
+      projectId: admin.app().options.projectId || '',
+      publicPayloadKeys: Object.keys(payload),
+      driverPayloadKeys: Object.keys(driverPayload),
+      linkedRequestId,
+      requestUpdateKeys: requestUpdate ? Object.keys(requestUpdate) : [],
+    });
+    transaction.set(target.quoteRef, payload, { merge: true });
+    transaction.set(driverContext.jobRef, driverPayload, { merge: true });
+    if (linkedRequestId && requestUpdate) {
+      transaction.set(
+        admin
+          .firestore()
+          .collection(PUBLIC_JOB_REQUEST_COLLECTION)
+          .doc(linkedRequestId),
+        requestUpdate,
+        { merge: true },
+      );
+      transaction.set(
+        admin
+          .firestore()
+          .collection(USERS_COLLECTION)
+          .doc(driverContext.ownerUid)
+          .collection(LEGACY_JOB_REQUEST_COLLECTION)
+          .doc(linkedRequestId),
+        requestUpdate,
+        { merge: true },
+      );
+    }
+    responseResult = {
+      ok: true,
+      idempotent: false,
+      action,
+      quoteId: target.quoteId,
+      docPath,
+      driverDocPath: driverContext.jobPath,
+      linkedRequestId,
+      payloadKeys: Object.keys(payload),
+      driverPayloadKeys: Object.keys(driverPayload),
+      requestUpdateKeys: requestUpdate ? Object.keys(requestUpdate) : [],
+    };
   });
-  const writes = [
-    target.quoteRef.set(payload, { merge: true }),
-    driverContext.jobRef.set(driverPayload, { merge: true }),
-  ];
-  if (linkedRequestId && requestUpdate) {
-    writes.push(
-      admin
-        .firestore()
-        .collection(PUBLIC_JOB_REQUEST_COLLECTION)
-        .doc(linkedRequestId)
-        .set(requestUpdate, { merge: true }),
-      admin
-        .firestore()
-        .collection(USERS_COLLECTION)
-        .doc(driverContext.ownerUid)
-        .collection(LEGACY_JOB_REQUEST_COLLECTION)
-        .doc(linkedRequestId)
-        .set(requestUpdate, { merge: true }),
-    );
-  }
-  await Promise.all(writes);
   console.info('[PublicQuoteResponseAction] write success', {
     action,
     docPath,
     quoteId: target.quoteId,
     driverDocPath: driverContext.jobPath,
-    linkedRequestId,
+    linkedRequestId: responseResult && responseResult.linkedRequestId,
+    idempotent: responseResult && responseResult.idempotent === true,
   });
-  return {
-    ok: true,
-    action,
-    quoteId: target.quoteId,
-    docPath,
-    driverDocPath: driverContext.jobPath,
-    linkedRequestId,
-    payloadKeys: Object.keys(payload),
-    driverPayloadKeys: Object.keys(driverPayload),
-    requestUpdateKeys: requestUpdate ? Object.keys(requestUpdate) : [],
-  };
+  return responseResult;
 }
 
 exports.acceptQuoteProposedTime = onCall(async (request) => {
@@ -4686,6 +4807,16 @@ exports.onVanJobQuoteMirror = onDocumentWritten(
       .doc(jobId);
     const jobSnap = await jobRef.get();
     const existingJob = jobSnap.exists ? jobSnap.data() || {} : {};
+    if (!isPublicQuoteCurrentForJob({
+      quoteId,
+      quoteData: after,
+      jobData: existingJob,
+    })) {
+      console.info(
+        `[VanQuoteResponseMirror] skipped quoteId=${quoteId} ownerUid=${ownerUid} jobId=${jobId} reason=not_current currentQuoteId=${firstNonEmpty([existingJob.currentQuoteId, existingJob.quoteResponseId, '(none)'])}`,
+      );
+      return;
+    }
     const existingJobDeleted = readBool(existingJob.deleted);
     const existingJobArchived = readBool(existingJob.archived);
     const incomingDeletionState =
@@ -5730,4 +5861,7 @@ exports.__test__ = {
   listChangedKeys,
   listDesiredChangedKeys,
   shouldRequireExactPinAfterQuoteAccepted,
+  isPublicQuoteCurrentForJob,
+  assertPublicQuoteIsCurrent,
+  publicQuoteActionAlreadyApplied,
 };

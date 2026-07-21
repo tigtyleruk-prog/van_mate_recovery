@@ -94,6 +94,16 @@ class VanPublicQuoteCloudService {
     var hiddenCount = 0;
     for (final doc in snapshot.docs) {
       final data = doc.data();
+      final currentQuoteId = data['currentQuoteId']?.toString().trim() ?? '';
+      final explicitlySuperseded =
+          data['isCurrent'] == false ||
+          data['lifecycleStatus']?.toString().trim().toLowerCase() ==
+              'superseded' ||
+          (currentQuoteId.isNotEmpty && currentQuoteId != doc.id);
+      if (explicitlySuperseded) {
+        hiddenCount += 1;
+        continue;
+      }
       final normalized = Map<String, dynamic>.from(data);
       if ((normalized['jobId']?.toString().trim() ?? '').isEmpty) {
         normalized['jobId'] = doc.id;
@@ -136,15 +146,23 @@ class VanPublicQuoteCloudService {
           DateTime.fromMillisecondsSinceEpoch(0);
       return bUpdated.compareTo(aUpdated);
     });
+    final oneCurrentQuotePerJob = <String, DriverCustomerReplyMockData>{};
+    for (final quote in quotes) {
+      final jobKey = quote.jobId.trim().isNotEmpty
+          ? quote.jobId.trim()
+          : quote.quoteResponseId.trim();
+      oneCurrentQuotePerJob.putIfAbsent(jobKey, () => quote);
+    }
+    final currentQuotes = oneCurrentQuotePerJob.values.toList(growable: false);
     if (kDebugMode) {
-      final visibleCount = quotes
+      final visibleCount = currentQuotes
           .where((job) => !job.isHiddenFromNormalLists)
           .length;
       debugPrint(
-        '[VanPublicQuoteCloud] showing $visibleCount quotes uid=$normalizedOwnerUid hidden=$hiddenCount totalLoaded=${quotes.length}',
+        '[VanPublicQuoteCloud] showing $visibleCount quotes uid=$normalizedOwnerUid hidden=$hiddenCount totalLoaded=${snapshot.docs.length}',
       );
     }
-    return quotes;
+    return currentQuotes;
   }
 
   Future<void> saveQuote({
@@ -248,6 +266,10 @@ class VanPublicQuoteCloudService {
         effectiveHandover.end == VanEndHandover.businessDelivers;
     final isBusinessReturn =
         effectiveHandover.end == VanEndHandover.businessReturns;
+    final quotePublishKey =
+        extraData['quotePublishKey']?.toString().trim() ?? '';
+    final requestedSupersedesQuoteId =
+        extraData['supersedesQuoteId']?.toString().trim() ?? '';
 
     final payload = buildVanCloudDocPayload(
       id: docId,
@@ -294,6 +316,10 @@ class VanPublicQuoteCloudService {
             : null,
         'deliveryTime': isBusinessDelivery ? job.pickUpTime.trim() : '',
         'quoteResponseId': docId,
+        'currentQuoteId': docId,
+        'isCurrent': true,
+        'lifecycleStatus': 'current',
+        'quotePublishKey': quotePublishKey,
         'quoteResponseToken': quoteResponseToken,
         'quoteResponseLink': quoteResponseLink,
         'customerName': job.customerName,
@@ -386,30 +412,118 @@ class VanPublicQuoteCloudService {
       source: source,
     );
     try {
-      final batch = _firestore.batch();
-      batch.set(_publicQuotes().doc(docId), payload, SetOptions(merge: true));
-      if (quoteResponseToken.isNotEmpty) {
-        batch.set(
-          _publicQuoteTokens().doc(quoteResponseToken),
-          buildVanCloudDocPayload(
-            id: quoteResponseToken,
-            ownerUid: normalizedOwnerUid,
-            source: source,
-            createdAt: job.createdAt ?? job.quoteSavedAt ?? DateTime.now(),
-            updatedAt: job.updatedAt ?? DateTime.now(),
-            data: <String, dynamic>{
-              'ownerUid': normalizedOwnerUid,
-              'jobId': job.jobId.trim(),
-              'requestId': job.requestId?.trim() ?? '',
-              'quoteResponseId': docId,
-              'quoteResponseToken': quoteResponseToken,
-              'quoteResponseLink': quoteResponseLink,
-            },
-          ),
-          SetOptions(merge: true),
-        );
-      }
-      await batch.commit();
+      final quoteRef = _publicQuotes().doc(docId);
+      final jobRef = _firestore
+          .collection('users')
+          .doc(normalizedOwnerUid)
+          .collection('van_jobs')
+          .doc(job.jobId.trim());
+      await _firestore.runTransaction((transaction) async {
+        final jobSnapshot = await transaction.get(jobRef);
+        final jobData = jobSnapshot.data() ?? const <String, dynamic>{};
+        final jobCurrentQuoteId =
+            jobData['currentQuoteId']?.toString().trim().isNotEmpty == true
+            ? jobData['currentQuoteId'].toString().trim()
+            : jobData['quoteResponseId']?.toString().trim() ?? '';
+        final previousQuoteId = requestedSupersedesQuoteId.isNotEmpty
+            ? requestedSupersedesQuoteId
+            : jobCurrentQuoteId;
+        final currentSnapshot = await transaction.get(quoteRef);
+        DocumentSnapshot<Map<String, dynamic>>? previousSnapshot;
+        if (previousQuoteId.isNotEmpty && previousQuoteId != docId) {
+          previousSnapshot = await transaction.get(
+            _publicQuotes().doc(previousQuoteId),
+          );
+        }
+
+        final currentData = currentSnapshot.data() ?? const <String, dynamic>{};
+        final previousData =
+            previousSnapshot?.data() ?? const <String, dynamic>{};
+        final existingPublishKey =
+            currentData['quotePublishKey']?.toString().trim() ?? '';
+        final idempotentRetry =
+            quotePublishKey.isNotEmpty && existingPublishKey == quotePublishKey;
+        final currentVersion =
+            int.tryParse(currentData['quoteVersion']?.toString() ?? '') ?? 0;
+        final previousVersion =
+            int.tryParse(previousData['quoteVersion']?.toString() ?? '') ?? 0;
+        final jobVersion =
+            int.tryParse(jobData['quoteVersion']?.toString() ?? '') ?? 0;
+        final baseVersion = <int>[
+          currentVersion,
+          previousVersion,
+          jobVersion,
+        ].reduce((left, right) => left > right ? left : right);
+        final quoteVersion = idempotentRetry
+            ? (currentVersion > 0 ? currentVersion : 1)
+            : baseVersion + 1;
+        final versionedPayload = <String, dynamic>{
+          ...payload,
+          'currentQuoteId': docId,
+          'quoteVersion': quoteVersion,
+          'supersedesQuoteId': previousQuoteId != docId
+              ? previousQuoteId
+              : (currentData['supersedesQuoteId']?.toString() ?? ''),
+          'supersededAt': null,
+          'supersededByQuoteId': '',
+          'isCurrent': true,
+          'lifecycleStatus': 'current',
+        };
+
+        if (previousSnapshot?.exists == true && previousQuoteId != docId) {
+          transaction
+              .set(_publicQuotes().doc(previousQuoteId), <String, dynamic>{
+                'currentQuoteId': docId,
+                'isCurrent': false,
+                'lifecycleStatus': 'superseded',
+                'supersededByQuoteId': docId,
+                'supersededAt': FieldValue.serverTimestamp(),
+                'updatedAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+          final previousToken =
+              previousData['quoteResponseToken']?.toString().trim() ?? '';
+          if (previousToken.isNotEmpty) {
+            transaction
+                .set(_publicQuoteTokens().doc(previousToken), <String, dynamic>{
+                  'currentQuoteId': docId,
+                  'quoteResponseId': docId,
+                  'supersededQuoteId': previousQuoteId,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
+          }
+        }
+
+        transaction.set(quoteRef, versionedPayload, SetOptions(merge: true));
+        transaction.set(jobRef, <String, dynamic>{
+          'currentQuoteId': docId,
+          'quoteResponseId': docId,
+          'quoteVersion': quoteVersion,
+          'quotePublishKey': quotePublishKey,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        if (quoteResponseToken.isNotEmpty) {
+          transaction.set(
+            _publicQuoteTokens().doc(quoteResponseToken),
+            buildVanCloudDocPayload(
+              id: quoteResponseToken,
+              ownerUid: normalizedOwnerUid,
+              source: source,
+              createdAt: job.createdAt ?? job.quoteSavedAt ?? DateTime.now(),
+              updatedAt: job.updatedAt ?? DateTime.now(),
+              data: <String, dynamic>{
+                'ownerUid': normalizedOwnerUid,
+                'jobId': job.jobId.trim(),
+                'requestId': job.requestId?.trim() ?? '',
+                'currentQuoteId': docId,
+                'quoteResponseId': docId,
+                'quoteResponseToken': quoteResponseToken,
+                'quoteResponseLink': quoteResponseLink,
+              },
+            ),
+            SetOptions(merge: true),
+          );
+        }
+      });
       debugPrint(
         '[PublicQuoteSave] quoteId=$docId requestId=${job.requestId?.trim().isNotEmpty == true ? job.requestId : '(none)'} requiresExactPinAfterQuoteAccepted=${job.requiresExactPinAfterQuoteAccepted} requestExactPin=${job.requestExactPin} exactPinSaved=${job.exactPinSaved}',
       );
