@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -199,10 +198,11 @@ Future<bool> openDriverJobDateTimeChangeFlow(
 Future<bool?> confirmDriverJobDelete(
   BuildContext context, {
   required DriverCustomerReplyMockData job,
+  bool refreshCloudAfterDelete = true,
 }) async {
   debugPrint('DELETE JOB tapped');
   debugPrint(
-    'DELETE JOB precheck uid=${FirebaseAuth.instance.currentUser?.uid ?? '(null)'}',
+    'DELETE JOB precheck uid=${DriverReplyMockState.instance.currentUidForDebug()}',
   );
   debugPrint('DELETE JOB jobId=${job.jobId}');
   debugPrint('DELETE JOB firestoreDocId=${job.jobId}');
@@ -293,6 +293,7 @@ Future<bool?> confirmDriverJobDelete(
 
   final deleted = await DriverReplyMockState.instance.deleteJob(
     jobId: job.jobId,
+    refreshCloud: refreshCloudAfterDelete,
   );
   if (!deleted && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(

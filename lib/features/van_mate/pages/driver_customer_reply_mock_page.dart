@@ -4399,7 +4399,8 @@ class DriverReplyMockState extends ChangeNotifier {
     );
   }
 
-  Future<VanMateSavedJobsClearResult> debugClearAllSavedJobFlowData({
+  @Deprecated('Use VanJobDeletionService preview and execute modes.')
+  Future<VanMateSavedJobsClearResult> legacyDebugClearAllSavedJobFlowData({
     bool syncCloud = true,
   }) async {
     if (!kDebugMode) {
