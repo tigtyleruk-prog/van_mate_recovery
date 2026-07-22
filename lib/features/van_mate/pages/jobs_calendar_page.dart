@@ -18,6 +18,7 @@ import '../helpers/van_job_request_state.dart';
 import '../helpers/van_status_tone.dart';
 import '../models/van_job_request_record.dart';
 import '../models/van_customer_journey.dart';
+import '../services/van_job_deletion_service.dart';
 import 'driver_customer_reply_mock_page.dart';
 import 'create_invoice_page.dart';
 import 'create_job_request_flow.dart';
@@ -31,7 +32,14 @@ import 'van_quick_invoice_page.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 
 class JobsCalendarPage extends StatefulWidget {
-  const JobsCalendarPage({super.key});
+  const JobsCalendarPage({
+    super.key,
+    this.jobDeletionService,
+    this.refreshOnInit = true,
+  });
+
+  final VanJobDeletionService? jobDeletionService;
+  final bool refreshOnInit;
 
   @override
   State<JobsCalendarPage> createState() => _JobsCalendarPageState();
@@ -54,9 +62,11 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     DriverReplyMockState.instance.addListener(_handleDriverStateChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_refreshCloudRequests(userInitiated: false));
-    });
+    if (widget.refreshOnInit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_refreshCloudRequests(userInitiated: false));
+      });
+    }
   }
 
   @override
@@ -444,78 +454,133 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
     _showSnack('Local test data cleared.');
   }
 
-  Future<void> _clearAllSavedJobs() async {
+  Future<void> _runDeveloperJobDeletion(
+    VanJobDeletionSelection selection,
+  ) async {
     if (_isClearingSavedJobs) {
       return;
     }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF142031),
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: const Text(
-            'Clear all saved jobs?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-          ),
-          content: const Text(
-            'This will delete all saved requests, quotes, jobs and calendar entries for this account. Business Profile and questions will be kept.',
-            style: TextStyle(color: Colors.white70, height: 1.4),
-          ),
-          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          actions: [
-            OutlinedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-              ),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF6B6B),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Clear all saved jobs'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true || !mounted) {
-      return;
-    }
-
     setState(() {
       _isClearingSavedJobs = true;
     });
-
     try {
-      final result = await DriverReplyMockState.instance
-          .debugClearAllSavedJobFlowData();
-      if (!mounted) {
+      final service =
+          widget.jobDeletionService ?? VanJobDeletionService.instance;
+      final preview = await service.preview(selection: selection);
+      if (!mounted) return;
+      if (preview.targets.isEmpty) {
+        _showSnack('No eligible jobs found for the active business.');
         return;
       }
-      setState(() {
-        _isClearingSavedJobs = false;
-      });
-      _showSnack(result.sourceSummary);
+      final controller = TextEditingController();
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            backgroundColor: const Color(0xFF142031),
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Text(
+              selection == VanJobDeletionSelection.testJobs
+                  ? 'Delete marked test jobs?'
+                  : 'Delete all operational jobs?',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Jobs ${preview.summary.jobs} · Requests ${preview.summary.requests} · Quote versions ${preview.summary.quoteVersions} · Tokens ${preview.summary.tokens} · Photos ${preview.summary.photos}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Preserved: ${preview.summary.invoicesPreserved} invoices and ${preview.summary.ambiguousPreserved} ambiguous records. All finance and accounting data is kept.',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...preview.targets.map(
+                      (target) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: SelectableText(
+                          '${target.jobId} · ${target.status}',
+                          style: const TextStyle(color: Colors.white60),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Type ${preview.confirmationPhrase}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      onChanged: (_) => setDialogState(() {}),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmation',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              OutlinedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: controller.text == preview.confirmationPhrase
+                    ? () => Navigator.of(dialogContext).pop(true)
+                    : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF6B6B),
+                ),
+                child: const Text('Delete permanently'),
+              ),
+            ],
+          ),
+        ),
+      );
+      final typedPhrase = controller.text;
+      controller.dispose();
+      if (confirmed != true || !mounted) return;
+      final execution = await service.execute(
+        preview,
+        confirmationPhrase: typedPhrase,
+      );
+      await DriverReplyMockState.instance.applyConfirmedJobDeletionResults(
+        execution.completed,
+        refreshCloud: widget.refreshOnInit,
+      );
+      if (!mounted) return;
+      _showSnack(
+        'Deleted ${execution.completed.length}; failed ${execution.failed.length}. Invoices and finance were preserved.',
+      );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isClearingSavedJobs = false;
-      });
-      _showSnack('Could not clear saved jobs. Please try again.');
-      debugPrint('[ClearSavedJobs] failed: $error');
+      if (!mounted) return;
+      _showSnack('Could not delete jobs safely. Please try again.');
+      debugPrint('[DeveloperJobDeletion] failed: $error');
+    } finally {
+      if (mounted) setState(() => _isClearingSavedJobs = false);
     }
   }
 
@@ -1859,7 +1924,11 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             width: double.infinity,
             height: 50,
             child: FilledButton.icon(
-              onPressed: _isClearingSavedJobs ? null : _clearAllSavedJobs,
+              onPressed: _isClearingSavedJobs
+                  ? null
+                  : () => _runDeveloperJobDeletion(
+                      VanJobDeletionSelection.testJobs,
+                    ),
               icon: _isClearingSavedJobs
                   ? const SizedBox(
                       width: 18,
@@ -1870,7 +1939,7 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                       ),
                     )
                   : const Icon(Icons.delete_sweep_outlined),
-              label: const Text('Clear all saved jobs'),
+              label: const Text('Delete marked test jobs'),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFFF6B6B),
                 foregroundColor: Colors.white,
@@ -1882,6 +1951,20 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                   fontWeight: FontWeight.w800,
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: _isClearingSavedJobs
+                  ? null
+                  : () => _runDeveloperJobDeletion(
+                      VanJobDeletionSelection.allOperational,
+                    ),
+              icon: const Icon(Icons.warning_amber_rounded),
+              label: const Text('Delete all operational jobs'),
             ),
           ),
         ],
