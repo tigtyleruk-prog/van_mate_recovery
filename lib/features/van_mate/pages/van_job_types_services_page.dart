@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../helpers/app_theme.dart';
+import '../helpers/van_availability_value.dart';
 import '../models/van_customer_request_flow.dart';
 import '../models/van_customer_journey.dart';
 import '../models/van_custom_job_question.dart';
@@ -538,6 +539,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       <String, VanQuoteExtraDefaults>{};
   final Map<String, Map<int, VanServiceDaySchedule>> _guidedAvailabilityDrafts =
       <String, Map<int, VanServiceDaySchedule>>{};
+  final Set<String> _guidedAvailabilityInvalidServiceIds = <String>{};
 
   static const _reviewSectionTitles = <String>[
     'Service Features',
@@ -735,7 +737,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     final resolved = resolveVanServiceCapabilities(
       selectedIds,
       recommendedDurationMinutes: service.appointmentDurationMinutes,
-      recommendedNoticeHours: service.noticeHours,
+      recommendedNoticeHours: service.noticeHours.ceil(),
     );
     final starts = <VanStartHandover>[
       if (resolved.allowCustomerDropOff) VanStartHandover.customerDropsOff,
@@ -1584,6 +1586,12 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       }
     }
     if (_reviewSectionIndex == 3) {
+      if (_guidedAvailabilityInvalidServiceIds.contains(service.id)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fix the custom availability values.')),
+        );
+        return false;
+      }
       final schedules = _guidedAvailabilityFor(service);
       if (schedules.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1897,11 +1905,29 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
     );
     final changed = restored.toJson().toString() != service.toJson().toString();
     setState(() {
+      _guidedAvailabilityInvalidServiceIds.remove(service.id);
       _guidedAvailabilityDrafts[service.id] = Map.of(schedules);
       _service = restored.copyWith(
         updatedAt: changed ? DateTime.now() : service.updatedAt,
       );
       _changed = _changed || changed;
+    });
+  }
+
+  void _setGuidedAvailabilityValues(VanJobService service) {
+    setState(() {
+      _service = service.copyWith(updatedAt: DateTime.now());
+      _changed = true;
+    });
+  }
+
+  void _setGuidedAvailabilityValuesValid(String serviceId, bool valid) {
+    setState(() {
+      if (valid) {
+        _guidedAvailabilityInvalidServiceIds.remove(serviceId);
+      } else {
+        _guidedAvailabilityInvalidServiceIds.add(serviceId);
+      }
     });
   }
 
@@ -2338,109 +2364,13 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
             ],
           ],
           const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            initialValue: service.appointmentDurationMinutes,
-            decoration: const InputDecoration(labelText: 'Typical duration'),
-            items:
-                (<int>{
-                      15,
-                      30,
-                      45,
-                      60,
-                      90,
-                      120,
-                      180,
-                      240,
-                      service.appointmentDurationMinutes,
-                    }.toList()..sort())
-                    .map(
-                      (value) => DropdownMenuItem<int>(
-                        value: value,
-                        child: Text('$value minutes'),
-                      ),
-                    )
-                    .toList(),
-            onChanged: _saving
-                ? null
-                : (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _service = service.copyWith(
-                        appointmentDurationMinutes: value,
-                      );
-                      _changed = true;
-                    });
-                  },
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<int>(
-            initialValue: service.noticeHours,
-            decoration: const InputDecoration(labelText: 'Minimum notice'),
-            items:
-                (<int>{
-                      0,
-                      1,
-                      2,
-                      4,
-                      12,
-                      24,
-                      48,
-                      72,
-                      168,
-                      service.noticeHours,
-                    }.toList()..sort())
-                    .map(
-                      (value) => DropdownMenuItem<int>(
-                        value: value,
-                        child: Text(value == 0 ? 'No minimum' : '$value hours'),
-                      ),
-                    )
-                    .toList(),
-            onChanged: _saving
-                ? null
-                : (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _service = service.copyWith(noticeHours: value);
-                      _changed = true;
-                    });
-                  },
-          ),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<int>(
-            initialValue: service.maxBookingsPerDay,
-            decoration: const InputDecoration(
-              labelText: 'Maximum bookings per day',
-            ),
-            items:
-                (<int>{
-                      1,
-                      2,
-                      4,
-                      6,
-                      8,
-                      10,
-                      12,
-                      16,
-                      20,
-                      service.maxBookingsPerDay,
-                    }.toList()..sort())
-                    .map(
-                      (value) => DropdownMenuItem<int>(
-                        value: value,
-                        child: Text('$value bookings'),
-                      ),
-                    )
-                    .toList(),
-            onChanged: _saving
-                ? null
-                : (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _service = service.copyWith(maxBookingsPerDay: value);
-                      _changed = true;
-                    });
-                  },
+          _GuidedAvailabilityValueFields(
+            key: ValueKey<String>('guided-availability-values-${service.id}'),
+            service: service,
+            enabled: !_saving,
+            onChanged: _setGuidedAvailabilityValues,
+            onValidityChanged: (valid) =>
+                _setGuidedAvailabilityValuesValid(service.id, valid),
           ),
         ],
       ),
@@ -2465,7 +2395,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       _ => _buildGuidedAvailability(service),
     };
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -3041,6 +2971,484 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
       ),
     );
   }
+}
+
+class _GuidedAvailabilityValueFields extends StatefulWidget {
+  const _GuidedAvailabilityValueFields({
+    super.key,
+    required this.service,
+    required this.enabled,
+    required this.onChanged,
+    required this.onValidityChanged,
+  });
+
+  final VanJobService service;
+  final bool enabled;
+  final ValueChanged<VanJobService> onChanged;
+  final ValueChanged<bool> onValidityChanged;
+
+  @override
+  State<_GuidedAvailabilityValueFields> createState() =>
+      _GuidedAvailabilityValueFieldsState();
+}
+
+class _GuidedAvailabilityValueFieldsState
+    extends State<_GuidedAvailabilityValueFields> {
+  static const String _custom = 'custom';
+
+  late final TextEditingController _durationController;
+  late final TextEditingController _noticeController;
+  late final TextEditingController _bookingLimitController;
+  late final FocusNode _durationFocus;
+  late final FocusNode _noticeFocus;
+  late final FocusNode _bookingLimitFocus;
+  late bool _customDuration;
+  late bool _customNotice;
+  late bool _customBookingLimit;
+  late VanAvailabilityValueUnit _durationUnit;
+  late VanAvailabilityValueUnit _noticeUnit;
+  String? _durationError;
+  String? _noticeError;
+  String? _bookingLimitError;
+
+  @override
+  void initState() {
+    super.initState();
+    final duration = widget.service.appointmentDurationMinutes;
+    _customDuration = !kVanDurationPresetMinutes.contains(duration);
+    _durationUnit = _customDuration && duration % 60 == 0
+        ? VanAvailabilityValueUnit.hours
+        : VanAvailabilityValueUnit.minutes;
+    _durationController = TextEditingController(
+      text: _durationUnit == VanAvailabilityValueUnit.hours
+          ? '${duration ~/ 60}'
+          : '$duration',
+    );
+
+    final noticeMinutes = (widget.service.noticeHours * 60).round();
+    _customNotice = !kVanNoticePresetHours.contains(widget.service.noticeHours);
+    _noticeUnit = noticeMinutes % 60 == 0
+        ? VanAvailabilityValueUnit.hours
+        : VanAvailabilityValueUnit.minutes;
+    _noticeController = TextEditingController(
+      text: _noticeUnit == VanAvailabilityValueUnit.hours
+          ? '${noticeMinutes ~/ 60}'
+          : '$noticeMinutes',
+    );
+
+    _customBookingLimit = !kVanBookingLimitPresets.contains(
+      widget.service.maxBookingsPerDay,
+    );
+    _bookingLimitController = TextEditingController(
+      text: '${widget.service.maxBookingsPerDay}',
+    );
+    _durationFocus = FocusNode();
+    _noticeFocus = FocusNode();
+    _bookingLimitFocus = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _durationController.dispose();
+    _noticeController.dispose();
+    _bookingLimitController.dispose();
+    _durationFocus.dispose();
+    _noticeFocus.dispose();
+    _bookingLimitFocus.dispose();
+    super.dispose();
+  }
+
+  void _focus(FocusNode focusNode, TextEditingController controller) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      focusNode.requestFocus();
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+    });
+  }
+
+  void _reportValidity() {
+    widget.onValidityChanged(
+      _durationError == null &&
+          _noticeError == null &&
+          _bookingLimitError == null,
+    );
+  }
+
+  void _validateDuration() {
+    final error = validateVanCustomDuration(
+      _durationController.text,
+      _durationUnit,
+    );
+    setState(() => _durationError = error);
+    if (error == null) {
+      final minutes = normalizeVanCustomDurationMinutes(
+        _durationController.text,
+        _durationUnit,
+      )!;
+      widget.onChanged(
+        widget.service.copyWith(appointmentDurationMinutes: minutes),
+      );
+    }
+    _reportValidity();
+  }
+
+  void _validateNotice() {
+    final error = validateVanCustomNotice(_noticeController.text, _noticeUnit);
+    setState(() => _noticeError = error);
+    if (error == null) {
+      final hours = normalizeVanCustomNoticeHours(
+        _noticeController.text,
+        _noticeUnit,
+      )!;
+      widget.onChanged(widget.service.copyWith(noticeHours: hours));
+    }
+    _reportValidity();
+  }
+
+  void _validateBookingLimit() {
+    final error = validateVanCustomBookingLimit(_bookingLimitController.text);
+    setState(() => _bookingLimitError = error);
+    if (error == null) {
+      final bookings = normalizeVanCustomBookingLimit(
+        _bookingLimitController.text,
+      )!;
+      widget.onChanged(widget.service.copyWith(maxBookingsPerDay: bookings));
+    }
+    _reportValidity();
+  }
+
+  String _durationSelection() => _customDuration
+      ? _custom
+      : 'preset:${widget.service.appointmentDurationMinutes}';
+
+  String _noticeSelection() {
+    if (_customNotice) return _custom;
+    final preset = kVanNoticePresetHours.firstWhere(
+      (value) => value == widget.service.noticeHours,
+      orElse: () => widget.service.noticeHours,
+    );
+    return 'preset:$preset';
+  }
+
+  String _bookingLimitSelection() => _customBookingLimit
+      ? _custom
+      : 'preset:${widget.service.maxBookingsPerDay}';
+
+  @override
+  Widget build(BuildContext context) {
+    final durationSelection = _durationSelection();
+    final noticeSelection = _noticeSelection();
+    final bookingLimitSelection = _bookingLimitSelection();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        KeyedSubtree(
+          key: const Key('guided-duration-dropdown'),
+          child: DropdownButtonFormField<String>(
+            key: ValueKey<String>('duration-$durationSelection'),
+            initialValue: durationSelection,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Typical duration'),
+            items: <DropdownMenuItem<String>>[
+              for (final value in kVanDurationPresetMinutes)
+                DropdownMenuItem<String>(
+                  value: 'preset:$value',
+                  child: Text('$value minutes'),
+                ),
+              const DropdownMenuItem<String>(
+                value: _custom,
+                child: Text('Custom duration…'),
+              ),
+            ],
+            selectedItemBuilder: (context) => <Widget>[
+              for (final value in kVanDurationPresetMinutes)
+                Text('$value minutes'),
+              Text(
+                formatVanDurationMinutes(
+                  widget.service.appointmentDurationMinutes,
+                ),
+              ),
+            ],
+            onChanged: !widget.enabled
+                ? null
+                : (selection) {
+                    if (selection == null) return;
+                    if (selection == _custom) {
+                      setState(() {
+                        _customDuration = true;
+                        _durationError = null;
+                      });
+                      _reportValidity();
+                      _focus(_durationFocus, _durationController);
+                      return;
+                    }
+                    final value = int.parse(selection.split(':').last);
+                    _durationFocus.unfocus();
+                    setState(() {
+                      _customDuration = false;
+                      _durationError = null;
+                    });
+                    widget.onChanged(
+                      widget.service.copyWith(
+                        appointmentDurationMinutes: value,
+                      ),
+                    );
+                    _reportValidity();
+                  },
+          ),
+        ),
+        if (_customDuration) ...[
+          const SizedBox(height: 8),
+          _CustomAvailabilityInputRow(
+            fieldKey: const Key('guided-custom-duration-input'),
+            unitKey: const Key('guided-custom-duration-unit'),
+            controller: _durationController,
+            focusNode: _durationFocus,
+            label: 'Custom duration',
+            errorText: _durationError,
+            unit: _durationUnit,
+            units: const <VanAvailabilityValueUnit>[
+              VanAvailabilityValueUnit.minutes,
+              VanAvailabilityValueUnit.hours,
+            ],
+            enabled: widget.enabled,
+            onChanged: (_) => _validateDuration(),
+            onUnitChanged: (unit) {
+              setState(() => _durationUnit = unit);
+              _validateDuration();
+            },
+          ),
+        ],
+        const SizedBox(height: 10),
+        KeyedSubtree(
+          key: const Key('guided-notice-dropdown'),
+          child: DropdownButtonFormField<String>(
+            key: ValueKey<String>('notice-$noticeSelection'),
+            initialValue: noticeSelection,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Minimum notice'),
+            items: <DropdownMenuItem<String>>[
+              for (final value in kVanNoticePresetHours)
+                DropdownMenuItem<String>(
+                  value: 'preset:$value',
+                  child: Text(
+                    value == 0 ? 'No minimum' : '${value.toInt()} hours',
+                  ),
+                ),
+              const DropdownMenuItem<String>(
+                value: _custom,
+                child: Text('Custom notice…'),
+              ),
+            ],
+            selectedItemBuilder: (context) => <Widget>[
+              for (final value in kVanNoticePresetHours)
+                Text(value == 0 ? 'No minimum' : '${value.toInt()} hours'),
+              Text(formatVanNoticeHours(widget.service.noticeHours)),
+            ],
+            onChanged: !widget.enabled
+                ? null
+                : (selection) {
+                    if (selection == null) return;
+                    if (selection == _custom) {
+                      setState(() {
+                        _customNotice = true;
+                        _noticeError = null;
+                      });
+                      _reportValidity();
+                      _focus(_noticeFocus, _noticeController);
+                      return;
+                    }
+                    final value = num.parse(selection.split(':').last);
+                    _noticeFocus.unfocus();
+                    setState(() {
+                      _customNotice = false;
+                      _noticeError = null;
+                    });
+                    widget.onChanged(
+                      widget.service.copyWith(noticeHours: value),
+                    );
+                    _reportValidity();
+                  },
+          ),
+        ),
+        if (_customNotice) ...[
+          const SizedBox(height: 8),
+          _CustomAvailabilityInputRow(
+            fieldKey: const Key('guided-custom-notice-input'),
+            unitKey: const Key('guided-custom-notice-unit'),
+            controller: _noticeController,
+            focusNode: _noticeFocus,
+            label: 'Custom minimum notice',
+            errorText: _noticeError,
+            unit: _noticeUnit,
+            units: const <VanAvailabilityValueUnit>[
+              VanAvailabilityValueUnit.minutes,
+              VanAvailabilityValueUnit.hours,
+              VanAvailabilityValueUnit.days,
+            ],
+            enabled: widget.enabled,
+            onChanged: (_) => _validateNotice(),
+            onUnitChanged: (unit) {
+              setState(() => _noticeUnit = unit);
+              _validateNotice();
+            },
+          ),
+        ],
+        const SizedBox(height: 10),
+        KeyedSubtree(
+          key: const Key('guided-booking-limit-dropdown'),
+          child: DropdownButtonFormField<String>(
+            key: ValueKey<String>('booking-limit-$bookingLimitSelection'),
+            initialValue: bookingLimitSelection,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Maximum bookings per day',
+            ),
+            items: <DropdownMenuItem<String>>[
+              for (final value in kVanBookingLimitPresets)
+                DropdownMenuItem<String>(
+                  value: 'preset:$value',
+                  child: Text(formatVanBookingLimit(value)),
+                ),
+              const DropdownMenuItem<String>(
+                value: _custom,
+                child: Text('Custom booking limit…'),
+              ),
+            ],
+            selectedItemBuilder: (context) => <Widget>[
+              for (final value in kVanBookingLimitPresets)
+                Text(formatVanBookingLimit(value)),
+              Text(formatVanBookingLimit(widget.service.maxBookingsPerDay)),
+            ],
+            onChanged: !widget.enabled
+                ? null
+                : (selection) {
+                    if (selection == null) return;
+                    if (selection == _custom) {
+                      setState(() {
+                        _customBookingLimit = true;
+                        _bookingLimitError = null;
+                      });
+                      _reportValidity();
+                      _focus(_bookingLimitFocus, _bookingLimitController);
+                      return;
+                    }
+                    final value = int.parse(selection.split(':').last);
+                    _bookingLimitFocus.unfocus();
+                    setState(() {
+                      _customBookingLimit = false;
+                      _bookingLimitError = null;
+                    });
+                    widget.onChanged(
+                      widget.service.copyWith(maxBookingsPerDay: value),
+                    );
+                    _reportValidity();
+                  },
+          ),
+        ),
+        if (_customBookingLimit) ...[
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('guided-custom-booking-limit-input'),
+            controller: _bookingLimitController,
+            focusNode: _bookingLimitFocus,
+            enabled: widget.enabled,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: 'Custom booking limit',
+              suffixText: 'per day',
+              errorText: _bookingLimitError,
+            ),
+            onChanged: (_) => _validateBookingLimit(),
+            onSubmitted: (_) => _bookingLimitFocus.unfocus(),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CustomAvailabilityInputRow extends StatelessWidget {
+  const _CustomAvailabilityInputRow({
+    required this.fieldKey,
+    required this.unitKey,
+    required this.controller,
+    required this.focusNode,
+    required this.label,
+    required this.errorText,
+    required this.unit,
+    required this.units,
+    required this.enabled,
+    required this.onChanged,
+    required this.onUnitChanged,
+  });
+
+  final Key fieldKey;
+  final Key unitKey;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String label;
+  final String? errorText;
+  final VanAvailabilityValueUnit unit;
+  final List<VanAvailabilityValueUnit> units;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<VanAvailabilityValueUnit> onUnitChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextField(
+            key: fieldKey,
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(labelText: label, errorText: errorText),
+            onChanged: onChanged,
+            onSubmitted: (_) => focusNode.unfocus(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<VanAvailabilityValueUnit>(
+            key: unitKey,
+            initialValue: unit,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Unit'),
+            items: [
+              for (final value in units)
+                DropdownMenuItem<VanAvailabilityValueUnit>(
+                  value: value,
+                  child: Text(_unitLabel(value)),
+                ),
+            ],
+            onChanged: !enabled
+                ? null
+                : (value) {
+                    if (value != null) onUnitChanged(value);
+                  },
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _unitLabel(VanAvailabilityValueUnit unit) => switch (unit) {
+    VanAvailabilityValueUnit.minutes => 'Minutes',
+    VanAvailabilityValueUnit.hours => 'Hours',
+    VanAvailabilityValueUnit.days => 'Days',
+  };
 }
 
 class _GuidedDayScheduleCard extends StatelessWidget {

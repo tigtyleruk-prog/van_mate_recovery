@@ -137,7 +137,7 @@ class VanJobService {
   final int businessStartMinutes;
   final int businessEndMinutes;
   final Map<int, VanServiceDaySchedule>? availabilityByDay;
-  final int noticeHours;
+  final num noticeHours;
   final int maxBookingsPerDay;
   final List<String>? selectedBuiltInQuestionKeys;
   final Map<String, Map<String, dynamic>> builtInQuestionSettings;
@@ -157,6 +157,13 @@ class VanJobService {
   final List<int> suggestedReminderMinutes;
   final Map<String, String> suggestedStatusNames;
   final int appointmentDurationMinutes;
+
+  Duration get appointmentDuration =>
+      Duration(minutes: appointmentDurationMinutes);
+  Duration get minimumNoticeDuration =>
+      Duration(minutes: (noticeHours * 60).round());
+  bool canAcceptAnotherBooking(int currentBookings) =>
+      currentBookings < maxBookingsPerDay;
   final String customerMessage;
   final int wizardStep;
   final bool? _allowCustomerDropOff;
@@ -307,7 +314,7 @@ class VanJobService {
     int? businessEndMinutes,
     Map<int, VanServiceDaySchedule>? availabilityByDay,
     bool clearAvailabilityByDay = false,
-    int? noticeHours,
+    num? noticeHours,
     int? maxBookingsPerDay,
     List<String>? selectedBuiltInQuestionKeys,
     bool clearSelectedBuiltInQuestionKeys = false,
@@ -556,6 +563,11 @@ class VanJobService {
       return raw is num ? raw.toInt() : int.tryParse('$raw') ?? fallback;
     }
 
+    double readDouble(String key, double fallback) {
+      final raw = json[key];
+      return raw is num ? raw.toDouble() : double.tryParse('$raw') ?? fallback;
+    }
+
     bool? readNullableBool(String key) {
       if (!json.containsKey(key) || json[key] == null) return null;
       final raw = json[key];
@@ -733,7 +745,7 @@ class VanJobService {
           firstStoredSchedule?.endMinutes ??
           readInt('businessEndMinutes', 17 * 60),
       availabilityByDay: storedAvailabilityByDay,
-      noticeHours: readInt('noticeHours', 24),
+      noticeHours: readDouble('noticeHours', 24),
       maxBookingsPerDay: readInt('maxBookingsPerDay', 8),
       selectedBuiltInQuestionKeys: readNullableStringList(
         'selectedBuiltInQuestionKeys',

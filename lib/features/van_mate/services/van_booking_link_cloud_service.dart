@@ -78,6 +78,8 @@ class VanBookingLinkCloudService {
                 'customerMessage': service.customerMessage.trim(),
                 'appointmentDurationMinutes':
                     service.appointmentDurationMinutes,
+                'noticeHours': service.noticeHours,
+                'maxBookingsPerDay': service.maxBookingsPerDay,
                 'requestType': service.serviceFlow.requestType.storageKey,
                 'serviceFlow': service.serviceFlow.storageKey,
                 'customerJourneyType': service.customerJourneyType.storageKey,

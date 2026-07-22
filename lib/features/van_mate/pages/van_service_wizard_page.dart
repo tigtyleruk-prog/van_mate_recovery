@@ -308,7 +308,7 @@ class _VanServiceCreationEntryPageState
     if (_workingDays.isEmpty) _workingDays.addAll(const [1, 2, 3, 4, 5]);
     _startMinutes = source?.businessStartMinutes ?? 9 * 60;
     _endMinutes = source?.businessEndMinutes ?? 17 * 60;
-    _noticeHours = source?.noticeHours ?? 24;
+    _noticeHours = source?.noticeHours.round() ?? 24;
     _maxBookings = source?.maxBookingsPerDay ?? 8;
     _appointmentDurationMinutes = source?.appointmentDurationMinutes ?? 60;
     _isActive = source?.isActive ?? true;

@@ -168,12 +168,23 @@ void main() {
     expect(find.text('Tuesday'), findsOneWidget);
     expect(find.text('Closes 5:00 PM'), findsOneWidget);
     expect(find.text('Closes 8:00 PM'), findsOneWidget);
+    await _chooseCustom(
+      tester,
+      const Key('guided-duration-dropdown'),
+      'Custom duration…',
+    );
+    await tester.enterText(
+      find.byKey(const Key('guided-custom-duration-input')),
+      '75',
+    );
+    await tester.pumpAndSettle();
     await _selectDay(tester, 2);
     await _tapReviewNext(tester);
 
     final saved = (await VanJobServicesStorage.instance.loadAll()).single;
     expect(saved.effectiveAvailabilityByDay.keys, <int>[1]);
     expect(saved.effectiveAvailabilityByDay[1]!.endMinutes, 17 * 60);
+    expect(saved.appointmentDurationMinutes, 75);
     expect(tester.takeException(), isNull);
   });
 
@@ -199,6 +210,206 @@ void main() {
     expect(find.text('Opens 7:30 AM'), findsNWidgets(3));
     expect(find.text('Closes 7:00 PM'), findsNWidgets(3));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'custom values persist per service through next service and back navigation',
+    (tester) async {
+      await _setPhoneSize(tester, const Size(360, 1000));
+      final first = _service('custom-first');
+      final second = _service('preset-second').copyWith(
+        appointmentDurationMinutes: 45,
+        noticeHours: 2,
+        maxBookingsPerDay: 4,
+      );
+      await _seed(<VanJobService>[first, second]);
+      await _pumpGuidedReview(tester, <VanJobService>[first, second]);
+      await _openAvailability(tester);
+      await _selectDay(tester, 1);
+
+      await _chooseCustom(
+        tester,
+        const Key('guided-duration-dropdown'),
+        'Custom duration…',
+      );
+      final durationField = find.byKey(
+        const Key('guided-custom-duration-input'),
+      );
+      expect(
+        tester.widget<TextField>(durationField).focusNode?.hasFocus,
+        isTrue,
+      );
+      await tester.enterText(durationField, '75');
+      await tester.pumpAndSettle();
+
+      await _chooseCustom(
+        tester,
+        const Key('guided-notice-dropdown'),
+        'Custom notice…',
+      );
+      await _chooseDropdownValue(
+        tester,
+        const Key('guided-custom-notice-unit'),
+        'Minutes',
+      );
+      await tester.enterText(
+        find.byKey(const Key('guided-custom-notice-input')),
+        '30',
+      );
+      await tester.pumpAndSettle();
+
+      await _chooseCustom(
+        tester,
+        const Key('guided-booking-limit-dropdown'),
+        'Custom booking limit…',
+      );
+      await tester.enterText(
+        find.byKey(const Key('guided-custom-booking-limit-input')),
+        '14',
+      );
+      await tester.pumpAndSettle();
+
+      await _tapReviewNext(tester);
+      expect(find.text('Service 2 of 2'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('Service 1 of 2'), findsOneWidget);
+      expect(find.text('75 minutes'), findsOneWidget);
+      expect(find.text('30 minutes'), findsOneWidget);
+      expect(find.text('14 bookings'), findsOneWidget);
+
+      await _tapReviewNext(tester);
+      expect(find.text('Service 2 of 2'), findsOneWidget);
+      await _openAvailability(tester);
+      expect(find.text('45 minutes'), findsOneWidget);
+      expect(find.text('2 hours'), findsOneWidget);
+      expect(find.text('4 bookings'), findsOneWidget);
+      await _selectDay(tester, 2);
+      await _tapReviewNext(tester);
+
+      final saved = await VanJobServicesStorage.instance.loadAll();
+      final savedFirst = saved.singleWhere((item) => item.id == first.id);
+      final savedSecond = saved.singleWhere((item) => item.id == second.id);
+      expect(savedFirst.appointmentDurationMinutes, 75);
+      expect(savedFirst.noticeHours, .5);
+      expect(savedFirst.maxBookingsPerDay, 14);
+      expect(savedSecond.appointmentDurationMinutes, 45);
+      expect(savedSecond.noticeHours, 2);
+      expect(savedSecond.maxBookingsPerDay, 4);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'invalid custom value blocks continue and preset can replace it',
+    (tester) async {
+      final service = _service('custom-validation');
+      await _seed(<VanJobService>[service]);
+      await _pumpGuidedReview(tester, <VanJobService>[service]);
+      await _openAvailability(tester);
+      await _selectDay(tester, 1);
+      await _chooseCustom(
+        tester,
+        const Key('guided-duration-dropdown'),
+        'Custom duration…',
+      );
+      await tester.enterText(
+        find.byKey(const Key('guided-custom-duration-input')),
+        '',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enter a duration.'), findsOneWidget);
+      await _tapReviewNext(tester);
+      expect(find.text('Fix the custom availability values.'), findsOneWidget);
+      expect(find.byKey(const Key('service_review_next')), findsOneWidget);
+
+      await _chooseDropdownValue(
+        tester,
+        const Key('guided-duration-dropdown'),
+        '60 minutes',
+      );
+      expect(
+        find.byKey(const Key('guided-custom-duration-input')),
+        findsNothing,
+      );
+      await _tapReviewNext(tester);
+      final saved = (await VanJobServicesStorage.instance.loadAll()).single;
+      expect(saved.appointmentDurationMinutes, 60);
+    },
+  );
+
+  testWidgets('Use Defaults restores all values for only the active service', (
+    tester,
+  ) async {
+    final first = _service('defaults-first');
+    final second = _service('defaults-second').copyWith(
+      appointmentDurationMinutes: 45,
+      noticeHours: 2,
+      maxBookingsPerDay: 4,
+    );
+    await _seed(<VanJobService>[first, second]);
+    await _pumpGuidedReview(tester, <VanJobService>[first, second]);
+    await _openAvailability(tester);
+    await _chooseCustom(
+      tester,
+      const Key('guided-duration-dropdown'),
+      'Custom duration…',
+    );
+    await tester.enterText(
+      find.byKey(const Key('guided-custom-duration-input')),
+      '75',
+    );
+    await tester.pumpAndSettle();
+    await _selectDay(tester, 1);
+    await _tapTextButton(tester, 'Use Defaults & Continue');
+
+    await _openAvailability(tester);
+    expect(find.text('45 minutes'), findsOneWidget);
+    expect(find.text('2 hours'), findsOneWidget);
+    expect(find.text('4 bookings'), findsOneWidget);
+    await _selectDay(tester, 2);
+    await _tapReviewNext(tester);
+
+    final saved = await VanJobServicesStorage.instance.loadAll();
+    final savedFirst = saved.singleWhere((item) => item.id == first.id);
+    final savedSecond = saved.singleWhere((item) => item.id == second.id);
+    expect(savedFirst.appointmentDurationMinutes, 60);
+    expect(savedFirst.noticeHours, 24);
+    expect(savedFirst.maxBookingsPerDay, 8);
+    expect(savedSecond.appointmentDurationMinutes, 45);
+    expect(savedSecond.noticeHours, 2);
+    expect(savedSecond.maxBookingsPerDay, 4);
+  });
+
+  testWidgets('cancelling existing-service custom edits persists nothing', (
+    tester,
+  ) async {
+    final service = _service('cancel-custom');
+    await _seed(<VanJobService>[service]);
+    await tester.pumpWidget(
+      MaterialApp(home: VanJobServiceDetailPage(serviceId: service.id)),
+    );
+    await tester.pumpAndSettle();
+    await _tapTextButton(tester, 'Configure in Service Wizard');
+    await _openAvailability(tester);
+    await _chooseCustom(
+      tester,
+      const Key('guided-duration-dropdown'),
+      'Custom duration…',
+    );
+    await tester.enterText(
+      find.byKey(const Key('guided-custom-duration-input')),
+      '75',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    final saved = (await VanJobServicesStorage.instance.loadAll()).single;
+    expect(saved.appointmentDurationMinutes, 60);
+    expect(saved.noticeHours, 24);
+    expect(saved.maxBookingsPerDay, 8);
   });
 }
 
@@ -320,6 +531,29 @@ Future<void> _tapTextButton(WidgetTester tester, String label) async {
     await tester.pumpAndSettle();
   }
   await tester.tap(button);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _chooseCustom(
+  WidgetTester tester,
+  Key dropdownKey,
+  String option,
+) async {
+  await _chooseDropdownValue(tester, dropdownKey, option);
+}
+
+Future<void> _chooseDropdownValue(
+  WidgetTester tester,
+  Key dropdownKey,
+  String option,
+) async {
+  final dropdown = find.byKey(dropdownKey);
+  await tester.ensureVisible(dropdown);
+  await tester.pumpAndSettle();
+  await tester.tap(dropdown);
+  await tester.pumpAndSettle();
+  expect(find.text(option), findsWidgets);
+  await tester.tap(find.text(option).last);
   await tester.pumpAndSettle();
 }
 
