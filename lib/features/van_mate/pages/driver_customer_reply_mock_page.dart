@@ -33,6 +33,7 @@ import '../services/van_driver_mock_state_storage.dart';
 import '../services/van_deleted_requests_store.dart';
 import '../services/van_firebase_auth_service.dart';
 import '../services/van_firebase_debug_logging.dart';
+import '../services/van_business_profile_scope_storage.dart';
 import '../services/van_business_profile_storage.dart';
 import '../services/van_job_request_cloud_service.dart';
 import '../services/van_job_services_storage.dart';
@@ -46,6 +47,19 @@ import '../services/van_quote_extra_defaults_storage.dart';
 import '../widgets/van_duration_picker_sheet.dart';
 import '../widgets/van_form_field_styles.dart';
 import '../widgets/van_quote_extra_defaults_sheet.dart';
+
+bool isVanIncomingScopeSnapshotCurrent({
+  required String capturedOwnerUid,
+  required String capturedBusinessProfileId,
+  required int capturedGeneration,
+  required String currentOwnerUid,
+  required String currentBusinessProfileId,
+  required int currentGeneration,
+}) {
+  return capturedOwnerUid == currentOwnerUid &&
+      capturedBusinessProfileId == currentBusinessProfileId &&
+      capturedGeneration == currentGeneration;
+}
 
 String resolveExactPinAnnouncementCustomerName({
   required String requestCustomerName,
@@ -2994,6 +3008,12 @@ class DriverReplyMockState extends ChangeNotifier {
   final Map<String, StreamSubscription<VanJobRequestRecord?>>
   _requestWatchSubscriptions =
       <String, StreamSubscription<VanJobRequestRecord?>>{};
+  StreamSubscription<List<VanJobRequestRecord>>?
+  _scopedIncomingRequestSubscription;
+  String? _loadedBusinessProfileId;
+  String _incomingScopeOwnerUid = '';
+  String _incomingScopeBusinessProfileId = '';
+  int _incomingScopeGeneration = 0;
   String? _recentRequestRefreshNotice;
   final Set<String> _announcedReplyJobIds = <String>{};
   final Set<String> _announcedExactPinJobIds = <String>{};
@@ -3042,8 +3062,37 @@ class DriverReplyMockState extends ChangeNotifier {
   Future<void> loadFromStorage() async {
     await ensureLoaded();
     await _loadDeletedRequestKeys();
-    final json = await _storage.loadJson();
+    final businessProfileId = await VanBusinessProfileScopeStorage.instance
+        .activeBusinessId();
+    final scopeChanged = _loadedBusinessProfileId != businessProfileId;
+    final json = await _storage.loadJson(businessProfileId: businessProfileId);
+    final currentBusinessProfileId = await VanBusinessProfileScopeStorage
+        .instance
+        .activeBusinessId();
+    if (currentBusinessProfileId != businessProfileId) {
+      debugPrint(
+        '[IncomingScope] local cache discarded businessProfileId=$businessProfileId '
+        'currentBusinessProfileId=$currentBusinessProfileId reason=stale_scope',
+      );
+      return;
+    }
+    if (scopeChanged) {
+      _clearInMemoryStateForBusinessSwitch();
+      _loadedBusinessProfileId = businessProfileId;
+      _incomingScopeGeneration += 1;
+      _incomingScopeOwnerUid = '';
+      _incomingScopeBusinessProfileId = businessProfileId;
+      await _scopedIncomingRequestSubscription?.cancel();
+      _scopedIncomingRequestSubscription = null;
+      debugPrint(
+        '[IncomingScope] local scope changed businessProfileId=$businessProfileId '
+        'cache=${json == null ? 'empty' : 'loaded'} generation=$_incomingScopeGeneration',
+      );
+    }
     if (json == null) {
+      if (scopeChanged) {
+        notifyListeners();
+      }
       return;
     }
 
@@ -3053,8 +3102,12 @@ class DriverReplyMockState extends ChangeNotifier {
   }
 
   Future<void> saveToStorage({bool syncCloud = true}) async {
+    final businessProfileId =
+        _loadedBusinessProfileId ??
+        await VanBusinessProfileScopeStorage.instance.activeBusinessId();
+    _loadedBusinessProfileId ??= businessProfileId;
     await _persistDeletedRequestKeys();
-    await _storage.saveJson(_toJson());
+    await _storage.saveJson(_toJson(), businessProfileId: businessProfileId);
     if (!syncCloud) {
       return;
     }
@@ -3079,6 +3132,26 @@ class DriverReplyMockState extends ChangeNotifier {
       );
       debugPrint('[VanJobsCloud] sync failed: $error');
     }
+  }
+
+  void _clearInMemoryStateForBusinessSwitch() {
+    _cancelAllRequestWatchers();
+    _jobsById.clear();
+    _jobSourceById.clear();
+    _invoiceHistoryByJobKey.clear();
+    _jobRequestsById.clear();
+    _blockedCustomersByPhone.clear();
+    _cloudVanJobIds.clear();
+    _announcedReplyJobIds.clear();
+    _announcedExactPinJobIds.clear();
+    _announcedExactPinStateTokens.clear();
+    _announcedExactPinEventTimes.clear();
+    _observedExactPinStateTokens.clear();
+    _announcedQuoteAcceptedJobIds.clear();
+    _announcedQuoteDeclinedJobIds.clear();
+    _initializedWatchedRequestIds.clear();
+    savedInvoice = null;
+    _activeJobId = null;
   }
 
   Future<void> loadFromCloud({
@@ -3258,6 +3331,364 @@ class DriverReplyMockState extends ChangeNotifier {
     debugPrint(
       '[DriverStateRefresh] complete call=$callId origin=$debugOrigin '
       'watchers=${_requestWatchSubscriptions.length} requests=${_jobRequestsById.length}',
+    );
+  }
+
+  Future<void> refreshIncomingJobsFromCloud({
+    bool forceServer = true,
+    String debugOrigin = 'incoming_jobs',
+  }) async {
+    final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
+      source: 'van_mate.incoming_jobs_refresh',
+    );
+    final normalizedOwnerUid = ownerUid?.trim() ?? '';
+    if (normalizedOwnerUid.isEmpty) {
+      debugPrint(
+        '[IncomingScope] refresh skipped origin=$debugOrigin reason=missing_owner',
+      );
+      return;
+    }
+    final businessProfileId = await VanBusinessProfileScopeStorage.instance
+        .activeBusinessId();
+    final generation = await _activateIncomingScope(
+      ownerUid: normalizedOwnerUid,
+      businessProfileId: businessProfileId,
+    );
+    debugPrint(
+      '[IncomingScope] refresh start origin=$debugOrigin ownerUid=$normalizedOwnerUid '
+      'businessProfileId=$businessProfileId generation=$generation',
+    );
+    final requests = await VanJobRequestCloudService.instance
+        .loadRequestsForOwner(
+          ownerUid: normalizedOwnerUid,
+          businessProfileId: businessProfileId,
+          source: forceServer ? Source.server : Source.serverAndCache,
+        );
+    if (!await _isIncomingScopeCurrent(
+      ownerUid: normalizedOwnerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    )) {
+      debugPrint(
+        '[IncomingScope] refresh discarded origin=$debugOrigin ownerUid=$normalizedOwnerUid '
+        'businessProfileId=$businessProfileId generation=$generation reason=stale_scope',
+      );
+      return;
+    }
+    _reconcileScopedIncomingRequests(
+      requests,
+      ownerUid: normalizedOwnerUid,
+      businessProfileId: businessProfileId,
+      origin: debugOrigin,
+    );
+    if (!await _saveIncomingScopeSnapshot(
+      ownerUid: normalizedOwnerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    )) {
+      return;
+    }
+    _startScopedIncomingRequestListener(
+      ownerUid: normalizedOwnerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    );
+    notifyListeners();
+  }
+
+  Future<VanJobRequestRecord?> refreshIncomingRequestById({
+    required String requestId,
+    String expectedOwnerUid = '',
+    Source source = Source.server,
+  }) async {
+    final normalizedRequestId = requestId.trim();
+    if (normalizedRequestId.isEmpty) {
+      return null;
+    }
+    final ownerUid = await VanFirebaseAuthService.instance.ensureCurrentUid(
+      source: 'van_mate.incoming_notification_refresh',
+    );
+    final normalizedOwnerUid = ownerUid?.trim() ?? '';
+    final normalizedExpectedOwner = expectedOwnerUid.trim();
+    if (normalizedOwnerUid.isEmpty ||
+        (normalizedExpectedOwner.isNotEmpty &&
+            normalizedExpectedOwner != normalizedOwnerUid)) {
+      debugPrint(
+        '[IncomingScope] targeted excluded requestId=$normalizedRequestId '
+        'reason=notification_owner_mismatch',
+      );
+      return null;
+    }
+    var businessProfileId = await VanBusinessProfileScopeStorage.instance
+        .activeBusinessId();
+    if (_loadedBusinessProfileId != businessProfileId) {
+      await loadFromStorage();
+      businessProfileId = await VanBusinessProfileScopeStorage.instance
+          .activeBusinessId();
+    }
+    final generation = await _activateIncomingScope(
+      ownerUid: normalizedOwnerUid,
+      businessProfileId: businessProfileId,
+    );
+    final request = await VanJobRequestCloudService.instance
+        .loadRequestByIdForScope(
+          requestId: normalizedRequestId,
+          ownerUid: normalizedOwnerUid,
+          businessProfileId: businessProfileId,
+          source: source,
+        );
+    if (request == null ||
+        !await _isIncomingScopeCurrent(
+          ownerUid: normalizedOwnerUid,
+          businessProfileId: businessProfileId,
+          generation: generation,
+        )) {
+      debugPrint(
+        '[IncomingScope] targeted excluded requestId=$normalizedRequestId '
+        'ownerUid=$normalizedOwnerUid businessProfileId=$businessProfileId '
+        'reason=${request == null ? 'missing_or_out_of_scope' : 'stale_scope'}',
+      );
+      return null;
+    }
+    final previous = _jobRequestsById[normalizedRequestId];
+    _mergeCloudRequests(
+      <VanJobRequestRecord>[request],
+      previousRequestsById: previous == null
+          ? null
+          : <String, VanJobRequestRecord>{normalizedRequestId: previous},
+    );
+    if (!await _saveIncomingScopeSnapshot(
+      ownerUid: normalizedOwnerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    )) {
+      return null;
+    }
+    _startScopedIncomingRequestListener(
+      ownerUid: normalizedOwnerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    );
+    notifyListeners();
+    debugPrint(
+      '[IncomingScope] targeted included requestId=$normalizedRequestId '
+      'ownerUid=$normalizedOwnerUid businessProfileId=$businessProfileId',
+    );
+    return request;
+  }
+
+  Future<int> _activateIncomingScope({
+    required String ownerUid,
+    required String businessProfileId,
+  }) async {
+    final changed =
+        _incomingScopeOwnerUid != ownerUid ||
+        _incomingScopeBusinessProfileId != businessProfileId;
+    if (!changed) {
+      return _incomingScopeGeneration;
+    }
+    _incomingScopeGeneration += 1;
+    _incomingScopeOwnerUid = ownerUid;
+    _incomingScopeBusinessProfileId = businessProfileId;
+    await _scopedIncomingRequestSubscription?.cancel();
+    _scopedIncomingRequestSubscription = null;
+    return _incomingScopeGeneration;
+  }
+
+  Future<bool> _isIncomingScopeCurrent({
+    required String ownerUid,
+    required String businessProfileId,
+    required int generation,
+  }) async {
+    if (!isVanIncomingScopeSnapshotCurrent(
+      capturedOwnerUid: ownerUid,
+      capturedBusinessProfileId: businessProfileId,
+      capturedGeneration: generation,
+      currentOwnerUid: _incomingScopeOwnerUid,
+      currentBusinessProfileId: _incomingScopeBusinessProfileId,
+      currentGeneration: _incomingScopeGeneration,
+    )) {
+      return false;
+    }
+    final currentOwnerUid =
+        VanFirebaseAuthService.instance.currentUser?.uid.trim() ?? '';
+    if (currentOwnerUid != ownerUid) {
+      return false;
+    }
+    final activeBusinessProfileId = await VanBusinessProfileScopeStorage
+        .instance
+        .activeBusinessId();
+    return isVanIncomingScopeSnapshotCurrent(
+      capturedOwnerUid: ownerUid,
+      capturedBusinessProfileId: businessProfileId,
+      capturedGeneration: generation,
+      currentOwnerUid: currentOwnerUid,
+      currentBusinessProfileId: activeBusinessProfileId,
+      currentGeneration: _incomingScopeGeneration,
+    );
+  }
+
+  Future<bool> _saveIncomingScopeSnapshot({
+    required String ownerUid,
+    required String businessProfileId,
+    required int generation,
+  }) async {
+    if (!await _isIncomingScopeCurrent(
+      ownerUid: ownerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    )) {
+      return false;
+    }
+    await _persistDeletedRequestKeys();
+    if (!await _isIncomingScopeCurrent(
+      ownerUid: ownerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    )) {
+      return false;
+    }
+    final stateJson = _toJson();
+    await _storage.saveJson(stateJson, businessProfileId: businessProfileId);
+    return _isIncomingScopeCurrent(
+      ownerUid: ownerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    );
+  }
+
+  void _startScopedIncomingRequestListener({
+    required String ownerUid,
+    required String businessProfileId,
+    required int generation,
+  }) {
+    if (_scopedIncomingRequestSubscription != null) {
+      return;
+    }
+    _scopedIncomingRequestSubscription = VanJobRequestCloudService.instance
+        .watchRequestsForOwner(
+          ownerUid: ownerUid,
+          businessProfileId: businessProfileId,
+        )
+        .listen(
+          (requests) => unawaited(
+            _applyScopedIncomingRequestSnapshot(
+              requests,
+              ownerUid: ownerUid,
+              businessProfileId: businessProfileId,
+              generation: generation,
+            ),
+          ),
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint(
+              '[IncomingScope] listener error ownerUid=$ownerUid '
+              'businessProfileId=$businessProfileId generation=$generation error=$error',
+            );
+            debugPrintStack(stackTrace: stackTrace);
+          },
+        );
+  }
+
+  Future<void> _applyScopedIncomingRequestSnapshot(
+    List<VanJobRequestRecord> requests, {
+    required String ownerUid,
+    required String businessProfileId,
+    required int generation,
+  }) async {
+    if (!await _isIncomingScopeCurrent(
+      ownerUid: ownerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    )) {
+      debugPrint(
+        '[IncomingScope] listener snapshot discarded ownerUid=$ownerUid '
+        'businessProfileId=$businessProfileId generation=$generation reason=stale_scope',
+      );
+      return;
+    }
+    _reconcileScopedIncomingRequests(
+      requests,
+      ownerUid: ownerUid,
+      businessProfileId: businessProfileId,
+      origin: 'collection_listener',
+    );
+    if (!await _saveIncomingScopeSnapshot(
+      ownerUid: ownerUid,
+      businessProfileId: businessProfileId,
+      generation: generation,
+    )) {
+      return;
+    }
+    notifyListeners();
+  }
+
+  void _reconcileScopedIncomingRequests(
+    List<VanJobRequestRecord> requests, {
+    required String ownerUid,
+    required String businessProfileId,
+    required String origin,
+  }) {
+    final canonicalById = <String, VanJobRequestRecord>{};
+    var excluded = 0;
+    var duplicates = 0;
+    for (final request in requests) {
+      final requestId = request.requestId.trim();
+      if (requestId.isEmpty || request.ownerUid.trim() != ownerUid) {
+        excluded += 1;
+        continue;
+      }
+      final existing = canonicalById[requestId];
+      if (existing != null) {
+        duplicates += 1;
+        if (!request.updatedAt.isAfter(existing.updatedAt)) {
+          continue;
+        }
+      }
+      canonicalById[requestId] = request;
+    }
+
+    final previousRequests = Map<String, VanJobRequestRecord>.from(
+      _jobRequestsById,
+    );
+    final canonicalRequestIds = canonicalById.keys.toSet();
+    final staleRequestIds = _jobRequestsById.keys
+        .where((requestId) => !canonicalRequestIds.contains(requestId))
+        .toSet();
+    _jobRequestsById.clear();
+
+    var prunedJobs = 0;
+    for (final entry in _jobsById.entries.toList(growable: false)) {
+      final job = entry.value;
+      final requestId = job.requestId?.trim() ?? '';
+      final isRequestDerived =
+          _jobSourceById[job.jobId] == 'van_job_requests' ||
+          requestId.isNotEmpty;
+      final preserveWorkflow =
+          job.hasQuote ||
+          job.isConfirmed ||
+          job.isCompletedJob ||
+          job.isScheduledInCalendarState;
+      if (isRequestDerived &&
+          requestId.isNotEmpty &&
+          !canonicalRequestIds.contains(requestId) &&
+          !preserveWorkflow) {
+        _jobsById.remove(entry.key);
+        _jobSourceById.remove(entry.key);
+        _cloudVanJobIds.remove(entry.key);
+        prunedJobs += 1;
+      }
+    }
+
+    _mergeCloudRequests(
+      canonicalById.values.toList(growable: false),
+      previousRequestsById: previousRequests,
+    );
+    _syncRequestWatchers();
+    debugPrint(
+      '[IncomingScope] reconcile origin=$origin ownerUid=$ownerUid '
+      'businessProfileId=$businessProfileId included=${canonicalById.length} '
+      'excluded=$excluded duplicates=$duplicates staleRequests=${staleRequestIds.length} '
+      'prunedJobs=$prunedJobs visiblePending=${pendingJobs.length}',
     );
   }
 
@@ -3681,7 +4112,10 @@ class DriverReplyMockState extends ChangeNotifier {
       return null;
     }
 
-    final job = _jobsById[request.jobId.trim()];
+    final linkedJobId = request.linkedJobId.trim().isNotEmpty
+        ? request.linkedJobId.trim()
+        : request.jobId.trim();
+    final job = _jobsById[linkedJobId];
     return _isVisibleJob(job) ? job : null;
   }
 
@@ -4622,7 +5056,6 @@ class DriverReplyMockState extends ChangeNotifier {
     final result = <DriverCustomerReplyMockData>[];
     for (final job in jobs) {
       final decision = _deriveVanJobBucket(job);
-      final hasCloudBackedJob = _cloudVanJobIds.contains(job.jobId);
       final linkedRequest = _requestForJob(job.jobId);
       final hasLinkedRequest =
           linkedRequest != null && !linkedRequest.isHiddenFromNormalLists;
@@ -4633,7 +5066,7 @@ class DriverReplyMockState extends ChangeNotifier {
           job.status.trim().toLowerCase() == 'scheduled' ||
           job.schedulingStatus.trim().toLowerCase() == 'scheduled';
       final shouldShow =
-          (hasLinkedRequest || (hasCloudBackedJob && job.hasRequest)) &&
+          hasLinkedRequest &&
           !isQuoteOnlySource &&
           !isAlreadyScheduled &&
           decision.bucket == VanJobBucket.pendingCustomerRequest;
@@ -4830,6 +5263,12 @@ class DriverReplyMockState extends ChangeNotifier {
 
   @visibleForTesting
   void debugResetStateForTest() {
+    unawaited(_scopedIncomingRequestSubscription?.cancel());
+    _scopedIncomingRequestSubscription = null;
+    _loadedBusinessProfileId = null;
+    _incomingScopeOwnerUid = '';
+    _incomingScopeBusinessProfileId = '';
+    _incomingScopeGeneration = 0;
     _cancelAllRequestWatchers();
     _jobsById.clear();
     _jobSourceById.clear();
@@ -4946,6 +5385,20 @@ class DriverReplyMockState extends ChangeNotifier {
       previousRequestsById: Map<String, VanJobRequestRecord>.from(
         _jobRequestsById,
       ),
+    );
+  }
+
+  @visibleForTesting
+  void debugReconcileScopedIncomingRequestsForTest(
+    List<VanJobRequestRecord> requests, {
+    String ownerUid = 'debug-owner',
+    String businessProfileId = 'debug-business',
+  }) {
+    _reconcileScopedIncomingRequests(
+      requests,
+      ownerUid: ownerUid,
+      businessProfileId: businessProfileId,
+      origin: 'test',
     );
   }
 

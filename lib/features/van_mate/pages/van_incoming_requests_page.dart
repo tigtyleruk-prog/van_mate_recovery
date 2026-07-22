@@ -333,7 +333,10 @@ class _VanIncomingRequestsPageState extends State<VanIncomingRequestsPage> {
       );
 
       await DriverReplyMockState.instance
-          .refreshJobsFromCloud(forceServer: true)
+          .refreshIncomingJobsFromCloud(
+            forceServer: true,
+            debugOrigin: 'incoming_jobs_page',
+          )
           .timeout(_loadTimeout);
       final loadedCount = DriverReplyMockState.instance.pendingJobs.length;
       debugPrint(

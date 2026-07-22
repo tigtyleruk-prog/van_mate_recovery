@@ -190,6 +190,40 @@ class VanJobRequestCloudService {
     return null;
   }
 
+  Future<VanJobRequestRecord?> loadRequestByIdForScope({
+    required String requestId,
+    required String ownerUid,
+    required String businessProfileId,
+    Source source = Source.serverAndCache,
+  }) async {
+    final normalizedRequestId = requestId.trim();
+    final normalizedOwnerUid = ownerUid.trim();
+    if (normalizedRequestId.isEmpty || normalizedOwnerUid.isEmpty) {
+      return null;
+    }
+    final snapshot = await _requests
+        .doc(normalizedRequestId)
+        .get(GetOptions(source: source));
+    if (!snapshot.exists) {
+      return null;
+    }
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    if ((data['ownerUid']?.toString().trim() ?? '') != normalizedOwnerUid ||
+        !vanJobRequestMatchesBusinessProfile(
+          data,
+          activeBusinessProfileId: businessProfileId,
+        )) {
+      debugPrint(
+        '[VanJobRequestScope] targeted excluded requestId=$normalizedRequestId '
+        'ownerUid=$normalizedOwnerUid businessProfileId=$businessProfileId '
+        'reason=owner_or_profile_mismatch',
+      );
+      return null;
+    }
+    final request = VanJobRequestRecord.fromFirestore(snapshot);
+    return request.isHiddenFromNormalLists ? null : request;
+  }
+
   Stream<VanJobRequestRecord?> watchRequestById(
     String requestId, {
     String debugOrigin = 'job_request_cloud',
@@ -250,15 +284,16 @@ class VanJobRequestCloudService {
 
   Future<List<VanJobRequestRecord>> loadRequestsForOwner({
     required String ownerUid,
+    String? businessProfileId,
     Source source = Source.serverAndCache,
   }) async {
     final normalizedOwnerUid = ownerUid.trim();
     if (normalizedOwnerUid.isEmpty) {
       return const <VanJobRequestRecord>[];
     }
-    final activeBusinessProfileId = await VanBusinessProfileScopeStorage
-        .instance
-        .activeBusinessId();
+    final activeBusinessProfileId = businessProfileId?.trim().isNotEmpty == true
+        ? businessProfileId!.trim()
+        : await VanBusinessProfileScopeStorage.instance.activeBusinessId();
 
     if (kDebugMode) {
       debugPrint(
@@ -321,6 +356,56 @@ class VanJobRequestCloudService {
       );
     }
     return requests;
+  }
+
+  Stream<List<VanJobRequestRecord>> watchRequestsForOwner({
+    required String ownerUid,
+    required String businessProfileId,
+  }) {
+    final normalizedOwnerUid = ownerUid.trim();
+    final normalizedBusinessProfileId = businessProfileId.trim().isEmpty
+        ? VanBusinessProfileScopeStorage.defaultBusinessId
+        : businessProfileId.trim();
+    if (normalizedOwnerUid.isEmpty) {
+      return Stream<List<VanJobRequestRecord>>.value(
+        const <VanJobRequestRecord>[],
+      );
+    }
+
+    return _requests
+        .where(Filter('ownerUid', isEqualTo: normalizedOwnerUid))
+        .snapshots()
+        .map((snapshot) {
+          final requests = <VanJobRequestRecord>[];
+          var excluded = 0;
+          for (final doc in snapshot.docs) {
+            final data = doc.data();
+            if (!vanJobRequestMatchesBusinessProfile(
+              data,
+              activeBusinessProfileId: normalizedBusinessProfileId,
+            )) {
+              excluded += 1;
+              continue;
+            }
+            try {
+              requests.add(VanJobRequestRecord.fromFirestore(doc));
+            } catch (error) {
+              debugPrint(
+                '[VanJobRequestScope] listener parse excluded requestId=${doc.id} '
+                'ownerUid=$normalizedOwnerUid '
+                'businessProfileId=$normalizedBusinessProfileId reason=$error',
+              );
+            }
+          }
+          requests.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          debugPrint(
+            '[VanJobRequestScope] listener snapshot ownerUid=$normalizedOwnerUid '
+            'businessProfileId=$normalizedBusinessProfileId '
+            'included=${requests.length} excluded=$excluded '
+            'sourceCollection=$rootCollectionName',
+          );
+          return List<VanJobRequestRecord>.unmodifiable(requests);
+        });
   }
 
   Future<VanJobRequestRecord> createOrUpdateFromDraft({

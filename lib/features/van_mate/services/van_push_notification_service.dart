@@ -262,6 +262,8 @@ class VanMatePushNotificationService {
   String? _currentToken;
   void Function(VanMateExactPinNotificationPayload payload)?
   _openNotificationHandler;
+  void Function(VanMateExactPinNotificationPayload payload)?
+  _foregroundNotificationHandler;
   VanMateExactPinNotificationPayload? _pendingOpenNotification;
 
   Future<void> initialize({
@@ -300,6 +302,16 @@ class VanMatePushNotificationService {
     if (_openNotificationHandler != null) {
       _openNotificationHandler = null;
     }
+  }
+
+  void registerForegroundHandler(
+    void Function(VanMateExactPinNotificationPayload payload) handler,
+  ) {
+    _foregroundNotificationHandler = handler;
+  }
+
+  void clearForegroundHandler() {
+    _foregroundNotificationHandler = null;
   }
 
   Future<void> _syncForUser(User? user) async {
@@ -383,6 +395,11 @@ class VanMatePushNotificationService {
     final payload = VanMateExactPinNotificationPayload.fromMap(message.data);
     if (payload == null || !payload.isOpenableNotification) {
       return;
+    }
+
+    final foregroundHandler = _foregroundNotificationHandler;
+    if (foregroundHandler != null) {
+      scheduleMicrotask(() => foregroundHandler(payload));
     }
 
     final messenger = _scaffoldMessengerKey?.currentState;

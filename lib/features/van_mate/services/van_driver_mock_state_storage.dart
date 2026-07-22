@@ -30,10 +30,22 @@ class VanDriverMockStateStorage {
     _isLoaded = true;
   }
 
-  Future<Map<String, dynamic>?> loadJson() async {
+  String _storageKeyForBusiness(String businessProfileId) {
+    final normalizedId = businessProfileId.trim();
+    if (normalizedId.isEmpty ||
+        normalizedId == VanBusinessProfileScopeStorage.defaultBusinessId) {
+      return _stateKey;
+    }
+    return '${_stateKey}_business_$normalizedId';
+  }
+
+  Future<Map<String, dynamic>?> loadJson({String? businessProfileId}) async {
     await ensureLoaded();
-    final storageKey = await VanBusinessProfileScopeStorage.instance
-        .scopedLocalKey(_stateKey);
+    final storageKey = businessProfileId == null
+        ? await VanBusinessProfileScopeStorage.instance.scopedLocalKey(
+            _stateKey,
+          )
+        : _storageKeyForBusiness(businessProfileId);
     final raw = _preferences?.getString(storageKey);
     if (raw == null || raw.trim().isEmpty) {
       return null;
@@ -49,20 +61,29 @@ class VanDriverMockStateStorage {
     return null;
   }
 
-  Future<void> saveJson(Map<String, dynamic> state) async {
+  Future<void> saveJson(
+    Map<String, dynamic> state, {
+    String? businessProfileId,
+  }) async {
     await ensureLoaded();
-    final storageKey = await VanBusinessProfileScopeStorage.instance
-        .scopedLocalKey(_stateKey);
+    final storageKey = businessProfileId == null
+        ? await VanBusinessProfileScopeStorage.instance.scopedLocalKey(
+            _stateKey,
+          )
+        : _storageKeyForBusiness(businessProfileId);
     await _preferences?.setString(
       storageKey,
       jsonEncode(_jsonSafeValue(state)),
     );
   }
 
-  Future<void> clear() async {
+  Future<void> clear({String? businessProfileId}) async {
     await ensureLoaded();
-    final storageKey = await VanBusinessProfileScopeStorage.instance
-        .scopedLocalKey(_stateKey);
+    final storageKey = businessProfileId == null
+        ? await VanBusinessProfileScopeStorage.instance.scopedLocalKey(
+            _stateKey,
+          )
+        : _storageKeyForBusiness(businessProfileId);
     await _preferences?.remove(storageKey);
   }
 }

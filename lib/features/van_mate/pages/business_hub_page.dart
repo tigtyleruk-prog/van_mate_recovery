@@ -164,7 +164,10 @@ class _VanBusinessHubPageState extends State<VanBusinessHubPage> {
   Future<void> _refreshIncomingJobs() async {
     try {
       await _driverState.loadFromStorage();
-      await _driverState.refreshJobsFromCloud(forceServer: true);
+      await _driverState.refreshIncomingJobsFromCloud(
+        forceServer: true,
+        debugOrigin: 'business_hub_badge',
+      );
     } catch (error) {
       debugPrint(
         '[BusinessHub] incoming jobs attention refresh failed: $error',

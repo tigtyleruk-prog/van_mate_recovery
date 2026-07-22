@@ -136,6 +136,9 @@ class _VanFirebasePageState extends State<VanFirebasePage>
       VanMatePushNotificationService.instance.registerOpenHandler(
         _handleNotificationOpen,
       );
+      VanMatePushNotificationService.instance.registerForegroundHandler(
+        _handleForegroundNotification,
+      );
       VanInvoiceReminderService.instance.registerOpenHandler(
         _handleInvoiceReminderOpen,
       );
@@ -147,6 +150,7 @@ class _VanFirebasePageState extends State<VanFirebasePage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     VanMatePushNotificationService.instance.clearOpenHandler();
+    VanMatePushNotificationService.instance.clearForegroundHandler();
     VanInvoiceReminderService.instance.clearOpenHandler();
     VanMatePremiumService.instance.removeListener(_handlePremiumChanged);
     _placesSubscription?.cancel();
@@ -201,6 +205,20 @@ class _VanFirebasePageState extends State<VanFirebasePage>
     unawaited(_openNotificationPayload(payload));
   }
 
+  void _handleForegroundNotification(
+    VanMateExactPinNotificationPayload payload,
+  ) {
+    if (!payload.isBookingRequestNotification) {
+      return;
+    }
+    unawaited(
+      DriverReplyMockState.instance.refreshIncomingRequestById(
+        requestId: payload.requestId,
+        expectedOwnerUid: payload.ownerUid,
+      ),
+    );
+  }
+
   Future<void> _handleInvoiceReminderOpen(
     VanInvoiceReminderOpenTarget target,
   ) async {
@@ -248,27 +266,22 @@ class _VanFirebasePageState extends State<VanFirebasePage>
     VanMateExactPinNotificationPayload payload,
   ) async {
     if (payload.isBookingRequestNotification) {
-      await _refreshDriverJobsFromCloud(reason: 'notification_tap');
+      final requestId = payload.requestId.trim();
+      final refreshedRequest = await DriverReplyMockState.instance
+          .refreshIncomingRequestById(
+            requestId: requestId,
+            expectedOwnerUid: payload.ownerUid,
+          );
       if (!mounted) {
         return;
       }
-
-      final requestId = payload.requestId.trim();
-      var jobId = payload.jobId.trim();
-      if (jobId.isEmpty && requestId.isNotEmpty) {
-        final refreshedRequest = await DriverReplyMockState.instance
-            .refreshRequestFromCloud(requestId);
-        if (!mounted) {
-          return;
-        }
-        jobId = refreshedRequest?.jobId.trim().isNotEmpty == true
-            ? refreshedRequest!.jobId.trim()
-            : DriverReplyMockState.instance
-                      .jobByRequestId(requestId)
-                      ?.jobId
-                      .trim() ??
-                  '';
-      }
+      final linkedJobId = refreshedRequest?.linkedJobId.trim() ?? '';
+      final requestJobId = refreshedRequest?.jobId.trim() ?? '';
+      final jobId = linkedJobId.isNotEmpty
+          ? linkedJobId
+          : requestJobId.isNotEmpty
+          ? requestJobId
+          : '';
 
       final freshJob = jobId.isNotEmpty
           ? DriverReplyMockState.instance.jobById(jobId)
