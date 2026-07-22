@@ -215,13 +215,8 @@ Future<bool?> confirmDriverJobDelete(
     context: context,
     builder: (dialogContext) {
       final contentLines = <String>[
-        'This will remove the job from your job list and calendar. Any invoices already created will stay in Past invoices.',
+        'This permanently removes the operational job, request, replies, quotes and linked job photos. Any invoice and financial records will be kept.',
       ];
-      if (hasInvoice) {
-        contentLines.add(
-          'This job has an invoice. The job will be removed, but the invoice will stay in Past invoices.',
-        );
-      }
 
       return AlertDialog(
         backgroundColor: const Color(0xFF142031),
@@ -260,6 +255,40 @@ Future<bool?> confirmDriverJobDelete(
 
   if (confirmed != true || !context.mounted) {
     return null;
+  }
+
+  if (hasInvoice || job.isCompletedJob) {
+    final finalConfirmation = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF142031),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text(
+          'Permanently delete operational job?',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          'This job is completed or invoiced. Its invoice, payments and financial records will remain independently available.',
+          style: TextStyle(color: Colors.white70, height: 1.4),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep job'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B6B),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete permanently'),
+          ),
+        ],
+      ),
+    );
+    if (finalConfirmation != true || !context.mounted) return null;
   }
 
   final deleted = await DriverReplyMockState.instance.deleteJob(

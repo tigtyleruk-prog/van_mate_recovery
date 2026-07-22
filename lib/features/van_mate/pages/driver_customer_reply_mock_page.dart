@@ -43,6 +43,7 @@ import '../services/van_pickup_reminder_service.dart';
 import '../services/van_quotes_cloud_service.dart';
 import '../services/van_invoices_cloud_service.dart';
 import '../services/van_invoice_number_storage.dart';
+import '../services/van_job_deletion_service.dart';
 import '../services/van_quote_extra_defaults_storage.dart';
 import '../widgets/van_duration_picker_sheet.dart';
 import '../widgets/van_form_field_styles.dart';
@@ -2992,6 +2993,8 @@ class DriverReplyMockState extends ChangeNotifier {
   final VanDriverMockStateStorage _storage = VanDriverMockStateStorage.instance;
   final VanInvoiceNumberStorage _invoiceNumberStorage =
       VanInvoiceNumberStorage.instance;
+  VanJobDeletionService _jobDeletionService = VanJobDeletionService.instance;
+  final Set<String> _deletingJobIds = <String>{};
 
   VanInvoiceDraft? savedInvoice;
   String? _activeJobId;
@@ -5249,7 +5252,11 @@ class DriverReplyMockState extends ChangeNotifier {
   }
 
   String currentUidForDebug() {
-    return FirebaseAuth.instance.currentUser?.uid ?? '(none)';
+    try {
+      return FirebaseAuth.instance.currentUser?.uid ?? '(none)';
+    } catch (_) {
+      return '(none)';
+    }
   }
 
   List<DriverCustomerReplyMockData> debugAllLoadedJobs() {
@@ -5277,6 +5284,8 @@ class DriverReplyMockState extends ChangeNotifier {
     _blockedCustomersByPhone.clear();
     _deletedRequestKeys.clear();
     _cloudVanJobIds.clear();
+    _deletingJobIds.clear();
+    _jobDeletionService = VanJobDeletionService.instance;
     _announcedReplyJobIds.clear();
     _announcedExactPinJobIds.clear();
     _announcedExactPinEventTimes.clear();
@@ -5285,6 +5294,11 @@ class DriverReplyMockState extends ChangeNotifier {
     _initializedWatchedRequestIds.clear();
     savedInvoice = null;
     _activeJobId = null;
+  }
+
+  @visibleForTesting
+  void debugSetJobDeletionServiceForTest(VanJobDeletionService service) {
+    _jobDeletionService = service;
   }
 
   @visibleForTesting
@@ -7032,7 +7046,96 @@ class DriverReplyMockState extends ChangeNotifier {
     return updated;
   }
 
-  Future<bool> deleteJob({String? jobId}) async {
+  Future<bool> deleteJob({String? jobId, bool refreshCloud = true}) async {
+    final resolvedId = _resolveJobId(jobId);
+    if (resolvedId == null || _deletingJobIds.contains(resolvedId)) {
+      return false;
+    }
+    final existing = _jobsById[resolvedId];
+    if (existing == null) return false;
+    _deletingJobIds.add(resolvedId);
+    notifyListeners();
+    try {
+      final request = _requestForJob(resolvedId);
+      final execution = await _jobDeletionService.deleteOne(
+        jobId: resolvedId,
+        requestId: request?.requestId ?? existing.requestId ?? '',
+      );
+      VanJobDeletionTargetResult? result;
+      for (final candidate in execution.results) {
+        if (candidate.jobId == resolvedId) {
+          result = candidate;
+          break;
+        }
+      }
+      if (result == null || !result.completed) return false;
+      await applyConfirmedJobDeletionResults(<VanJobDeletionTargetResult>[
+        result,
+      ], refreshCloud: refreshCloud);
+      return true;
+    } on VanJobDeletionException catch (error) {
+      debugPrint(
+        '[JobDeletion] failed jobId=$resolvedId error=${error.message}',
+      );
+      return false;
+    } catch (error, stackTrace) {
+      debugPrint('[JobDeletion] failed jobId=$resolvedId error=$error');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    } finally {
+      _deletingJobIds.remove(resolvedId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> applyConfirmedJobDeletionResults(
+    Iterable<VanJobDeletionTargetResult> results, {
+    bool refreshCloud = true,
+  }) async {
+    final completed = results.where((result) => result.completed).toList();
+    if (completed.isEmpty) return;
+    final deletedJobIds = <String>{};
+    for (final result in completed) {
+      final jobId = result.jobId.trim();
+      if (jobId.isEmpty) continue;
+      deletedJobIds.add(jobId);
+      final requestIds = _jobRequestsById.values
+          .where(
+            (candidate) =>
+                candidate.jobId.trim() == jobId ||
+                candidate.linkedJobId.trim() == jobId ||
+                candidate.requestId.trim() == result.requestId,
+          )
+          .map((candidate) => candidate.requestId.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      if (result.requestId.isNotEmpty) requestIds.add(result.requestId);
+      _jobsById.remove(jobId);
+      _jobSourceById.remove(jobId);
+      _cloudVanJobIds.remove(jobId);
+      _jobRequestsById.removeWhere((id, _) => requestIds.contains(id));
+      _deletedRequestKeys.addAll(<String>{
+        jobId,
+        'job:$jobId',
+        for (final requestId in requestIds) requestId,
+        for (final requestId in requestIds) 'request:$requestId',
+      });
+      await VanPickupReminderService.instance.cancel(jobId);
+    }
+    if (deletedJobIds.contains(_activeJobId)) {
+      _activeJobId = _latestJob()?.jobId;
+    }
+    _syncRequestWatchers();
+    await saveToStorage(syncCloud: false);
+    await _persistDeletedRequestKeys();
+    notifyListeners();
+    if (refreshCloud) {
+      unawaited(refreshJobsFromCloud(debugOrigin: 'job_bulk_delete_complete'));
+    }
+  }
+
+  @Deprecated('Use the canonical server-authoritative deleteJob flow.')
+  Future<bool> legacyDeleteJob({String? jobId}) async {
     final resolvedId = _resolveJobId(jobId);
     if (resolvedId == null) {
       debugPrint('DELETE JOB aborted reason=unresolved_job_id rawJobId=$jobId');
@@ -7214,6 +7317,33 @@ class DriverReplyMockState extends ChangeNotifier {
   }
 
   Future<IncomingRequestDeleteResult> deleteIncomingRequest({
+    String? requestId,
+    required String localJobId,
+    String source = '',
+  }) async {
+    final request = requestId?.trim() ?? '';
+    final deleted = await deleteJob(jobId: localJobId);
+    return IncomingRequestDeleteResult(
+      status: deleted
+          ? IncomingRequestDeleteStatus.deleted
+          : IncomingRequestDeleteStatus.failed,
+      requestId: request,
+      linkedJobId: localJobId.trim(),
+      source: source.trim(),
+      ownerUid: '',
+      attemptedPaths: const <String>['deleteBusinessMateJobs'],
+      localDeleteSucceeded: deleted,
+      cloudDeleteSucceeded: deleted,
+      cloudNotFoundOnly: false,
+      cloudPermissionDenied: false,
+      errorMessage: deleted ? '' : 'Could not delete request.',
+    );
+  }
+
+  @Deprecated(
+    'Use the canonical server-authoritative deleteIncomingRequest flow.',
+  )
+  Future<IncomingRequestDeleteResult> legacyDeleteIncomingRequest({
     String? requestId,
     required String localJobId,
     String source = '',

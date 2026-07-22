@@ -440,6 +440,32 @@ class _VanIncomingRequestsPageState extends State<VanIncomingRequestsPage> {
     DriverCustomerReplyMockData job,
     VanJobRequestRecord? request,
   ) async {
+    final deleteKey = DriverReplyMockState.instance.stableDeleteKeyForJob(
+      job,
+      request: request,
+    );
+    if (_deletingRequestIds.contains(deleteKey)) return;
+    setState(() => _deletingRequestIds.add(deleteKey));
+    try {
+      final deleted = await confirmDriverJobDelete(context, job: job);
+      if (deleted == true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Request and linked job deleted.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deletingRequestIds.remove(deleteKey));
+    }
+  }
+
+  @Deprecated('Use the shared canonical job deletion confirmation.')
+  Future<void> legacyConfirmDeleteRequest(
+    DriverCustomerReplyMockData job,
+    VanJobRequestRecord? request,
+  ) async {
     final state = DriverReplyMockState.instance;
     final requestId =
         (request?.requestId.trim().isNotEmpty == true
