@@ -6,6 +6,9 @@ const {
   buildDeletionPlan,
   buildPreviewDigest,
   classifyStoragePaths,
+  createDeletionCoordinator,
+  deleteReferencesInBatches,
+  isMarkedTestRecord,
   resolveDeletionIdentity,
   tombstoneData,
 } = require('./business_mate_job_deletion');
@@ -134,4 +137,85 @@ test('tombstones contain only minimal operational fields', () => {
   ]);
   assert.equal(JSON.stringify(value).includes('address'), false);
   assert.equal(JSON.stringify(value).includes('phone'), false);
+});
+
+test('preview is server-scoped, counted, stored and requires matching confirmation', async () => {
+  const stored = new Map();
+  let executions = 0;
+  const plan = {
+    identity: {
+      ownerUid: 'owner-1', businessProfileId: 'courier-1',
+      jobId: 'job-1', requestId: 'request-1',
+    },
+    status: 'completed',
+    quoteIds: ['quote-1', 'quote-2'],
+    tokenIds: ['token-1'],
+    storagePaths: ['photo-1'],
+    preserved: {
+      invoicePaths: ['invoice-1'], storagePaths: [], ambiguousRecords: [],
+    },
+  };
+  const coordinator = createDeletionCoordinator({
+    now: () => new Date('2026-07-22T10:00:00Z'),
+    randomId: () => 'preview-1',
+    repository: {
+      resolvePlans: async () => ({ businessName: 'Swift Courier', plans: [plan] }),
+      storePreview: async (preview) => stored.set(preview.previewToken, preview),
+      readPreview: async (token) => stored.get(token),
+      executePlan: async () => {
+        executions += 1;
+        return { jobId: 'job-1', status: 'deleted' };
+      },
+      completePreview: async () => {},
+    },
+  });
+
+  const preview = await coordinator.preview({
+    ownerUid: 'owner-1', businessProfileId: 'courier-1',
+    selection: 'all_operational',
+  });
+  assert.equal(preview.confirmationPhrase, 'DELETE SWIFT COURIER JOBS');
+  assert.deepEqual(preview.summary, {
+    jobs: 1, requests: 1, quoteVersions: 2, tokens: 1, photos: 1,
+    invoicesPreserved: 1, ambiguousPreserved: 0,
+  });
+  await assert.rejects(coordinator.execute({
+    ownerUid: 'owner-1', businessProfileId: 'courier-1',
+    previewToken: 'preview-1', confirmationPhrase: 'DELETE JOBS',
+    idempotencyKey: 'operation-1',
+  }), /does not match/);
+  assert.equal(executions, 0);
+
+  const result = await coordinator.execute({
+    ownerUid: 'owner-1', businessProfileId: 'courier-1',
+    previewToken: 'preview-1',
+    confirmationPhrase: 'DELETE SWIFT COURIER JOBS',
+    idempotencyKey: 'operation-1',
+  });
+  assert.equal(result.completed.length, 1);
+  assert.equal(executions, 1);
+});
+
+test('marked test selection never relies on customer-facing names', () => {
+  assert.equal(isMarkedTestRecord({ isTestData: true }), true);
+  assert.equal(isMarkedTestRecord({ testMode: 'development' }), true);
+  assert.equal(isMarkedTestRecord({ customerName: 'Bob Sinclair' }), false);
+  assert.equal(isMarkedTestRecord({ serviceName: 'Test delivery' }), false);
+});
+
+test('Firestore references are deleted in recoverable bounded batches', async () => {
+  const commits = [];
+  const db = {
+    doc: (path) => ({ path }),
+    batch: () => {
+      const paths = [];
+      return {
+        delete: (ref) => paths.push(ref.path),
+        commit: async () => commits.push(paths),
+      };
+    },
+  };
+  const paths = Array.from({ length: 805 }, (_, index) => `records/${index}`);
+  assert.deepEqual(await deleteReferencesInBatches(db, paths), paths);
+  assert.deepEqual(commits.map((batch) => batch.length), [400, 400, 5]);
 });

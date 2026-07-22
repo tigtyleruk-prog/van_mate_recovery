@@ -213,6 +213,423 @@ function tombstoneData(identity, operationId, state, timestamp) {
   };
 }
 
+function summarizePlans(plans) {
+  const summary = {
+    jobs: plans.length,
+    requests: 0,
+    quoteVersions: 0,
+    tokens: 0,
+    photos: 0,
+    invoicesPreserved: 0,
+    ambiguousPreserved: 0,
+  };
+  for (const plan of plans) {
+    summary.requests += plan.identity.requestId ? 1 : 0;
+    summary.quoteVersions += plan.quoteIds.length;
+    summary.tokens += plan.tokenIds.length;
+    summary.photos += plan.storagePaths.length;
+    summary.invoicesPreserved += plan.preserved.invoicePaths.length;
+    summary.ambiguousPreserved +=
+      plan.preserved.ambiguousRecords.length + plan.preserved.storagePaths.length;
+  }
+  return summary;
+}
+
+function requiredConfirmationPhrase(selection, businessName) {
+  if (selection === 'explicit') return 'DELETE JOB';
+  const name = readString(businessName).toUpperCase() || 'THIS BUSINESS';
+  return `DELETE ${name} JOBS`;
+}
+
+function createDeletionCoordinator({ repository, now = () => new Date(), randomId }) {
+  if (!repository) throw new Error('repository is required.');
+  const makeId = randomId || (() => crypto.randomBytes(18).toString('hex'));
+
+  return {
+    async preview({ ownerUid, businessProfileId, selection, targets = [] }) {
+      const owner = requireDocumentId(ownerUid, 'ownerUid');
+      const profile = normalizeBusinessProfileId(businessProfileId);
+      if (!['explicit', 'test_jobs', 'all_operational'].includes(selection)) {
+        throw new Error('Unsupported deletion selection.');
+      }
+      const resolved = await repository.resolvePlans({
+        ownerUid: owner,
+        businessProfileId: profile,
+        selection,
+        targets,
+      });
+      const plans = resolved.plans || [];
+      const previewToken = makeId();
+      const expiresAt = new Date(now().getTime() + (15 * 60 * 1000));
+      const confirmationPhrase = requiredConfirmationPhrase(
+        selection,
+        resolved.businessName,
+      );
+      const preview = {
+        ownerUid: owner,
+        businessProfileId: profile,
+        selection,
+        previewToken,
+        expiresAt,
+        confirmationPhrase,
+        targets: plans.map((plan) => ({
+          jobId: plan.identity.jobId,
+          requestId: plan.identity.requestId || '',
+          status: readString(plan.status) || 'unknown',
+        })),
+        summary: summarizePlans(plans),
+        plans,
+      };
+      await repository.storePreview(preview);
+      return {
+        previewToken,
+        expiresAt: expiresAt.toISOString(),
+        confirmationPhrase,
+        targets: preview.targets,
+        summary: preview.summary,
+        preserved: plans.map((plan) => ({
+          jobId: plan.identity.jobId,
+          ...plan.preserved,
+        })),
+      };
+    },
+
+    async execute({
+      ownerUid,
+      businessProfileId,
+      previewToken,
+      confirmationPhrase,
+      idempotencyKey,
+    }) {
+      const owner = requireDocumentId(ownerUid, 'ownerUid');
+      const profile = normalizeBusinessProfileId(businessProfileId);
+      const token = requireDocumentId(previewToken, 'previewToken');
+      const operationId = requireDocumentId(idempotencyKey, 'idempotencyKey');
+      const preview = await repository.readPreview(token);
+      if (!preview || preview.ownerUid !== owner ||
+          preview.businessProfileId !== profile) {
+        throw new Error('The deletion preview is missing or belongs to another scope.');
+      }
+      if (new Date(preview.expiresAt).getTime() <= now().getTime()) {
+        throw new Error('The deletion preview has expired.');
+      }
+      if (readString(confirmationPhrase) !== preview.confirmationPhrase) {
+        throw new Error('The deletion confirmation phrase does not match.');
+      }
+
+      const results = [];
+      for (const plan of preview.plans) {
+        try {
+          results.push(await repository.executePlan({ plan, operationId }));
+        } catch (error) {
+          results.push({
+            jobId: plan.identity.jobId,
+            requestId: plan.identity.requestId || '',
+            status: 'failed',
+            error: String(error && error.message || error),
+          });
+        }
+      }
+      await repository.completePreview(token, results);
+      return {
+        operationId,
+        completed: results.filter((item) => item.status === 'deleted'),
+        alreadyDeleted: results.filter((item) => item.status === 'already_deleted'),
+        skipped: results.filter((item) => item.status === 'skipped'),
+        failed: results.filter((item) => item.status === 'failed'),
+        results,
+      };
+    },
+  };
+}
+
+function isHiddenRecord(data) {
+  return data && (data.deleted === true || data.archived === true ||
+    readString(data.status).toLowerCase() === 'deleted');
+}
+
+function isMarkedTestRecord(data) {
+  const mode = readString(data && data.testMode).toLowerCase();
+  return data && (data.isTestData === true ||
+    ['true', 'test', 'development', 'debug'].includes(mode));
+}
+
+function documentRecord(document) {
+  return { id: document.id, data: document.data() || {}, ref: document.ref };
+}
+
+async function deleteReferencesInBatches(db, paths, batchSize = 400) {
+  const deleted = [];
+  for (let offset = 0; offset < paths.length; offset += batchSize) {
+    const selected = paths.slice(offset, offset + batchSize);
+    const batch = db.batch();
+    for (const path of selected) batch.delete(db.doc(path));
+    await batch.commit();
+    deleted.push(...selected);
+  }
+  return deleted;
+}
+
+function createFirestoreDeletionRepository({ admin, db, bucket }) {
+  const timestamp = () => admin.firestore.FieldValue.serverTimestamp();
+
+  async function ownerDocuments(collectionName, ownerUid) {
+    const snapshot = await db.collection(collectionName)
+      .where('ownerUid', '==', ownerUid).get();
+    return snapshot.docs.map(documentRecord);
+  }
+
+  async function businessName(ownerUid, profileId) {
+    const configId = profileId === DEFAULT_BUSINESS_PROFILE_ID
+      ? ownerUid : `${ownerUid}_${profileId}`;
+    const snap = await db.collection('public_booking_links').doc(configId).get();
+    return readString(snap.exists && snap.data().businessName) || profileId;
+  }
+
+  async function loadScope(ownerUid) {
+    const userRef = db.collection('users').doc(ownerUid);
+    const [publicRequests, privateRequestsSnap, legacyRequests, jobsSnap,
+      privateQuotesSnap, publicQuotes, tokens, invoicesSnap,
+      tombstonesSnap] = await Promise.all([
+      ownerDocuments('public_job_requests', ownerUid),
+      userRef.collection('van_job_requests').get(),
+      ownerDocuments('van_job_requests', ownerUid),
+      userRef.collection('van_jobs').get(),
+      userRef.collection('van_quotes').get(),
+      ownerDocuments('public_quote_responses', ownerUid),
+      ownerDocuments('public_quote_response_tokens', ownerUid),
+      userRef.collection('van_invoices').get(),
+      userRef.collection(DELETION_TOMBSTONE_SUBCOLLECTION).get(),
+    ]);
+    return {
+      publicRequests,
+      privateRequests: privateRequestsSnap.docs.map(documentRecord),
+      legacyRequests,
+      jobs: jobsSnap.docs.map(documentRecord),
+      privateQuotes: privateQuotesSnap.docs.map(documentRecord),
+      publicQuotes,
+      tokens,
+      invoices: invoicesSnap.docs.map(documentRecord),
+      tombstones: tombstonesSnap.docs.map(documentRecord),
+    };
+  }
+
+  function requestMatchesTarget(record, target) {
+    const data = record.data;
+    return record.id === readString(target.requestId) ||
+      [data.jobId, data.linkedJobId].map(readString).includes(readString(target.jobId));
+  }
+
+  function recordReferencesIdentity(record, identity) {
+    const data = record.data || {};
+    return record.id === identity.jobId ||
+      (identity.requestId && record.id === identity.requestId) ||
+      [data.jobId, data.linkedJobId].map(readString).includes(identity.jobId) ||
+      (identity.requestId && [data.requestId, data.linkedRequestId]
+        .map(readString).includes(identity.requestId));
+  }
+
+  async function listPhotoPaths(identity, requestRecords) {
+    const paths = [];
+    for (const record of requestRecords) {
+      for (const photo of Array.isArray(record.data.photos) ? record.data.photos : []) {
+        const path = readString(photo && photo.storagePath);
+        if (path) paths.push(path);
+      }
+    }
+    if (bucket && identity.requestId) {
+      const [files] = await bucket.getFiles({ prefix: safeBookingPhotoPrefix(identity) });
+      paths.push(...files.map((file) => file.name));
+    }
+    return [...new Set(paths)];
+  }
+
+  return {
+    async resolvePlans({ ownerUid, businessProfileId, selection, targets }) {
+      const scope = await loadScope(ownerUid);
+      let selectedTargets = targets || [];
+      if (selection !== 'explicit') {
+        const candidates = [];
+        for (const record of scope.publicRequests) {
+          if (!recordBelongsToBusiness(record.data, businessProfileId) ||
+              isHiddenRecord(record.data)) continue;
+          if (selection === 'test_jobs' && !isMarkedTestRecord(record.data)) continue;
+          const jobId = readString(record.data.jobId || record.data.linkedJobId || record.id);
+          if (jobId) candidates.push({ jobId, requestId: record.id });
+        }
+        for (const record of scope.jobs) {
+          if (isHiddenRecord(record.data)) continue;
+          const explicitProfile = readString(record.data.businessProfileId);
+          if (explicitProfile && explicitProfile !== businessProfileId) continue;
+          if (!explicitProfile && businessProfileId !== DEFAULT_BUSINESS_PROFILE_ID) continue;
+          if (selection === 'test_jobs' && !isMarkedTestRecord(record.data)) continue;
+          candidates.push({
+            jobId: readString(record.data.jobId) || record.id,
+            requestId: readString(record.data.requestId),
+          });
+        }
+        const byJob = new Map();
+        for (const target of candidates) {
+          const existing = byJob.get(target.jobId);
+          byJob.set(target.jobId, existing && existing.requestId ? existing : target);
+        }
+        selectedTargets = [...byJob.values()];
+      }
+
+      const plans = [];
+      for (const target of selectedTargets) {
+        const publicRequestRecord = scope.publicRequests.find((record) =>
+          requestMatchesTarget(record, target));
+        const privateRequestRecord = scope.privateRequests.find((record) =>
+          requestMatchesTarget(record, target));
+        const privateJobRecord = scope.jobs.find((record) =>
+          record.id === readString(target.jobId));
+        const tombstoneRecord = scope.tombstones.find((record) =>
+          record.id === readString(target.jobId) &&
+          record.data.ownerUid === ownerUid &&
+          record.data.businessProfileId === businessProfileId);
+        const identity = tombstoneRecord &&
+            readString(tombstoneRecord.data.deletionState) === 'complete'
+          ? {
+              ownerUid,
+              businessProfileId,
+              jobId: tombstoneRecord.id,
+              requestId: readString(tombstoneRecord.data.requestId),
+            }
+          : resolveDeletionIdentity({
+              ownerUid,
+              businessProfileId,
+              target,
+              publicRequest: publicRequestRecord && publicRequestRecord.data,
+              privateRequest: privateRequestRecord && {
+                ownerUid,
+                ...privateRequestRecord.data,
+                requestId: readString(privateRequestRecord.data.requestId) || privateRequestRecord.id,
+              },
+              privateJob: privateJobRecord && {
+                ...privateJobRecord.data,
+                jobId: readString(privateJobRecord.data.jobId) || privateJobRecord.id,
+              },
+            });
+        const requestRecords = [
+          ...scope.publicRequests, ...scope.privateRequests, ...scope.legacyRequests,
+        ].filter((record) => recordReferencesIdentity(record, identity));
+        const publicQuotes = scope.publicQuotes.filter((record) =>
+          recordReferencesIdentity(record, identity));
+        const privateQuotes = scope.privateQuotes.filter((record) =>
+          recordReferencesIdentity(record, identity));
+        const quoteIds = new Set(publicQuotes.map((record) => record.id));
+        const tokens = scope.tokens.filter((record) =>
+          recordReferencesIdentity(record, identity) ||
+          quoteIds.has(readString(record.data.quoteResponseId || record.data.quoteId)));
+        const invoices = scope.invoices.filter((record) =>
+          recordReferencesIdentity(record, identity));
+        const storagePaths = await listPhotoPaths(identity, requestRecords);
+        const plan = buildDeletionPlan({
+          identity,
+          quoteRecords: publicQuotes,
+          tokenRecords: tokens,
+          storagePaths,
+          invoiceRecords: invoices.map((record) => ({ path: record.ref.path })),
+        });
+        plan.firestorePaths = [...new Set([
+          privateJobRecord && privateJobRecord.ref.path,
+          ...requestRecords.map((record) => record.ref.path),
+          ...privateQuotes.map((record) => record.ref.path),
+          ...publicQuotes.map((record) => record.ref.path),
+          ...tokens.map((record) => record.ref.path),
+        ].filter(Boolean))];
+        plan.status = readString(privateJobRecord && privateJobRecord.data.status) ||
+          readString(publicRequestRecord && publicRequestRecord.data.status) ||
+          (tombstoneRecord ? 'deleted' : 'unknown');
+        plans.push(plan);
+      }
+      return {
+        businessName: await businessName(ownerUid, businessProfileId),
+        plans,
+      };
+    },
+
+    async storePreview(preview) {
+      await db.collection('users').doc(preview.ownerUid)
+        .collection('van_job_deletion_previews').doc(preview.previewToken).set({
+          ...preview,
+          expiresAt: admin.firestore.Timestamp.fromDate(preview.expiresAt),
+          createdAt: timestamp(),
+        });
+    },
+
+    async readPreview(token) {
+      const snapshot = await db.collectionGroup('van_job_deletion_previews')
+        .where('previewToken', '==', token).limit(2).get();
+      if (snapshot.size !== 1) return null;
+      const data = snapshot.docs[0].data();
+      return {
+        ...data,
+        expiresAt: data.expiresAt && data.expiresAt.toDate
+          ? data.expiresAt.toDate() : new Date(data.expiresAt),
+      };
+    },
+
+    async executePlan({ plan, operationId }) {
+      const identity = plan.identity;
+      const tombstoneRef = db.collection('users').doc(identity.ownerUid)
+        .collection(DELETION_TOMBSTONE_SUBCOLLECTION).doc(identity.jobId);
+      const alreadyComplete = await db.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(tombstoneRef);
+        const existing = snapshot.exists ? snapshot.data() || {} : {};
+        if (existing.deletionState === 'complete') return true;
+        const now = timestamp();
+        transaction.set(tombstoneRef, {
+          ...tombstoneData(identity, operationId, 'pending', now),
+          createdAt: existing.createdAt || now,
+        }, { merge: true });
+        return false;
+      });
+      if (alreadyComplete) {
+        return { jobId: identity.jobId, requestId: identity.requestId || '',
+          status: 'already_deleted', deletedFirestorePaths: [], deletedStoragePaths: [] };
+      }
+
+      const deletedFirestorePaths = await deleteReferencesInBatches(
+        db, plan.firestorePaths,
+      );
+      const deletedStoragePaths = [];
+      if (bucket) {
+        for (const path of plan.storagePaths) {
+          await bucket.file(path).delete({ ignoreNotFound: true });
+          deletedStoragePaths.push(path);
+        }
+      }
+      await tombstoneRef.set({ deletionState: 'complete', updatedAt: timestamp() },
+        { merge: true });
+      return {
+        jobId: identity.jobId,
+        requestId: identity.requestId || '',
+        status: 'deleted',
+        deletedFirestorePaths,
+        deletedStoragePaths,
+        preserved: plan.preserved,
+      };
+    },
+
+    async completePreview(token, results) {
+      const snapshot = await db.collectionGroup('van_job_deletion_previews')
+        .where('previewToken', '==', token).limit(1).get();
+      if (snapshot.empty) return;
+      await snapshot.docs[0].ref.set({
+        deletionState: 'complete',
+        completedAt: timestamp(),
+        results: results.map((result) => ({
+          jobId: result.jobId,
+          requestId: result.requestId || '',
+          status: result.status,
+        })),
+      }, { merge: true });
+    },
+  };
+}
+
 module.exports = {
   BOOKING_PHOTO_PREFIX,
   DEFAULT_BUSINESS_PROFILE_ID,
@@ -220,10 +637,15 @@ module.exports = {
   buildDeletionPlan,
   buildPreviewDigest,
   classifyStoragePaths,
+  createDeletionCoordinator,
+  createFirestoreDeletionRepository,
+  deleteReferencesInBatches,
   normalizeBusinessProfileId,
+  isMarkedTestRecord,
   quoteBelongsToIdentity,
   recordBelongsToBusiness,
   resolveDeletionIdentity,
   safeBookingPhotoPrefix,
+  summarizePlans,
   tombstoneData,
 };

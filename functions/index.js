@@ -11,6 +11,11 @@ const {
   bookingLinkRequestDocumentId,
   withTimeout,
 } = require('./booking_link_address_validation');
+const {
+  DELETION_TOMBSTONE_SUBCOLLECTION,
+  createDeletionCoordinator,
+  createFirestoreDeletionRepository,
+} = require('./business_mate_job_deletion');
 
 admin.initializeApp();
 
@@ -85,6 +90,34 @@ const BUSINESS_PUBLIC_COLLECTIONS = [
   PIN_REQUEST_COLLECTION,
   LEGACY_JOB_REQUEST_COLLECTION,
 ];
+
+function jobDeletionCoordinator() {
+  const repository = createFirestoreDeletionRepository({
+    admin,
+    db: admin.firestore(),
+    bucket: admin.storage().bucket(),
+  });
+  return createDeletionCoordinator({ repository });
+}
+
+async function rejectTombstonedMirror({ ownerUid, jobId, sourceRef, label }) {
+  const snapshot = await admin.firestore()
+    .collection(USERS_COLLECTION)
+    .doc(ownerUid)
+    .collection(DELETION_TOMBSTONE_SUBCOLLECTION)
+    .doc(jobId)
+    .get();
+  if (!snapshot.exists) return false;
+  const state = readString((snapshot.data() || {}).deletionState);
+  if (state !== 'pending' && state !== 'complete') return false;
+  console.warn(
+    `[${label}] rejected ownerUid=${ownerUid} jobId=${jobId} reason=deletion_tombstone state=${state}`,
+  );
+  if (sourceRef) await sourceRef.delete().catch((error) => {
+    console.error(`[${label}] failed to remove recreated source`, error);
+  });
+  return true;
+}
 
 function buildVanJobRequestHostedLink(requestId, shortCode = '') {
   const normalizedShortCode = readString(shortCode).toUpperCase();
@@ -4443,6 +4476,43 @@ exports.deleteBusinessProfileSafely = onCall(async (request) => {
   };
 });
 
+exports.deleteBusinessMateJobs = onCall(async (request) => {
+  if (!request.auth || !readString(request.auth.uid)) {
+    throw new HttpsError('unauthenticated', 'Sign in before deleting jobs.');
+  }
+  const data = request.data || {};
+  const mode = readString(data.mode).toLowerCase();
+  const selection = readString(data.selection).toLowerCase() || 'explicit';
+  try {
+    const coordinator = jobDeletionCoordinator();
+    if (mode === 'preview') {
+      return await coordinator.preview({
+        ownerUid: request.auth.uid,
+        businessProfileId: data.businessProfileId,
+        selection,
+        targets: Array.isArray(data.targets) ? data.targets : [],
+      });
+    }
+    if (mode === 'execute') {
+      return await coordinator.execute({
+        ownerUid: request.auth.uid,
+        businessProfileId: data.businessProfileId,
+        previewToken: data.previewToken,
+        confirmationPhrase: data.confirmationPhrase,
+        idempotencyKey: data.idempotencyKey,
+      });
+    }
+    throw new Error('mode must be preview or execute.');
+  } catch (error) {
+    console.error(
+      `[JobDeletion] uid=${request.auth.uid} mode=${mode || '(missing)'} selection=${selection}`,
+      error,
+    );
+    throw new HttpsError('failed-precondition',
+      String(error && error.message || error || 'Job deletion failed.'));
+  }
+});
+
 exports.onVanPinRequestReceived = onDocumentUpdated(
   `${PIN_REQUEST_COLLECTION}/{requestId}`,
   async (event) => {
@@ -4662,6 +4732,13 @@ exports.onVanJobRequestMirror = onDocumentWritten(
       return;
     }
 
+    if (await rejectTombstonedMirror({
+      ownerUid,
+      jobId,
+      sourceRef: afterSnap.ref,
+      label: 'VanJobRequestMirror',
+    })) return;
+
     if (sourceChangedKeys.length === 0) {
       console.info(
         `[VanJobRequestMirror] skipped requestId=${requestId} ownerUid=${ownerUid} jobId=${jobId} reason=no_meaningful_source_change rawChangedKeys=${formatChangedKeys(listChangedKeys(before, after))}`,
@@ -4791,6 +4868,13 @@ exports.onVanJobQuoteMirror = onDocumentWritten(
       );
       return;
     }
+
+    if (await rejectTombstonedMirror({
+      ownerUid,
+      jobId,
+      sourceRef: afterSnap.ref,
+      label: 'VanQuoteResponseMirror',
+    })) return;
 
     if (sourceChangedKeys.length === 0) {
       console.info(

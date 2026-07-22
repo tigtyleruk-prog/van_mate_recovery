@@ -27,7 +27,8 @@ service cloud.firestore {
 
     function isPublicJobRequestOwnerCreate() {
       return signedIn()
-        && request.resource.data.ownerUid == request.auth.uid;
+        && request.resource.data.ownerUid == request.auth.uid
+        && !exists(/databases/$(database)/documents/users/$(request.auth.uid)/van_job_deletion_tombstones/$(request.resource.data.jobId));
     }
 
     function isPublicJobRequestCustomerReplyUpdate(requestId) {
@@ -73,7 +74,8 @@ service cloud.firestore {
 
     function isPublicJobQuoteOwnerCreate() {
       return signedIn()
-        && request.resource.data.ownerUid == request.auth.uid;
+        && request.resource.data.ownerUid == request.auth.uid
+        && !exists(/databases/$(database)/documents/users/$(request.auth.uid)/van_job_deletion_tombstones/$(request.resource.data.jobId));
     }
 
     function isPublicJobQuoteTokenOwner() {
@@ -310,7 +312,9 @@ service cloud.firestore {
         && request.auth.uid == userId;
 
       match /van_jobs/{jobId} {
-        allow read, create: if signedIn() && request.auth.uid == userId;
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() && request.auth.uid == userId
+          && !exists(/databases/$(database)/documents/users/$(userId)/van_job_deletion_tombstones/$(jobId));
         allow update, delete: if signedIn()
           && request.auth.uid == userId
           && resource.data.archivedReadOnly != true;
@@ -351,8 +355,20 @@ service cloud.firestore {
       }
 
       match /van_job_requests/{requestId} {
-        allow get, create, update, delete: if signedIn()
+        allow get, update, delete: if signedIn()
           && request.auth.uid == userId;
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.jobId is string
+          && !exists(/databases/$(database)/documents/users/$(userId)/van_job_deletion_tombstones/$(request.resource.data.jobId));
+      }
+
+      match /van_job_deletion_tombstones/{jobId} {
+        allow read, write: if false;
+      }
+
+      match /van_job_deletion_previews/{previewId} {
+        allow read, write: if false;
       }
 
       match /fcmTokens/{tokenId} {
@@ -376,7 +392,9 @@ service cloud.firestore {
       allow get: if signedIn() && resource.data.ownerUid == request.auth.uid;
       allow list: if signedIn() && resource.data.ownerUid == request.auth.uid;
       allow create: if signedIn()
-        && request.resource.data.ownerUid == request.auth.uid;
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.jobId is string
+        && !exists(/databases/$(database)/documents/users/$(request.auth.uid)/van_job_deletion_tombstones/$(request.resource.data.jobId));
       allow update: if signedIn() && resource.data.ownerUid == request.auth.uid;
       allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
     }
