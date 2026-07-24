@@ -132,6 +132,55 @@ const List<VanTemplateDayAvailability> _removalsMondayToSaturday =
       VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
     ];
 
+const VanCustomerRequestFlowOptions _cleaningStandardQuoteFlow =
+    VanCustomerRequestFlowOptions(
+      showFulfilmentChoice: false,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: false,
+    );
+
+const List<VanTemplateDayAvailability> _cleaningMondayToSaturday =
+    <VanTemplateDayAvailability>[
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+    ];
+
+const List<VanTemplateDayAvailability> _cleaningMondayToFriday =
+    <VanTemplateDayAvailability>[
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+    ];
+
+const List<String> _cleaningPropertyTypeOptions = <String>[
+  'House',
+  'Flat / apartment',
+  'Bungalow',
+  'Other',
+  'Unsure',
+];
+
+const List<String> _cleaningSupplyOptions = <String>[
+  'Business supplies both',
+  'Customer supplies both',
+  'Customer supplies products only',
+  'Customer supplies equipment only',
+  'Please advise',
+];
+
 const List<VanBusinessTemplateDefinition>
 kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
   VanBusinessTemplateDefinition(
@@ -989,6 +1038,705 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
         requireAddress: true,
         suggestedCustomerMessage:
             'Please describe everything to be removed and include photos where possible. The business will confirm which items it can legally and safely accept.',
+      ),
+    ],
+  ),
+  VanBusinessTemplateDefinition(
+    categoryId: 'cleaning',
+    categoryName: 'Cleaning',
+    businessTypeId: 'cleaning',
+    businessTypeName: 'Cleaning',
+    description:
+        'Domestic and commercial cleaning services for homes and small business premises.',
+    iconKey: 'cleaning',
+    colorValue: 0xFF2DB7A3,
+    featured: true,
+    searchKeywords: <String>[
+      'cleaning',
+      'cleaner',
+      'domestic cleaning',
+      'deep cleaning',
+      'end of tenancy cleaning',
+      'office cleaning',
+      'commercial cleaning',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Domestic cleaner'),
+      VanBusinessSearchAlias('House cleaning'),
+      VanBusinessSearchAlias('Deep cleaning'),
+      VanBusinessSearchAlias('End of tenancy cleaner'),
+      VanBusinessSearchAlias('Office cleaning'),
+      VanBusinessSearchAlias('Commercial cleaning'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'cleaning_regular_domestic',
+        name: 'Regular Domestic Cleaning',
+        description:
+            'Routine cleaning for occupied homes, tailored to the rooms and frequency requested.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+          VanServiceCapabilityIds.recurring,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _cleaningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the cleaning will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred cleaning date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the general condition or priority areas. Avoid including private documents, security devices or sensitive personal information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_regular_property_type',
+            text: 'What type of property is being cleaned?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.property,
+            choiceOptions: _cleaningPropertyTypeOptions,
+            tags: <String>['cleaning', 'regular', 'property'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_regular_bedrooms_bathrooms',
+            text: 'How many bedrooms and bathrooms are included?',
+            category: VanCustomQuestionCategory.property,
+            tags: <String>['cleaning', 'regular', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_regular_rooms_priorities',
+            text: 'Which rooms are included, and are there any priority areas?',
+            helperText:
+                'Optional photos can help show the general condition or priority areas.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['cleaning', 'regular', 'rooms', 'priorities'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_regular_frequency',
+            text: 'How often would you prefer the cleaning?',
+            helperText:
+                'This records your preference only and does not automatically create recurring bookings.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              'One-off',
+              'Weekly',
+              'Fortnightly',
+              'Every four weeks',
+              'Unsure',
+            ],
+            tags: <String>['cleaning', 'regular', 'frequency'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_regular_pets',
+            text: 'Are there any pets the cleaner should plan around?',
+            requiredByDefault: false,
+            category: VanCustomQuestionCategory.property,
+            tags: <String>['cleaning', 'regular', 'pets'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_regular_supplies',
+            text: 'Who should provide the cleaning products and equipment?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: _cleaningSupplyOptions,
+            tags: <String>['cleaning', 'regular', 'products', 'equipment'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_regular_access_occupancy',
+            text:
+                'Describe parking, access and whether someone will be present during the clean.',
+            helperText:
+                'Do not include door, alarm or key-safe codes. Sensitive access details can be arranged privately after the job is accepted.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            tags: <String>[
+              'cleaning',
+              'regular',
+              'access',
+              'parking',
+              'occupancy',
+            ],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_regular_additional_bedroom',
+            label: 'Additional bedroom',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_regular_additional_bathroom',
+            label: 'Additional bathroom',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_regular_interior_windows',
+            label: 'Interior windows',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_regular_bed_linen_change',
+            label: 'Bed linen change',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_regular_ironing',
+            label: 'Ironing',
+          ),
+        ],
+        availability: _cleaningMondayToSaturday,
+        suggestedDurationMinutes: 120,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 3,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            "Tell us about your home, the rooms to clean and your preferred frequency. We'll review the request and confirm the scope, availability and price.",
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'cleaning_one_off_deep',
+        name: 'One-off Deep Clean',
+        description:
+            'A detailed one-off clean for homes needing extra attention, subject to condition and agreed scope.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _cleaningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the cleaning will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred cleaning date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Photos of buildup and priority rooms can help the business assess the work. Avoid including private documents, security equipment or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_deep_property_type',
+            text: 'What type of property is being cleaned?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.property,
+            choiceOptions: _cleaningPropertyTypeOptions,
+            tags: <String>['cleaning', 'deep', 'property'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_deep_bedrooms_bathrooms',
+            text: 'How many bedrooms and bathrooms are included?',
+            category: VanCustomQuestionCategory.property,
+            tags: <String>['cleaning', 'deep', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_deep_condition',
+            text: 'How would you describe the current condition?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.survey,
+            choiceOptions: <String>[
+              'Light buildup',
+              'Moderate buildup',
+              'Heavy buildup',
+              'Recently vacated',
+              'Unsure',
+            ],
+            tags: <String>['cleaning', 'deep', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_deep_priorities',
+            text:
+                'Which rooms or areas need the most attention, and what buildup is present?',
+            helperText:
+                'Include visible issues such as grease or limescale. Results depend on the condition and agreed scope.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['cleaning', 'deep', 'priorities', 'buildup'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_deep_occupancy',
+            text: 'What will the occupancy arrangement be during the clean?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Someone will be present',
+              'Access provided and property empty',
+              'Property is vacant',
+              'Unsure',
+            ],
+            tags: <String>['cleaning', 'deep', 'occupancy'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_deep_supplies',
+            text: 'Who should provide the cleaning products and equipment?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: _cleaningSupplyOptions,
+            tags: <String>['cleaning', 'deep', 'products', 'equipment'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_deep_access_furniture',
+            text:
+                'What access, parking, pet or furniture-movement issues should we plan for?',
+            helperText:
+                'Furniture movement is subject to agreement. Do not include door, alarm or key-safe codes.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            tags: <String>[
+              'cleaning',
+              'deep',
+              'access',
+              'parking',
+              'pets',
+              'furniture',
+            ],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_deep_inside_oven',
+            label: 'Inside oven',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_deep_inside_fridge_freezer',
+            label: 'Inside fridge / freezer',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_deep_inside_cupboards',
+            label: 'Inside cupboards',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_deep_interior_windows',
+            label: 'Interior windows',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_deep_pet_hair_treatment',
+            label: 'Additional pet-hair treatment',
+          ),
+        ],
+        availability: _cleaningMondayToSaturday,
+        suggestedDurationMinutes: 240,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 2,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            "Tell us about the property's size, condition and priority areas. Photos can help us review the work before confirming availability and price.",
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'cleaning_end_of_tenancy',
+        name: 'End of Tenancy Cleaning',
+        description:
+            'Cleaning for a rented property before handover, based on its condition and any agent or inventory requirements.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _cleaningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the cleaning will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred cleaning date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Photos of the current condition, empty rooms, appliances or inventory concerns can help the business review the work. Avoid showing private documents or security information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_tenancy_property_type',
+            text: 'What type of property is being cleaned?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.property,
+            choiceOptions: _cleaningPropertyTypeOptions,
+            tags: <String>['cleaning', 'tenancy', 'property'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_tenancy_bedrooms_bathrooms',
+            text: 'How many bedrooms and bathrooms are included?',
+            category: VanCustomQuestionCategory.property,
+            tags: <String>['cleaning', 'tenancy', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_tenancy_furnishing_occupancy',
+            text:
+                "What will the property's furnishing and occupancy status be?",
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.property,
+            choiceOptions: <String>[
+              'Furnished and occupied',
+              'Furnished and empty',
+              'Unfurnished and occupied',
+              'Unfurnished and empty',
+              'Unsure',
+            ],
+            tags: <String>['cleaning', 'tenancy', 'furnishing', 'occupancy'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_tenancy_condition',
+            text: 'How would you describe the current condition?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.survey,
+            choiceOptions: <String>[
+              'Light cleaning needed',
+              'Moderate cleaning needed',
+              'Heavy cleaning needed',
+              'Unsure',
+            ],
+            tags: <String>['cleaning', 'tenancy', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_tenancy_handover_deadline',
+            text:
+                'If there is a separate checkout or handover deadline, what date is it?',
+            helperText:
+                'This is the checkout or handover deadline, not your requested cleaning date.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.date,
+            category: VanCustomQuestionCategory.timing,
+            tags: <String>['cleaning', 'tenancy', 'handover', 'deadline'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_tenancy_agent_requirements',
+            text:
+                'Are there any agent, landlord or inventory requirements we should review?',
+            helperText:
+                'Requirements can be reviewed, but results depend on the property condition and agreed scope.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.survey,
+            tags: <String>['cleaning', 'tenancy', 'agent', 'inventory'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_tenancy_access',
+            text: 'Describe the key handover, access and parking arrangements.',
+            helperText:
+                'Do not include door, alarm, key-safe or other security codes. Sensitive access details can be arranged privately after acceptance.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            tags: <String>['cleaning', 'tenancy', 'access', 'parking', 'keys'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_tenancy_inside_oven',
+            label: 'Inside oven',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_tenancy_inside_fridge_freezer',
+            label: 'Inside fridge / freezer',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_tenancy_inside_cupboards',
+            label: 'Inside cupboards',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_tenancy_interior_windows',
+            label: 'Interior windows',
+          ),
+        ],
+        availability: _cleaningMondayToSaturday,
+        suggestedDurationMinutes: 360,
+        suggestedNoticeHours: 72,
+        maximumBookingsPerDay: 1,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            "Tell us about the property, its condition and any agent or inventory requirements. Cleaning does not guarantee a deposit return; results depend on the property's condition and the agreed scope.",
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'cleaning_office_commercial',
+        name: 'Office / Commercial Cleaning',
+        description:
+            'One-off or regular cleaning for offices and small commercial premises, arranged around access and operating hours.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+          VanServiceCapabilityIds.recurring,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _cleaningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the cleaning will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred cleaning date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Photos may show the general layout or condition. Do not photograph security systems, confidential documents, personal records or restricted areas.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_office_premises_type',
+            text: 'What type of premises need cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.property,
+            choiceOptions: <String>[
+              'Office',
+              'Retail premises',
+              'Studio / workshop',
+              'Community / communal space',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['cleaning', 'office', 'premises'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_office_floor_area',
+            text: 'What is the approximate floor area?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Under 100 m²',
+              '100–250 m²',
+              '251–500 m²',
+              'Over 500 m²',
+              'Unsure',
+            ],
+            tags: <String>['cleaning', 'office', 'floor-area', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_office_areas_facilities',
+            text:
+                'Describe the work areas, washrooms, kitchens and communal spaces included.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['cleaning', 'office', 'areas', 'facilities'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_office_frequency',
+            text: 'What cleaning pattern are you looking for?',
+            helperText:
+                'This records your preference only and does not automatically create repeat jobs.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              'One-off',
+              'Daily on weekdays',
+              'Weekly',
+              'Fortnightly',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['cleaning', 'office', 'frequency'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_office_hours',
+            text: 'Which cleaning window usually works best?',
+            helperText:
+                "This is an operating preference, not a replacement for the current request's preferred appointment time.",
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              'During business hours',
+              'Before opening',
+              'After closing',
+              'Weekend',
+              'Flexible / unsure',
+            ],
+            tags: <String>['cleaning', 'office', 'hours'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_office_access',
+            text:
+                'Describe reception, key handover, parking and any restricted areas.',
+            helperText:
+                'Do not include alarm codes, door codes, passwords or sensitive security instructions.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            tags: <String>[
+              'cleaning',
+              'office',
+              'access',
+              'parking',
+              'security',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_office_supplies',
+            text: 'Who should provide the cleaning products and equipment?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: _cleaningSupplyOptions,
+            tags: <String>['cleaning', 'office', 'products', 'equipment'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'cleaning_office_bins',
+            text: 'Are ordinary internal bin-emptying duties required?',
+            helperText:
+                'Hazardous, clinical and licensed waste is not included.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['cleaning', 'office', 'bins', 'waste'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_office_additional_washroom',
+            label: 'Additional washroom',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_office_communal_area_deep_clean',
+            label: 'Kitchen / communal-area deep clean',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_office_interior_windows',
+            label: 'Interior windows',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_office_products_supplied',
+            label: 'Cleaning products supplied',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_cleaning_office_internal_bins',
+            label: 'Internal bin emptying',
+          ),
+        ],
+        availability: _cleaningMondayToFriday,
+        suggestedDurationMinutes: 180,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 2,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            'Tell us about the premises, areas, preferred frequency and access arrangements. Do not include alarm codes, door codes, passwords or other sensitive security details.',
       ),
     ],
   ),

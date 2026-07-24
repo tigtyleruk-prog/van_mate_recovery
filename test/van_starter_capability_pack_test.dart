@@ -9,15 +9,16 @@ import 'package:van_mate_app/features/van_mate/models/van_service_template.dart'
 import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 
 void main() {
-  test('Courier remains installed beside the curated Removals pack', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(2));
-    expect(kVanStarterCapabilityPacks, hasLength(2));
+  test('Courier and Removals remain installed beside the Cleaning pack', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(3));
+    expect(kVanStarterCapabilityPacks, hasLength(3));
     expect(kVanServiceTemplateCategories, isEmpty);
     expect(findVanStarterCapabilityPackById('courier'), isNotNull);
     expect(
       findVanStarterCapabilityPackById('removals_man_with_van'),
       isNotNull,
     );
+    expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
     expect(findVanStarterCapabilityPackById('courier_business'), isNull);
     expect(findVanServiceTemplateById('courier'), isNull);
     expect(searchVanStarterCapabilityPacks('courier'), hasLength(1));
@@ -360,8 +361,250 @@ void main() {
     }
   });
 
+  test('Cleaning pack has stable identity, aliases and four services', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'cleaning',
+    );
+
+    expect(definition.categoryId, 'cleaning');
+    expect(definition.categoryName, 'Cleaning');
+    expect(definition.businessTypeName, 'Cleaning');
+    expect(definition.iconKey, 'cleaning');
+    expect(definition.colorValue, 0xFF2DB7A3);
+    expect(definition.featured, isTrue);
+    expect(
+      definition.searchAliases.map((alias) => alias.label),
+      containsAll(<String>[
+        'Domestic cleaner',
+        'House cleaning',
+        'Deep cleaning',
+        'End of tenancy cleaner',
+        'Office cleaning',
+        'Commercial cleaning',
+      ]),
+    );
+    expect(searchVanStarterCapabilityPacks('domestic cleaner'), hasLength(1));
+    expect(searchVanStarterCapabilityPacks('office cleaning'), hasLength(1));
+    expect(definition.services.map((service) => service.serviceId), <String>[
+      'cleaning_regular_domestic',
+      'cleaning_one_off_deep',
+      'cleaning_end_of_tenancy',
+      'cleaning_office_commercial',
+    ]);
+  });
+
+  test('Cleaning services use one-address standard quote journeys', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'cleaning')
+        .services;
+
+    for (final service in services) {
+      expect(service.customerJourney, VanCustomerJourneyType.quote);
+      expect(service.requestType, VanCustomerRequestType.quoteRequest);
+      expect(service.startHandover, isNull);
+      expect(service.endHandover, isNull);
+      expect(service.requireAddress, isTrue);
+      expect(service.requestPhotos, isTrue);
+      expect(service.requestFlowOptions.askPreferredDate, isTrue);
+      expect(service.requestFlowOptions.askPreferredTime, isTrue);
+      expect(service.requestFlowOptions.showPickupAddress, isFalse);
+      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+      expect(service.requestFlowOptions.showDropOffDate, isFalse);
+      expect(service.requestFlowOptions.showDropOffTime, isFalse);
+      expect(service.requestFlowOptions.showPickUpDate, isFalse);
+      expect(service.requestFlowOptions.showPickUpTime, isFalse);
+      expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+      expect(service.requestFlowOptions.showNotes, isFalse);
+      expect(
+        service.builtInQuestionKeys,
+        containsAll(<String>[
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        ]),
+      );
+      for (final key in <String>[
+        'address',
+        'preferred_date',
+        'preferred_time',
+        'phone',
+      ]) {
+        expect(
+          service.builtInQuestionSettings[key]?['required'],
+          isTrue,
+          reason: '${service.serviceId} should require $key',
+        );
+      }
+      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+    }
+  });
+
+  test('Cleaning questions and extras are explicit, unique and safe', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'cleaning')
+        .services;
+    final questions = services
+        .expand((service) => service.questions)
+        .toList(growable: false);
+    final extras = services
+        .expand((service) => service.extras)
+        .toList(growable: false);
+    final forbiddenCustomPrompts = <String>{
+      'customer name',
+      'phone',
+      'phone number',
+      'email',
+      'email address',
+      'address',
+      'postcode',
+      'booking date',
+      'booking time',
+      'preferred date',
+      'preferred time',
+    };
+
+    expect(questions, hasLength(29));
+    expect(
+      questions.map((question) => question.libraryId).toSet(),
+      hasLength(29),
+    );
+    expect(
+      questions.every(
+        (question) =>
+            VanCustomQuestionAnswerType.values.contains(question.answerType),
+      ),
+      isTrue,
+    );
+    expect(
+      questions
+          .map((question) => question.text.trim().toLowerCase())
+          .toSet()
+          .intersection(forbiddenCustomPrompts),
+      isEmpty,
+    );
+    expect(extras, hasLength(19));
+    expect(extras.map((extra) => extra.key).toSet(), hasLength(19));
+    expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
+    expect(extras.every((extra) => extra.defaultChargeUnit == 'Fixed'), isTrue);
+    expect(
+      extras.every(
+        (extra) =>
+            !RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
+      ),
+      isTrue,
+    );
+    const forbiddenExtras = <String>{
+      'Carpet cleaning',
+      'Upholstery cleaning',
+      'Hazardous waste',
+      'Clinical waste',
+      'Biohazard cleaning',
+    };
+    expect(
+      extras.every((extra) => !forbiddenExtras.contains(extra.label)),
+      isTrue,
+    );
+
+    final regular = services.singleWhere(
+      (service) => service.serviceId == 'cleaning_regular_domestic',
+    );
+    final office = services.singleWhere(
+      (service) => service.serviceId == 'cleaning_office_commercial',
+    );
+    final tenancy = services.singleWhere(
+      (service) => service.serviceId == 'cleaning_end_of_tenancy',
+    );
+    expect(
+      regular.questions
+          .singleWhere(
+            (question) => question.libraryId == 'cleaning_regular_frequency',
+          )
+          .helperText,
+      contains('does not automatically create recurring bookings'),
+    );
+    expect(
+      office.questions
+          .singleWhere(
+            (question) => question.libraryId == 'cleaning_office_frequency',
+          )
+          .helperText,
+      contains('does not automatically create repeat jobs'),
+    );
+    expect(
+      office.questions
+          .singleWhere(
+            (question) => question.libraryId == 'cleaning_office_access',
+          )
+          .helperText,
+      contains('Do not include alarm codes'),
+    );
+    expect(
+      office.questions
+          .singleWhere(
+            (question) => question.libraryId == 'cleaning_office_bins',
+          )
+          .helperText,
+      contains('Hazardous, clinical and licensed waste is not included.'),
+    );
+    expect(tenancy.suggestedCustomerMessage, contains('does not guarantee'));
+    expect(
+      tenancy.suggestedCustomerMessage.toLowerCase(),
+      isNot(contains('guaranteed deposit')),
+    );
+  });
+
+  test('Cleaning defaults preserve timing, limits and recurrence metadata', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'cleaning')
+        .services;
+    final expected = <String, (int, int, int, List<int>)>{
+      'cleaning_regular_domestic': (120, 24, 3, <int>[1, 2, 3, 4, 5, 6]),
+      'cleaning_one_off_deep': (240, 48, 2, <int>[1, 2, 3, 4, 5, 6]),
+      'cleaning_end_of_tenancy': (360, 72, 1, <int>[1, 2, 3, 4, 5, 6]),
+      'cleaning_office_commercial': (180, 48, 2, <int>[1, 2, 3, 4, 5]),
+    };
+
+    for (final service in services) {
+      final defaults = expected[service.serviceId]!;
+      expect(service.suggestedDurationMinutes, defaults.$1);
+      expect(service.suggestedNoticeHours, defaults.$2);
+      expect(service.maximumBookingsPerDay, defaults.$3);
+      expect(service.availability.map((day) => day.day), defaults.$4);
+      expect(
+        service.availability.every(
+          (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+        ),
+        isTrue,
+      );
+    }
+
+    for (final service in services) {
+      final repeats =
+          service.serviceId == 'cleaning_regular_domestic' ||
+          service.serviceId == 'cleaning_office_commercial';
+      expect(
+        service.featureIds.contains(VanServiceCapabilityIds.recurring),
+        repeats,
+      );
+      expect(
+        service.featureIds.contains(VanServiceCapabilityIds.oneOff),
+        !repeats,
+      );
+    }
+  });
+
   test('service names no longer generate journeys or pricing extras', () {
-    for (final name in <String>['Courier', 'Man & Van', 'Removals', 'Bakery']) {
+    for (final name in <String>[
+      'Courier',
+      'Man & Van',
+      'Removals',
+      'Cleaning',
+      'Bakery',
+    ]) {
       expect(
         defaultVanCustomerRequestTypeForService(
           serviceId: name.toLowerCase().replaceAll(' ', '_'),

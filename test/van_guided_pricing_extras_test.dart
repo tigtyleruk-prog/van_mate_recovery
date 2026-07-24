@@ -232,6 +232,85 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Use Defaults restores Cleaning extras and preserves user-created extras',
+    (tester) async {
+      await _setPhoneSize(tester, const Size(390, 850));
+      final pack = findVanStarterCapabilityPackById('cleaning')!;
+      final setup = pack.recommendationsFor(const <String>[
+        'cleaning_regular_domestic',
+      ]).single;
+      final starterExtras = setup.quoteExtraDefaults();
+      final withUserExtra = starterExtras
+          .copyWithCustomExtras(<VanQuoteExtraDefault>[
+            ...starterExtras.customExtras,
+            VanQuoteExtraDefault.custom(
+              key: 'custom_extra_cleaning_user_balcony',
+              label: 'Balcony cleaning',
+              defaultPrice: 12,
+            ),
+          ]);
+      final service =
+          _service(
+            'cleaning-regular-reset',
+            setup.name,
+            extras: withUserExtra,
+          ).copyWith(
+            starterPackId: pack.id,
+            starterTemplateId: setup.serviceKey,
+            serviceCapabilityIds: setup.capabilityIds,
+          );
+      await _seed(<VanJobService>[service]);
+
+      await _pumpGuided(tester, service, <String>[service.id]);
+      await _goToExtras(tester);
+      final price = find.byKey(
+        const ValueKey<String>(
+          'guided-extra-price-cleaning-regular-reset-custom_extra_cleaning_regular_additional_bedroom',
+        ),
+      );
+      await tester.ensureVisible(price);
+      await tester.enterText(price, '99');
+      await tester.pump();
+      final defaultsButton = find.byKey(
+        const Key('service_review_use_defaults'),
+      );
+      await tester.scrollUntilVisible(
+        defaultsButton,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(defaultsButton);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Availability'), findsWidgets);
+      final stored = (await VanJobServicesStorage.instance.loadAll()).single;
+      final storedExtras = stored.quoteExtraDefaults.orderedExtras;
+      expect(
+        storedExtras
+            .take(starterExtras.orderedExtras.length)
+            .map((extra) => extra.toJson()),
+        starterExtras.orderedExtras.map((extra) => extra.toJson()),
+      );
+      expect(storedExtras.map((extra) => extra.key), <String>[
+        'custom_extra_cleaning_regular_additional_bedroom',
+        'custom_extra_cleaning_regular_additional_bathroom',
+        'custom_extra_cleaning_regular_interior_windows',
+        'custom_extra_cleaning_regular_bed_linen_change',
+        'custom_extra_cleaning_regular_ironing',
+        'custom_extra_cleaning_user_balcony',
+      ]);
+      expect(
+        storedExtras
+            .singleWhere(
+              (extra) => extra.key == 'custom_extra_cleaning_user_balcony',
+            )
+            .defaultPrice,
+        12,
+      );
+    },
+  );
+
   testWidgets('guided extras stay compact without overflow at 360 pixels', (
     tester,
   ) async {

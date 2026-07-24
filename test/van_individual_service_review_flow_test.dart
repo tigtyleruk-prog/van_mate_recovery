@@ -274,7 +274,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Choose Business Type'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('create_service_manually')));
+    final manual = find.byKey(const Key('create_service_manually'));
+    await tester.ensureVisible(manual);
+    await tester.pumpAndSettle();
+    await tester.tap(manual);
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);

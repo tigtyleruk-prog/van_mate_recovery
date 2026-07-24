@@ -196,7 +196,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await _openBusinessTemplate(tester, 'removals');
+      await _openBusinessTemplate(
+        tester,
+        'removals',
+        businessName: 'Removals / Man with a Van',
+      );
       const serviceNames = <String>[
         'Man with a Van',
         'Full House Move',
@@ -413,7 +417,11 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      await _openBusinessTemplate(tester, 'removals');
+      await _openBusinessTemplate(
+        tester,
+        'removals',
+        businessName: 'Removals / Man with a Van',
+      );
       final readdChoice = find.widgetWithText(
         CheckboxListTile,
         'Man with a Van',
@@ -443,7 +451,11 @@ void main() {
       expect(questions, hasLength(22));
       expect(questions.map((question) => question.id).toSet(), hasLength(22));
 
-      await _openBusinessTemplate(tester, 'removals');
+      await _openBusinessTemplate(
+        tester,
+        'removals',
+        businessName: 'Removals / Man with a Van',
+      );
       final existingChoice = find.widgetWithText(
         CheckboxListTile,
         'Man with a Van',
@@ -459,6 +471,217 @@ void main() {
         await VanCustomJobQuestionsStorage.instance.loadAll(),
         hasLength(22),
       );
+    },
+  );
+
+  testWidgets(
+    'Cleaning templates stage atomically, deduplicate, delete and re-add',
+    (tester) async {
+      _setPhoneView(tester);
+      await tester.pumpWidget(
+        const MaterialApp(home: VanJobTypesServicesPage()),
+      );
+      await tester.pumpAndSettle();
+
+      await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
+      const serviceNames = <String>[
+        'Regular Domestic Cleaning',
+        'One-off Deep Clean',
+        'End of Tenancy Cleaning',
+        'Office / Commercial Cleaning',
+      ];
+      for (final name in serviceNames) {
+        final choice = find.widgetWithText(CheckboxListTile, name);
+        await tester.ensureVisible(choice);
+        await tester.tap(choice);
+        await tester.pump();
+      }
+      await _tapWizardAction(tester, 'Review Business');
+      await _tapWizardAction(tester, 'Create 4 Services');
+
+      const questionByService = <String>[
+        'How often would you prefer the cleaning?',
+        'Which rooms or areas need the most attention, and what buildup is present?',
+        "What will the property's furnishing and occupancy status be?",
+        'What type of premises need cleaning?',
+      ];
+      const extraByService = <String>[
+        'Bed linen change',
+        'Additional pet-hair treatment',
+        'Inside cupboards',
+        'Internal bin emptying',
+      ];
+      for (var index = 0; index < serviceNames.length; index++) {
+        expect(find.text('Service ${index + 1} of 4'), findsOneWidget);
+        expect(find.text(serviceNames[index]), findsWidgets);
+        expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
+        expect(await VanCustomJobQuestionsStorage.instance.loadAll(), isEmpty);
+        await _tapReviewNext(tester);
+        expect(find.text(questionByService[index]), findsOneWidget);
+        await _tapReviewNext(tester);
+        expect(find.text(extraByService[index]), findsOneWidget);
+        await _tapReviewNext(tester);
+        await _tapReviewDefaults(tester);
+      }
+
+      var services = await VanJobServicesStorage.instance.loadAll();
+      var questions = await VanCustomJobQuestionsStorage.instance.loadAll();
+      expect(services, hasLength(4));
+      expect(questions, hasLength(29));
+      expect(questions.map((question) => question.id).toSet(), hasLength(29));
+      expect(
+        questions.map((question) => question.libraryQuestionId).toSet(),
+        hasLength(29),
+      );
+
+      const expectedDefaults = <String, (int, num, int, List<int>)>{
+        'cleaning_regular_domestic': (120, 24, 3, <int>[1, 2, 3, 4, 5, 6]),
+        'cleaning_one_off_deep': (240, 48, 2, <int>[1, 2, 3, 4, 5, 6]),
+        'cleaning_end_of_tenancy': (360, 72, 1, <int>[1, 2, 3, 4, 5, 6]),
+        'cleaning_office_commercial': (180, 48, 2, <int>[1, 2, 3, 4, 5]),
+      };
+      for (final service in services) {
+        final defaults = expectedDefaults[service.starterTemplateId]!;
+        expect(service.appointmentDurationMinutes, defaults.$1);
+        expect(service.noticeHours, defaults.$2);
+        expect(service.maxBookingsPerDay, defaults.$3);
+        expect(service.effectiveAvailabilityByDay.keys, defaults.$4);
+        expect(service.requestType, VanCustomerRequestType.quoteRequest);
+        expect(service.hasHandoverConfiguration, isFalse);
+        expect(service.requireAddress, isTrue);
+        expect(service.effectiveRequestFlowOptions.showNotes, isFalse);
+        expect(service.effectiveRequestFlowOptions.showPickupAddress, isFalse);
+        expect(
+          service.effectiveRequestFlowOptions.showDeliveryAddress,
+          isFalse,
+        );
+        expect(service.requiresBuiltInQuestion('address'), isTrue);
+        expect(service.requiresBuiltInQuestion('preferred_date'), isTrue);
+        expect(service.requiresBuiltInQuestion('preferred_time'), isTrue);
+        expect(service.requiresBuiltInQuestion('photos'), isFalse);
+        expect(
+          service.quoteExtraDefaults.orderedExtras.every(
+            (extra) =>
+                extra.defaultPrice == 0 &&
+                !RegExp(
+                  r'\bfree\b',
+                  caseSensitive: false,
+                ).hasMatch(extra.resolvedLabel),
+          ),
+          isTrue,
+        );
+      }
+
+      final regular = services.singleWhere(
+        (service) => service.starterTemplateId == 'cleaning_regular_domestic',
+      );
+      await VanServiceConfigurationRepository().deleteServiceAndOwnedQuestions(
+        regular,
+      );
+      expect(await VanJobServicesStorage.instance.loadAll(), hasLength(3));
+      expect(
+        await VanCustomJobQuestionsStorage.instance.loadAll(),
+        hasLength(22),
+      );
+
+      await tester.pumpAndSettle();
+      await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
+      final readdChoice = find.widgetWithText(
+        CheckboxListTile,
+        'Regular Domestic Cleaning',
+      );
+      await tester.ensureVisible(readdChoice);
+      await tester.tap(readdChoice);
+      await tester.pump();
+      await _tapWizardAction(tester, 'Review Business');
+      await _tapWizardAction(tester, 'Create Service');
+      await _tapReviewNext(tester);
+      await _tapReviewNext(tester);
+      await _tapReviewNext(tester);
+      await _tapReviewDefaults(tester);
+
+      services = await VanJobServicesStorage.instance.loadAll();
+      questions = await VanCustomJobQuestionsStorage.instance.loadAll();
+      expect(services, hasLength(4));
+      expect(
+        services
+            .where(
+              (service) =>
+                  service.starterTemplateId == 'cleaning_regular_domestic',
+            )
+            .length,
+        1,
+      );
+      expect(questions, hasLength(29));
+      expect(questions.map((question) => question.id).toSet(), hasLength(29));
+
+      await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
+      final existingChoice = find.widgetWithText(
+        CheckboxListTile,
+        'Regular Domestic Cleaning',
+      );
+      await tester.ensureVisible(existingChoice);
+      await tester.tap(existingChoice);
+      await tester.pump();
+      await _tapWizardAction(tester, 'Review Business');
+      await _tapWizardAction(tester, 'Create Service');
+      await tester.pumpAndSettle();
+      expect(await VanJobServicesStorage.instance.loadAll(), hasLength(4));
+      expect(
+        await VanCustomJobQuestionsStorage.instance.loadAll(),
+        hasLength(29),
+      );
+    },
+  );
+
+  testWidgets(
+    'Cleaning service can be added alone and cancellation is atomic',
+    (tester) async {
+      _setPhoneView(tester);
+      await tester.pumpWidget(
+        const MaterialApp(home: VanJobTypesServicesPage()),
+      );
+      await tester.pumpAndSettle();
+
+      await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
+      final officeChoice = find.widgetWithText(
+        CheckboxListTile,
+        'Office / Commercial Cleaning',
+      );
+      await tester.ensureVisible(officeChoice);
+      await tester.pumpAndSettle();
+      await tester.tap(officeChoice);
+      await tester.pump();
+      await _tapWizardAction(tester, 'Review Business');
+      await _tapWizardAction(tester, 'Create Service');
+      expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
+      expect(await VanCustomJobQuestionsStorage.instance.loadAll(), isEmpty);
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
+      expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
+      expect(await VanCustomJobQuestionsStorage.instance.loadAll(), isEmpty);
+
+      await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
+      final regularChoice = find.widgetWithText(
+        CheckboxListTile,
+        'Regular Domestic Cleaning',
+      );
+      await tester.ensureVisible(regularChoice);
+      await tester.pumpAndSettle();
+      await tester.tap(regularChoice);
+      await tester.pump();
+      await _tapWizardAction(tester, 'Review Business');
+      await _tapWizardAction(tester, 'Create Service');
+      await _tapReviewNext(tester);
+      await _tapReviewNext(tester);
+      await _tapReviewNext(tester);
+      await _tapReviewDefaults(tester);
+
+      final services = await VanJobServicesStorage.instance.loadAll();
+      final questions = await VanCustomJobQuestionsStorage.instance.loadAll();
+      expect(services, hasLength(1));
+      expect(services.single.starterTemplateId, 'cleaning_regular_domestic');
+      expect(questions, hasLength(7));
     },
   );
 
@@ -503,8 +726,9 @@ Future<void> _tapWizardAction(WidgetTester tester, String label) async {
 
 Future<void> _openBusinessTemplate(
   WidgetTester tester,
-  String searchText,
-) async {
+  String searchText, {
+  required String businessName,
+}) async {
   await tester.tap(find.text('Create Service'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Choose Business Type'));
@@ -514,7 +738,7 @@ Future<void> _openBusinessTemplate(
     searchText,
   );
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Removals / Man with a Van').first);
+  await tester.tap(find.text(businessName).first);
   await tester.pumpAndSettle();
 }
 
