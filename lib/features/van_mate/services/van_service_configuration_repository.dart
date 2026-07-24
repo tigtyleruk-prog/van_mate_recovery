@@ -141,4 +141,50 @@ class VanServiceConfigurationRepository {
       ...existingServices,
     ]);
   }
+
+  Future<void> deleteServiceAndOwnedQuestions(VanJobService requested) async {
+    final existingServices = await _services.loadAll();
+    final service = existingServices
+        .where((item) => item.id == requested.id)
+        .firstOrNull;
+    if (service == null) return;
+
+    await _services.delete(service.id);
+    if (!_isGeneratedService(service)) return;
+
+    final remainingServices = await _services.loadAll();
+    final stillReferencedQuestionIds = <String>{
+      for (final item in remainingServices) ...item.linkedQuestionIds,
+    };
+    final ownedPrefixes = <String>[
+      'service_capability_${service.id}_',
+      'service_question_${service.id}_',
+    ];
+    final removableQuestionIds = service.linkedQuestionIds
+        .where(
+          (id) =>
+              ownedPrefixes.any(id.startsWith) &&
+              !stillReferencedQuestionIds.contains(id),
+        )
+        .toSet();
+    if (removableQuestionIds.isEmpty) return;
+
+    final questions = await _questions.loadAll();
+    final retainedQuestions = questions
+        .where((question) => !removableQuestionIds.contains(question.id))
+        .toList(growable: false);
+    if (retainedQuestions.length == questions.length) return;
+    await _questions.saveAll(retainedQuestions);
+  }
+
+  bool _isGeneratedService(VanJobService service) {
+    if (service.starterPackId.trim().isEmpty) return false;
+    return switch (service.creationSource.trim()) {
+      'capabilityBuilder' ||
+      'capabilityPack' ||
+      'starterPack' ||
+      'duplicate' => true,
+      _ => false,
+    };
+  }
 }

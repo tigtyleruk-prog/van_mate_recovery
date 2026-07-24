@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.dart';
+import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 import 'package:van_mate_app/features/van_mate/pages/van_job_types_services_page.dart';
 import 'package:van_mate_app/features/van_mate/services/van_business_hub_onboarding_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_job_services_storage.dart';
@@ -167,6 +168,67 @@ void main() {
       expect(find.textContaining('Availability'), findsWidgets);
       final stored = (await VanJobServicesStorage.instance.loadAll()).single;
       expect(stored.quoteExtraDefaults.toJson(), equals(initial));
+    },
+  );
+
+  testWidgets(
+    'Use Defaults restores the selected Removals service starter extras',
+    (tester) async {
+      await _setPhoneSize(tester, const Size(390, 850));
+      final pack = findVanStarterCapabilityPackById('removals_man_with_van')!;
+      final setup = pack.recommendationsFor(const <String>[
+        'removals_furniture_single_item',
+      ]).single;
+      final initialExtras = setup.quoteExtraDefaults();
+      final service =
+          _service(
+            'removals-furniture-reset',
+            setup.name,
+            extras: initialExtras,
+          ).copyWith(
+            starterPackId: pack.id,
+            starterTemplateId: setup.serviceKey,
+            serviceCapabilityIds: setup.capabilityIds,
+          );
+      await _seed(<VanJobService>[service]);
+
+      await _pumpGuided(tester, service, <String>[service.id]);
+      await _goToExtras(tester);
+      final price = find.byKey(
+        const ValueKey<String>(
+          'guided-extra-price-removals-furniture-reset-custom_extra_removals_furniture_waiting_time',
+        ),
+      );
+      await tester.ensureVisible(price);
+      await tester.enterText(price, '99');
+      await tester.pump();
+      final defaultsButton = find.byKey(
+        const Key('service_review_use_defaults'),
+      );
+      await tester.scrollUntilVisible(
+        defaultsButton,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(defaultsButton);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Availability'), findsWidgets);
+      final stored = (await VanJobServicesStorage.instance.loadAll()).single;
+      expect(
+        stored.quoteExtraDefaults.toJson(),
+        equals(initialExtras.toJson()),
+      );
+      expect(
+        stored.quoteExtraDefaults.orderedExtras.map((extra) => extra.key),
+        <String>[
+          'custom_extra_removals_furniture_additional_helper',
+          'custom_extra_removals_furniture_dismantling',
+          'custom_extra_removals_furniture_reassembly',
+          'custom_extra_removals_furniture_covers',
+          'custom_extra_removals_furniture_waiting_time',
+        ],
+      );
     },
   );
 

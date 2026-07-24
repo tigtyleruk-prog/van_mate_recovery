@@ -108,6 +108,30 @@ class VanBusinessServiceTemplateDefinition {
 /// Intentionally empty after the controlled seeded-library reset.
 ///
 /// Future packs must be added here using [VanBusinessTemplateDefinition].
+const VanCustomerRequestFlowOptions _removalsPickupDeliveryFlow =
+    VanCustomerRequestFlowOptions(
+      showFulfilmentChoice: false,
+      askPreferredDate: false,
+      askPreferredTime: false,
+      showPickupAddress: true,
+      showDeliveryAddress: true,
+      showDropOffDate: true,
+      showDropOffTime: true,
+      showPickUpDate: true,
+      showPickUpTime: true,
+      showNotes: true,
+    );
+
+const List<VanTemplateDayAvailability> _removalsMondayToSaturday =
+    <VanTemplateDayAvailability>[
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+    ];
+
 const List<VanBusinessTemplateDefinition>
 kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
   VanBusinessTemplateDefinition(
@@ -411,6 +435,560 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
         maximumBookingsPerDay: 8,
         requestPhotos: true,
         requireAddress: false,
+      ),
+    ],
+  ),
+  VanBusinessTemplateDefinition(
+    categoryId: 'removals_moving',
+    categoryName: 'Removals & Moving',
+    businessTypeId: 'removals_man_with_van',
+    businessTypeName: 'Removals / Man with a Van',
+    description:
+        'Moving, furniture delivery and clearance services for local customers.',
+    iconKey: 'local_shipping',
+    colorValue: 0xFF7C5CFC,
+    featured: true,
+    searchKeywords: <String>[
+      'removals',
+      'man with a van',
+      'house move',
+      'furniture delivery',
+      'clearance',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Man & Van'),
+      VanBusinessSearchAlias('Removal service'),
+      VanBusinessSearchAlias('Moving service'),
+      VanBusinessSearchAlias('House removals'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'removals_man_with_van_general',
+        name: 'Man with a Van',
+        description:
+            'Flexible collection and delivery for boxes, furniture and smaller moves.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.businessCollects,
+          VanServiceCapabilityIds.localDelivery,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.multipleStops,
+          VanServiceCapabilityIds.photoUpload,
+          VanServiceCapabilityIds.loadingUnloadingHelp,
+          VanServiceCapabilityIds.dismantlingReassembly,
+          VanServiceCapabilityIds.teamMembers,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.pickupDeliveryRequest,
+        startHandover: VanStartHandover.businessCollects,
+        endHandover: VanEndHandover.businessDelivers,
+        requestFlowOptions: _removalsPickupDeliveryFlow,
+        builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help estimate the load and handling needs.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_man_with_van_items',
+            text: 'What needs moving?',
+            helperText:
+                'List the boxes, furniture or other items that need moving.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['removals', 'man-with-a-van', 'items'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_man_with_van_load_size',
+            text: 'Roughly how much needs moving?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'A few items',
+              'Part of a van',
+              'A full van',
+              'More than one load',
+              'Unsure',
+            ],
+            tags: <String>['removals', 'man-with-a-van', 'load-size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_man_with_van_access',
+            text:
+                'Are there any access or parking restrictions at either address?',
+            helperText:
+                'Include stairs, lifts, permits, narrow roads or carrying distance. Answer None if there are no restrictions.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            tags: <String>['removals', 'man-with-a-van', 'access', 'parking'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_man_with_van_loading_help',
+            text: 'Will anyone be helping with loading or unloading?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.loading,
+            choiceOptions: <String>[
+              'Help at both addresses',
+              'Help at collection only',
+              'Help at delivery only',
+              'No help available',
+              'Unsure',
+            ],
+            tags: <String>['removals', 'man-with-a-van', 'loading', 'labour'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_man_with_van_special_items',
+            text:
+                'Are there any heavy, fragile, unusually shaped or dismantled items?',
+            helperText:
+                'Include approximate dimensions or weights where known.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.fragileValuableItems,
+            tags: <String>['removals', 'man-with-a-van', 'special-handling'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_man_with_van_additional_helper',
+            label: 'Additional helper',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_man_with_van_dismantling',
+            label: 'Furniture dismantling',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_man_with_van_reassembly',
+            label: 'Furniture reassembly',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_man_with_van_collection_stop',
+            label: 'Extra collection stop',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_man_with_van_delivery_stop',
+            label: 'Extra delivery stop',
+          ),
+        ],
+        availability: _removalsMondayToSaturday,
+        suggestedDurationMinutes: 120,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: false,
+        suggestedCustomerMessage:
+            "Tell us what needs moving and any access or loading details. We'll review your request and confirm availability and price.",
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'removals_full_house_move',
+        name: 'Full House Move',
+        description:
+            'Request a quote for moving the contents of a whole home between two addresses.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.businessCollects,
+          VanServiceCapabilityIds.localDelivery,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+          VanServiceCapabilityIds.loadingUnloadingHelp,
+          VanServiceCapabilityIds.dismantlingReassembly,
+          VanServiceCapabilityIds.packingService,
+          VanServiceCapabilityIds.teamMembers,
+          VanServiceCapabilityIds.multipleVehicles,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.pickupDeliveryRequest,
+        startHandover: VanStartHandover.businessCollects,
+        endHandover: VanEndHandover.businessDelivers,
+        requestFlowOptions: _removalsPickupDeliveryFlow,
+        builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos of rooms and larger items can help estimate the vehicle and labour needed.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_full_house_properties',
+            text: 'Tell us about the collection and delivery properties.',
+            helperText:
+                'Include each property type, approximate bedroom count, floor levels, stairs and lifts. Do not repeat the addresses.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.property,
+            tags: <String>['removals', 'full-house', 'property'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_full_house_volume',
+            text:
+                'Roughly how many boxes and large furniture items are being moved?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.sizeWeight,
+            tags: <String>['removals', 'full-house', 'volume'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_full_house_access',
+            text:
+                'What access and parking should we know about at either property?',
+            helperText:
+                'Include loading distance, stairs, lifts, permits or restricted access. Answer None if there are no restrictions.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            tags: <String>['removals', 'full-house', 'access', 'parking'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_full_house_help',
+            text: 'What level of moving help do you need?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.loading,
+            choiceOptions: <String>[
+              'Transport only',
+              'Loading and unloading',
+              'Packing and moving',
+              'Unsure',
+            ],
+            tags: <String>['removals', 'full-house', 'labour', 'packing'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_full_house_dismantling',
+            text: 'Which items need dismantling or reassembly?',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.assembly,
+            tags: <String>['removals', 'full-house', 'assembly'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_full_house_special_items',
+            text:
+                'Are there any especially heavy, fragile or unusually shaped items?',
+            helperText:
+                'Include approximate dimensions or weights where known.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.fragileValuableItems,
+            tags: <String>['removals', 'full-house', 'special-handling'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_full_house_additional_helper',
+            label: 'Additional helper',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_full_house_packing_service',
+            label: 'Packing service',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_full_house_packing_materials',
+            label: 'Packing materials',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_full_house_dismantling',
+            label: 'Furniture dismantling',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_full_house_reassembly',
+            label: 'Furniture reassembly',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_full_house_covers',
+            label: 'Protective furniture covers',
+          ),
+        ],
+        availability: _removalsMondayToSaturday,
+        suggestedDurationMinutes: 480,
+        suggestedNoticeHours: 72,
+        maximumBookingsPerDay: 1,
+        requestPhotos: true,
+        requireAddress: false,
+        suggestedCustomerMessage:
+            "Tell us about both properties, the amount being moved and any help you need. We'll review the details before confirming availability and price.",
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'removals_furniture_single_item',
+        name: 'Furniture / Single Item Collection and Delivery',
+        description:
+            'Collection and delivery of one item or a small group of furniture, subject to size, access and handling needs.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.businessCollects,
+          VanServiceCapabilityIds.localDelivery,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+          VanServiceCapabilityIds.loadingUnloadingHelp,
+          VanServiceCapabilityIds.dismantlingReassembly,
+          VanServiceCapabilityIds.teamMembers,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.pickupDeliveryRequest,
+        startHandover: VanStartHandover.businessCollects,
+        endHandover: VanEndHandover.businessDelivers,
+        requestFlowOptions: _removalsPickupDeliveryFlow,
+        builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help check the item, access and protection needed.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_furniture_items',
+            text: 'What item or items need collecting?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['removals', 'furniture', 'items'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_furniture_dimensions_weight',
+            text: 'What are the approximate dimensions and weight?',
+            helperText: 'Estimates are fine. Answer Unsure where necessary.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.sizeWeight,
+            tags: <String>['removals', 'furniture', 'dimensions', 'weight'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_furniture_access',
+            text:
+                'What access and parking should we know about at either address?',
+            helperText:
+                'Include stairs, lifts, doorways, permits or carrying distance. Answer None if there are no restrictions.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            tags: <String>['removals', 'furniture', 'access', 'parking'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_furniture_lifting_help',
+            text: 'Will anyone be available to help with lifting?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.loading,
+            choiceOptions: <String>[
+              'Help at both addresses',
+              'Help at collection only',
+              'Help at delivery only',
+              'No help available',
+              'Unsure',
+            ],
+            tags: <String>['removals', 'furniture', 'lifting', 'labour'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_furniture_dismantling',
+            text: 'Does anything need dismantling or reassembly?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.assembly,
+            choiceOptions: <String>[
+              'No',
+              'Dismantling',
+              'Reassembly',
+              'Both',
+              'Unsure',
+            ],
+            tags: <String>['removals', 'furniture', 'assembly'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_furniture_special_handling',
+            text: 'Does the item need fragile or special handling?',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.fragileValuableItems,
+            tags: <String>['removals', 'furniture', 'special-handling'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_furniture_additional_helper',
+            label: 'Additional helper',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_furniture_dismantling',
+            label: 'Furniture dismantling',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_furniture_reassembly',
+            label: 'Furniture reassembly',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_furniture_covers',
+            label: 'Protective furniture covers',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_furniture_waiting_time',
+            label: 'Waiting time',
+          ),
+        ],
+        availability: _removalsMondayToSaturday,
+        suggestedDurationMinutes: 90,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 6,
+        requestPhotos: true,
+        requireAddress: false,
+        suggestedCustomerMessage:
+            'Add the item details, approximate measurements and access information so we can check the vehicle and labour required.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'removals_clearance',
+        name: 'House, Garage or Storage Clearance',
+        description:
+            'Request removal of unwanted household, garage or storage items for the business to review and quote.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+          VanServiceCapabilityIds.loadingUnloadingHelp,
+          VanServiceCapabilityIds.dismantlingReassembly,
+          VanServiceCapabilityIds.teamMembers,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: VanCustomerRequestFlowOptions(
+          showFulfilmentChoice: false,
+          askPreferredDate: true,
+          askPreferredTime: true,
+          showPickupAddress: false,
+          showDeliveryAddress: false,
+          showDropOffDate: false,
+          showDropOffTime: false,
+          showPickUpDate: false,
+          showPickUpTime: false,
+          showNotes: true,
+        ),
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{'required': true, 'helperText': ''},
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': '',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText': '',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help assess the volume and whether the items are suitable.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_clearance_areas_items',
+            text: 'Which areas are being cleared, and what needs removing?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['removals', 'clearance', 'areas', 'items'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_clearance_volume',
+            text: 'Roughly how much is there?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'A few items',
+              'A small van load',
+              'A full van load',
+              'Multiple loads',
+              'Unsure',
+            ],
+            tags: <String>['removals', 'clearance', 'volume'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_clearance_restricted_items',
+            text:
+                'Are there any electricals, mattresses, paint, chemicals, gas bottles or other potentially restricted items?',
+            helperText:
+                'Listing an item does not mean the business can accept or remove it. Answer None if there are no such items.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['removals', 'clearance', 'restricted-items'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_clearance_access',
+            text:
+                'What access, stairs or parking restrictions should we know about?',
+            helperText: 'Answer None if there are no restrictions.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            tags: <String>['removals', 'clearance', 'access', 'parking'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'removals_clearance_reusable_items',
+            text: 'Should reusable items be kept separate where possible?',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.yesNo,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['removals', 'clearance', 'reusable-items'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_clearance_additional_helper',
+            label: 'Additional helper',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_clearance_dismantling',
+            label: 'Dismantling for removal',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_removals_clearance_additional_load',
+            label: 'Additional load',
+          ),
+        ],
+        availability: _removalsMondayToSaturday,
+        suggestedDurationMinutes: 180,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 3,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            'Please describe everything to be removed and include photos where possible. The business will confirm which items it can legally and safely accept.',
       ),
     ],
   ),

@@ -110,6 +110,8 @@ class VanJobTypesServicesPage extends StatefulWidget {
 
 class _VanJobTypesServicesPageState extends State<VanJobTypesServicesPage> {
   final VanJobServicesStorage _storage = VanJobServicesStorage.instance;
+  final VanServiceConfigurationRepository _configurationRepository =
+      VanServiceConfigurationRepository();
   final VanBusinessHubOnboardingStorage _onboardingStorage =
       VanBusinessHubOnboardingStorage.instance;
   List<VanJobService> _services = <VanJobService>[];
@@ -344,7 +346,7 @@ class _VanJobTypesServicesPageState extends State<VanJobTypesServicesPage> {
     if (confirmed != true) {
       return;
     }
-    await _storage.delete(service.id);
+    await _configurationRepository.deleteServiceAndOwnedQuestions(service);
     if (!mounted) {
       return;
     }

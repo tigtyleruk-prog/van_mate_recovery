@@ -101,10 +101,27 @@ void main() {
     expect(cloud, contains("'maxCustomerPhotos'"));
     expect(cloud, contains("'customerMessage'"));
     expect(cloud, contains("'appointmentDurationMinutes'"));
+    expect(cloud, contains("'noticeHours'"));
+    expect(cloud, contains("'maxBookingsPerDay'"));
+    expect(cloud, contains("'requestType'"));
+    expect(cloud, contains("'customerJourneyType'"));
+    expect(cloud, contains("'startHandover'"));
+    expect(cloud, contains("'endHandover'"));
+    expect(cloud, contains("'allowedStartHandoverOptions'"));
+    expect(cloud, contains("'allowedEndHandoverOptions'"));
+    expect(cloud, contains("'requestFlowOptions'"));
+    expect(cloud, contains("'quoteExtraDefaults'"));
+    expect(cloud, contains("'linkedQuestions'"));
     expect(hostedPage, contains('service.showPhoneNumber !== false'));
     expect(hostedPage, contains('readText(service.customerMessage)'));
     expect(hostedPage, contains('photoLimitForService'));
+    expect(hostedPage, contains('handoverForService'));
+    expect(hostedPage, contains('linkedQuestionsForService'));
+    expect(hostedPage, contains('flowOptionsForService'));
     expect(functions, contains('selectedService.requirePhoneNumber !== false'));
     expect(functions, contains('photoSettings && photoSettings.required'));
+    expect(functions, contains('selectedService.requestFlowOptions'));
+    expect(functions, contains('selectedService.linkedQuestions'));
+    expect(functions, contains('selectedService.startHandover'));
   });
 }

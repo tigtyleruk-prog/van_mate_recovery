@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:van_mate_app/features/van_mate/pages/van_job_types_services_page.dart';
+import 'package:van_mate_app/features/van_mate/models/van_customer_request_flow.dart';
+import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_service_handover.dart';
+import 'package:van_mate_app/features/van_mate/pages/van_job_types_services_page.dart';
 import 'package:van_mate_app/features/van_mate/services/van_business_hub_onboarding_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_custom_job_questions_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_job_services_storage.dart';
+import 'package:van_mate_app/features/van_mate/services/van_service_configuration_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -184,6 +187,281 @@ void main() {
     );
   });
 
+  testWidgets(
+    'Removals templates materialise, deduplicate, delete and re-add cleanly',
+    (tester) async {
+      _setPhoneView(tester);
+      await tester.pumpWidget(
+        const MaterialApp(home: VanJobTypesServicesPage()),
+      );
+      await tester.pumpAndSettle();
+
+      await _openBusinessTemplate(tester, 'removals');
+      const serviceNames = <String>[
+        'Man with a Van',
+        'Full House Move',
+        'Furniture / Single Item Collection and Delivery',
+        'House, Garage or Storage Clearance',
+      ];
+      for (final name in serviceNames) {
+        final choice = find.widgetWithText(CheckboxListTile, name);
+        await tester.ensureVisible(choice);
+        await tester.tap(choice);
+        await tester.pump();
+      }
+      await _tapWizardAction(tester, 'Review Business');
+      await _tapWizardAction(tester, 'Create 4 Services');
+
+      const questionByService = <String>[
+        'What needs moving?',
+        'Tell us about the collection and delivery properties.',
+        'What item or items need collecting?',
+        'Which areas are being cleared, and what needs removing?',
+      ];
+      const extraByService = <String>[
+        'Extra collection stop',
+        'Packing service',
+        'Waiting time',
+        'Additional load',
+      ];
+      for (var index = 0; index < serviceNames.length; index++) {
+        expect(find.text('Service ${index + 1} of 4'), findsOneWidget);
+        expect(find.text(serviceNames[index]), findsWidgets);
+        expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
+        await _tapReviewNext(tester);
+        expect(find.text(questionByService[index]), findsOneWidget);
+        await _tapReviewNext(tester);
+        expect(find.text(extraByService[index]), findsOneWidget);
+        await _tapReviewNext(tester);
+        await _tapReviewDefaults(tester);
+      }
+
+      var services = await VanJobServicesStorage.instance.loadAll();
+      var questions = await VanCustomJobQuestionsStorage.instance.loadAll();
+      expect(services, hasLength(4));
+      expect(questions, hasLength(22));
+      expect(questions.map((question) => question.id).toSet(), hasLength(22));
+
+      final servicesByTemplate = <String, VanJobService>{
+        for (final service in services) service.starterTemplateId: service,
+      };
+      const expectedDefaults = <String, (int, num, int)>{
+        'removals_man_with_van_general': (120, 24, 4),
+        'removals_full_house_move': (480, 72, 1),
+        'removals_furniture_single_item': (90, 24, 6),
+        'removals_clearance': (180, 48, 3),
+      };
+      for (final entry in expectedDefaults.entries) {
+        final service = servicesByTemplate[entry.key]!;
+        expect(service.appointmentDurationMinutes, entry.value.$1);
+        expect(service.noticeHours, entry.value.$2);
+        expect(service.maxBookingsPerDay, entry.value.$3);
+      }
+
+      final questionsByLibrary = {
+        for (final question in questions) question.libraryQuestionId: question,
+      };
+      expect(
+        questionsByLibrary['removals_man_with_van_load_size']
+            ?.answerType
+            .storageKey,
+        'multiple_choice',
+      );
+      expect(
+        questionsByLibrary['removals_man_with_van_load_size']?.choiceOptions,
+        <String>[
+          'A few items',
+          'Part of a van',
+          'A full van',
+          'More than one load',
+          'Unsure',
+        ],
+      );
+      expect(
+        questionsByLibrary['removals_full_house_help']?.choiceOptions,
+        <String>[
+          'Transport only',
+          'Loading and unloading',
+          'Packing and moving',
+          'Unsure',
+        ],
+      );
+      expect(
+        questionsByLibrary['removals_furniture_dismantling']?.choiceOptions,
+        <String>['No', 'Dismantling', 'Reassembly', 'Both', 'Unsure'],
+      );
+      expect(
+        questionsByLibrary['removals_clearance_reusable_items']
+            ?.answerType
+            .storageKey,
+        'yes_no',
+      );
+      const optionalLibrariesByTemplate = <String, Set<String>>{
+        'removals_man_with_van_general': <String>{
+          'removals_man_with_van_special_items',
+        },
+        'removals_full_house_move': <String>{
+          'removals_full_house_dismantling',
+          'removals_full_house_special_items',
+        },
+        'removals_furniture_single_item': <String>{
+          'removals_furniture_special_handling',
+        },
+        'removals_clearance': <String>{'removals_clearance_reusable_items'},
+      };
+      for (final service in services) {
+        final linked = questions
+            .where(
+              (question) => service.linkedQuestionIds.contains(question.id),
+            )
+            .toList(growable: false);
+        final optionalLibraries = linked
+            .where(
+              (question) => service.optionalQuestionIds.contains(question.id),
+            )
+            .map((question) => question.libraryQuestionId)
+            .toSet();
+        expect(
+          optionalLibraries,
+          optionalLibrariesByTemplate[service.starterTemplateId],
+        );
+        expect(
+          linked
+              .where(
+                (question) =>
+                    !service.optionalQuestionIds.contains(question.id),
+              )
+              .every(
+                (question) =>
+                    !optionalLibrariesByTemplate[service.starterTemplateId]!
+                        .contains(question.libraryQuestionId),
+              ),
+          isTrue,
+        );
+      }
+
+      final clearance = services.singleWhere(
+        (service) => service.starterTemplateId == 'removals_clearance',
+      );
+      expect(clearance.requestType, VanCustomerRequestType.quoteRequest);
+      expect(clearance.hasHandoverConfiguration, isFalse);
+      expect(clearance.allowCustomerDropOff, isFalse);
+      expect(clearance.allowBusinessCollection, isFalse);
+      expect(clearance.allowCustomerCollection, isFalse);
+      expect(clearance.allowBusinessReturn, isFalse);
+      expect(clearance.allowBusinessDelivery, isFalse);
+      expect(clearance.requireAddress, isTrue);
+      expect(
+        clearance.effectiveSelectedBuiltInQuestionKeys,
+        containsAll(<String>[
+          'address',
+          'preferred_date',
+          'preferred_time',
+          'phone',
+          'email',
+          'photos',
+        ]),
+      );
+      expect(clearance.requiresBuiltInQuestion('preferred_date'), isTrue);
+      expect(clearance.requiresBuiltInQuestion('preferred_time'), isTrue);
+
+      for (final service in services.where(
+        (service) => service.starterTemplateId != 'removals_clearance',
+      )) {
+        expect(
+          service.requestType,
+          VanCustomerRequestType.pickupDeliveryRequest,
+        );
+        expect(service.startHandover, VanStartHandover.businessCollects);
+        expect(service.endHandover, VanEndHandover.businessDelivers);
+        expect(service.effectiveRequestFlowOptions.showPickupAddress, isTrue);
+        expect(service.effectiveRequestFlowOptions.showDeliveryAddress, isTrue);
+      }
+      expect(
+        services
+            .expand((service) => service.quoteExtraDefaults.orderedExtras)
+            .every((extra) => extra.defaultPrice == 0),
+        isTrue,
+      );
+      expect(
+        services.every((service) => service.maxCustomerPhotos == 5),
+        isTrue,
+      );
+      expect(
+        services.every(
+          (service) =>
+              service.effectiveAvailabilityByDay.keys.toList().join(',') ==
+                  '1,2,3,4,5,6' &&
+              service.effectiveAvailabilityByDay.values.every(
+                (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+              ),
+        ),
+        isTrue,
+      );
+
+      final manWithVan = services.singleWhere(
+        (service) =>
+            service.starterTemplateId == 'removals_man_with_van_general',
+      );
+      await VanServiceConfigurationRepository().deleteServiceAndOwnedQuestions(
+        manWithVan,
+      );
+      expect(await VanJobServicesStorage.instance.loadAll(), hasLength(3));
+      expect(
+        await VanCustomJobQuestionsStorage.instance.loadAll(),
+        hasLength(17),
+      );
+
+      await tester.pumpAndSettle();
+      await _openBusinessTemplate(tester, 'removals');
+      final readdChoice = find.widgetWithText(
+        CheckboxListTile,
+        'Man with a Van',
+      );
+      await tester.ensureVisible(readdChoice);
+      await tester.tap(readdChoice);
+      await tester.pump();
+      await _tapWizardAction(tester, 'Review Business');
+      await _tapWizardAction(tester, 'Create Service');
+      await _tapReviewNext(tester);
+      await _tapReviewNext(tester);
+      await _tapReviewNext(tester);
+      await _tapReviewDefaults(tester);
+
+      services = await VanJobServicesStorage.instance.loadAll();
+      questions = await VanCustomJobQuestionsStorage.instance.loadAll();
+      expect(services, hasLength(4));
+      expect(
+        services
+            .where(
+              (service) =>
+                  service.starterTemplateId == 'removals_man_with_van_general',
+            )
+            .length,
+        1,
+      );
+      expect(questions, hasLength(22));
+      expect(questions.map((question) => question.id).toSet(), hasLength(22));
+
+      await _openBusinessTemplate(tester, 'removals');
+      final existingChoice = find.widgetWithText(
+        CheckboxListTile,
+        'Man with a Van',
+      );
+      await tester.ensureVisible(existingChoice);
+      await tester.tap(existingChoice);
+      await tester.pump();
+      await _tapWizardAction(tester, 'Review Business');
+      await _tapWizardAction(tester, 'Create Service');
+      await tester.pumpAndSettle();
+      expect(await VanJobServicesStorage.instance.loadAll(), hasLength(4));
+      expect(
+        await VanCustomJobQuestionsStorage.instance.loadAll(),
+        hasLength(22),
+      );
+    },
+  );
+
   testWidgets('cancelling manual configuration leaves no partial service', (
     tester,
   ) async {
@@ -220,6 +498,23 @@ Future<void> _tapWizardAction(WidgetTester tester, String label) async {
   await tester.ensureVisible(action);
   await tester.pumpAndSettle();
   await tester.tap(action);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openBusinessTemplate(
+  WidgetTester tester,
+  String searchText,
+) async {
+  await tester.tap(find.text('Create Service'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Choose Business Type'));
+  await tester.pumpAndSettle();
+  await tester.enterText(
+    find.byKey(const Key('business_search_field')),
+    searchText,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Removals / Man with a Van').first);
   await tester.pumpAndSettle();
 }
 

@@ -12,6 +12,7 @@ import 'package:van_mate_app/features/van_mate/pages/van_job_types_services_page
 import 'package:van_mate_app/features/van_mate/services/van_business_hub_onboarding_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_custom_job_questions_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_job_services_storage.dart';
+import 'package:van_mate_app/features/van_mate/services/van_service_configuration_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -291,6 +292,98 @@ void main() {
     expect(untouched.toJson(), equals(otherBefore));
   });
 
+  testWidgets(
+    'duplicate preserves configuration and edits questions copy-on-write',
+    (tester) async {
+      _setPhoneView(tester);
+      final service = _courierService('duplicate-source', 'Generated Delivery');
+      final question = _question(service.linkedQuestionIds.single);
+      await _seed(<VanJobService>[service], <VanCustomJobQuestion>[question]);
+
+      await tester.pumpWidget(
+        const MaterialApp(home: VanJobTypesServicesPage()),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Duplicate'));
+      await tester.pumpAndSettle();
+      expect(find.text('Generated Delivery copy'), findsWidgets);
+      await _nextStage(tester);
+      await _nextStage(tester);
+      await _nextStage(tester);
+      await _nextStage(tester);
+
+      var stored = await VanJobServicesStorage.instance.loadAll();
+      expect(stored, hasLength(2));
+      final duplicate = stored.singleWhere((item) => item.id != service.id);
+      final sourceConfiguration = Map<String, dynamic>.from(service.toJson())
+        ..remove('id')
+        ..remove('name')
+        ..remove('createdAt')
+        ..remove('updatedAt');
+      final duplicateConfiguration =
+          Map<String, dynamic>.from(duplicate.toJson())
+            ..remove('id')
+            ..remove('name')
+            ..remove('createdAt')
+            ..remove('updatedAt');
+      expect(duplicate.name, 'Generated Delivery copy');
+      expect(duplicateConfiguration, equals(sourceConfiguration));
+      expect(duplicate.linkedQuestionIds, service.linkedQuestionIds);
+
+      await tester.pumpWidget(
+        MaterialApp(home: VanJobServiceDetailPage(serviceId: duplicate.id)),
+      );
+      await tester.pumpAndSettle();
+      await _openConfiguration(tester);
+      await _nextStage(tester);
+      final editQuestion = find.byKey(
+        ValueKey<String>('question_edit_${question.id}'),
+      );
+      await tester.ensureVisible(editQuestion);
+      await tester.tap(editQuestion);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('service_question_text')),
+        'How many stops are required for this copy?',
+      );
+      await tester.tap(find.byKey(const Key('save_service_question')));
+      await tester.pumpAndSettle();
+      await _nextStage(tester);
+      await _nextStage(tester);
+      await _nextStage(tester);
+
+      stored = await VanJobServicesStorage.instance.loadAll();
+      final storedSource = stored.singleWhere((item) => item.id == service.id);
+      final storedDuplicate = stored.singleWhere(
+        (item) => item.id == duplicate.id,
+      );
+      expect(storedSource.linkedQuestionIds, <String>[question.id]);
+      expect(storedDuplicate.linkedQuestionIds.single, isNot(question.id));
+      expect(
+        storedDuplicate.linkedQuestionIds.single,
+        startsWith('service_question_${duplicate.id}_'),
+      );
+      final storedQuestions = await VanCustomJobQuestionsStorage.instance
+          .loadAll();
+      expect(storedQuestions, hasLength(2));
+      expect(
+        storedQuestions
+            .singleWhere((item) => item.id == question.id)
+            .questionText,
+        question.questionText,
+      );
+      expect(
+        storedQuestions
+            .singleWhere(
+              (item) => item.id == storedDuplicate.linkedQuestionIds.single,
+            )
+            .questionText,
+        'How many stops are required for this copy?',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('legacy transport icon opens configuration without null crash', (
     tester,
   ) async {
@@ -318,6 +411,86 @@ void main() {
     expect(find.text('Standard service'), findsOneWidget);
     expect(find.text('Basic information'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  test(
+    'generated service deletion removes only its unreferenced owned questions',
+    () async {
+      const serviceId = 'service_removals_man_with_van_general_100';
+      const ownedGeneratedId =
+          'service_capability_service_removals_man_with_van_general_100_0';
+      const ownedEditedId =
+          'service_question_service_removals_man_with_van_general_100_1';
+      const sharedOwnedId =
+          'service_question_service_removals_man_with_van_general_100_2';
+      const unrelatedId = 'reusable_manual_question';
+      final generated = _courierService(serviceId, 'Man with a Van').copyWith(
+        linkedQuestionIds: const <String>[
+          ownedGeneratedId,
+          ownedEditedId,
+          sharedOwnedId,
+          unrelatedId,
+        ],
+        starterPackId: 'removals_man_with_van',
+        starterTemplateId: 'removals_man_with_van_general',
+        creationSource: 'capabilityBuilder',
+      );
+      final other = _courierService(
+        'other-service',
+        'Other Service',
+      ).copyWith(linkedQuestionIds: const <String>[sharedOwnedId]);
+      await _seed(
+        <VanJobService>[generated, other],
+        <VanCustomJobQuestion>[
+          _question(ownedGeneratedId),
+          _question(ownedEditedId),
+          _question(sharedOwnedId),
+          _question(unrelatedId),
+        ],
+      );
+
+      await VanServiceConfigurationRepository().deleteServiceAndOwnedQuestions(
+        generated,
+      );
+
+      final services = await VanJobServicesStorage.instance.loadAll();
+      final questionIds =
+          (await VanCustomJobQuestionsStorage.instance.loadAll())
+              .map((question) => question.id)
+              .toSet();
+      expect(services.map((service) => service.id), <String>['other-service']);
+      expect(questionIds, isNot(contains(ownedGeneratedId)));
+      expect(questionIds, isNot(contains(ownedEditedId)));
+      expect(questionIds, contains(sharedOwnedId));
+      expect(questionIds, contains(unrelatedId));
+    },
+  );
+
+  test('manual service deletion preserves its question definitions', () async {
+    const serviceId = 'manual-service';
+    const questionId = 'service_question_manual-service_1';
+    final manual = _courierService(serviceId, 'Manual Service').copyWith(
+      linkedQuestionIds: const <String>[questionId],
+      starterPackId: '',
+      starterTemplateId: '',
+      creationSource: 'blank',
+    );
+    await _seed(
+      <VanJobService>[manual],
+      <VanCustomJobQuestion>[_question(questionId)],
+    );
+
+    await VanServiceConfigurationRepository().deleteServiceAndOwnedQuestions(
+      manual,
+    );
+
+    expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
+    expect(
+      (await VanCustomJobQuestionsStorage.instance.loadAll()).map(
+        (question) => question.id,
+      ),
+      contains(questionId),
+    );
   });
 }
 
