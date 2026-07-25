@@ -9,9 +9,9 @@ import 'package:van_mate_app/features/van_mate/models/van_service_template.dart'
 import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 
 void main() {
-  test('Courier and Removals remain installed beside the Cleaning pack', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(3));
-    expect(kVanStarterCapabilityPacks, hasLength(3));
+  test('Courier and Removals remain installed beside the Cleaning and Gardening packs', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(4));
+    expect(kVanStarterCapabilityPacks, hasLength(4));
     expect(kVanServiceTemplateCategories, isEmpty);
     expect(findVanStarterCapabilityPackById('courier'), isNotNull);
     expect(
@@ -19,6 +19,7 @@ void main() {
       isNotNull,
     );
     expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
+    expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
     expect(findVanStarterCapabilityPackById('courier_business'), isNull);
     expect(findVanServiceTemplateById('courier'), isNull);
     expect(searchVanStarterCapabilityPacks('courier'), hasLength(1));
@@ -695,6 +696,228 @@ void main() {
       expect(
         VanQuoteExtraDefaults.starterForServiceName(name).orderedExtras,
         isEmpty,
+      );
+    }
+  });
+
+  test('Gardening pack has stable identity, aliases and four services', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'gardening',
+    );
+
+    expect(definition.categoryId, 'gardening');
+    expect(definition.categoryName, 'Gardening');
+    expect(definition.businessTypeName, 'Gardening');
+    expect(definition.iconKey, 'local_florist');
+    expect(definition.colorValue, 0xFF4CAF50);
+    expect(definition.searchAliases.map((alias) => alias.label), <String>[
+      'Lawn care',
+      'Garden care',
+      'Hedge cutting',
+      'Garden tidy',
+    ]);
+    expect(searchVanStarterCapabilityPacks('lawn care'), hasLength(1));
+    expect(searchVanStarterCapabilityPacks('hedge cutting'), hasLength(1));
+    expect(definition.services.map((service) => service.serviceId), <String>[
+      'gardening_lawn_mowing',
+      'gardening_maintenance',
+      'gardening_hedge_trimming',
+      'gardening_clearance',
+    ]);
+  });
+
+  test('Gardening services use one-address standard quote journeys', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'gardening')
+        .services;
+
+    for (final service in services) {
+      expect(service.customerJourney, VanCustomerJourneyType.quote);
+      expect(service.requestType, VanCustomerRequestType.quoteRequest);
+      expect(service.startHandover, isNull);
+      expect(service.endHandover, isNull);
+      expect(service.requireAddress, isTrue);
+      expect(service.requestPhotos, isTrue);
+      expect(service.requestFlowOptions.askPreferredDate, isTrue);
+      expect(service.requestFlowOptions.askPreferredTime, isTrue);
+      expect(service.requestFlowOptions.showPickupAddress, isFalse);
+      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+      expect(service.requestFlowOptions.showDropOffDate, isFalse);
+      expect(service.requestFlowOptions.showDropOffTime, isFalse);
+      expect(service.requestFlowOptions.showPickUpDate, isFalse);
+      expect(service.requestFlowOptions.showPickUpTime, isFalse);
+      expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+      expect(service.requestFlowOptions.showNotes, isFalse);
+      expect(
+        service.builtInQuestionKeys,
+        containsAll(<String>[
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        ]),
+      );
+      for (final key in <String>[
+        'address',
+        'preferred_date',
+        'preferred_time',
+        'phone',
+      ]) {
+        expect(
+          service.builtInQuestionSettings[key]?['required'],
+          isTrue,
+          reason: '${service.serviceId} should require $key',
+        );
+      }
+      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+    }
+  });
+
+  test('Gardening questions and extras are explicit, unique and safe', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'gardening')
+        .services;
+    final questions = services
+        .expand((service) => service.questions)
+        .toList(growable: false);
+    final extras = services
+        .expand((service) => service.extras)
+        .toList(growable: false);
+    final forbiddenCustomPrompts = <String>{
+      'customer name',
+      'phone',
+      'phone number',
+      'email',
+      'email address',
+      'address',
+      'postcode',
+      'booking date',
+      'booking time',
+      'preferred date',
+      'preferred time',
+    };
+
+    expect(questions.map((question) => question.libraryId).toSet(), hasLength(37));
+    expect(
+      questions.map((question) => question.text.trim().toLowerCase())
+          .toSet()
+          .intersection(forbiddenCustomPrompts),
+      isEmpty,
+    );
+    expect(extras.map((extra) => extra.key).toSet(), hasLength(21));
+    expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
+    expect(extras.every((extra) => extra.defaultChargeUnit == 'Fixed'), isTrue);
+    expect(
+      extras.every(
+        (extra) =>
+            !RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
+      ),
+      isTrue,
+    );
+
+    final lawn = services.singleWhere(
+      (service) => service.serviceId == 'gardening_lawn_mowing',
+    );
+    final maintenance = services.singleWhere(
+      (service) => service.serviceId == 'gardening_maintenance',
+    );
+    final hedge = services.singleWhere(
+      (service) => service.serviceId == 'gardening_hedge_trimming',
+    );
+    final clearance = services.singleWhere(
+      (service) => service.serviceId == 'gardening_clearance',
+    );
+
+    expect(
+      lawn.questions
+          .singleWhere(
+            (question) => question.libraryId == 'gardening_lawn_parking_access',
+          )
+          .helperText,
+      contains('Do not provide door, alarm or key-safe codes'),
+    );
+    expect(
+      maintenance.questions
+          .singleWhere(
+            (question) => question.libraryId == 'gardening_maintenance_frequency',
+          )
+          .helperText,
+      contains('does not automatically create recurring bookings'),
+    );
+    expect(
+      maintenance.questions
+          .singleWhere(
+            (question) => question.libraryId == 'gardening_maintenance_access_issues',
+          )
+          .helperText,
+      contains('Do not provide door, alarm or key-safe codes'),
+    );
+    expect(
+      hedge.questions
+          .singleWhere(
+            (question) => question.libraryId == 'gardening_hedge_nesting',
+          )
+          .helperText,
+      contains('may need to be postponed or restricted'),
+    );
+    expect(
+      hedge.questions
+          .singleWhere(
+            (question) => question.libraryId == 'gardening_hedge_parking_access',
+          )
+          .helperText,
+      contains('Do not provide door, alarm or key-safe codes'),
+    );
+    expect(
+      clearance.questions
+          .singleWhere(
+            (question) => question.libraryId == 'gardening_clearance_restricted_materials_details',
+          )
+          .helperText,
+      contains('The business must confirm accepted waste'),
+    );
+    expect(
+      clearance.questions
+          .singleWhere(
+            (question) => question.libraryId == 'gardening_clearance_parking_access',
+          )
+          .helperText,
+      contains('Do not provide door, alarm or key-safe codes'),
+    );
+  });
+
+  test('Gardening defaults preserve duration, notice, limits and schedule', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'gardening')
+        .services;
+    final expected = <String, (int, int, int)>{
+      'gardening_lawn_mowing': (60, 24, 6),
+      'gardening_maintenance': (120, 24, 4),
+      'gardening_hedge_trimming': (120, 48, 3),
+      'gardening_clearance': (240, 72, 2),
+    };
+
+    for (final service in services) {
+      final defaults = expected[service.serviceId]!;
+      expect(service.suggestedDurationMinutes, defaults.$1);
+      expect(service.suggestedNoticeHours, defaults.$2);
+      expect(service.maximumBookingsPerDay, defaults.$3);
+      expect(service.availability.map((day) => day.day), <int>[
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+      ]);
+      expect(
+        service.availability.every(
+          (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+        ),
+        isTrue,
       );
     }
   });

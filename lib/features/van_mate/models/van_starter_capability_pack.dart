@@ -181,6 +181,30 @@ const List<String> _cleaningSupplyOptions = <String>[
   'Please advise',
 ];
 
+const VanCustomerRequestFlowOptions _gardeningStandardQuoteFlow =
+    VanCustomerRequestFlowOptions(
+  showFulfilmentChoice: false,
+  askPreferredDate: true,
+  askPreferredTime: true,
+  showPickupAddress: false,
+  showDeliveryAddress: false,
+  showDropOffDate: false,
+  showDropOffTime: false,
+  showPickUpDate: false,
+  showPickUpTime: false,
+  showNotes: false,
+);
+
+const List<VanTemplateDayAvailability> _gardeningMondayToSaturday =
+    <VanTemplateDayAvailability>[
+  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+];
+
 const List<VanBusinessTemplateDefinition>
 kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
   VanBusinessTemplateDefinition(
@@ -1737,6 +1761,830 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
         requireAddress: true,
         suggestedCustomerMessage:
             'Tell us about the premises, areas, preferred frequency and access arrangements. Do not include alarm codes, door codes, passwords or other sensitive security details.',
+      ),
+    ],
+  ),
+  VanBusinessTemplateDefinition(
+    categoryId: 'gardening',
+    categoryName: 'Gardening',
+    businessTypeId: 'gardening',
+    businessTypeName: 'Gardening',
+    description:
+        'Domestic and commercial garden maintenance, lawn care and clearance services.',
+    iconKey: 'local_florist',
+    colorValue: 0xFF4CAF50,
+    featured: true,
+    searchKeywords: <String>[
+      'gardening',
+      'lawn mowing',
+      'garden maintenance',
+      'hedge trimming',
+      'garden clearance',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Lawn care'),
+      VanBusinessSearchAlias('Garden care'),
+      VanBusinessSearchAlias('Hedge cutting'),
+      VanBusinessSearchAlias('Garden tidy'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'gardening_lawn_mowing',
+        name: 'Lawn Mowing',
+        description:
+            'Routine lawn mowing for domestic or small commercial properties.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _gardeningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the gardening service will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help assess the garden size, access and condition.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_lawn_area',
+            text: 'What area needs mowing?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Front garden',
+              'Back garden',
+              'Front and back',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'lawn', 'area'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_lawn_size',
+            text: 'Approximately how large is the lawn?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Small',
+              'Medium',
+              'Large',
+              'Very large',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'lawn', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_lawn_condition',
+            text: 'How would you describe the current grass?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Regularly maintained',
+              'Slightly overgrown',
+              'Heavily overgrown',
+              'Wet or difficult ground',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'lawn', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_lawn_ground',
+            text: 'Is the ground flat, sloped or uneven?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Mostly flat',
+              'Sloped',
+              'Uneven',
+              'Mixed',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'lawn', 'ground', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_lawn_access_width',
+            text: 'Describe any narrow gates or restricted equipment access',
+            helperText: 'Include the narrowest access width where known.',
+            answerType: VanCustomQuestionAnswerType.shortText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'lawn', 'access', 'width'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_lawn_obstacles',
+            text:
+                'Are there obstacles, pets or pet waste the gardener should plan around?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.gardening,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'lawn', 'obstacles', 'pets'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_lawn_clippings',
+            text: 'What should happen to the grass clippings?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Leave on site',
+              "Use the customer's green bin",
+              'Business to remove them',
+              'Please advise',
+            ],
+            tags: <String>['gardening', 'lawn', 'clippings', 'waste'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_lawn_parking_access',
+            text: 'Parking and access details',
+            helperText:
+                'Do not provide door, alarm or key-safe codes.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'lawn', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_lawn_mowing_edging',
+            label: 'Lawn edging',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_lawn_mowing_strimming_borders',
+            label: 'Strimming around borders',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_lawn_mowing_clippings_removal',
+            label: 'Clippings removal',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_lawn_mowing_first_overgrown_cut',
+            label: 'First cut of heavily overgrown grass',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_lawn_mowing_additional_area',
+            label: 'Additional lawn area',
+          ),
+        ],
+        availability: _gardeningMondayToSaturday,
+        suggestedDurationMinutes: 60,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 6,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            'Tell us about the lawn area, grass condition and access details. We will review and confirm availability and price.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'gardening_maintenance',
+        name: 'Garden Maintenance',
+        description:
+            'A flexible general-maintenance visit covering routine garden tasks.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _gardeningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the gardening service will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help assess the garden size, access and condition.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_maintenance_size',
+            text: 'Approximately how large is the garden?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Small',
+              'Medium',
+              'Large',
+              'Very large',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'maintenance', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_maintenance_main_task',
+            text: 'What is the main task for this visit?',
+            helperText:
+                'Choose the main task. Additional work can be described below or selected as extras.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Lawn mowing',
+              'Weeding',
+              'Light pruning',
+              'Border tidying',
+              'Leaf clearance',
+              'General tidy',
+              'Other',
+            ],
+            tags: <String>['gardening', 'maintenance', 'task'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_maintenance_focus_areas',
+            text: 'Which areas need the most attention?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.gardening,
+            tags: <String>['gardening', 'maintenance', 'focus'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_maintenance_condition',
+            text: 'How would you describe the current condition?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Regularly maintained',
+              'Some work needed',
+              'Overgrown',
+              'Heavily overgrown',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'maintenance', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_maintenance_frequency',
+            text: 'What visit frequency would you prefer?',
+            helperText:
+                'This records your preference only and does not automatically create recurring bookings.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              'One-off',
+              'Weekly',
+              'Fortnightly',
+              'Every four weeks',
+              'Seasonal',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'maintenance', 'frequency'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_maintenance_equipment',
+            text: 'Who should provide tools and equipment?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Business supplies equipment',
+              'Customer has suitable equipment',
+              'Please advise',
+            ],
+            tags: <String>['gardening', 'maintenance', 'equipment'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_maintenance_green_waste',
+            text: 'What should happen to green waste?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Leave on site',
+              "Use the customer's green bin",
+              'Business to remove it',
+              'Please advise',
+            ],
+            tags: <String>['gardening', 'maintenance', 'waste'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_maintenance_access_issues',
+            text: 'Are there access, parking, pet or obstacle issues?',
+            helperText:
+                'Do not provide door, alarm or key-safe codes.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'maintenance', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_maintenance_additional_labour_hour',
+            label: 'Additional labour hour',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_maintenance_lawn_mowing',
+            label: 'Lawn mowing',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_maintenance_weeding',
+            label: 'Weeding',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_maintenance_light_pruning',
+            label: 'Light pruning',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_maintenance_leaf_clearance',
+            label: 'Leaf clearance',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_maintenance_green_waste_removal',
+            label: 'Green-waste removal',
+          ),
+        ],
+        availability: _gardeningMondayToSaturday,
+        suggestedDurationMinutes: 120,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            'Tell us about the garden size, condition, preferred tasks and access. We will review and confirm availability and price.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'gardening_hedge_trimming',
+        name: 'Hedge Trimming',
+        description:
+            'Hedge trimming and shaping, with access and waste requirements confirmed before work is agreed.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _gardeningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the gardening service will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help assess hedge size, access and condition.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_count',
+            text: 'How many hedges need trimming?',
+            helperText: 'Enter the number of separate hedges where possible.',
+            answerType: VanCustomQuestionAnswerType.shortText,
+            category: VanCustomQuestionCategory.gardening,
+            tags: <String>['gardening', 'hedge', 'count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_combined_length',
+            text: 'Approximately what is the combined hedge length?',
+            helperText: 'Estimate in metres where possible, or enter Unsure.',
+            answerType: VanCustomQuestionAnswerType.shortText,
+            category: VanCustomQuestionCategory.gardening,
+            tags: <String>['gardening', 'hedge', 'length'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_height',
+            text: 'Approximately how high are the hedges?',
+            helperText:
+                'Taller hedges may require specialist equipment. The business will confirm whether the work can be completed safely.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Under 1.5 metres',
+              '1.5–2 metres',
+              '2–3 metres',
+              'Over 3 metres',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'hedge', 'height'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_work',
+            text: 'What work is required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Light maintenance trim',
+              'Shape and tidy',
+              'Significant height or width reduction',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'hedge', 'work'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_sides_accessible',
+            text: 'Which sides are accessible?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Front only',
+              'Front and one side',
+              'Both sides',
+              'Access is restricted',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'hedge', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_obstacles',
+            text:
+                'Are there fences, sheds, conservatories, cables, slopes or other obstacles nearby?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.gardening,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'hedge', 'obstacles'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_nesting',
+            text: 'Is there any visible active bird nesting or wildlife?',
+            helperText:
+                'If active nests or protected wildlife are present, the work may need to be postponed or restricted.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Yes',
+              'No',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'hedge', 'wildlife'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_cuttings',
+            text: 'What should happen to the hedge cuttings?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Leave on site',
+              "Use the customer's green bin",
+              'Business to remove them',
+              'Please advise',
+            ],
+            tags: <String>['gardening', 'hedge', 'waste'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_hedge_parking_access',
+            text: 'Parking and access details',
+            helperText:
+                'Do not provide door, alarm or key-safe codes.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'hedge', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_hedge_trimming_additional_length',
+            label: 'Additional hedge length',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_hedge_trimming_height_reduction',
+            label: 'Significant height reduction',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_hedge_trimming_top_and_both_sides',
+            label: 'Trim top and both sides',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_hedge_trimming_green_waste_removal',
+            label: 'Green-waste removal',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_hedge_trimming_difficult_access',
+            label: 'Difficult-access supplement',
+          ),
+        ],
+        availability: _gardeningMondayToSaturday,
+        suggestedDurationMinutes: 120,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 3,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            'Tell us about the hedges, size, access and waste requirements. We will confirm whether we can complete the work safely.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'gardening_clearance',
+        name: 'Garden Clearance',
+        description:
+            'A larger one-off garden tidy and clearance service, subject to access, waste type and disposal confirmation.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _gardeningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the gardening service will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help assess the area size, waste type and access.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_area_size',
+            text: 'Approximately how large is the area?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Small',
+              'Medium',
+              'Large',
+              'Very large',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'clearance', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_main_type',
+            text: 'What is the main type of clearance needed?',
+            helperText:
+                'Choose the main type. Describe any additional materials in the later questions.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Weeds and general growth',
+              'Brambles',
+              'Fallen leaves or branches',
+              'Cuttings and green waste',
+              'Old pots or lightweight garden items',
+              'Mixed garden waste',
+              'Other',
+            ],
+            tags: <String>['gardening', 'clearance', 'type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_overgrown',
+            text: 'How overgrown is the area?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Light',
+              'Moderate',
+              'Heavy',
+              'Dense or difficult',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'clearance', 'overgrown'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_waste_amount',
+            text: 'Approximately how much waste is expected?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'A few bags',
+              'Several bags',
+              'Around one small van load',
+              'More than one load',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'clearance', 'waste'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_heavy_lifting',
+            text: 'Is heavy lifting likely to be required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.loading,
+            choiceOptions: <String>[
+              'Yes',
+              'No',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'clearance', 'lifting'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_heavy_lifting_details',
+            text: 'Describe any heavy or awkward items',
+            helperText:
+                'Include approximate size or weight where known. The business will confirm what it can handle safely.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.loading,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'clearance', 'lifting', 'details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_access_distance',
+            text:
+                'What is the access width and distance to the nearest suitable vehicle position?',
+            answerType: VanCustomQuestionAnswerType.shortText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'clearance', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_steps_slopes',
+            text: 'Are there steps, slopes or restricted-access areas?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'clearance', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_protected_areas',
+            text: 'Are there plants, items or areas that must remain untouched?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.gardening,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'clearance', 'protected'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_restricted_materials',
+            text: 'Are any restricted or specialist materials present?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.gardening,
+            choiceOptions: <String>[
+              'Yes',
+              'No',
+              'Unsure',
+            ],
+            tags: <String>['gardening', 'clearance', 'restricted'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_restricted_materials_details',
+            text: 'Describe any restricted or specialist materials',
+            helperText:
+                'Examples include chemicals, paint, fuel, gas cylinders, asbestos or suspected asbestos, clinical or hazardous waste, or significant quantities of soil or rubble. The business must confirm accepted waste and any disposal cost before the job is agreed.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.gardening,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'clearance', 'restricted', 'details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'gardening_clearance_parking_access',
+            text: 'Parking and access details',
+            helperText:
+                'Do not provide door, alarm or key-safe codes.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['gardening', 'clearance', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_clearance_additional_labour_hour',
+            label: 'Additional labour hour',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_clearance_green_waste_removal',
+            label: 'Green-waste removal',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_clearance_dense_bramble_clearance',
+            label: 'Dense bramble clearance',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_clearance_heavy_item_handling',
+            label: 'Heavy-item handling',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_gardening_clearance_additional_waste_load',
+            label: 'Additional waste load',
+          ),
+        ],
+        availability: _gardeningMondayToSaturday,
+        suggestedDurationMinutes: 240,
+        suggestedNoticeHours: 72,
+        maximumBookingsPerDay: 2,
+        requestPhotos: true,
+        requireAddress: true,
+        suggestedCustomerMessage:
+            'Tell us about the area to clear, waste types and access. The business will confirm accepted waste and disposal costs before accepting.',
       ),
     ],
   ),
