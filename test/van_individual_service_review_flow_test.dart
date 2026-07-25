@@ -296,7 +296,10 @@ void main() {
       hasLength(1),
     );
 
-    await tester.tap(find.byType(DropdownButton<String>));
+    final dropdownTarget = find.byType(DropdownButton<String>);
+    await tester.ensureVisible(dropdownTarget);
+    await tester.pumpAndSettle();
+    await tester.tap(dropdownTarget);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Transport & Delivery').last);
     await tester.pumpAndSettle();
