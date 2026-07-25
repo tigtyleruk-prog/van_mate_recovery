@@ -485,7 +485,7 @@ void main() {
 
       await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
       const serviceNames = <String>[
-        'Regular Domestic Cleaning',
+        'Domestic Cleaning',
         'One-off Deep Clean',
         'End of Tenancy Cleaning',
         'Office / Commercial Cleaning',
@@ -588,7 +588,7 @@ void main() {
       await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
       final readdChoice = find.widgetWithText(
         CheckboxListTile,
-        'Regular Domestic Cleaning',
+        'Domestic Cleaning',
       );
       await tester.ensureVisible(readdChoice);
       await tester.tap(readdChoice);
@@ -618,7 +618,7 @@ void main() {
       await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
       final existingChoice = find.widgetWithText(
         CheckboxListTile,
-        'Regular Domestic Cleaning',
+        'Domestic Cleaning',
       );
       await tester.ensureVisible(existingChoice);
       await tester.tap(existingChoice);
@@ -664,7 +664,7 @@ void main() {
       await _openBusinessTemplate(tester, 'cleaning', businessName: 'Cleaning');
       final regularChoice = find.widgetWithText(
         CheckboxListTile,
-        'Regular Domestic Cleaning',
+        'Domestic Cleaning',
       );
       await tester.ensureVisible(regularChoice);
       await tester.pumpAndSettle();

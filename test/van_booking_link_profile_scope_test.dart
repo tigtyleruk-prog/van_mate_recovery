@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:van_mate_app/features/van_mate/helpers/van_text_formatters.dart';
 import 'package:van_mate_app/features/van_mate/services/van_booking_link_settings_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_business_profile_scope_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_job_request_cloud_service.dart';
@@ -116,6 +117,33 @@ void main() {
         hostedPage,
         contains('preferredDateLabel.textContent = "Preferred date"'),
       );
+      expect(
+        hostedPage,
+        contains('requiresBuiltInQuestion(service, "preferred_date")'),
+      );
+      expect(
+        hostedPage,
+        contains('requiresBuiltInQuestion(service, "preferred_time")'),
+      );
+      expect(
+        hostedPage,
+        contains(
+          '? "Preferred date and time"\n        : flow.preferredHeading',
+        ),
+      );
+      expect(hostedPage, contains('reason: "missing_preferred_date"'));
+      expect(hostedPage, contains('reason: "missing_preferred_time"'));
+      expect(hostedPage, contains('preferredTimeWindow.value = "anytime"'));
+      expect(hostedPage, contains('!Boolean(preferredIsFlexible.checked)'));
+      expect(
+        settingsPage,
+        contains("service.requiresBuiltInQuestion('preferred_date')"),
+      );
+      expect(
+        settingsPage,
+        contains("service.requiresBuiltInQuestion('preferred_time')"),
+      );
+      expect(settingsPage, contains("Text('Please choose a preferred date.')"));
       expect(settingsPage, contains('Custom public heading (optional)'));
       expect(
         settingsPage,
@@ -142,6 +170,30 @@ void main() {
       );
     },
   );
+
+  test('anytime and flexible remain valid preferred-time selections', () {
+    final now = DateTime(2026, 7, 25, 10);
+    final preferredDate = DateTime(2026, 7, 26);
+
+    expect(
+      validateVanMatePreferredBookingWindow(
+        preferredDate: preferredDate,
+        preferredTimeWindow: 'anytime',
+        preferredIsFlexible: false,
+        now: now,
+      ),
+      isNull,
+    );
+    expect(
+      validateVanMatePreferredBookingWindow(
+        preferredDate: preferredDate,
+        preferredTimeWindow: '',
+        preferredIsFlexible: true,
+        now: now,
+      ),
+      isNull,
+    );
+  });
 
   test('booking requests stay inside their matching business profile', () {
     final orderRequest = <String, dynamic>{

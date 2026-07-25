@@ -1162,6 +1162,15 @@
       return value && typeof value === "object" ? value : {};
     }
 
+    function requiresBuiltInQuestion(service, key) {
+      return builtInQuestionSetting(service, key).required === true;
+    }
+
+    function requiresPreferredTiming(service) {
+      return requiresBuiltInQuestion(service, "preferred_date") ||
+        requiresBuiltInQuestion(service, "preferred_time");
+    }
+
     function photoLimitForService(service = selectedService()) {
       const value = Number(service && service.maxCustomerPhotos);
       if (!Number.isFinite(value)) return DEFAULT_PHOTO_LIMIT;
@@ -1523,7 +1532,9 @@
       photoHelperText.textContent =
         readText(builtInQuestionSetting(service, "photos").helperText) ||
         bookingPhotoHelperText();
-      preferredTimingHeading.textContent = flow.preferredHeading;
+      preferredTimingHeading.textContent = requiresPreferredTiming(service)
+        ? "Preferred date and time"
+        : flow.preferredHeading;
       preferredDateLabel.textContent = "Preferred date";
       preferredTimeLabel.textContent = "Preferred time";
       notesHeading.textContent = flow.notesHeading;
@@ -1658,6 +1669,31 @@
       const flow = requestFlowForService(service);
       const flowOptions = flowOptionsForService(service, flow.requestType);
       const handover = handoverForService(service);
+      if (
+        flowOptions.askPreferredDate &&
+        requiresBuiltInQuestion(service, "preferred_date") &&
+        !readText(preferredDate.value)
+      ) {
+        return failValidation({
+          message: "Please choose a preferred date.",
+          field: preferredDate,
+          reason: "missing_preferred_date",
+          serviceId: service.id,
+        });
+      }
+      if (
+        flowOptions.askPreferredTime &&
+        requiresBuiltInQuestion(service, "preferred_time") &&
+        !readText(preferredTimeWindow.value) &&
+        !Boolean(preferredIsFlexible.checked)
+      ) {
+        return failValidation({
+          message: "Please choose a preferred time.",
+          field: preferredTimeWindow,
+          reason: "missing_preferred_time",
+          serviceId: service.id,
+        });
+      }
       const requiresStandardAddress =
         Boolean(service.requireAddress) &&
         !handover &&

@@ -1152,6 +1152,29 @@ class _VanBookingLinkCustomerFormPageState
       return false;
     }
 
+    if (service.requiresBuiltInQuestion('preferred_date') &&
+        _preferredDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please choose a preferred date.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
+    if (service.requiresBuiltInQuestion('preferred_time') &&
+        _preferredTimeWindow.trim().isEmpty &&
+        !_preferredIsFlexible) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please choose a preferred time.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
     final requiresPreferredTiming =
         service.requiresBuiltInQuestion('preferred_date') ||
         service.requiresBuiltInQuestion('preferred_time');

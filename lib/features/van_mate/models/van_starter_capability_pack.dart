@@ -1071,7 +1071,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
     services: <VanBusinessServiceTemplateDefinition>[
       VanBusinessServiceTemplateDefinition(
         serviceId: 'cleaning_regular_domestic',
-        name: 'Regular Domestic Cleaning',
+        name: 'Domestic Cleaning',
         description:
             'Routine cleaning for occupied homes, tailored to the rooms and frequency requested.',
         featureIds: <String>[
@@ -1327,7 +1327,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             category: VanCustomQuestionCategory.access,
             choiceOptions: <String>[
               'Someone will be present',
-              'Access provided and property empty',
+              'Property will be empty and access arranged',
               'Property is vacant',
               'Unsure',
             ],

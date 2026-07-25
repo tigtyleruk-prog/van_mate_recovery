@@ -391,6 +391,18 @@ void main() {
       'cleaning_end_of_tenancy',
       'cleaning_office_commercial',
     ]);
+    expect(definition.services.map((service) => service.name), <String>[
+      'Domestic Cleaning',
+      'One-off Deep Clean',
+      'End of Tenancy Cleaning',
+      'Office / Commercial Cleaning',
+    ]);
+    expect(
+      definition.services.where(
+        (service) => service.name == 'Regular Domestic Cleaning',
+      ),
+      isEmpty,
+    );
   });
 
   test('Cleaning services use one-address standard quote journeys', () {
@@ -468,6 +480,37 @@ void main() {
     };
 
     expect(questions, hasLength(29));
+    expect(questions.map((question) => question.libraryId), <String>[
+      'cleaning_regular_property_type',
+      'cleaning_regular_bedrooms_bathrooms',
+      'cleaning_regular_rooms_priorities',
+      'cleaning_regular_frequency',
+      'cleaning_regular_pets',
+      'cleaning_regular_supplies',
+      'cleaning_regular_access_occupancy',
+      'cleaning_deep_property_type',
+      'cleaning_deep_bedrooms_bathrooms',
+      'cleaning_deep_condition',
+      'cleaning_deep_priorities',
+      'cleaning_deep_occupancy',
+      'cleaning_deep_supplies',
+      'cleaning_deep_access_furniture',
+      'cleaning_tenancy_property_type',
+      'cleaning_tenancy_bedrooms_bathrooms',
+      'cleaning_tenancy_furnishing_occupancy',
+      'cleaning_tenancy_condition',
+      'cleaning_tenancy_handover_deadline',
+      'cleaning_tenancy_agent_requirements',
+      'cleaning_tenancy_access',
+      'cleaning_office_premises_type',
+      'cleaning_office_floor_area',
+      'cleaning_office_areas_facilities',
+      'cleaning_office_frequency',
+      'cleaning_office_hours',
+      'cleaning_office_access',
+      'cleaning_office_supplies',
+      'cleaning_office_bins',
+    ]);
     expect(
       questions.map((question) => question.libraryId).toSet(),
       hasLength(29),
@@ -487,6 +530,27 @@ void main() {
       isEmpty,
     );
     expect(extras, hasLength(19));
+    expect(extras.map((extra) => extra.key), <String>[
+      'custom_extra_cleaning_regular_additional_bedroom',
+      'custom_extra_cleaning_regular_additional_bathroom',
+      'custom_extra_cleaning_regular_interior_windows',
+      'custom_extra_cleaning_regular_bed_linen_change',
+      'custom_extra_cleaning_regular_ironing',
+      'custom_extra_cleaning_deep_inside_oven',
+      'custom_extra_cleaning_deep_inside_fridge_freezer',
+      'custom_extra_cleaning_deep_inside_cupboards',
+      'custom_extra_cleaning_deep_interior_windows',
+      'custom_extra_cleaning_deep_pet_hair_treatment',
+      'custom_extra_cleaning_tenancy_inside_oven',
+      'custom_extra_cleaning_tenancy_inside_fridge_freezer',
+      'custom_extra_cleaning_tenancy_inside_cupboards',
+      'custom_extra_cleaning_tenancy_interior_windows',
+      'custom_extra_cleaning_office_additional_washroom',
+      'custom_extra_cleaning_office_communal_area_deep_clean',
+      'custom_extra_cleaning_office_interior_windows',
+      'custom_extra_cleaning_office_products_supplied',
+      'custom_extra_cleaning_office_internal_bins',
+    ]);
     expect(extras.map((extra) => extra.key).toSet(), hasLength(19));
     expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
     expect(extras.every((extra) => extra.defaultChargeUnit == 'Fixed'), isTrue);
@@ -512,6 +576,9 @@ void main() {
     final regular = services.singleWhere(
       (service) => service.serviceId == 'cleaning_regular_domestic',
     );
+    final deep = services.singleWhere(
+      (service) => service.serviceId == 'cleaning_one_off_deep',
+    );
     final office = services.singleWhere(
       (service) => service.serviceId == 'cleaning_office_commercial',
     );
@@ -525,6 +592,19 @@ void main() {
           )
           .helperText,
       contains('does not automatically create recurring bookings'),
+    );
+    expect(
+      deep.questions
+          .singleWhere(
+            (question) => question.libraryId == 'cleaning_deep_occupancy',
+          )
+          .choiceOptions,
+      <String>[
+        'Someone will be present',
+        'Property will be empty and access arranged',
+        'Property is vacant',
+        'Unsure',
+      ],
     );
     expect(
       office.questions
