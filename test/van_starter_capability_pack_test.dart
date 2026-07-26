@@ -9,9 +9,9 @@ import 'package:van_mate_app/features/van_mate/models/van_service_template.dart'
 import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 
 void main() {
-  test('Courier and Removals remain installed beside the Cleaning and Gardening packs', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(4));
-    expect(kVanStarterCapabilityPacks, hasLength(4));
+  test('Courier and Removals remain installed beside the Cleaning, Gardening and Pet Services packs', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(5));
+    expect(kVanStarterCapabilityPacks, hasLength(5));
     expect(kVanServiceTemplateCategories, isEmpty);
     expect(findVanStarterCapabilityPackById('courier'), isNotNull);
     expect(
@@ -20,6 +20,7 @@ void main() {
     );
     expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
     expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
+    expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
     expect(findVanStarterCapabilityPackById('courier_business'), isNull);
     expect(findVanServiceTemplateById('courier'), isNull);
     expect(searchVanStarterCapabilityPacks('courier'), hasLength(1));
@@ -920,5 +921,236 @@ void main() {
         isTrue,
       );
     }
+  });
+
+  test('Dog Day Care has stable identity, 10 questions and 5 extras', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+    final dayCare = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_day_care',
+    );
+
+    expect(dayCare.serviceId, 'pet_services_dog_day_care');
+    expect(dayCare.name, 'Dog Day Care');
+    expect(dayCare.customerJourney, VanCustomerJourneyType.quote);
+    expect(dayCare.requestType, VanCustomerRequestType.dropOffPickupRequest);
+    expect(dayCare.startHandover, VanStartHandover.customerDropsOff);
+    expect(dayCare.endHandover, VanEndHandover.customerCollects);
+    expect(dayCare.questions, hasLength(10));
+    expect(dayCare.extras, hasLength(5));
+    expect(dayCare.suggestedDurationMinutes, 480);
+    expect(dayCare.suggestedNoticeHours, 48);
+    expect(dayCare.maximumBookingsPerDay, 4);
+    expect(dayCare.requestPhotos, isTrue);
+    expect(dayCare.requireAddress, isFalse);
+    expect(dayCare.requestFlowOptions.showNotes, isFalse);
+    expect(
+      dayCare.availability.map((day) => day.day),
+      <int>[1, 2, 3, 4, 5],
+    );
+    expect(
+      dayCare.availability.every(
+        (day) => day.startMinutes == 420 && day.endMinutes == 1080,
+      ),
+      isTrue,
+    );
+  });
+
+  test('Dog Day Care question and extra IDs are unique', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+    final dayCare = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_day_care',
+    );
+
+    expect(
+      dayCare.questions.map((q) => q.libraryId).toSet(),
+      hasLength(10),
+    );
+    expect(
+      dayCare.questions.map((q) => q.libraryId).toSet(),
+      containsAll(<String>[
+        'pet_services_dog_day_care_dog_details',
+        'pet_services_dog_day_care_previous_attendance',
+        'pet_services_dog_day_care_vaccination_records',
+        'pet_services_dog_day_care_social_behaviour',
+        'pet_services_dog_day_care_behaviour_concerns',
+        'pet_services_dog_day_care_feeding',
+        'pet_services_dog_day_care_health',
+        'pet_services_dog_day_care_health_details',
+        'pet_services_dog_day_care_rest_routine',
+        'pet_services_dog_day_care_items',
+      ]),
+    );
+    expect(
+      dayCare.extras.map((e) => e.key).toSet(),
+      hasLength(5),
+    );
+    expect(
+      dayCare.extras.map((e) => e.key).toSet(),
+      containsAll(<String>[
+        'custom_extra_pet_services_dog_day_care_additional_dog',
+        'custom_extra_pet_services_dog_day_care_extended_care_hour',
+        'custom_extra_pet_services_dog_day_care_meal_preparation',
+        'custom_extra_pet_services_dog_day_care_medication_support',
+        'custom_extra_pet_services_dog_day_care_weekend_holiday',
+      ]),
+    );
+  });
+
+  test('Dog Day Care uses customer drop-off and collection', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+    final dayCare = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_day_care',
+    );
+
+    expect(dayCare.startHandover, VanStartHandover.customerDropsOff);
+    expect(dayCare.endHandover, VanEndHandover.customerCollects);
+    expect(dayCare.requestFlowOptions.showDropOffDate, isTrue);
+    expect(dayCare.requestFlowOptions.showDropOffTime, isTrue);
+    expect(dayCare.requestFlowOptions.showPickUpDate, isTrue);
+    expect(dayCare.requestFlowOptions.showPickUpTime, isTrue);
+    expect(dayCare.requestFlowOptions.askPreferredDate, isFalse);
+    expect(dayCare.requestFlowOptions.askPreferredTime, isFalse);
+    expect(dayCare.requestFlowOptions.showNotes, isFalse);
+  });
+
+  test('Dog Boarding has stable identity, 14 questions and 5 extras', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+    final boarding = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_boarding',
+    );
+
+    expect(boarding.serviceId, 'pet_services_dog_boarding');
+    expect(boarding.name, 'Dog Boarding');
+    expect(boarding.customerJourney, VanCustomerJourneyType.quote);
+    expect(boarding.requestType, VanCustomerRequestType.dropOffPickupRequest);
+    expect(boarding.startHandover, VanStartHandover.customerDropsOff);
+    expect(boarding.endHandover, VanEndHandover.customerCollects);
+    expect(boarding.questions, hasLength(14));
+    expect(boarding.extras, hasLength(5));
+    expect(boarding.suggestedNoticeHours, 72);
+    expect(boarding.maximumBookingsPerDay, 3);
+    expect(boarding.requestPhotos, isTrue);
+    expect(boarding.requireAddress, isFalse);
+    expect(boarding.requestFlowOptions.showNotes, isFalse);
+    expect(
+      boarding.availability.map((day) => day.day),
+      <int>[1, 2, 3, 4, 5, 6, 7],
+    );
+    expect(
+      boarding.availability.every(
+        (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+      ),
+      isTrue,
+    );
+  });
+
+  test('Dog Boarding question and extra IDs are unique', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+    final boarding = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_boarding',
+    );
+
+    expect(
+      boarding.questions.map((q) => q.libraryId).toSet(),
+      hasLength(14),
+    );
+    expect(
+      boarding.questions.map((q) => q.libraryId).toSet(),
+      containsAll(<String>[
+        'pet_services_dog_boarding_dog_count',
+        'pet_services_dog_boarding_dog_details',
+        'pet_services_dog_boarding_previous_stay',
+        'pet_services_dog_boarding_vaccination_records',
+        'pet_services_dog_boarding_social_behaviour',
+        'pet_services_dog_boarding_feeding_routine',
+        'pet_services_dog_boarding_sleeping_routine',
+        'pet_services_dog_boarding_exercise_toilet',
+        'pet_services_dog_boarding_behaviour_concerns',
+        'pet_services_dog_boarding_health',
+        'pet_services_dog_boarding_health_details',
+        'pet_services_dog_boarding_items',
+        'pet_services_dog_boarding_emergency_contact',
+        'pet_services_dog_boarding_safe_care_info',
+      ]),
+    );
+    expect(
+      boarding.extras.map((e) => e.key).toSet(),
+      hasLength(5),
+    );
+    expect(
+      boarding.extras.map((e) => e.key).toSet(),
+      containsAll(<String>[
+        'custom_extra_pet_services_dog_boarding_additional_dog',
+        'custom_extra_pet_services_dog_boarding_additional_night',
+        'custom_extra_pet_services_dog_boarding_special_feeding',
+        'custom_extra_pet_services_dog_boarding_medication_support',
+        'custom_extra_pet_services_dog_boarding_weekend_holiday',
+      ]),
+    );
+  });
+
+  test('Boarding supports separate arrival and collection dates', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+    final boarding = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_boarding',
+    );
+
+    expect(boarding.startHandover, VanStartHandover.customerDropsOff);
+    expect(boarding.endHandover, VanEndHandover.customerCollects);
+    expect(boarding.requestFlowOptions.showDropOffDate, isTrue);
+    expect(boarding.requestFlowOptions.showDropOffTime, isTrue);
+    expect(boarding.requestFlowOptions.showPickUpDate, isTrue);
+    expect(boarding.requestFlowOptions.showPickUpTime, isTrue);
+    expect(boarding.requestFlowOptions.showNotes, isFalse);
+  });
+
+  test('Dog Day Care and Boarding do not create recurring jobs', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+
+    for (final service in definition.services) {
+      expect(
+        service.featureIds.contains(VanServiceCapabilityIds.recurring),
+        isFalse,
+      );
+    }
+  });
+
+  test('All pet services photos are optional and notes are disabled', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+
+    for (final service in definition.services) {
+      expect(service.requestPhotos, isTrue);
+      expect(service.requestFlowOptions.showNotes, isFalse);
+      expect(
+        service.builtInQuestionSettings['photos']?['required'],
+        isFalse,
+      );
+      expect(service.extras.map((e) => e.label), isNot(contains('Free')));
+      expect(
+        service.extras.every((e) => e.defaultPrice == 0),
+        isTrue,
+      );
+      expect(
+        service.extras.every((e) => e.defaultChargeUnit == 'Fixed'),
+        isTrue,
+      );
+    }
+  });
+
+  test('All Pet Services extra keys are globally unique', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'pet_services');
+    final allExtras = definition.services
+        .expand((service) => service.extras)
+        .toList(growable: false);
+    expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
   });
 }

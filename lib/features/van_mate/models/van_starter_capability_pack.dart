@@ -205,6 +205,61 @@ const List<VanTemplateDayAvailability> _gardeningMondayToSaturday =
   VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
 ];
 
+const List<VanTemplateDayAvailability> _petServicesMondayToSaturday =
+    <VanTemplateDayAvailability>[
+  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1140),
+];
+
+const List<VanTemplateDayAvailability> _petServicesMondayToSunday =
+    <VanTemplateDayAvailability>[
+  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1200),
+  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1200),
+  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1200),
+  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1200),
+  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1200),
+  VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1200),
+  VanTemplateDayAvailability(day: 7, startMinutes: 420, endMinutes: 1200),
+];
+
+const List<VanTemplateDayAvailability> _petServicesDayCareAvailability =
+    <VanTemplateDayAvailability>[
+  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1080),
+];
+
+const List<VanTemplateDayAvailability> _petServicesBoardingAvailability =
+    <VanTemplateDayAvailability>[
+  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 7, startMinutes: 480, endMinutes: 1080),
+];
+
+const VanCustomerRequestFlowOptions _petServicesStandardQuoteFlow =
+    VanCustomerRequestFlowOptions(
+  showFulfilmentChoice: false,
+  askPreferredDate: true,
+  askPreferredTime: true,
+  showPickupAddress: false,
+  showDeliveryAddress: false,
+  showDropOffDate: false,
+  showDropOffTime: false,
+  showPickUpDate: false,
+  showPickUpTime: false,
+  showNotes: false,
+);
+
 const List<VanBusinessTemplateDefinition>
 kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
   VanBusinessTemplateDefinition(
@@ -2588,7 +2643,828 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
       ),
     ],
   ),
-];
+  VanBusinessTemplateDefinition(
+    categoryId: 'pet_services',
+    categoryName: 'Pet Services',
+    businessTypeId: 'pet_services',
+    businessTypeName: 'Pet Services',
+    description:
+        'Pet care services including dog walking and drop-in visits.',
+    iconKey: 'pets',
+    colorValue: 0xFF7E57C2,
+    featured: true,
+    searchKeywords: <String>[
+      'pet services',
+      'dog walking',
+      'pet sitting',
+      'drop-in visits',
+      'dog day care',
+      'dog boarding',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Dog walking'),
+      VanBusinessSearchAlias('Pet sitting'),
+      VanBusinessSearchAlias('Drop-in visit'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'pet_services_dog_walking',
+        name: 'Dog Walking',
+        description:
+            'Dog walking with flexible collection, return, drop-off or collection arrangements, subject to business confirmation.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.businessCollects,
+          VanServiceCapabilityIds.businessReturns,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.dropOffPickupRequest,
+        startHandover: VanStartHandover.businessCollects,
+        endHandover: VanEndHandover.businessReturns,
+        requestFlowOptions: VanCustomerRequestFlowOptions(
+          showFulfilmentChoice: false,
+          askPreferredDate: false,
+          askPreferredTime: false,
+          showPickupAddress: false,
+          showDeliveryAddress: false,
+          showDropOffDate: true,
+          showDropOffTime: true,
+          showPickUpDate: true,
+          showPickUpTime: true,
+          showNotes: false,
+        ),
+        builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help the walker plan the route and identify the dog.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_dog_count',
+            text: 'How many dogs need walking?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: <String>[
+              'One',
+              'Two',
+              'Three or more',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'dog walking', 'dog count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_dog_details',
+            text: 'Tell us about the dogs',
+            helperText:
+                'Include each dog\'s name, breed or type, age and approximate size.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['pet services', 'dog walking', 'dog details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_walk_duration',
+            text: 'What walk duration would you prefer?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              '30 minutes',
+              '45 minutes',
+              '60 minutes',
+              'Another duration',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'dog walking', 'duration'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_walk_group',
+            text: 'What type of walk would you prefer?',
+            helperText:
+                'The business will confirm what is safe and suitable.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.other,
+            choiceOptions: <String>[
+              'Solo walk',
+              'Group walk is suitable',
+              'No preference',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'dog walking', 'walk group'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_lead_restrictions',
+            text: 'What lead arrangement is required?',
+            helperText:
+                'An off-lead request is subject to the business confirming it is safe and appropriate.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.collection,
+            choiceOptions: <String>[
+              'Keep on lead',
+              'Off lead only in an enclosed area',
+              'Owner would like to discuss off-lead walking',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'dog walking', 'lead'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_behaviour',
+            text:
+                'Are there any behaviour, handling or escape-risk concerns?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'dog walking', 'behaviour'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_health',
+            text:
+                'Are there any health, mobility, allergy or medication needs?',
+            helperText:
+                'The business must confirm whether it can safely meet these needs.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'dog walking', 'health'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_frequency',
+            text: 'How often would you ideally like walks?',
+            helperText:
+                'This records your preference only and does not automatically create recurring bookings.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            requiredByDefault: false,
+            choiceOptions: <String>[
+              'One-off',
+              'Weekly',
+              'Several times a week',
+              'Weekdays',
+              'Ad hoc',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'dog walking', 'frequency'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_walking_parking_access',
+            text: 'Parking and access information',
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'dog walking', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_walking_additional_dog',
+            label: 'Additional dog from the same household',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_walking_additional_30_minutes',
+            label: 'Additional 30 minutes',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_walking_solo_walk',
+            label: 'Solo walk',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_walking_weekend_holiday',
+            label: 'Weekend or bank-holiday walk',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_walking_towel_dry',
+            label: 'Towel dry',
+          ),
+        ],
+        availability: _petServicesMondayToSaturday,
+        suggestedDurationMinutes: 60,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 6,
+        requestPhotos: true,
+        requireAddress: false,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'We will confirm the walk arrangements, collection and return details before accepting.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'pet_services_drop_in_visit',
+        name: 'Pet Drop-in Visit',
+        description:
+            'Visiting care for pets at the customer\'s home, including agreed feeding, toileting, companionship and basic care.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _petServicesStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the visit will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred time. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can help the visitor plan care.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_pet_types',
+            text: 'What types and how many pets need care?',
+            helperText: 'Include the species and number of each pet.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['pet services', 'drop-in', 'pet types'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_pet_details',
+            text: 'Tell us their names, ages and care details',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['pet services', 'drop-in', 'pet details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_duration',
+            text: 'What visit duration would you prefer?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              '15 minutes',
+              '30 minutes',
+              '45 minutes',
+              '60 minutes',
+              'Another duration',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'drop-in', 'duration'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_tasks',
+            text: 'What should be done during the visit?',
+            helperText:
+                'Mention feeding, water, toilet needs, companionship, basic play and comfort checks.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['pet services', 'drop-in', 'tasks'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_feeding',
+            text: 'What are the feeding requirements?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'drop-in', 'feeding'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_toilet_routine',
+            text: 'What is the toilet or litter routine?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'drop-in', 'toilet'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_medication_requested',
+            text: 'Will any medication or treatment support be requested?',
+            helperText:
+                'Listing medication does not mean the business can administer it.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>[
+              'Yes',
+              'No',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'drop-in', 'medication'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_medication_details',
+            text: 'Describe the medication or support requested',
+            helperText:
+                'The business must confirm whether it can safely provide the requested support.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'drop-in', 'medication details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_behaviour',
+            text: 'Are there any behaviour, handling or escape-risk concerns?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'drop-in', 'behaviour'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_frequency',
+            text: 'What visit frequency would you prefer?',
+            helperText:
+                'This records your preference only. One submission creates one request and does not create recurring bookings.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            requiredByDefault: false,
+            choiceOptions: <String>[
+              'One-off',
+              'Daily',
+              'Several times a week',
+              'Weekly',
+              'Holiday cover',
+              'Ad hoc',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'drop-in', 'frequency'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_drop_in_visit_parking_access',
+            text: 'Parking and property access information',
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>[
+              'pet services',
+              'drop-in',
+              'parking',
+              'access',
+            ],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_drop_in_visit_additional_pet',
+            label: 'Additional pet',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_drop_in_visit_additional_15_minutes',
+            label: 'Additional 15 minutes',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_drop_in_visit_short_dog_walk',
+            label: 'Short dog walk',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_drop_in_visit_litter_tray_cleaning',
+            label: 'Litter-tray cleaning',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_drop_in_visit_weekend_holiday',
+            label: 'Weekend or bank-holiday visit',
+          ),
+        ],
+        availability: _petServicesMondayToSunday,
+        suggestedDurationMinutes: 30,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 8,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+         suggestedCustomerMessage:
+             'We will confirm the visit details, feeding and care requirements before accepting.',
+       ),
+       VanBusinessServiceTemplateDefinition(
+         serviceId: 'pet_services_dog_day_care',
+         name: 'Dog Day Care',
+         description:
+             'Same-day care for dogs, including agreed supervision, exercise, rest and feeding.',
+         featureIds: <String>[
+           VanServiceCapabilityIds.oneOff,
+           VanServiceCapabilityIds.customerDropsOff,
+           VanServiceCapabilityIds.customerCollects,
+           VanServiceCapabilityIds.customQuote,
+           VanServiceCapabilityIds.estimatedDuration,
+           VanServiceCapabilityIds.leadTime,
+           VanServiceCapabilityIds.photoUpload,
+         ],
+         bookingOptionIds: <String>[
+           VanServiceCapabilityIds.booking,
+           VanServiceCapabilityIds.requestQuote,
+         ],
+         customerJourney: VanCustomerJourneyType.quote,
+         requestType: VanCustomerRequestType.dropOffPickupRequest,
+         startHandover: VanStartHandover.customerDropsOff,
+         endHandover: VanEndHandover.customerCollects,
+         requestFlowOptions: VanCustomerRequestFlowOptions(
+           showFulfilmentChoice: false,
+           askPreferredDate: false,
+           askPreferredTime: false,
+           showPickupAddress: false,
+           showDeliveryAddress: false,
+           showDropOffDate: true,
+           showDropOffTime: true,
+           showPickUpDate: true,
+           showPickUpTime: true,
+           showNotes: false,
+         ),
+         builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
+         builtInQuestionSettings: <String, Map<String, dynamic>>{
+           'phone': <String, dynamic>{'required': true, 'helperText': ''},
+           'email': <String, dynamic>{'required': false, 'helperText': ''},
+           'photos': <String, dynamic>{
+             'required': false,
+             'helperText':
+                 'Optional photos can help the carer plan the day.',
+           },
+         },
+         questions: <VanServiceTemplateQuestion>[
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_dog_details',
+             text: 'Tell us about the dog',
+             helperText:
+                 'Include name, breed/type, age and approximate size.',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             tags: <String>['pet services', 'day care', 'dog details'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_previous_attendance',
+             text: 'Has the dog attended day care before?',
+             answerType: VanCustomQuestionAnswerType.multipleChoice,
+             category: VanCustomQuestionCategory.items,
+             choiceOptions: <String>[
+               'Regularly attends day care',
+               'Has attended before',
+               'First time',
+               'Unsure',
+             ],
+             tags: <String>['pet services', 'day care', 'attendance'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_vaccination_records',
+             text: 'Can vaccination records be provided if required?',
+             helperText:
+                 'The business will confirm its own requirements. This does not guarantee acceptance.',
+             answerType: VanCustomQuestionAnswerType.multipleChoice,
+             category: VanCustomQuestionCategory.medicalHandling,
+             choiceOptions: <String>[
+               'Yes',
+               'No',
+               'Unsure',
+             ],
+             tags: <String>['pet services', 'day care', 'vaccination'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_social_behaviour',
+             text:
+                 'How does the dog behave around other dogs and people?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.generalNotes,
+             tags: <String>['pet services', 'day care', 'behaviour'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_behaviour_concerns',
+             text:
+                 'Are there any behaviour, separation, resource-guarding or escape-risk concerns?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.generalNotes,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'day care', 'behaviour concerns'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_feeding',
+             text: 'Are there any feeding requirements?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'day care', 'feeding'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_health',
+             text: 'Are there any health, allergy or medication needs?',
+             helperText:
+                 'The business must confirm whether it can safely meet these needs.',
+             answerType: VanCustomQuestionAnswerType.multipleChoice,
+             category: VanCustomQuestionCategory.medicalHandling,
+             choiceOptions: <String>[
+               'Yes',
+               'No',
+               'Unsure',
+             ],
+             tags: <String>['pet services', 'day care', 'health'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_health_details',
+             text: 'Describe any health or medication needs',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.medicalHandling,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'day care', 'health details'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_rest_routine',
+             text: 'Does the dog need a rest, crate or settling routine?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'day care', 'rest routine'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_day_care_items',
+             text:
+                 'What items are being brought, and is there any essential safe-care information?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'day care', 'items'],
+           ),
+         ],
+         extras: <VanServiceTemplateExtra>[
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_day_care_additional_dog',
+             label: 'Additional dog from the same household',
+           ),
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_day_care_extended_care_hour',
+             label: 'Extended-care hour',
+           ),
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_day_care_meal_preparation',
+             label: 'Meal preparation',
+           ),
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_day_care_medication_support',
+             label: 'Medication support, subject to agreement',
+           ),
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_day_care_weekend_holiday',
+             label: 'Weekend or bank-holiday care',
+           ),
+         ],
+         availability: _petServicesDayCareAvailability,
+         suggestedDurationMinutes: 480,
+         suggestedNoticeHours: 48,
+         maximumBookingsPerDay: 4,
+         requestPhotos: true,
+         requireAddress: false,
+         pricingMode: VanServiceCapabilityIds.customQuote,
+         suggestedCustomerMessage:
+             'We will confirm the day care arrangements and suitability before accepting.',
+       ),
+       VanBusinessServiceTemplateDefinition(
+         serviceId: 'pet_services_dog_boarding',
+         name: 'Dog Boarding',
+         description:
+             'Overnight or multi-day care for dogs, with routines, suitability and care requirements reviewed before confirmation.',
+         featureIds: <String>[
+           VanServiceCapabilityIds.oneOff,
+           VanServiceCapabilityIds.customerDropsOff,
+           VanServiceCapabilityIds.customerCollects,
+           VanServiceCapabilityIds.customQuote,
+           VanServiceCapabilityIds.leadTime,
+           VanServiceCapabilityIds.photoUpload,
+         ],
+         bookingOptionIds: <String>[
+           VanServiceCapabilityIds.booking,
+           VanServiceCapabilityIds.requestQuote,
+         ],
+         customerJourney: VanCustomerJourneyType.quote,
+         requestType: VanCustomerRequestType.dropOffPickupRequest,
+         startHandover: VanStartHandover.customerDropsOff,
+         endHandover: VanEndHandover.customerCollects,
+         requestFlowOptions: VanCustomerRequestFlowOptions(
+           showFulfilmentChoice: false,
+           askPreferredDate: false,
+           askPreferredTime: false,
+           showPickupAddress: false,
+           showDeliveryAddress: false,
+           showDropOffDate: true,
+           showDropOffTime: true,
+           showPickUpDate: true,
+           showPickUpTime: true,
+           showNotes: false,
+         ),
+         builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
+         builtInQuestionSettings: <String, Map<String, dynamic>>{
+           'phone': <String, dynamic>{'required': true, 'helperText': ''},
+           'email': <String, dynamic>{'required': false, 'helperText': ''},
+           'photos': <String, dynamic>{
+             'required': false,
+             'helperText':
+                 'Optional photos can help the boarder plan care.',
+           },
+         },
+         questions: <VanServiceTemplateQuestion>[
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_dog_count',
+             text: 'How many dogs need boarding?',
+             answerType: VanCustomQuestionAnswerType.multipleChoice,
+             category: VanCustomQuestionCategory.items,
+             choiceOptions: <String>[
+               'One',
+               'Two',
+               'Three or more',
+               'Unsure',
+             ],
+             tags: <String>['pet services', 'boarding', 'dog count'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_dog_details',
+             text: 'Tell us about the dogs',
+             helperText:
+                 'Include names, breeds/types, ages, sizes and temperament.',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             tags: <String>['pet services', 'boarding', 'dog details'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_previous_stay',
+             text: 'Has the dog stayed in boarding before?',
+             answerType: VanCustomQuestionAnswerType.multipleChoice,
+             category: VanCustomQuestionCategory.items,
+             choiceOptions: <String>[
+               'Boards regularly',
+               'Has boarded before',
+               'First time',
+               'Unsure',
+             ],
+             tags: <String>['pet services', 'boarding', 'previous stay'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_vaccination_records',
+             text: 'Can vaccination or health records be provided if required?',
+             helperText:
+                 'The business will confirm its own requirements. This does not guarantee acceptance.',
+             answerType: VanCustomQuestionAnswerType.multipleChoice,
+             category: VanCustomQuestionCategory.medicalHandling,
+             choiceOptions: <String>[
+               'Yes',
+               'No',
+               'Unsure',
+             ],
+             tags: <String>['pet services', 'boarding', 'vaccination'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_social_behaviour',
+             text:
+                 'How is the dog around dogs, cats, children and unfamiliar people?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.generalNotes,
+             tags: <String>['pet services', 'boarding', 'social behaviour'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_feeding_routine',
+             text: 'What is the dog\'s feeding routine?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             tags: <String>['pet services', 'boarding', 'feeding routine'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_sleeping_routine',
+             text: 'Does the dog need a sleeping or crate routine?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'boarding', 'sleeping routine'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_exercise_toilet',
+             text: 'What is the dog\'s exercise and toilet routine?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             tags: <String>['pet services', 'boarding', 'exercise toilet'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_behaviour_concerns',
+             text: 'Are there any behaviour or escape-risk concerns?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.generalNotes,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'boarding', 'behaviour concerns'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_health',
+             text: 'Are there any health, allergy or medication needs?',
+             helperText:
+                 'The business must confirm whether it can safely meet these needs.',
+             answerType: VanCustomQuestionAnswerType.multipleChoice,
+             category: VanCustomQuestionCategory.medicalHandling,
+             choiceOptions: <String>[
+               'Yes',
+               'No',
+               'Unsure',
+             ],
+             tags: <String>['pet services', 'boarding', 'health'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_health_details',
+             text: 'Describe any health or medication needs',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.medicalHandling,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'boarding', 'health details'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_items',
+             text: 'What items are being brought?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.items,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'boarding', 'items'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_emergency_contact',
+             text:
+                 'Can emergency-contact and veterinary details be supplied if the booking proceeds?',
+             helperText:
+                 'These details can be arranged privately after the booking is accepted.',
+             answerType: VanCustomQuestionAnswerType.multipleChoice,
+             category: VanCustomQuestionCategory.medicalHandling,
+             choiceOptions: <String>[
+               'Yes',
+               'No',
+               'Unsure',
+             ],
+             tags: <String>['pet services', 'boarding', 'emergency contact'],
+           ),
+           VanServiceTemplateQuestion(
+             libraryId: 'pet_services_dog_boarding_safe_care_info',
+             text: 'Is there any essential safe-care information?',
+             answerType: VanCustomQuestionAnswerType.longText,
+             category: VanCustomQuestionCategory.generalNotes,
+             requiredByDefault: false,
+             tags: <String>['pet services', 'boarding', 'safe care info'],
+           ),
+         ],
+         extras: <VanServiceTemplateExtra>[
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_boarding_additional_dog',
+             label: 'Additional dog from the same household',
+           ),
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_boarding_additional_night',
+             label: 'Additional night',
+           ),
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_boarding_special_feeding',
+             label: 'Special feeding preparation',
+           ),
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_boarding_medication_support',
+             label: 'Medication support, subject to agreement',
+           ),
+           VanServiceTemplateExtra(
+             key: 'custom_extra_pet_services_dog_boarding_weekend_holiday',
+             label: 'Weekend or bank-holiday boarding',
+           ),
+         ],
+         availability: _petServicesBoardingAvailability,
+         suggestedNoticeHours: 72,
+         maximumBookingsPerDay: 3,
+         requestPhotos: true,
+         requireAddress: false,
+         pricingMode: VanServiceCapabilityIds.customQuote,
+         suggestedCustomerMessage:
+             'We will confirm the boarding suitability and routines before accepting.',
+       ),
+     ],
+   ),
+ ];
 
 class VanStarterCapabilityPack {
   const VanStarterCapabilityPack({
