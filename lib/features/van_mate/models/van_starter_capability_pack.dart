@@ -1924,7 +1924,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             category: VanCustomQuestionCategory.gardening,
             choiceOptions: <String>[
               'Leave on site',
-              "Use the customer's green bin",
+              'Use the customer\'s garden-waste bin',
               'Business to remove them',
               'Please advise',
             ],
@@ -2116,7 +2116,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             category: VanCustomQuestionCategory.gardening,
             choiceOptions: <String>[
               'Leave on site',
-              "Use the customer's green bin",
+              'Use the customer\'s garden-waste bin',
               'Business to remove it',
               'Please advise',
             ],
@@ -2312,7 +2312,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             category: VanCustomQuestionCategory.gardening,
             choiceOptions: <String>[
               'Leave on site',
-              "Use the customer's green bin",
+              'Use the customer\'s garden-waste bin',
               'Business to remove them',
               'Please advise',
             ],
