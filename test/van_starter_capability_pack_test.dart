@@ -9,9 +9,9 @@ import 'package:van_mate_app/features/van_mate/models/van_service_template.dart'
 import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 
 void main() {
-  test('Courier and Removals remain installed beside the Cleaning, Gardening and Pet Services packs', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(5));
-    expect(kVanStarterCapabilityPacks, hasLength(5));
+  test('Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services and Window Cleaning packs', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(6));
+    expect(kVanStarterCapabilityPacks, hasLength(6));
     expect(kVanServiceTemplateCategories, isEmpty);
     expect(findVanStarterCapabilityPackById('courier'), isNotNull);
     expect(
@@ -21,6 +21,7 @@ void main() {
     expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
     expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
     expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
+    expect(findVanStarterCapabilityPackById('window_cleaning'), isNotNull);
     expect(findVanStarterCapabilityPackById('courier_business'), isNull);
     expect(findVanServiceTemplateById('courier'), isNull);
     expect(searchVanStarterCapabilityPacks('courier'), hasLength(1));
@@ -920,6 +921,255 @@ void main() {
         ),
         isTrue,
       );
+    }
+  });
+
+  test('Window Cleaning pack has stable identity, aliases and four services', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'window_cleaning',
+    );
+
+    expect(definition.categoryId, 'window_cleaning');
+    expect(definition.categoryName, 'Window Cleaning');
+    expect(definition.businessTypeName, 'Window Cleaning');
+    expect(definition.iconKey, 'home');
+    expect(definition.colorValue, 0xFF29B6F4);
+    expect(definition.featured, isTrue);
+    expect(
+      definition.searchAliases.map((alias) => alias.label),
+      containsAll(<String>[
+        'Window cleaner',
+        'Domestic window cleaner',
+        'Shopfront cleaner',
+        'Commercial window cleaner',
+        'Conservatory cleaning',
+        'One-off window cleaning',
+      ]),
+    );
+    expect(definition.services.map((service) => service.serviceId), <String>[
+      'window_cleaning_domestic',
+      'window_cleaning_commercial',
+      'window_cleaning_conservatory',
+      'window_cleaning_one_off',
+    ]);
+  });
+
+  test('All Window Cleaning services use one-address standard quote journeys', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere(
+          (definition) => definition.businessTypeId == 'window_cleaning',
+        )
+        .services;
+
+    for (final service in services) {
+      expect(service.customerJourney, VanCustomerJourneyType.quote);
+      expect(service.requestType, VanCustomerRequestType.quoteRequest);
+      expect(service.startHandover, isNull);
+      expect(service.endHandover, isNull);
+      expect(service.requireAddress, isTrue);
+      expect(service.requestPhotos, isTrue);
+      expect(service.requestFlowOptions.askPreferredDate, isTrue);
+      expect(service.requestFlowOptions.askPreferredTime, isTrue);
+      expect(service.requestFlowOptions.showPickupAddress, isFalse);
+      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+      expect(service.requestFlowOptions.showDropOffDate, isFalse);
+      expect(service.requestFlowOptions.showDropOffTime, isFalse);
+      expect(service.requestFlowOptions.showPickUpDate, isFalse);
+      expect(service.requestFlowOptions.showPickUpTime, isFalse);
+      expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+      expect(service.requestFlowOptions.showNotes, isFalse);
+      expect(
+        service.builtInQuestionKeys,
+        containsAll(<String>[
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        ]),
+      );
+      for (final key in <String>[
+        'address',
+        'preferred_date',
+        'preferred_time',
+        'phone',
+      ]) {
+        expect(
+          service.builtInQuestionSettings[key]?['required'],
+          isTrue,
+          reason: '${service.serviceId} should require $key',
+        );
+      }
+      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+    }
+  });
+
+  test('Window Cleaning questions and extras are explicit, unique and safe', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere(
+          (definition) => definition.businessTypeId == 'window_cleaning',
+        )
+        .services;
+    final questions = services
+        .expand((service) => service.questions)
+        .toList(growable: false);
+    final extras = services
+        .expand((service) => service.extras)
+        .toList(growable: false);
+
+    expect(questions.map((question) => question.libraryId).toSet(), hasLength(38));
+    expect(questions, hasLength(38));
+    expect(
+      questions.every(
+        (question) =>
+            VanCustomQuestionAnswerType.values.contains(question.answerType),
+      ),
+      isTrue,
+    );
+    expect(extras.map((extra) => extra.key).toSet(), hasLength(20));
+    expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
+    expect(extras.every((extra) => extra.defaultChargeUnit == 'Fixed'), isTrue);
+    expect(
+      extras.every(
+        (extra) =>
+            !RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
+      ),
+      isTrue,
+    );
+
+    final domestic = services.singleWhere(
+      (service) => service.serviceId == 'window_cleaning_domestic',
+    );
+    final commercial = services.singleWhere(
+      (service) => service.serviceId == 'window_cleaning_commercial',
+    );
+    final conservatory = services.singleWhere(
+      (service) => service.serviceId == 'window_cleaning_conservatory',
+    );
+    final oneOff = services.singleWhere(
+      (service) => service.serviceId == 'window_cleaning_one_off',
+    );
+
+    expect(domestic.questions, hasLength(9));
+    expect(commercial.questions, hasLength(10));
+    expect(conservatory.questions, hasLength(9));
+    expect(oneOff.questions, hasLength(10));
+    expect(domestic.extras, hasLength(5));
+    expect(commercial.extras, hasLength(5));
+    expect(conservatory.extras, hasLength(5));
+    expect(oneOff.extras, hasLength(5));
+
+    expect(
+      domestic.questions
+          .singleWhere(
+            (question) =>
+                question.libraryId == 'window_cleaning_domestic_condition',
+          )
+          .helperText,
+      contains('may not be removable'),
+    );
+    expect(
+      commercial.questions
+          .singleWhere(
+            (question) =>
+                question.libraryId == 'window_cleaning_commercial_condition',
+          )
+          .helperText,
+      contains('not guaranteed'),
+    );
+    expect(
+      commercial.questions
+          .singleWhere(
+            (question) =>
+                question.libraryId == 'window_cleaning_commercial_height',
+          )
+          .helperText,
+      contains('suitable equipment and safe access'),
+    );
+    expect(
+      domestic.featureIds.contains(VanServiceCapabilityIds.recurring),
+      isFalse,
+    );
+    expect(
+      commercial.featureIds.contains(VanServiceCapabilityIds.recurring),
+      isFalse,
+    );
+    expect(
+      conservatory.featureIds.contains(VanServiceCapabilityIds.recurring),
+      isFalse,
+    );
+    expect(
+      oneOff.featureIds.contains(VanServiceCapabilityIds.recurring),
+      isFalse,
+    );
+    expect(
+      domestic.questions
+          .singleWhere(
+            (question) =>
+                question.libraryId == 'window_cleaning_domestic_frequency',
+          )
+          .helperText,
+      contains('does not automatically create recurring bookings'),
+    );
+    expect(
+      commercial.questions
+          .singleWhere(
+            (question) =>
+                question.libraryId == 'window_cleaning_commercial_frequency',
+          )
+          .helperText,
+      contains('does not automatically create recurring bookings'),
+    );
+    expect(
+      conservatory.questions
+          .singleWhere(
+            (question) =>
+                question.libraryId == 'window_cleaning_conservatory_frequency',
+          )
+          .helperText,
+      contains('does not automatically create recurring bookings'),
+    );
+    expect(
+      oneOff.questions
+          .any((question) => question.libraryId == 'window_cleaning_one_off_frequency'),
+      isFalse,
+    );
+  });
+
+  test('Window Cleaning defaults preserve duration, notice, limits and schedule', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'window_cleaning')
+        .services;
+    final expected = <String, (int, int, int, List<int>)>{
+      'window_cleaning_domestic': (90, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
+      'window_cleaning_commercial': (180, 24, 3, <int>[1, 2, 3, 4, 5, 6]),
+      'window_cleaning_conservatory': (180, 48, 2, <int>[1, 2, 3, 4, 5, 6]),
+      'window_cleaning_one_off': (90, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
+    };
+
+    for (final service in services) {
+      final defaults = expected[service.serviceId]!;
+      expect(service.suggestedDurationMinutes, defaults.$1);
+      expect(service.suggestedNoticeHours, defaults.$2);
+      expect(service.maximumBookingsPerDay, defaults.$3);
+      expect(service.availability.map((day) => day.day), defaults.$4);
+      if (service.serviceId == 'window_cleaning_commercial') {
+        expect(
+          service.availability.every(
+            (day) => day.startMinutes == 420 && day.endMinutes == 1140,
+          ),
+          isTrue,
+        );
+      } else {
+        expect(
+          service.availability.every(
+            (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+          ),
+          isTrue,
+        );
+      }
     }
   });
 

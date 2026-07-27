@@ -260,6 +260,40 @@ const VanCustomerRequestFlowOptions _petServicesStandardQuoteFlow =
   showNotes: false,
 );
 
+const VanCustomerRequestFlowOptions _windowCleaningStandardQuoteFlow =
+    VanCustomerRequestFlowOptions(
+  showFulfilmentChoice: false,
+  askPreferredDate: true,
+  askPreferredTime: true,
+  showPickupAddress: false,
+  showDeliveryAddress: false,
+  showDropOffDate: false,
+  showDropOffTime: false,
+  showPickUpDate: false,
+  showPickUpTime: false,
+  showNotes: false,
+);
+
+const List<VanTemplateDayAvailability> _windowCleaningMondayToSaturday =
+    <VanTemplateDayAvailability>[
+  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+];
+
+const List<VanTemplateDayAvailability> _windowCleaningCommercialAvailability =
+    <VanTemplateDayAvailability>[
+  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1140),
+  VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1140),
+];
+
 const List<VanBusinessTemplateDefinition>
 kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
   VanBusinessTemplateDefinition(
@@ -3460,11 +3494,901 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
          requireAddress: false,
          pricingMode: VanServiceCapabilityIds.customQuote,
          suggestedCustomerMessage:
-             'We will confirm the boarding suitability and routines before accepting.',
-       ),
-     ],
-   ),
- ];
+              'We will confirm the boarding suitability and routines before accepting.',
+        ),
+      ],
+    ),
+    VanBusinessTemplateDefinition(
+      categoryId: 'window_cleaning',
+      categoryName: 'Window Cleaning',
+      businessTypeId: 'window_cleaning',
+      businessTypeName: 'Window Cleaning',
+      description:
+          'Domestic and commercial window and conservatory cleaning services.',
+      iconKey: 'home',
+      colorValue: 0xFF29B6F4,
+      featured: true,
+      searchKeywords: <String>[
+        'window cleaning',
+        'domestic window cleaning',
+        'commercial window cleaning',
+        'shopfront cleaning',
+        'conservatory cleaning',
+        'one-off window cleaning',
+      ],
+      searchAliases: <VanBusinessSearchAlias>[
+        VanBusinessSearchAlias('Window cleaner'),
+        VanBusinessSearchAlias('Domestic window cleaner'),
+        VanBusinessSearchAlias('Shopfront cleaner'),
+        VanBusinessSearchAlias('Commercial window cleaner'),
+        VanBusinessSearchAlias('Conservatory cleaning'),
+        VanBusinessSearchAlias('One-off window cleaning'),
+      ],
+      services: <VanBusinessServiceTemplateDefinition>[
+        VanBusinessServiceTemplateDefinition(
+          serviceId: 'window_cleaning_domestic',
+          name: 'Domestic Window Cleaning',
+          description:
+              'Routine window cleaning for houses, flats and other domestic properties, subject to safe access and scope confirmation.',
+          featureIds: <String>[
+            VanServiceCapabilityIds.appointmentRequired,
+            VanServiceCapabilityIds.businessVisitsCustomer,
+            VanServiceCapabilityIds.customQuote,
+            VanServiceCapabilityIds.estimatedDuration,
+            VanServiceCapabilityIds.leadTime,
+            VanServiceCapabilityIds.photoUpload,
+          ],
+          bookingOptionIds: <String>[
+            VanServiceCapabilityIds.booking,
+            VanServiceCapabilityIds.requestQuote,
+          ],
+          customerJourney: VanCustomerJourneyType.quote,
+          requestType: VanCustomerRequestType.quoteRequest,
+          startHandover: null,
+          endHandover: null,
+          requestFlowOptions: _windowCleaningStandardQuoteFlow,
+          builtInQuestionKeys: <String>{
+            'address',
+            'phone',
+            'email',
+            'preferred_date',
+            'preferred_time',
+            'photos',
+          },
+          builtInQuestionSettings: <String, Map<String, dynamic>>{
+            'address': <String, dynamic>{
+              'required': true,
+              'helperText':
+                  'Enter the address where the cleaning will take place.',
+            },
+            'phone': <String, dynamic>{'required': true, 'helperText': ''},
+            'email': <String, dynamic>{'required': false, 'helperText': ''},
+            'preferred_date': <String, dynamic>{
+              'required': true,
+              'helperText': 'Choose your preferred cleaning date.',
+            },
+            'preferred_time': <String, dynamic>{
+              'required': true,
+              'helperText':
+                  'Choose a preferred start time or time window. The business will confirm availability.',
+            },
+            'photos': <String, dynamic>{
+              'required': false,
+              'helperText':
+                  'Optional photos can show the window condition, access issues or priority areas. Avoid including private documents or sensitive information.',
+            },
+          },
+          questions: <VanServiceTemplateQuestion>[
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_property_type',
+              text: 'What type of property is it?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.property,
+              choiceOptions: <String>[
+                'House',
+                'Bungalow',
+                'Flat or maisonette',
+                'Other',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'domestic', 'property'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_storeys',
+              text: 'How many storeys need window cleaning?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.access,
+              choiceOptions: <String>[
+                'Ground floor only',
+                'Two storeys',
+                'Three storeys or more',
+                'Unsure',
+              ],
+              helperText:
+                  'Higher or difficult-to-reach windows are subject to the business confirming safe access.',
+              tags: <String>['window cleaning', 'domestic', 'storeys', 'access'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_window_count',
+              text: 'Approximately how many windows need cleaning?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.sizeWeight,
+              choiceOptions: <String>[
+                'Up to 10',
+                '11–20',
+                '21–30',
+                'More than 30',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'domestic', 'window count'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_inside_outside',
+              text: 'Which areas need cleaning?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.jobDetails,
+              choiceOptions: <String>[
+                'Outside only',
+                'Inside only',
+                'Inside and outside',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'domestic', 'inside', 'outside'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_frames_sills',
+              text: 'Should frames and sills be included?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.jobDetails,
+              choiceOptions: <String>[
+                'Yes',
+                'No',
+                'Please advise',
+              ],
+              tags: <String>['window cleaning', 'domestic', 'frames', 'sills'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_condition',
+              text: 'How would you describe the current condition?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.survey,
+              choiceOptions: <String>[
+                'Regularly maintained',
+                'Moderate dirt or marks',
+                'Heavy buildup',
+                'Specialist residue may be present',
+                'Unsure',
+              ],
+              helperText:
+                  'Paint, cement, adhesive, mineral deposits or other specialist residue may require separate assessment and may not be removable.',
+              tags: <String>['window cleaning', 'domestic', 'condition'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_access_issues',
+              text: 'Are there any access or safety issues around the windows?',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.access,
+              requiredByDefault: false,
+              helperText:
+                  'Examples may include locked gates, narrow side access, extensions or conservatories below windows, sloping or uneven ground, overhead cables, or windows above fragile surfaces. Do not include door, alarm or key-safe codes.',
+              tags: <String>['window cleaning', 'domestic', 'access', 'safety'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_frequency',
+              text: 'How often would you ideally like the windows cleaned?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.timing,
+              choiceOptions: <String>[
+                'One-off',
+                'Every four weeks',
+                'Every six to eight weeks',
+                'Quarterly',
+                'Ad hoc',
+                'Unsure',
+              ],
+              helperText:
+                  'This records your preference only and does not automatically create recurring bookings.',
+              tags: <String>['window cleaning', 'domestic', 'frequency'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_domestic_parking_access',
+              text: 'Parking and access information',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.access,
+              requiredByDefault: false,
+              helperText:
+                  'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+              tags: <String>['window cleaning', 'domestic', 'parking', 'access'],
+            ),
+          ],
+          extras: <VanServiceTemplateExtra>[
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_domestic_interior_windows',
+              label: 'Interior windows',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_domestic_frames_sills',
+              label: 'Frames and sills',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_domestic_patio_doors',
+              label: 'Patio or French doors',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_domestic_skylights',
+              label: 'Skylights, subject to safe access',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_domestic_first_clean',
+              label: 'First clean or heavy buildup',
+            ),
+          ],
+          availability: _windowCleaningMondayToSaturday,
+          suggestedDurationMinutes: 90,
+          suggestedNoticeHours: 24,
+          maximumBookingsPerDay: 6,
+          requestPhotos: true,
+          requireAddress: true,
+          pricingMode: VanServiceCapabilityIds.customQuote,
+          suggestedCustomerMessage:
+              'Tell us about the property, window type and access. We will confirm the scope and price before accepting.',
+        ),
+        VanBusinessServiceTemplateDefinition(
+          serviceId: 'window_cleaning_commercial',
+          name: 'Commercial / Shopfront Window Cleaning',
+          description:
+              'Window and shopfront cleaning for commercial premises, with access, timing and surface condition confirmed before work is agreed.',
+          featureIds: <String>[
+            VanServiceCapabilityIds.appointmentRequired,
+            VanServiceCapabilityIds.businessVisitsCustomer,
+            VanServiceCapabilityIds.customQuote,
+            VanServiceCapabilityIds.estimatedDuration,
+            VanServiceCapabilityIds.leadTime,
+            VanServiceCapabilityIds.photoUpload,
+          ],
+          bookingOptionIds: <String>[
+            VanServiceCapabilityIds.booking,
+            VanServiceCapabilityIds.requestQuote,
+          ],
+          customerJourney: VanCustomerJourneyType.quote,
+          requestType: VanCustomerRequestType.quoteRequest,
+          startHandover: null,
+          endHandover: null,
+          requestFlowOptions: _windowCleaningStandardQuoteFlow,
+          builtInQuestionKeys: <String>{
+            'address',
+            'phone',
+            'email',
+            'preferred_date',
+            'preferred_time',
+            'photos',
+          },
+          builtInQuestionSettings: <String, Map<String, dynamic>>{
+            'address': <String, dynamic>{
+              'required': true,
+              'helperText':
+                  'Enter the address where the cleaning will take place.',
+            },
+            'phone': <String, dynamic>{'required': true, 'helperText': ''},
+            'email': <String, dynamic>{'required': false, 'helperText': ''},
+            'preferred_date': <String, dynamic>{
+              'required': true,
+              'helperText': 'Choose your preferred cleaning date.',
+            },
+            'preferred_time': <String, dynamic>{
+              'required': true,
+              'helperText':
+                  'Choose a preferred start time or time window. The business will confirm availability.',
+            },
+            'photos': <String, dynamic>{
+              'required': false,
+              'helperText':
+                  'Optional photos can show the window condition, access issues or priority areas. Avoid including private documents or sensitive information.',
+            },
+          },
+          questions: <VanServiceTemplateQuestion>[
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_premises_type',
+              text: 'What type of premises needs cleaning?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.property,
+              choiceOptions: <String>[
+                'Shopfront',
+                'Office',
+                'Salon, café or restaurant',
+                'Small commercial property',
+                'Other',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'commercial', 'premises'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_areas',
+              text: 'Which glass areas need cleaning?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.jobDetails,
+              choiceOptions: <String>[
+                'Outside only',
+                'Inside only',
+                'Inside and outside',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'commercial', 'areas'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_frontage_size',
+              text: 'Approximately how much window frontage is there?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.sizeWeight,
+              choiceOptions: <String>[
+                'Small frontage',
+                'Medium frontage',
+                'Large frontage',
+                'Multiple frontage sections',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'commercial', 'frontage'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_height',
+              text: 'At what level are the windows?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.access,
+              choiceOptions: <String>[
+                'Ground floor only',
+                'Ground and first floor',
+                'Higher-level windows',
+                'Mixed levels',
+                'Unsure',
+              ],
+              helperText:
+                  'Higher-level or difficult-access work is subject to the business confirming suitable equipment and safe access.',
+              tags: <String>['window cleaning', 'commercial', 'height', 'access'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_condition',
+              text: 'How would you describe the current condition?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.survey,
+              choiceOptions: <String>[
+                'Regularly maintained',
+                'Fingerprints and general marks',
+                'Grease or heavier buildup',
+                'Stickers, adhesive or specialist residue',
+                'Unsure',
+              ],
+              helperText:
+                  'Specialist residue removal is not guaranteed and may require separate assessment.',
+              tags: <String>['window cleaning', 'commercial', 'condition'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_frequency',
+              text: 'How often would you ideally like the windows cleaned?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.timing,
+              choiceOptions: <String>[
+                'One-off',
+                'Weekly',
+                'Fortnightly',
+                'Every four weeks',
+                'Ad hoc',
+                'Unsure',
+              ],
+              helperText:
+                  'This records your preference only and does not automatically create recurring bookings.',
+              tags: <String>['window cleaning', 'commercial', 'frequency'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_service_timing',
+              text: 'When would you prefer the work to take place?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.timing,
+              choiceOptions: <String>[
+                'Before opening',
+                'During business hours',
+                'After closing',
+                'Flexible',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'commercial', 'timing'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_public_access',
+              text:
+                  'Are there public-access, loading or trading restrictions to consider?',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.access,
+              requiredByDefault: false,
+              helperText:
+                  'Examples may include busy pedestrian areas, market days, loading restrictions, customer entrances, outdoor seating, or displays close to the glass.',
+              tags: <String>['window cleaning', 'commercial', 'public access'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_signage',
+              text: 'Are there signs, displays or equipment close to the windows?',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.jobDetails,
+              requiredByDefault: false,
+              tags: <String>['window cleaning', 'commercial', 'signage'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_commercial_parking_access',
+              text: 'Parking and access information',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.access,
+              requiredByDefault: false,
+              helperText:
+                  'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+              tags: <String>['window cleaning', 'commercial', 'parking', 'access'],
+            ),
+          ],
+          extras: <VanServiceTemplateExtra>[
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_commercial_interior_glass',
+              label: 'Interior glass',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_commercial_frames_sills',
+              label: 'Frames and sills',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_commercial_glass_doors',
+              label: 'Glass doors',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_commercial_additional_frontage',
+              label: 'Additional frontage section',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_commercial_out_of_hours',
+              label: 'Out-of-hours visit',
+            ),
+          ],
+          availability: _windowCleaningCommercialAvailability,
+          suggestedDurationMinutes: 180,
+          suggestedNoticeHours: 24,
+          maximumBookingsPerDay: 3,
+          requestPhotos: true,
+          requireAddress: true,
+          pricingMode: VanServiceCapabilityIds.customQuote,
+          suggestedCustomerMessage:
+              'Tell us about the premises, glass areas and access requirements. We will confirm the scope, timing and price before accepting.',
+        ),
+        VanBusinessServiceTemplateDefinition(
+          serviceId: 'window_cleaning_conservatory',
+          name: 'Conservatory Cleaning',
+          description:
+              'Conservatory glass and panel cleaning, with condition and safe access confirmed before work is agreed.',
+          featureIds: <String>[
+            VanServiceCapabilityIds.appointmentRequired,
+            VanServiceCapabilityIds.businessVisitsCustomer,
+            VanServiceCapabilityIds.customQuote,
+            VanServiceCapabilityIds.estimatedDuration,
+            VanServiceCapabilityIds.leadTime,
+            VanServiceCapabilityIds.photoUpload,
+          ],
+          bookingOptionIds: <String>[
+            VanServiceCapabilityIds.booking,
+            VanServiceCapabilityIds.requestQuote,
+          ],
+          customerJourney: VanCustomerJourneyType.quote,
+          requestType: VanCustomerRequestType.quoteRequest,
+          startHandover: null,
+          endHandover: null,
+          requestFlowOptions: _windowCleaningStandardQuoteFlow,
+          builtInQuestionKeys: <String>{
+            'address',
+            'phone',
+            'email',
+            'preferred_date',
+            'preferred_time',
+            'photos',
+          },
+          builtInQuestionSettings: <String, Map<String, dynamic>>{
+            'address': <String, dynamic>{
+              'required': true,
+              'helperText':
+                  'Enter the address where the cleaning will take place.',
+            },
+            'phone': <String, dynamic>{'required': true, 'helperText': ''},
+            'email': <String, dynamic>{'required': false, 'helperText': ''},
+            'preferred_date': <String, dynamic>{
+              'required': true,
+              'helperText': 'Choose your preferred cleaning date.',
+            },
+            'preferred_time': <String, dynamic>{
+              'required': true,
+              'helperText':
+                  'Choose a preferred start time or time window. The business will confirm availability.',
+            },
+            'photos': <String, dynamic>{
+              'required': false,
+              'helperText':
+                  'Optional photos can show the conservatory size, condition or access issues. Avoid including private documents or sensitive information.',
+            },
+          },
+          questions: <VanServiceTemplateQuestion>[
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_size',
+              text: 'Approximately how large is the conservatory?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.sizeWeight,
+              choiceOptions: <String>[
+                'Small',
+                'Medium',
+                'Large',
+                'Very large',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'conservatory', 'size'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_priority',
+              text: 'Which area is the main priority?',
+              helperText:
+                  'Additional areas can be selected as extras or discussed before the work is agreed.',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.jobDetails,
+              choiceOptions: <String>[
+                'Whole exterior',
+                'Roof panels',
+                'Side glass and doors',
+                'Interior glass',
+                'Inside and outside',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'conservatory', 'priority'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_roof_material',
+              text: 'What is the conservatory roof made from?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.jobDetails,
+              choiceOptions: <String>[
+                'Glass',
+                'Polycarbonate panels',
+                'Mixed materials',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'conservatory', 'roof'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_access',
+              text: 'How would you describe access around the conservatory?',
+              helperText:
+                  'Roof panels and difficult areas are subject to the business confirming safe access and suitable equipment.',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.access,
+              choiceOptions: <String>[
+                'Clear ground-level access',
+                'Restricted side access',
+                'Obstacles or extensions affect access',
+                'Sloping or uneven ground',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'conservatory', 'access'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_condition',
+              text: 'How would you describe the current condition?',
+              helperText:
+                  'Paint, cement, adhesive, mineral deposits or other specialist residue may require separate assessment and may not be removable.',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.survey,
+              choiceOptions: <String>[
+                'Regularly maintained',
+                'General dirt or marks',
+                'Algae or heavier buildup',
+                'Specialist residue may be present',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'conservatory', 'condition'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_damage',
+              text: 'Are there any damaged, loose, leaking or fragile areas?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.survey,
+              choiceOptions: <String>[
+                'Yes',
+                'No',
+                'Unsure',
+              ],
+              helperText:
+                  'The business must confirm whether the area can be cleaned safely.',
+              tags: <String>['window cleaning', 'conservatory', 'damage'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_frequency',
+              text: 'How often would you ideally like the conservatory cleaned?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.timing,
+              requiredByDefault: false,
+              choiceOptions: <String>[
+                'One-off',
+                'Twice a year',
+                'Annually',
+                'Ad hoc',
+                'Unsure',
+              ],
+              helperText:
+                  'This records your preference only and does not automatically create recurring bookings.',
+              tags: <String>['window cleaning', 'conservatory', 'frequency'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_interior_preparation',
+              text: 'Are there blinds, furniture or other items close to the interior glass?',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.access,
+              requiredByDefault: false,
+              tags: <String>['window cleaning', 'conservatory', 'interior', 'preparation'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_conservatory_parking_access',
+              text: 'Parking and access information',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.access,
+              requiredByDefault: false,
+              helperText:
+                  'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+              tags: <String>['window cleaning', 'conservatory', 'parking', 'access'],
+            ),
+          ],
+          extras: <VanServiceTemplateExtra>[
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_conservatory_interior_glass',
+              label: 'Interior conservatory glass',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_conservatory_frames_sills',
+              label: 'Frames and sills',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_conservatory_doors',
+              label: 'Conservatory doors',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_conservatory_roof_panels',
+              label: 'Roof panels, subject to safe access',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_conservatory_first_clean',
+              label: 'First clean or heavy buildup',
+            ),
+          ],
+          availability: _windowCleaningMondayToSaturday,
+          suggestedDurationMinutes: 180,
+          suggestedNoticeHours: 48,
+          maximumBookingsPerDay: 2,
+          requestPhotos: true,
+          requireAddress: true,
+          pricingMode: VanServiceCapabilityIds.customQuote,
+          suggestedCustomerMessage:
+              'Tell us about the conservatory size, areas, condition and access. We will confirm safe access and scope before accepting.',
+        ),
+        VanBusinessServiceTemplateDefinition(
+          serviceId: 'window_cleaning_one_off',
+          name: 'One-off Window Cleaning',
+          description:
+              'A one-time window clean for moving, property preparation, first cleans or other occasional requirements.',
+          featureIds: <String>[
+            VanServiceCapabilityIds.appointmentRequired,
+            VanServiceCapabilityIds.businessVisitsCustomer,
+            VanServiceCapabilityIds.customQuote,
+            VanServiceCapabilityIds.estimatedDuration,
+            VanServiceCapabilityIds.leadTime,
+            VanServiceCapabilityIds.oneOff,
+            VanServiceCapabilityIds.photoUpload,
+          ],
+          bookingOptionIds: <String>[
+            VanServiceCapabilityIds.booking,
+            VanServiceCapabilityIds.requestQuote,
+          ],
+          customerJourney: VanCustomerJourneyType.quote,
+          requestType: VanCustomerRequestType.quoteRequest,
+          startHandover: null,
+          endHandover: null,
+          requestFlowOptions: _windowCleaningStandardQuoteFlow,
+          builtInQuestionKeys: <String>{
+            'address',
+            'phone',
+            'email',
+            'preferred_date',
+            'preferred_time',
+            'photos',
+          },
+          builtInQuestionSettings: <String, Map<String, dynamic>>{
+            'address': <String, dynamic>{
+              'required': true,
+              'helperText':
+                  'Enter the address where the cleaning will take place.',
+            },
+            'phone': <String, dynamic>{'required': true, 'helperText': ''},
+            'email': <String, dynamic>{'required': false, 'helperText': ''},
+            'preferred_date': <String, dynamic>{
+              'required': true,
+              'helperText': 'Choose your preferred cleaning date.',
+            },
+            'preferred_time': <String, dynamic>{
+              'required': true,
+              'helperText':
+                  'Choose a preferred start time or time window. The business will confirm availability.',
+            },
+            'photos': <String, dynamic>{
+              'required': false,
+              'helperText':
+                  'Optional photos can show the window type, condition and access. Avoid including private documents or sensitive information.',
+            },
+          },
+          questions: <VanServiceTemplateQuestion>[
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_reason',
+              text: 'What is the main reason for the clean?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.jobDetails,
+              choiceOptions: <String>[
+                'Moving in or out',
+                'After building or decorating work',
+                'Preparing for a sale or inspection',
+                'First clean after a long gap',
+                'Other',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'one-off', 'reason'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_property_type',
+              text: 'What type of property is it?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.property,
+              choiceOptions: <String>[
+                'House',
+                'Bungalow',
+                'Flat or maisonette',
+                'Commercial property',
+                'Other',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'one-off', 'property'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_storeys',
+              text: 'How many storeys need window cleaning?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.access,
+              choiceOptions: <String>[
+                'Ground floor only',
+                'Two storeys',
+                'Three storeys or more',
+                'Unsure',
+              ],
+              helperText:
+                  'Higher or difficult-to-reach windows are subject to the business confirming safe access.',
+              tags: <String>['window cleaning', 'one-off', 'storeys', 'access'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_window_count',
+              text: 'Approximately how many windows need cleaning?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.sizeWeight,
+              choiceOptions: <String>[
+                'Up to 10',
+                '11–20',
+                '21–30',
+                'More than 30',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'one-off', 'window count'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_areas',
+              text: 'Which areas need cleaning?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.jobDetails,
+              choiceOptions: <String>[
+                'Outside only',
+                'Inside only',
+                'Inside and outside',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'one-off', 'areas'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_frames_sills',
+              text: 'Should frames and sills be included?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.jobDetails,
+              choiceOptions: <String>[
+                'Yes',
+                'No',
+                'Please advise',
+              ],
+              tags: <String>['window cleaning', 'one-off', 'frames', 'sills'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_condition',
+              text: 'How would you describe the current condition?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.survey,
+              choiceOptions: <String>[
+                'General dirt or marks',
+                'Heavy buildup',
+                'Post-building dust or residue',
+                'Paint, adhesive or specialist residue may be present',
+                'Unsure',
+              ],
+              helperText:
+                  'Specialist residue removal is not guaranteed and may require separate assessment.',
+              tags: <String>['window cleaning', 'one-off', 'condition'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_specialist_residue',
+              text: 'Is any paint, cement, adhesive or other specialist residue present?',
+              answerType: VanCustomQuestionAnswerType.multipleChoice,
+              category: VanCustomQuestionCategory.survey,
+              choiceOptions: <String>[
+                'Yes',
+                'No',
+                'Unsure',
+              ],
+              tags: <String>['window cleaning', 'one-off', 'specialist residue'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_access_safety',
+              text: 'Describe any residue, access or safety concerns',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.access,
+              requiredByDefault: false,
+              helperText:
+                  'Examples may include restricted gates, extensions below windows, fragile surfaces, sloping ground, overhead cables, or known residue or damaged glass. Do not request security codes.',
+              tags: <String>['window cleaning', 'one-off', 'access', 'safety'],
+            ),
+            VanServiceTemplateQuestion(
+              libraryId: 'window_cleaning_one_off_parking_access',
+              text: 'Parking and access information',
+              answerType: VanCustomQuestionAnswerType.longText,
+              category: VanCustomQuestionCategory.access,
+              requiredByDefault: false,
+              helperText:
+                  'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+              tags: <String>['window cleaning', 'one-off', 'parking', 'access'],
+            ),
+          ],
+          extras: <VanServiceTemplateExtra>[
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_one_off_interior_windows',
+              label: 'Interior windows',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_one_off_frames_sills',
+              label: 'Frames and sills',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_one_off_patio_doors',
+              label: 'Patio or French doors',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_one_off_additional_area',
+              label: 'Additional window area',
+            ),
+            VanServiceTemplateExtra(
+              key: 'custom_extra_window_cleaning_one_off_first_clean',
+              label: 'First clean or heavy buildup',
+            ),
+          ],
+          availability: _windowCleaningMondayToSaturday,
+          suggestedDurationMinutes: 90,
+          suggestedNoticeHours: 24,
+          maximumBookingsPerDay: 6,
+          requestPhotos: true,
+          requireAddress: true,
+          pricingMode: VanServiceCapabilityIds.customQuote,
+          suggestedCustomerMessage:
+              'Tell us about the property, window type, condition and access. We will confirm the scope and price before accepting.',
+        ),
+      ],
+    ),
+  ];
 
 class VanStarterCapabilityPack {
   const VanStarterCapabilityPack({
