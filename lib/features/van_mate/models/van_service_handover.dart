@@ -193,18 +193,38 @@ String vanBusinessHandoverSummary(VanStartHandover start, VanEndHandover end) {
   };
 }
 
-String vanCustomerHandoverSummary(VanStartHandover start, VanEndHandover end) {
+bool vanIsDogService(String? starterTemplateId) {
+  if (starterTemplateId == null) return false;
+  return starterTemplateId.startsWith('pet_services_dog_');
+}
+
+String vanCustomerHandoverSummary(
+  VanStartHandover start,
+  VanEndHandover end, {
+  String? starterTemplateId,
+}) {
+  final isDog = vanIsDogService(starterTemplateId);
   return switch ((start, end)) {
     (VanStartHandover.customerDropsOff, VanEndHandover.customerCollects) =>
-      "You'll drop off your item and collect it when ready.",
+      isDog
+          ? "You'll drop off your dog and collect them at the agreed time."
+          : "You'll drop off your item and collect it when ready.",
     (VanStartHandover.customerDropsOff, VanEndHandover.businessReturns) =>
-      "You'll drop off your item. We'll return it when finished.",
+      isDog
+          ? "You'll drop off your dog. We'll return them when finished."
+          : "You'll drop off your item. We'll return it when finished.",
     (VanStartHandover.customerDropsOff, VanEndHandover.businessDelivers) =>
-      "You'll drop off the item. We'll deliver it to the destination.",
+      isDog
+          ? "You'll drop off your dog. We'll deliver them to the destination."
+          : "You'll drop off the item. We'll deliver it to the destination.",
     (VanStartHandover.businessCollects, VanEndHandover.customerCollects) =>
-      "We'll collect your item. You'll collect it when ready.",
+      isDog
+          ? "We'll collect your dog. You'll collect them when ready."
+          : "We'll collect your item. You'll collect it when ready.",
     (VanStartHandover.businessCollects, VanEndHandover.businessReturns) =>
-      "We'll collect your item and return it when finished.",
+      isDog
+          ? "We'll collect your dog and return them when finished."
+          : "We'll collect your item and return it when finished.",
     (VanStartHandover.businessCollects, VanEndHandover.businessDelivers) =>
       "We'll collect from the collection address and deliver to the destination.",
   };

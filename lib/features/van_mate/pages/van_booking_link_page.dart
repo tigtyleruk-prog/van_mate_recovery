@@ -2368,6 +2368,8 @@ class _VanBookingLinkCustomerFormPageState
                                 vanCustomerHandoverSummary(
                                   _effectiveStartHandover!,
                                   _effectiveEndHandover!,
+                                  starterTemplateId:
+                                      _selectedService?.starterTemplateId,
                                 ),
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.76),
@@ -2378,55 +2380,79 @@ class _VanBookingLinkCustomerFormPageState
                               if (service
                                   .effectiveHandover
                                   .customerChoosesStart) ...[
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'How would you like to begin?',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(height: 7),
-                                for (final value
-                                    in service.effectiveHandover.allowedStarts)
-                                  _HandoverRadioTile(
-                                    label:
-                                        value ==
-                                            VanStartHandover.customerDropsOff
-                                        ? "I'll drop it off"
-                                        : 'Please collect it',
-                                    selected: _effectiveStartHandover == value,
-                                    onTap: () => setState(
-                                      () => _selectedStartHandover = value,
-                                    ),
-                                  ),
+const SizedBox(height: 12),
+                                 Text(
+                                   service.starterTemplateId != null &&
+                                           vanIsDogService(
+                                               service.starterTemplateId)
+                                       ? 'How will your dog arrive?'
+                                       : 'How would you like to begin?',
+                                   style: TextStyle(
+                                     color: Colors.white,
+                                     fontWeight: FontWeight.w900,
+                                   ),
+                                 ),
+                                 const SizedBox(height: 7),
+                                 for (final value
+                                     in service.effectiveHandover.allowedStarts)
+                                   _HandoverRadioTile(
+                                     label:
+                                         value ==
+                                             VanStartHandover.customerDropsOff
+                                         ? (service.starterTemplateId != null &&
+                                                 vanIsDogService(
+                                                     service.starterTemplateId)
+                                             ? "I'll drop them off"
+                                             : "I'll drop it off")
+                                         : (service.starterTemplateId != null &&
+                                                 vanIsDogService(
+                                                     service.starterTemplateId)
+                                             ? 'Please collect them'
+                                             : 'Please collect it'),
+                                     selected: _effectiveStartHandover == value,
+                                     onTap: () => setState(
+                                       () => _selectedStartHandover = value,
+                                     ),
+                                   ),
                               ],
                               if (service
                                   .effectiveHandover
                                   .customerChoosesEnd) ...[
-                                const SizedBox(height: 12),
-                                Text(
-                                  _effectiveEndHandover ==
-                                          VanEndHandover.businessDelivers
-                                      ? 'How should it reach the destination?'
-                                      : 'How would you like it returned?',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(height: 7),
-                                for (final value
-                                    in service.effectiveHandover.allowedEnds)
-                                  _HandoverRadioTile(
-                                    label: switch (value) {
-                                      VanEndHandover.customerCollects =>
-                                        "I'll collect it",
-                                      VanEndHandover.businessReturns =>
-                                        'Please return it',
-                                      VanEndHandover.businessDelivers =>
-                                        'Please deliver it',
-                                    },
+const SizedBox(height: 12),
+                                 Text(
+                                   _effectiveEndHandover ==
+                                           VanEndHandover.businessDelivers
+                                       ? 'How should it reach the destination?'
+                                       : (service.starterTemplateId != null &&
+                                               vanIsDogService(
+                                                   service.starterTemplateId)
+                                           ? 'How will your dog return?'
+                                           : 'How would you like it returned?'),
+                                   style: TextStyle(
+                                     color: Colors.white,
+                                     fontWeight: FontWeight.w900,
+                                   ),
+                                 ),
+                                 const SizedBox(height: 7),
+                                 for (final value
+                                     in service.effectiveHandover.allowedEnds)
+                                   _HandoverRadioTile(
+                                     label: switch (value) {
+                                       VanEndHandover.customerCollects =>
+                                         (service.starterTemplateId != null &&
+                                                 vanIsDogService(
+                                                     service.starterTemplateId)
+                                             ? "I'll collect them"
+                                             : "I'll collect it"),
+                                       VanEndHandover.businessReturns =>
+                                         (service.starterTemplateId != null &&
+                                                 vanIsDogService(
+                                                     service.starterTemplateId)
+                                             ? 'Please return them'
+                                             : 'Please return it'),
+                                       VanEndHandover.businessDelivers =>
+                                         'Please deliver it',
+                                     },
                                     selected: _effectiveEndHandover == value,
                                     onTap: () => setState(
                                       () => _selectedEndHandover = value,

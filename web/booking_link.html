@@ -948,13 +948,17 @@
       };
     }
 
-    function customerHandoverSummary(handover) {
+    function isDogService(starterTemplateId) {
+      return starterTemplateId != null && starterTemplateId.startsWith('pet_services_dog_');
+    }
+
+    function customerHandoverSummary(handover, starterTemplateId) {
       if (!handover) return "";
-      if (handover.start === "customerDropsOff" && handover.end === "customerCollects") return "You'll drop off your item and collect it when ready.";
-      if (handover.start === "customerDropsOff" && handover.end === "businessReturns") return "You'll drop off your item. We'll return it when finished.";
-      if (handover.start === "businessCollects" && handover.end === "customerCollects") return "We'll collect your item. You'll collect it when ready.";
+      if (handover.start === "customerDropsOff" && handover.end === "customerCollects") return isDogService(starterTemplateId) ? "You'll drop off your dog and collect them at the agreed time." : "You'll drop off your item and collect it when ready.";
+      if (handover.start === "customerDropsOff" && handover.end === "businessReturns") return isDogService(starterTemplateId) ? "You'll drop off your dog. We'll return them when finished." : "You'll drop off your item. We'll return it when finished.";
+      if (handover.start === "businessCollects" && handover.end === "customerCollects") return isDogService(starterTemplateId) ? "We'll collect your dog. You'll collect them when ready." : "We'll collect your item. You'll collect it when ready.";
       if (handover.start === "businessCollects" && handover.end === "businessDelivers") return "We'll collect from the collection address and deliver to the destination.";
-      return "We'll collect your item and return it when finished.";
+      return isDogService(starterTemplateId) ? "We'll collect your dog and return them at the agreed time." : "We'll collect your item and return it when finished.";
     }
 
     function handoverChoiceValue(container) {
@@ -989,17 +993,25 @@
       handoverSection.classList.toggle("hidden", !handover);
       if (!handover) return null;
       populateHandoverChoice(startHandoverChoice, handover.allowedStarts, handover.start, {
-        customerDropsOff: "I'll drop it off",
-        businessCollects: "Please collect it",
+        customerDropsOff: isDogService(service && service.starterTemplateId)
+            ? "I'll drop them off"
+            : "I'll drop it off",
+        businessCollects: isDogService(service && service.starterTemplateId)
+            ? 'Please collect them'
+            : 'Please collect it',
       });
       populateHandoverChoice(endHandoverChoice, handover.allowedEnds, handover.end, {
-        customerCollects: "I'll collect it",
-        businessReturns: "Please return it",
-        businessDelivers: "Please deliver it",
+        customerCollects: isDogService(service && service.starterTemplateId)
+            ? "I'll collect them"
+            : "I'll collect it",
+        businessReturns: isDogService(service && service.starterTemplateId)
+            ? 'Please return them'
+            : 'Please return it',
+        businessDelivers: 'Please deliver it',
       });
       startHandoverChoiceWrap.classList.toggle("hidden", handover.allowedStarts.length < 2);
       endHandoverChoiceWrap.classList.toggle("hidden", handover.allowedEnds.length < 2);
-      handoverSummary.textContent = customerHandoverSummary(handover);
+      handoverSummary.textContent = customerHandoverSummary(handover, service && service.starterTemplateId);
       const instructionLines = [];
       if (handover.start === "customerDropsOff" && readText(service.businessDropOffInstructions)) {
         instructionLines.push(`Drop-off: ${readText(service.businessDropOffInstructions)}`);
@@ -1015,9 +1027,10 @@
       collectionAddressWrap.classList.toggle("hidden", !needsCollectionAddress);
       sameReturnAddressWrap.classList.toggle("hidden", !(needsCollectionAddress && needsReturnAddress));
       returnAddressWrap.classList.toggle("hidden", (!needsReturnAddress && !needsDeliveryAddress) || (needsReturnAddress && needsCollectionAddress && sameReturnAddress.checked));
-      endHandoverChoicePrompt.textContent = needsDeliveryAddress ? "How should it reach the destination?" : "How would you like it returned?";
-      returnAddressLabel.textContent = needsDeliveryAddress ? "Delivery address" : "Return address";
-      returnAddress.placeholder = needsDeliveryAddress ? "Where should the business deliver to?" : "Where should the business return it?";
+const isDog = isDogService(service && service.starterTemplateId);
+       endHandoverChoicePrompt.textContent = needsDeliveryAddress ? "How should it reach the destination?" : (isDog ? "How will your dog return?" : "How would you like it returned?");
+       returnAddressLabel.textContent = needsDeliveryAddress ? "Delivery address" : "Return address";
+       returnAddress.placeholder = needsDeliveryAddress ? "Where should the business deliver to?" : (isDog ? "Where should your dog be returned to?" : "Where should the business return it?");
       dropOffDateLabel.textContent = handover.start === "businessCollects" ? "Preferred collection date" : "Customer drop-off date";
       dropOffTimeLabel.textContent = handover.start === "businessCollects" ? "Preferred collection time" : "Customer drop-off time";
       pickUpDateLabel.textContent = needsDeliveryAddress ? "Preferred delivery date" : (needsReturnAddress ? "Business return date" : "Customer collection date");
