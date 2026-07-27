@@ -2382,9 +2382,7 @@ class _VanBookingLinkCustomerFormPageState
                                   .customerChoosesStart) ...[
 const SizedBox(height: 12),
                                  Text(
-                                   service.starterTemplateId != null &&
-                                           vanIsDogService(
-                                               service.starterTemplateId)
+vanIsDogService(service.starterTemplateId)
                                        ? 'How will your dog arrive?'
                                        : 'How would you like to begin?',
                                    style: TextStyle(
@@ -2399,16 +2397,12 @@ const SizedBox(height: 12),
                                      label:
                                          value ==
                                              VanStartHandover.customerDropsOff
-                                         ? (service.starterTemplateId != null &&
-                                                 vanIsDogService(
-                                                     service.starterTemplateId)
-                                             ? "I'll drop them off"
-                                             : "I'll drop it off")
-                                         : (service.starterTemplateId != null &&
-                                                 vanIsDogService(
-                                                     service.starterTemplateId)
-                                             ? 'Please collect them'
-                                             : 'Please collect it'),
+? (vanIsDogService(service.starterTemplateId)
+                                              ? "I'll drop them off"
+                                              : "I'll drop it off")
+                                          : (vanIsDogService(service.starterTemplateId)
+                                              ? 'Please collect them'
+                                              : 'Please collect it'),
                                      selected: _effectiveStartHandover == value,
                                      onTap: () => setState(
                                        () => _selectedStartHandover = value,
@@ -2423,11 +2417,9 @@ const SizedBox(height: 12),
                                    _effectiveEndHandover ==
                                            VanEndHandover.businessDelivers
                                        ? 'How should it reach the destination?'
-                                       : (service.starterTemplateId != null &&
-                                               vanIsDogService(
-                                                   service.starterTemplateId)
-                                           ? 'How will your dog return?'
-                                           : 'How would you like it returned?'),
+: (vanIsDogService(service.starterTemplateId)
+                                            ? 'How will your dog return?'
+                                            : 'How would you like it returned?'),
                                    style: TextStyle(
                                      color: Colors.white,
                                      fontWeight: FontWeight.w900,
@@ -2438,18 +2430,14 @@ const SizedBox(height: 12),
                                      in service.effectiveHandover.allowedEnds)
                                    _HandoverRadioTile(
                                      label: switch (value) {
-                                       VanEndHandover.customerCollects =>
-                                         (service.starterTemplateId != null &&
-                                                 vanIsDogService(
-                                                     service.starterTemplateId)
-                                             ? "I'll collect them"
-                                             : "I'll collect it"),
-                                       VanEndHandover.businessReturns =>
-                                         (service.starterTemplateId != null &&
-                                                 vanIsDogService(
-                                                     service.starterTemplateId)
-                                             ? 'Please return them'
-                                             : 'Please return it'),
+VanEndHandover.customerCollects =>
+                                          (vanIsDogService(service.starterTemplateId)
+                                              ? "I'll collect them"
+                                              : "I'll collect it"),
+                                        VanEndHandover.businessReturns =>
+                                          (vanIsDogService(service.starterTemplateId)
+                                              ? 'Please return them'
+                                              : 'Please return it'),
                                        VanEndHandover.businessDelivers =>
                                          'Please deliver it',
                                      },
