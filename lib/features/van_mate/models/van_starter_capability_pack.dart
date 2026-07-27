@@ -274,6 +274,20 @@ const VanCustomerRequestFlowOptions _windowCleaningStandardQuoteFlow =
   showNotes: false,
 );
 
+const VanCustomerRequestFlowOptions _handymanStandardQuoteFlow =
+     VanCustomerRequestFlowOptions(
+   showFulfilmentChoice: false,
+   askPreferredDate: true,
+   askPreferredTime: true,
+   showPickupAddress: false,
+   showDeliveryAddress: false,
+   showDropOffDate: false,
+   showDropOffTime: false,
+   showPickUpDate: false,
+   showPickUpTime: false,
+   showNotes: false,
+ );
+
 const List<VanTemplateDayAvailability> _windowCleaningMondayToSaturday =
     <VanTemplateDayAvailability>[
   VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
@@ -293,6 +307,16 @@ const List<VanTemplateDayAvailability> _windowCleaningCommercialAvailability =
   VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1140),
   VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1140),
 ];
+
+const List<VanTemplateDayAvailability> _handymanMondayToSaturday =
+     <VanTemplateDayAvailability>[
+   VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+   VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+   VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+   VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+   VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+   VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+ ];
 
 const List<VanBusinessTemplateDefinition>
 kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
@@ -4383,12 +4407,924 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           requestPhotos: true,
           requireAddress: true,
           pricingMode: VanServiceCapabilityIds.customQuote,
-          suggestedCustomerMessage:
-              'Tell us about the property, window type, condition and access. We will confirm the scope and price before accepting.',
-        ),
-      ],
-    ),
-  ];
+         suggestedCustomerMessage:
+               'Tell us about the property, window type, condition and access. We will confirm the scope and price before accepting.',
+         ),
+       ],
+     ),
+     VanBusinessTemplateDefinition(
+       categoryId: 'handyman',
+       categoryName: 'Handyman & General Services',
+       businessTypeId: 'handyman',
+       businessTypeName: 'Handyman & General Services',
+       description:
+           'Small household jobs, furniture assembly, mounting and non-specialist repairs.',
+       iconKey: 'home',
+       colorValue: 0xFFFFC107,
+       featured: true,
+       searchKeywords: <String>[
+         'handyman',
+         'general handyman',
+         'odd jobs',
+         'household jobs',
+         'small repairs',
+         'furniture assembly',
+         'flat-pack assembly',
+         'wall mounting',
+         'shelf fitting',
+       ],
+       searchAliases: <VanBusinessSearchAlias>[
+         VanBusinessSearchAlias('Handyman'),
+         VanBusinessSearchAlias('General Handyman'),
+         VanBusinessSearchAlias('Odd Jobs'),
+         VanBusinessSearchAlias('Small Repairs'),
+         VanBusinessSearchAlias('Household Fixes'),
+         VanBusinessSearchAlias('Flat-Pack Assembly'),
+       ],
+       services: <VanBusinessServiceTemplateDefinition>[
+         VanBusinessServiceTemplateDefinition(
+           serviceId: 'handyman_general_visit',
+           name: 'General Handyman Visit',
+           description:
+               'A flexible visit for several small household jobs. The business will confirm what can safely be completed within the agreed visit.',
+           featureIds: <String>[
+             VanServiceCapabilityIds.appointmentRequired,
+             VanServiceCapabilityIds.businessVisitsCustomer,
+             VanServiceCapabilityIds.customQuote,
+             VanServiceCapabilityIds.estimatedDuration,
+             VanServiceCapabilityIds.leadTime,
+             VanServiceCapabilityIds.photoUpload,
+           ],
+           bookingOptionIds: <String>[
+             VanServiceCapabilityIds.booking,
+             VanServiceCapabilityIds.requestQuote,
+           ],
+           customerJourney: VanCustomerJourneyType.quote,
+           requestType: VanCustomerRequestType.quoteRequest,
+           startHandover: null,
+           endHandover: null,
+           requestFlowOptions: _handymanStandardQuoteFlow,
+           builtInQuestionKeys: <String>{
+             'address',
+             'phone',
+             'email',
+             'preferred_date',
+             'preferred_time',
+             'photos',
+           },
+           builtInQuestionSettings: <String, Map<String, dynamic>>{
+             'address': <String, dynamic>{
+               'required': true,
+               'helperText':
+                   'Enter the address where the work will take place.',
+             },
+             'phone': <String, dynamic>{'required': true, 'helperText': ''},
+             'email': <String, dynamic>{'required': false, 'helperText': ''},
+             'preferred_date': <String, dynamic>{
+               'required': true,
+               'helperText': 'Choose your preferred date.',
+             },
+             'preferred_time': <String, dynamic>{
+               'required': true,
+               'helperText':
+                   'Choose a preferred start time or time window. The business will confirm availability.',
+             },
+             'photos': <String, dynamic>{
+               'required': false,
+               'helperText':
+                   'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
+             },
+           },
+           questions: <VanServiceTemplateQuestion>[
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_task_list',
+               text: 'What jobs need doing?',
+               answerType: VanCustomQuestionAnswerType.longText,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               helperText:
+                   'List each job separately. Electrical, gas, structural, roofing and major plumbing work are not included.',
+               tags: <String>['handyman', 'general', 'tasks'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_task_count',
+               text: 'Approximately how many separate jobs are there?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'One',
+                 'Two or three',
+                 'Four or five',
+                 'Six or more',
+                 'Unsure',
+               ],
+               tags: <String>['handyman', 'general', 'task count'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_priorities',
+               text: 'Which jobs are the highest priority?',
+               answerType: VanCustomQuestionAnswerType.longText,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: false,
+               helperText:
+                   'The business may not be able to complete every requested job in one visit.',
+               tags: <String>['handyman', 'general', 'priorities'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_duration_preference',
+               text: 'How much time do you think may be needed?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.timing,
+               requiredByDefault: false,
+               choiceOptions: <String>[
+                 'Less than two hours',
+                 'Two to four hours',
+                 'Half day',
+                 'Full day',
+                 'Unsure',
+               ],
+               helperText:
+                   'This is a guide only. The business will confirm the expected time after reviewing the work.',
+               tags: <String>['handyman', 'general', 'duration'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_materials_responsibility',
+               text: 'Who should provide materials and fixings?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Business to supply',
+                 'Customer will supply',
+                 'Some items are already supplied',
+                 'Please advise',
+               ],
+               tags: <String>['handyman', 'general', 'materials'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_materials_details',
+               text: 'Describe any materials, parts or fixings already available',
+               answerType: VanCustomQuestionAnswerType.longText,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: false,
+               tags: <String>['handyman', 'general', 'materials details'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_workspace',
+               text: 'Is the working area ready and accessible?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.access,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Clear and ready',
+                 'Some items need moving',
+                 'Access is restricted',
+                 'Unsure',
+               ],
+               tags: <String>['handyman', 'general', 'workspace'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_specialist_work',
+               text: 'Could any requested job involve specialist or regulated work?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Yes',
+                 'No',
+                 'Unsure',
+               ],
+               helperText:
+                   'This includes electrical, gas, structural, roofing, asbestos-related or major plumbing work. Listing it does not mean the business can undertake it.',
+               tags: <String>['handyman', 'general', 'specialist'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_safety_details',
+               text: 'Describe any access, height or safety concerns',
+               answerType: VanCustomQuestionAnswerType.longText,
+               category: VanCustomQuestionCategory.access,
+               requiredByDefault: false,
+               helperText:
+                   'Examples may include: fragile surfaces, restricted working space, heavy items, damaged walls, suspected pipes or cables, work above normal standing height.',
+               tags: <String>['handyman', 'general', 'safety'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_general_visit_parking_access',
+               text: 'Parking and property access information',
+               answerType: VanCustomQuestionAnswerType.longText,
+               category: VanCustomQuestionCategory.access,
+               requiredByDefault: false,
+               helperText:
+                   'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+               tags: <String>['handyman', 'general', 'parking', 'access'],
+             ),
+           ],
+           extras: <VanServiceTemplateExtra>[
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_general_visit_additional_hour',
+               label: 'Additional labour hour',
+             ),
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_general_visit_half_day',
+               label: 'Half-day visit',
+             ),
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_general_visit_materials_fixings',
+               label: 'Materials and fixings',
+             ),
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_general_visit_second_person',
+               label: 'Second-person assistance, subject to agreement',
+             ),
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_general_visit_small_waste_removal',
+               label: 'Small non-hazardous waste removal, subject to agreement',
+             ),
+           ],
+           availability: _handymanMondayToSaturday,
+           suggestedDurationMinutes: 120,
+           suggestedNoticeHours: 24,
+           maximumBookingsPerDay: 4,
+           requestPhotos: true,
+           requireAddress: true,
+           pricingMode: VanServiceCapabilityIds.customQuote,
+           suggestedCustomerMessage:
+               'Describe the jobs you need done. The business will confirm what can safely be completed within the agreed visit.',
+         ),
+         VanBusinessServiceTemplateDefinition(
+           serviceId: 'handyman_flat_pack_assembly',
+           name: 'Flat-Pack Furniture Assembly',
+           description:
+               'Flat-pack furniture assembly, with item size, parts, working space and any wall-fixing requirements confirmed before work is agreed.',
+           featureIds: <String>[
+             VanServiceCapabilityIds.appointmentRequired,
+             VanServiceCapabilityIds.businessVisitsCustomer,
+             VanServiceCapabilityIds.customQuote,
+             VanServiceCapabilityIds.estimatedDuration,
+             VanServiceCapabilityIds.leadTime,
+             VanServiceCapabilityIds.photoUpload,
+           ],
+           bookingOptionIds: <String>[
+             VanServiceCapabilityIds.booking,
+             VanServiceCapabilityIds.requestQuote,
+           ],
+           customerJourney: VanCustomerJourneyType.quote,
+           requestType: VanCustomerRequestType.quoteRequest,
+           startHandover: null,
+           endHandover: null,
+           requestFlowOptions: _handymanStandardQuoteFlow,
+           builtInQuestionKeys: <String>{
+             'address',
+             'phone',
+             'email',
+             'preferred_date',
+             'preferred_time',
+             'photos',
+           },
+           builtInQuestionSettings: <String, Map<String, dynamic>>{
+             'address': <String, dynamic>{
+               'required': true,
+               'helperText':
+                   'Enter the address where the assembly will take place.',
+             },
+             'phone': <String, dynamic>{'required': true, 'helperText': ''},
+             'email': <String, dynamic>{'required': false, 'helperText': ''},
+             'preferred_date': <String, dynamic>{
+               'required': true,
+               'helperText': 'Choose your preferred date.',
+             },
+             'preferred_time': <String, dynamic>{
+               'required': true,
+               'helperText':
+                   'Choose a preferred start time or time window. The business will confirm availability.',
+             },
+             'photos': <String, dynamic>{
+               'required': false,
+               'helperText':
+                   'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
+             },
+           },
+           questions: <VanServiceTemplateQuestion>[
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_furniture_type',
+               text: 'What is the main item being assembled?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Wardrobe',
+                 'Chest of drawers',
+                 'Bed frame',
+                 'Table or desk',
+                 'Shelving or storage unit',
+                 'Other',
+                 'Unsure',
+               ],
+               tags: <String>['handyman', 'flat-pack', 'furniture type'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_item_count',
+               text: 'How many items need assembling?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'One',
+                 'Two',
+                 'Three or four',
+                 'Five or more',
+                 'Unsure',
+               ],
+               tags: <String>['handyman', 'flat-pack', 'item count'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_product_details',
+               text: 'Provide the brand, model or product details where known',
+               answerType: VanCustomQuestionAnswerType.longText,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: false,
+               helperText:
+                   'Product names, model numbers or links can help the business estimate the assembly time.',
+               tags: <String>['handyman', 'flat-pack', 'product details'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_current_condition',
+               text: 'What condition are the items currently in?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Unopened boxes',
+                 'Boxes opened but not assembled',
+                 'Partially assembled',
+                 'Previously assembled and dismantled',
+                 'Mixed',
+                 'Unsure',
+               ],
+               tags: <String>['handyman', 'flat-pack', 'condition'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_parts_available',
+               text: 'Are all parts, fittings and instructions available?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Yes',
+                 'No',
+                 'Unsure',
+               ],
+               helperText:
+                   'Missing or damaged parts may prevent completion.',
+               tags: <String>['handyman', 'flat-pack', 'parts'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_workspace',
+               text: 'Is there enough clear space for assembly?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.access,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Clear working space',
+                 'Some furniture needs moving',
+                 'Limited working space',
+                 'Unsure',
+               ],
+               tags: <String>['handyman', 'flat-pack', 'workspace'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_wall_fixing',
+               text: 'Does any item require fixing to a wall?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Yes',
+                 'No',
+                 'Unsure',
+               ],
+               helperText:
+                   'Wall fixing is subject to the business confirming the wall condition, item weight and safe drilling location.',
+               tags: <String>['handyman', 'flat-pack', 'wall fixing'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_access',
+               text: 'Are there stairs, narrow access or large-item restrictions?',
+               answerType: VanCustomQuestionAnswerType.longText,
+               category: VanCustomQuestionCategory.access,
+               requiredByDefault: false,
+               tags: <String>['handyman', 'flat-pack', 'access'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_packaging',
+               text: 'What should happen to the packaging?',
+               answerType: VanCustomQuestionAnswerType.multipleChoice,
+               category: VanCustomQuestionCategory.jobDetails,
+               requiredByDefault: true,
+               choiceOptions: <String>[
+                 'Leave it on site',
+                 'Use the customer\'s recycling or waste bins',
+                 'Business to remove it, subject to agreement',
+                 'Please advise',
+               ],
+               tags: <String>['handyman', 'flat-pack', 'packaging'],
+             ),
+             VanServiceTemplateQuestion(
+               libraryId: 'handyman_flat_pack_parking_access',
+               text: 'Parking and property access information',
+               answerType: VanCustomQuestionAnswerType.longText,
+               category: VanCustomQuestionCategory.access,
+               requiredByDefault: false,
+               helperText:
+                   'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+               tags: <String>['handyman', 'flat-pack', 'parking', 'access'],
+             ),
+           ],
+           extras: <VanServiceTemplateExtra>[
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_flat_pack_additional_item',
+               label: 'Additional furniture item',
+             ),
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_flat_pack_additional_hour',
+               label: 'Additional assembly hour',
+             ),
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_flat_pack_large_unit',
+               label: 'Large wardrobe or storage unit',
+             ),
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_flat_pack_wall_fixing',
+               label: 'Wall fixing, subject to safe assessment',
+             ),
+             VanServiceTemplateExtra(
+               key: 'custom_extra_handyman_flat_pack_packaging_removal',
+               label: 'Packaging removal',
+             ),
+           ],
+           availability: _handymanMondayToSaturday,
+           suggestedDurationMinutes: 90,
+           suggestedNoticeHours: 24,
+           maximumBookingsPerDay: 4,
+           requestPhotos: true,
+           requireAddress: true,
+           pricingMode: VanServiceCapabilityIds.customQuote,
+            suggestedCustomerMessage:
+                'Tell us about the furniture to assemble, its condition and any wall-fixing requirements. We will confirm the scope and price before accepting.',
+          ),
+          VanBusinessServiceTemplateDefinition(
+            serviceId: 'handyman_wall_mounting',
+            name: 'Shelves, Curtain Poles & Wall Mounting',
+            description:
+                'Mounting shelves, curtain poles, mirrors, pictures and similar household items, subject to the wall condition, item weight and a safe fixing location being confirmed.',
+            featureIds: <String>[
+              VanServiceCapabilityIds.appointmentRequired,
+              VanServiceCapabilityIds.businessVisitsCustomer,
+              VanServiceCapabilityIds.customQuote,
+              VanServiceCapabilityIds.estimatedDuration,
+              VanServiceCapabilityIds.leadTime,
+              VanServiceCapabilityIds.photoUpload,
+            ],
+            bookingOptionIds: <String>[
+              VanServiceCapabilityIds.booking,
+              VanServiceCapabilityIds.requestQuote,
+            ],
+            customerJourney: VanCustomerJourneyType.quote,
+            requestType: VanCustomerRequestType.quoteRequest,
+            startHandover: null,
+            endHandover: null,
+            requestFlowOptions: _handymanStandardQuoteFlow,
+            builtInQuestionKeys: <String>{
+              'address',
+              'phone',
+              'email',
+              'preferred_date',
+              'preferred_time',
+              'photos',
+            },
+            builtInQuestionSettings: <String, Map<String, dynamic>>{
+              'address': <String, dynamic>{
+                'required': true,
+                'helperText':
+                    'Enter the address where the work will take place.',
+              },
+              'phone': <String, dynamic>{'required': true, 'helperText': ''},
+              'email': <String, dynamic>{'required': false, 'helperText': ''},
+              'preferred_date': <String, dynamic>{
+                'required': true,
+                'helperText': 'Choose your preferred date.',
+              },
+              'preferred_time': <String, dynamic>{
+                'required': true,
+                'helperText':
+                    'Choose a preferred start time or time window. The business will confirm availability.',
+              },
+              'photos': <String, dynamic>{
+                'required': false,
+                'helperText':
+                    'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
+              },
+            },
+            questions: <VanServiceTemplateQuestion>[
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_item_type',
+                text: 'What is the main item being fitted or mounted?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Shelves',
+                  'Curtain pole or blind',
+                  'Mirror',
+                  'Picture or wall decoration',
+                  'Television bracket',
+                  'Storage or wall unit',
+                  'Other',
+                  'Unsure',
+                ],
+                tags: <String>['handyman', 'wall mounting', 'item type'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_item_count',
+                text: 'How many items need fitting or mounting?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'One',
+                  'Two',
+                  'Three or four',
+                  'Five or more',
+                  'Unsure',
+                ],
+                tags: <String>['handyman', 'wall mounting', 'item count'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_item_details',
+                text: 'Describe the items, including approximate size and weight',
+                answerType: VanCustomQuestionAnswerType.longText,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                helperText:
+                    'Product details, dimensions and approximate weight can help the business assess the work.',
+                tags: <String>['handyman', 'wall mounting', 'item details'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_wall_type',
+                text: 'What type of wall or surface will the items be fixed to?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Brick or block',
+                  'Plasterboard',
+                  'Solid plaster',
+                  'Tile',
+                  'Mixed surfaces',
+                  'Unsure',
+                ],
+                helperText:
+                    'The business must confirm the wall condition and suitable fixing method before drilling.',
+                tags: <String>['handyman', 'wall mounting', 'wall type'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_height',
+                text: 'Approximately how high will the items be mounted?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Normal standing height',
+                  'Above head height',
+                  'Near ceiling height',
+                  'Multiple heights',
+                  'Unsure',
+                ],
+                helperText:
+                    'Higher work is subject to safe access and suitable equipment.',
+                tags: <String>['handyman', 'wall mounting', 'height'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_fixings',
+                text: 'Who should provide the brackets, fittings and fixings?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Customer has all fittings and fixings',
+                  'Customer has the item but needs fixings',
+                  'Business to supply suitable fixings',
+                  'Some items are already supplied',
+                  'Please advise',
+                ],
+                tags: <String>['handyman', 'wall mounting', 'fixings'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_hidden_services',
+                text: 'Are there any known or suspected pipes, cables or other services behind the wall?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Yes',
+                  'No',
+                  'Unsure',
+                ],
+                helperText:
+                    'Work may not proceed if a safe drilling location cannot be confirmed.',
+                tags: <String>['handyman', 'wall mounting', 'hidden services'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_wall_condition',
+                text: 'Are there any cracks, loose plaster, damp, tiles or other wall-condition concerns?',
+                answerType: VanCustomQuestionAnswerType.longText,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: false,
+                tags: <String>['handyman', 'wall mounting', 'wall condition'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_workspace',
+                text: 'Is the working area clear and safely accessible?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.access,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Clear and ready',
+                  'Some furniture needs moving',
+                  'Access is restricted',
+                  'Unsure',
+                ],
+                tags: <String>['handyman', 'wall mounting', 'workspace'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_wall_mounting_parking_access',
+                text: 'Parking and property access information',
+                answerType: VanCustomQuestionAnswerType.longText,
+                category: VanCustomQuestionCategory.access,
+                requiredByDefault: false,
+                helperText:
+                    'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+                tags: <String>['handyman', 'wall mounting', 'parking', 'access'],
+              ),
+            ],
+            extras: <VanServiceTemplateExtra>[
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_wall_mounting_additional_item',
+                label: 'Additional mounted item',
+              ),
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_wall_mounting_fixings',
+                label: 'Suitable fixings, subject to assessment',
+              ),
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_wall_mounting_heavy_item',
+                label: 'Heavy or oversized item, subject to assessment',
+              ),
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_wall_mounting_furniture_moving',
+                label: 'Furniture moving',
+              ),
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_wall_mounting_additional_hour',
+                label: 'Additional labour hour',
+              ),
+            ],
+            availability: _handymanMondayToSaturday,
+            suggestedDurationMinutes: 90,
+            suggestedNoticeHours: 24,
+            maximumBookingsPerDay: 4,
+            requestPhotos: true,
+            requireAddress: true,
+            pricingMode: VanServiceCapabilityIds.customQuote,
+            suggestedCustomerMessage:
+                'Tell us about the items to mount, their size, weight and the wall type. We will confirm the scope and price before accepting.',
+          ),
+          VanBusinessServiceTemplateDefinition(
+            serviceId: 'handyman_minor_home_repairs',
+            name: 'Minor Home Repairs',
+            description:
+                'Small non-specialist household repairs and adjustments. Electrical, gas, structural, roofing and major plumbing work are not included.',
+            featureIds: <String>[
+              VanServiceCapabilityIds.appointmentRequired,
+              VanServiceCapabilityIds.businessVisitsCustomer,
+              VanServiceCapabilityIds.customQuote,
+              VanServiceCapabilityIds.estimatedDuration,
+              VanServiceCapabilityIds.leadTime,
+              VanServiceCapabilityIds.photoUpload,
+            ],
+            bookingOptionIds: <String>[
+              VanServiceCapabilityIds.booking,
+              VanServiceCapabilityIds.requestQuote,
+            ],
+            customerJourney: VanCustomerJourneyType.quote,
+            requestType: VanCustomerRequestType.quoteRequest,
+            startHandover: null,
+            endHandover: null,
+            requestFlowOptions: _handymanStandardQuoteFlow,
+            builtInQuestionKeys: <String>{
+              'address',
+              'phone',
+              'email',
+              'preferred_date',
+              'preferred_time',
+              'photos',
+            },
+            builtInQuestionSettings: <String, Map<String, dynamic>>{
+              'address': <String, dynamic>{
+                'required': true,
+                'helperText':
+                    'Enter the address where the repair will take place.',
+              },
+              'phone': <String, dynamic>{'required': true, 'helperText': ''},
+              'email': <String, dynamic>{'required': false, 'helperText': ''},
+              'preferred_date': <String, dynamic>{
+                'required': true,
+                'helperText': 'Choose your preferred date.',
+              },
+              'preferred_time': <String, dynamic>{
+                'required': true,
+                'helperText':
+                    'Choose a preferred start time or time window. The business will confirm availability.',
+              },
+              'photos': <String, dynamic>{
+                'required': false,
+                'helperText':
+                    'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
+              },
+            },
+            questions: <VanServiceTemplateQuestion>[
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_main_type',
+                text: 'What is the main repair needed?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Door, hinge or handle adjustment',
+                  'Cupboard or drawer repair',
+                  'Loose fitting or fixture',
+                  'Sealant or caulking',
+                  'Minor cosmetic repair',
+                  'Small household adjustment',
+                  'Other non-specialist repair',
+                  'Unsure',
+                ],
+                tags: <String>['handyman', 'minor repairs', 'repair type'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_description',
+                text: 'Describe the problem and what needs repairing',
+                answerType: VanCustomQuestionAnswerType.longText,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                helperText:
+                    'Include what is damaged, loose, sticking, leaking or no longer working as expected.',
+                tags: <String>['handyman', 'minor repairs', 'description'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_item_count',
+                text: 'How many separate repairs are required?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'One',
+                  'Two',
+                  'Three or four',
+                  'Five or more',
+                  'Unsure',
+                ],
+                tags: <String>['handyman', 'minor repairs', 'item count'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_condition',
+                text: 'How would you describe the current condition?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Minor adjustment needed',
+                  'Loose or worn',
+                  'Damaged but still usable',
+                  'Broken or unusable',
+                  'Unsure',
+                ],
+                tags: <String>['handyman', 'minor repairs', 'condition'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_parts_available',
+                text: 'Are replacement parts or materials already available?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Yes, all parts are available',
+                  'Some parts are available',
+                  'No parts are available',
+                  'Unsure',
+                  'Please advise',
+                ],
+                tags: <String>['handyman', 'minor repairs', 'parts available'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_parts_details',
+                text: 'Describe any replacement parts or materials already available',
+                answerType: VanCustomQuestionAnswerType.longText,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: false,
+                tags: <String>['handyman', 'minor repairs', 'parts details'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_specialist_risk',
+                text: 'Could the repair involve electrical, gas, structural or major plumbing work?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Yes',
+                  'No',
+                  'Unsure',
+                ],
+                helperText:
+                    'These jobs require an appropriately qualified specialist and are not included in this service.',
+                tags: <String>['handyman', 'minor repairs', 'specialist risk'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_damage_risk',
+                text: 'Are there any signs of damp, asbestos, major cracking or hidden damage?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.jobDetails,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Yes',
+                  'No',
+                  'Unsure',
+                ],
+                helperText:
+                    'Listing a concern does not mean the business can inspect, disturb or repair hazardous or structural materials.',
+                tags: <String>['handyman', 'minor repairs', 'damage risk'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_workspace',
+                text: 'Is the repair area clear and safely accessible?',
+                answerType: VanCustomQuestionAnswerType.multipleChoice,
+                category: VanCustomQuestionCategory.access,
+                requiredByDefault: true,
+                choiceOptions: <String>[
+                  'Clear and ready',
+                  'Some items need moving',
+                  'Access is restricted',
+                  'Unsure',
+                ],
+                tags: <String>['handyman', 'minor repairs', 'workspace'],
+              ),
+              VanServiceTemplateQuestion(
+                libraryId: 'handyman_minor_repairs_parking_access',
+                text: 'Parking and property access information',
+                answerType: VanCustomQuestionAnswerType.longText,
+                category: VanCustomQuestionCategory.access,
+                requiredByDefault: false,
+                helperText:
+                    'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+                tags: <String>['handyman', 'minor repairs', 'parking', 'access'],
+              ),
+            ],
+            extras: <VanServiceTemplateExtra>[
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_minor_repairs_additional_repair',
+                label: 'Additional minor repair',
+              ),
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_minor_repairs_additional_hour',
+                label: 'Additional labour hour',
+              ),
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_minor_repairs_parts_materials',
+                label: 'Parts and materials',
+              ),
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_minor_repairs_sealant',
+                label: 'Sealant or caulking',
+              ),
+              VanServiceTemplateExtra(
+                key: 'custom_extra_handyman_minor_repairs_small_waste_removal',
+                label: 'Small non-hazardous waste removal, subject to agreement',
+              ),
+            ],
+            availability: _handymanMondayToSaturday,
+            suggestedDurationMinutes: 60,
+            suggestedNoticeHours: 24,
+            maximumBookingsPerDay: 6,
+            requestPhotos: true,
+            requireAddress: true,
+            pricingMode: VanServiceCapabilityIds.customQuote,
+            suggestedCustomerMessage:
+                'Describe the repair needed. The business will confirm what can safely be completed.',
+          ),
+        ],
+      ),
+    ];
 
 class VanStarterCapabilityPack {
   const VanStarterCapabilityPack({

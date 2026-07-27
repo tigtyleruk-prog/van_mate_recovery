@@ -9,9 +9,9 @@ import 'package:van_mate_app/features/van_mate/models/van_service_template.dart'
 import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 
 void main() {
-  test('Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services and Window Cleaning packs', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(6));
-    expect(kVanStarterCapabilityPacks, hasLength(6));
+  test('Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services, Handyman and Window Cleaning packs', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(7));
+    expect(kVanStarterCapabilityPacks, hasLength(7));
     expect(kVanServiceTemplateCategories, isEmpty);
     expect(findVanStarterCapabilityPackById('courier'), isNotNull);
     expect(
@@ -21,6 +21,7 @@ void main() {
     expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
     expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
     expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
+    expect(findVanStarterCapabilityPackById('handyman'), isNotNull);
     expect(findVanStarterCapabilityPackById('window_cleaning'), isNotNull);
     expect(findVanStarterCapabilityPackById('courier_business'), isNull);
     expect(findVanServiceTemplateById('courier'), isNull);
@@ -1401,6 +1402,389 @@ void main() {
     final allExtras = definition.services
         .expand((service) => service.extras)
         .toList(growable: false);
-    expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
-  });
-}
+expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
+   });
+
+   test('Handyman pack has stable identity, aliases and four services', () {
+     final definition = kVanBusinessTemplateLibrary.singleWhere(
+       (item) => item.businessTypeId == 'handyman',
+     );
+
+     expect(definition.categoryId, 'handyman');
+     expect(definition.categoryName, 'Handyman & General Services');
+     expect(definition.businessTypeName, 'Handyman & General Services');
+     expect(definition.iconKey, 'home');
+     expect(definition.colorValue, 0xFFFFC107);
+     expect(definition.featured, isTrue);
+     expect(
+       definition.searchKeywords,
+       containsAll(<String>[
+         'handyman',
+         'general handyman',
+         'odd jobs',
+         'household jobs',
+         'small repairs',
+         'furniture assembly',
+         'flat-pack assembly',
+         'wall mounting',
+         'shelf fitting',
+       ]),
+     );
+     expect(
+       definition.searchAliases.map((alias) => alias.label),
+       containsAll(<String>[
+         'Handyman',
+         'General Handyman',
+         'Odd Jobs',
+         'Small Repairs',
+         'Household Fixes',
+         'Flat-Pack Assembly',
+       ]),
+     );
+     expect(definition.services.map((service) => service.serviceId), <String>[
+       'handyman_general_visit',
+       'handyman_flat_pack_assembly',
+       'handyman_wall_mounting',
+       'handyman_minor_home_repairs',
+     ]);
+   });
+
+   test('All Handyman services use one-address standard quote journeys', () {
+     final services = kVanBusinessTemplateLibrary
+         .singleWhere(
+           (definition) => definition.businessTypeId == 'handyman',
+         )
+         .services;
+
+     for (final service in services) {
+       expect(service.customerJourney, VanCustomerJourneyType.quote);
+       expect(service.requestType, VanCustomerRequestType.quoteRequest);
+       expect(service.startHandover, isNull);
+       expect(service.endHandover, isNull);
+       expect(service.requireAddress, isTrue);
+       expect(service.requestPhotos, isTrue);
+       expect(service.requestFlowOptions.askPreferredDate, isTrue);
+       expect(service.requestFlowOptions.askPreferredTime, isTrue);
+       expect(service.requestFlowOptions.showPickupAddress, isFalse);
+       expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+       expect(service.requestFlowOptions.showDropOffDate, isFalse);
+       expect(service.requestFlowOptions.showDropOffTime, isFalse);
+       expect(service.requestFlowOptions.showPickUpDate, isFalse);
+       expect(service.requestFlowOptions.showPickUpTime, isFalse);
+       expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+       expect(service.requestFlowOptions.showNotes, isFalse);
+       expect(
+         service.builtInQuestionKeys,
+         containsAll(<String>[
+           'address',
+           'phone',
+           'email',
+           'preferred_date',
+           'preferred_time',
+           'photos',
+         ]),
+       );
+       for (final key in <String>[
+         'address',
+         'preferred_date',
+         'preferred_time',
+         'phone',
+       ]) {
+         expect(
+           service.builtInQuestionSettings[key]?['required'],
+           isTrue,
+           reason: '${service.serviceId} should require $key',
+         );
+       }
+       expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+       expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+     }
+   });
+
+   test('Handyman questions and extras are explicit, unique and safe', () {
+     final services = kVanBusinessTemplateLibrary
+         .singleWhere(
+           (definition) => definition.businessTypeId == 'handyman',
+         )
+         .services;
+     final questions = services
+         .expand((service) => service.questions)
+         .toList(growable: false);
+     final extras = services
+         .expand((service) => service.extras)
+         .toList(growable: false);
+
+     expect(questions.map((question) => question.libraryId).toSet(), hasLength(40));
+     expect(questions, hasLength(40));
+     expect(
+       questions.every(
+         (question) =>
+             VanCustomQuestionAnswerType.values.contains(question.answerType),
+       ),
+       isTrue,
+     );
+     expect(extras.map((extra) => extra.key).toSet(), hasLength(20));
+     expect(extras, hasLength(20));
+     expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
+     expect(extras.every((extra) => extra.defaultChargeUnit == 'Fixed'), isTrue);
+     expect(
+       extras.every(
+         (extra) =>
+             !RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
+       ),
+       isTrue,
+     );
+
+     final generalVisit = services.singleWhere(
+       (service) => service.serviceId == 'handyman_general_visit',
+     );
+     final flatPack = services.singleWhere(
+       (service) => service.serviceId == 'handyman_flat_pack_assembly',
+     );
+     final wallMounting = services.singleWhere(
+       (service) => service.serviceId == 'handyman_wall_mounting',
+     );
+     final minorRepairs = services.singleWhere(
+       (service) => service.serviceId == 'handyman_minor_home_repairs',
+     );
+
+     expect(generalVisit.questions, hasLength(10));
+     expect(flatPack.questions, hasLength(10));
+     expect(wallMounting.questions, hasLength(10));
+     expect(minorRepairs.questions, hasLength(10));
+     expect(generalVisit.extras, hasLength(5));
+     expect(flatPack.extras, hasLength(5));
+     expect(wallMounting.extras, hasLength(5));
+     expect(minorRepairs.extras, hasLength(5));
+   });
+
+   test('Handyman defaults preserve duration, notice, limits and schedule', () {
+     final services = kVanBusinessTemplateLibrary
+         .singleWhere((definition) => definition.businessTypeId == 'handyman')
+         .services;
+     final expected = <String, (int, int, int, List<int>)>{
+       'handyman_general_visit': (120, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
+       'handyman_flat_pack_assembly': (90, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
+       'handyman_wall_mounting': (90, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
+       'handyman_minor_home_repairs': (60, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
+     };
+
+     for (final service in services) {
+       final defaults = expected[service.serviceId]!;
+       expect(service.suggestedDurationMinutes, defaults.$1);
+       expect(service.suggestedNoticeHours, defaults.$2);
+       expect(service.maximumBookingsPerDay, defaults.$3);
+       expect(service.availability.map((day) => day.day), defaults.$4);
+       expect(
+         service.availability.every(
+           (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+         ),
+         isTrue,
+       );
+     }
+   });
+
+   test('General Handyman Visit warns all tasks may not be completed in one visit', () {
+     final definition = kVanBusinessTemplateLibrary
+         .singleWhere((item) => item.businessTypeId == 'handyman');
+     final service = definition.services.singleWhere(
+       (service) => service.serviceId == 'handyman_general_visit',
+     );
+
+     final prioritiesQuestion = service.questions.singleWhere(
+       (question) =>
+           question.libraryId == 'handyman_general_visit_priorities',
+     );
+     expect(
+       prioritiesQuestion.helperText,
+       contains('may not be able to complete every requested job in one visit'),
+     );
+
+     final taskListQuestion = service.questions.singleWhere(
+       (question) =>
+           question.libraryId == 'handyman_general_visit_task_list',
+     );
+     expect(
+       taskListQuestion.helperText,
+       contains('not included'),
+     );
+   });
+
+   test('Flat-Pack wall fixing is subject to safe assessment', () {
+     final definition = kVanBusinessTemplateLibrary
+         .singleWhere((item) => item.businessTypeId == 'handyman');
+     final service = definition.services.singleWhere(
+       (service) => service.serviceId == 'handyman_flat_pack_assembly',
+     );
+
+     final wallFixingQuestion = service.questions.singleWhere(
+       (question) =>
+           question.libraryId == 'handyman_flat_pack_wall_fixing',
+     );
+     expect(
+       wallFixingQuestion.helperText,
+       contains('subject to the business confirming'),
+     );
+     expect(
+       wallFixingQuestion.helperText,
+       contains('safe drilling location'),
+     );
+   });
+
+    test('No Handyman question implies regulated work is accepted', () {
+      final definition = kVanBusinessTemplateLibrary
+          .singleWhere((item) => item.businessTypeId == 'handyman');
+
+      for (final service in definition.services) {
+        for (final question in service.questions) {
+          if (service.serviceId == 'handyman_minor_home_repairs' &&
+              question.libraryId == 'handyman_minor_repairs_specialist_risk') {
+            continue;
+          }
+          expect(
+            question.text.toLowerCase(),
+            isNot(contains('electrical installation')),
+          );
+          expect(
+            question.text.toLowerCase(),
+            isNot(contains('gas work')),
+          );
+          expect(
+            question.text.toLowerCase(),
+            isNot(contains('boiler')),
+          );
+          expect(
+            question.text.toLowerCase(),
+            isNot(contains('structural alterations')),
+          );
+          expect(
+            question.text.toLowerCase(),
+            isNot(contains('roofing')),
+          );
+          expect(
+            question.text.toLowerCase(),
+            isNot(contains('major plumbing')),
+          );
+        }
+      }
+    });
+
+    test('Existing six curated categories remain unchanged', () {
+      expect(kVanBusinessTemplateLibrary, hasLength(7));
+      expect(findVanStarterCapabilityPackById('courier'), isNotNull);
+      expect(
+        findVanStarterCapabilityPackById('removals_man_with_van'),
+        isNotNull,
+      );
+      expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
+      expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
+      expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
+      expect(findVanStarterCapabilityPackById('handyman'), isNotNull);
+      expect(findVanStarterCapabilityPackById('window_cleaning'), isNotNull);
+    });
+
+    test('Wall Mounting safe drilling and wall condition disclaimers', () {
+      final definition = kVanBusinessTemplateLibrary
+          .singleWhere((item) => item.businessTypeId == 'handyman');
+      final service = definition.services.singleWhere(
+        (service) => service.serviceId == 'handyman_wall_mounting',
+      );
+
+      final wallTypeQuestion = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'handyman_wall_mounting_wall_type',
+      );
+      expect(
+        wallTypeQuestion.helperText,
+        contains('confirm the wall condition'),
+      );
+      expect(
+        wallTypeQuestion.helperText,
+        contains('suitable fixing method before drilling'),
+      );
+
+      final hiddenServicesQuestion = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'handyman_wall_mounting_hidden_services',
+      );
+      expect(
+        hiddenServicesQuestion.helperText,
+        contains('Work may not proceed'),
+      );
+      expect(
+        hiddenServicesQuestion.helperText,
+        contains('safe drilling location cannot be confirmed'),
+      );
+
+      final fixingsExtra = service.extras.singleWhere(
+        (extra) => extra.key == 'custom_extra_handyman_wall_mounting_fixings',
+      );
+      expect(
+        fixingsExtra.label,
+        contains('subject to assessment'),
+      );
+
+      final heavyExtra = service.extras.singleWhere(
+        (extra) => extra.key == 'custom_extra_handyman_wall_mounting_heavy_item',
+      );
+      expect(
+        heavyExtra.label,
+        contains('subject to assessment'),
+      );
+    });
+
+    test('Minor Home Repairs excludes regulated and hazardous work', () {
+      final definition = kVanBusinessTemplateLibrary
+          .singleWhere((item) => item.businessTypeId == 'handyman');
+      final service = definition.services.singleWhere(
+        (service) => service.serviceId == 'handyman_minor_home_repairs',
+      );
+
+      expect(
+        service.description,
+        contains('Electrical, gas, structural, roofing and major plumbing work are not included'),
+      );
+
+      final specialistQuestion = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'handyman_minor_repairs_specialist_risk',
+      );
+      expect(
+        specialistQuestion.helperText,
+        contains('appropriately qualified specialist'),
+      );
+      expect(
+        specialistQuestion.helperText,
+        contains('are not included in this service'),
+      );
+
+      final damageQuestion = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'handyman_minor_repairs_damage_risk',
+      );
+      expect(
+        damageQuestion.helperText,
+        contains('Listing a concern does not mean'),
+      );
+      expect(
+        damageQuestion.helperText,
+        contains('hazardous or structural materials'),
+      );
+
+      final wasteExtra = service.extras.singleWhere(
+        (extra) => extra.key == 'custom_extra_handyman_minor_repairs_small_waste_removal',
+      );
+      expect(
+        wasteExtra.label,
+        contains('non-hazardous'),
+      );
+      expect(
+        wasteExtra.label,
+        isNot(contains('asbestos')),
+      );
+      expect(
+        wasteExtra.label,
+        isNot(contains('licensed')),
+      );
+    });
+  }
