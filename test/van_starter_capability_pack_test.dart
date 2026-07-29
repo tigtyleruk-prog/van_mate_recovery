@@ -9,9 +9,9 @@ import 'package:van_mate_app/features/van_mate/models/van_service_template.dart'
 import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 
 void main() {
-  test('Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services, Handyman and Window Cleaning packs', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(7));
-    expect(kVanStarterCapabilityPacks, hasLength(7));
+  test('Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services, Handyman, Window Cleaning and Photography packs', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(8));
+    expect(kVanStarterCapabilityPacks, hasLength(8));
     expect(kVanServiceTemplateCategories, isEmpty);
     expect(findVanStarterCapabilityPackById('courier'), isNotNull);
     expect(
@@ -1669,8 +1669,8 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
       }
     });
 
-    test('Existing six curated categories remain unchanged', () {
-      expect(kVanBusinessTemplateLibrary, hasLength(7));
+    test('Existing seven curated categories remain unchanged', () {
+      expect(kVanBusinessTemplateLibrary, hasLength(8));
       expect(findVanStarterCapabilityPackById('courier'), isNotNull);
       expect(
         findVanStarterCapabilityPackById('removals_man_with_van'),
@@ -1681,6 +1681,7 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
       expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
       expect(findVanStarterCapabilityPackById('handyman'), isNotNull);
       expect(findVanStarterCapabilityPackById('window_cleaning'), isNotNull);
+      expect(findVanStarterCapabilityPackById('photography'), isNotNull);
     });
 
     test('Wall Mounting safe drilling and wall condition disclaimers', () {
@@ -1787,4 +1788,465 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
         isNot(contains('licensed')),
       );
     });
-  }
+
+  test('Photography pack has stable identity, aliases and two services', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(8));
+    expect(kVanStarterCapabilityPacks, hasLength(8));
+    expect(findVanStarterCapabilityPackById('photography'), isNotNull);
+
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'photography',
+    );
+
+    expect(definition.categoryId, 'photography');
+    expect(definition.categoryName, 'Photography');
+    expect(definition.businessTypeName, 'Photography');
+    expect(definition.iconKey, 'sparkle');
+    expect(definition.colorValue, 0xFFFF6E40);
+    expect(definition.featured, isTrue);
+    expect(
+      definition.searchAliases.map((alias) => alias.label),
+      containsAll(<String>[
+        'Photographer',
+        'Portrait Photography',
+        'Family Photography',
+        'Event Photographer',
+        'Property Photographer',
+        'Product Photographer',
+        'Headshots',
+      ]),
+    );
+    expect(searchVanStarterCapabilityPacks('photographer'), hasLength(1));
+    expect(searchVanStarterCapabilityPacks('portrait photography'), hasLength(1));
+    expect(definition.services.map((service) => service.serviceId), <String>[
+      'photography_family_portrait',
+      'photography_event',
+      'photography_property',
+      'photography_product',
+    ]);
+    expect(
+      definition.services.every((service) => service.questions.isEmpty),
+      isFalse,
+    );
+  });
+
+  test('Photography services use one-address standard quote journeys', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'photography')
+        .services;
+
+    for (final service in services) {
+      expect(service.customerJourney, VanCustomerJourneyType.quote);
+      expect(service.requestType, VanCustomerRequestType.quoteRequest);
+      expect(service.startHandover, isNull);
+      expect(service.endHandover, isNull);
+      expect(service.requireAddress, isTrue);
+      expect(service.requestPhotos, isTrue);
+      expect(service.requestFlowOptions.askPreferredDate, isTrue);
+      expect(service.requestFlowOptions.askPreferredTime, isTrue);
+      expect(service.requestFlowOptions.showPickupAddress, isFalse);
+      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+      expect(service.requestFlowOptions.showDropOffDate, isFalse);
+      expect(service.requestFlowOptions.showDropOffTime, isFalse);
+      expect(service.requestFlowOptions.showPickUpDate, isFalse);
+      expect(service.requestFlowOptions.showPickUpTime, isFalse);
+      expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+      expect(service.requestFlowOptions.showNotes, isFalse);
+      expect(
+        service.builtInQuestionKeys,
+        containsAll(<String>[
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        ]),
+      );
+      for (final key in <String>[
+        'address',
+        'preferred_date',
+        'preferred_time',
+        'phone',
+      ]) {
+        expect(
+          service.builtInQuestionSettings[key]?['required'],
+          isTrue,
+          reason: '${service.serviceId} should require $key',
+        );
+      }
+      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+    }
+
+    final family = services.singleWhere(
+      (service) => service.serviceId == 'photography_family_portrait',
+    );
+    expect(family.suggestedDurationMinutes, 90);
+    expect(family.suggestedNoticeHours, 48);
+    expect(family.maximumBookingsPerDay, 3);
+    expect(family.availability.length, 6);
+    expect(family.availability.every((day) => day.day <= 6), isTrue);
+    expect(
+      family.availability.every(
+        (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+      ),
+      isTrue,
+    );
+
+    final event = services.singleWhere(
+      (service) => service.serviceId == 'photography_event',
+    );
+    expect(event.suggestedDurationMinutes, 180);
+    expect(event.suggestedNoticeHours, 72);
+    expect(event.maximumBookingsPerDay, 2);
+    expect(event.availability.length, 7);
+    expect(event.availability.every((day) => day.day >= 1 && day.day <= 7), isTrue);
+    expect(
+      event.availability.every(
+        (day) => day.startMinutes == 420 && day.endMinutes == 1200,
+      ),
+      isTrue,
+    );
+  });
+
+  test('Photography questions and extras are explicit, unique and safe', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((definition) => definition.businessTypeId == 'photography')
+        .services;
+    final questions = services
+        .expand((service) => service.questions)
+        .toList(growable: false);
+    final extras = services
+        .expand((service) => service.extras)
+        .toList(growable: false);
+    final forbiddenCustomPrompts = <String>{
+      'customer name',
+      'phone',
+      'phone number',
+      'email',
+      'email address',
+      'address',
+      'postcode',
+      'booking date',
+      'booking time',
+      'preferred date',
+      'preferred time',
+    };
+
+    expect(questions.map((question) => question.libraryId).toSet(), hasLength(46));
+    expect(
+      questions.map((question) => question.text.trim().toLowerCase())
+          .toSet()
+          .intersection(forbiddenCustomPrompts),
+      isEmpty,
+    );
+    expect(extras.map((extra) => extra.key).toSet(), hasLength(20));
+    expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
+    expect(extras.every((extra) => extra.defaultChargeUnit == 'Fixed'), isTrue);
+    expect(
+      extras.every(
+        (extra) =>
+            !RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
+      ),
+      isTrue,
+    );
+
+    final family = services.singleWhere(
+      (service) => service.serviceId == 'photography_family_portrait',
+    );
+    expect(family.questions, hasLength(11));
+    expect(family.extras, hasLength(5));
+
+    final event = services.singleWhere(
+      (service) => service.serviceId == 'photography_event',
+    );
+    expect(event.questions, hasLength(12));
+    expect(event.extras, hasLength(5));
+
+    final property = services.singleWhere(
+      (service) => service.serviceId == 'photography_property',
+    );
+    expect(property.questions, hasLength(11));
+    expect(property.extras, hasLength(5));
+
+    final product = services.singleWhere(
+      (service) => service.serviceId == 'photography_product',
+    );
+    expect(product.questions, hasLength(12));
+    expect(product.extras, hasLength(5));
+  });
+
+  test('Family & Portrait Photography content is safe and explicit', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'photography');
+    final service = definition.services.singleWhere(
+      (service) => service.serviceId == 'photography_family_portrait',
+    );
+
+    final childrenQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_family_portrait_children',
+    );
+    expect(
+      childrenQuestion.helperText,
+      contains('This does not grant permission for marketing or public use'),
+    );
+
+    final imageQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_family_portrait_image_requirements',
+    );
+    expect(
+      imageQuestion.helperText,
+      contains('Do not imply copyright transfer'),
+    );
+  });
+
+  test('Event Photography content is safe and explicit', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'photography');
+    final service = definition.services.singleWhere(
+      (service) => service.serviceId == 'photography_event',
+    );
+
+    final restrictionQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_event_venue_restrictions',
+    );
+    expect(
+      restrictionQuestion.helperText,
+      contains('The photographer is not automatically responsible for arranging them'),
+    );
+
+    final coverageQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_event_coverage_duration',
+    );
+    expect(coverageQuestion.helperText, contains('request only'));
+    expect(coverageQuestion.helperText, contains('confirm coverage and pricing'));
+
+    final imageUseQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_event_image_use',
+    );
+    expect(
+      imageUseQuestion.helperText,
+      contains('This question does not transfer copyright'),
+    );
+
+    final allQuestionIds = service.questions.map((q) => q.libraryId).toSet();
+    expect(allQuestionIds, isNot(contains('photography_event_drone')));
+    expect(allQuestionIds, isNot(contains('drone')));
+  });
+
+  test('Photography services have no drone photography', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'photography');
+
+    for (final service in definition.services) {
+      expect(
+        service.questions.every(
+          (question) => !question.libraryId.toLowerCase().contains('drone'),
+        ),
+        isTrue,
+        reason: '${service.serviceId} must not contain drone questions',
+      );
+      expect(
+        service.extras.every(
+          (extra) => !extra.key.toLowerCase().contains('drone'),
+        ),
+        isTrue,
+        reason: '${service.serviceId} must not contain drone extras',
+      );
+      expect(
+        service.extras.every(
+          (extra) => !extra.label.toLowerCase().contains('drone'),
+        ),
+        isTrue,
+        reason: '${service.serviceId} must not contain drone extra labels',
+      );
+    }
+  });
+
+  test('Property Photography content is safe and explicit', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'photography');
+    final service = definition.services.singleWhere(
+      (service) => service.serviceId == 'photography_property',
+    );
+
+    final readinessQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_property_readiness',
+    );
+    expect(
+      readinessQuestion.helperText,
+      contains('The photographer is not automatically responsible for cleaning'),
+    );
+
+    final accessQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_property_access_restrictions',
+    );
+    expect(
+      accessQuestion.helperText,
+      contains('The photographer may decline areas that cannot be accessed safely'),
+    );
+
+    final parkingQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_property_parking_access',
+    );
+    expect(
+      parkingQuestion.helperText,
+      contains('Do not provide alarm, door or key-safe codes publicly'),
+    );
+
+    final allQuestionIds = service.questions.map((q) => q.libraryId).toSet();
+    expect(allQuestionIds, isNot(contains('photography_property_drone')));
+    expect(allQuestionIds, isNot(contains('drone')));
+    expect(allQuestionIds, isNot(contains('floor plan')));
+    expect(allQuestionIds, isNot(contains('virtual tour')));
+    expect(allQuestionIds, isNot(contains('valuation')));
+    expect(allQuestionIds, isNot(contains('epc')));
+  });
+
+  test('Product Photography content is safe and explicit', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'photography');
+    final service = definition.services.singleWhere(
+      (service) => service.serviceId == 'photography_product',
+    );
+
+    final handlingQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_product_fragile_value',
+    );
+    expect(
+      handlingQuestion.helperText,
+      contains('Listing an item does not confirm that the photographer can accept'),
+    );
+
+    final intendedUseQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_product_intended_use',
+    );
+    expect(
+      intendedUseQuestion.helperText,
+      contains('This question does not transfer copyright'),
+    );
+
+    final editingQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'photography_product_editing_requirements',
+    );
+    expect(
+      editingQuestion.helperText,
+      contains('Do not guarantee exact colour reproduction'),
+    );
+
+    final allQuestionIds = service.questions.map((q) => q.libraryId).toSet();
+    expect(allQuestionIds, isNot(contains('photography_product_drone')));
+    expect(allQuestionIds, isNot(contains('drone')));
+    expect(allQuestionIds, isNot(contains('collection')));
+    expect(allQuestionIds, isNot(contains('delivery')));
+    expect(allQuestionIds, isNot(contains('storage')));
+    expect(allQuestionIds, isNot(contains('insurance')));
+  });
+
+  test('Property and Product Photography use standard one-address quote flows', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'photography');
+
+    for (final service in definition.services) {
+      expect(service.customerJourney, VanCustomerJourneyType.quote);
+      expect(service.requestType, VanCustomerRequestType.quoteRequest);
+      expect(service.startHandover, isNull);
+      expect(service.endHandover, isNull);
+      expect(service.requireAddress, isTrue);
+      expect(service.requestPhotos, isTrue);
+      expect(service.requestFlowOptions.askPreferredDate, isTrue);
+      expect(service.requestFlowOptions.askPreferredTime, isTrue);
+      expect(service.requestFlowOptions.showPickupAddress, isFalse);
+      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+      expect(service.requestFlowOptions.showDropOffDate, isFalse);
+      expect(service.requestFlowOptions.showDropOffTime, isFalse);
+      expect(service.requestFlowOptions.showPickUpDate, isFalse);
+      expect(service.requestFlowOptions.showPickUpTime, isFalse);
+      expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+      expect(service.requestFlowOptions.showNotes, isFalse);
+      expect(
+        service.builtInQuestionKeys,
+        containsAll(<String>[
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        ]),
+      );
+      for (final key in <String>[
+        'address',
+        'preferred_date',
+        'preferred_time',
+        'phone',
+      ]) {
+        expect(
+          service.builtInQuestionSettings[key]?['required'],
+          isTrue,
+          reason: '${service.serviceId} should require $key',
+        );
+      }
+      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+    }
+  });
+
+  test('Property and Product Photography extras are pricing modifiers only', () {
+    final definition = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'photography');
+
+    for (final service in definition.services) {
+      for (final extra in service.extras) {
+        expect(extra.defaultPrice, equals(0));
+        expect(extra.defaultChargeUnit, equals('Fixed'));
+        expect(
+          RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
+          isFalse,
+        );
+      }
+    }
+
+    final property = definition.services.singleWhere(
+      (service) => service.serviceId == 'photography_property',
+    );
+    final propertyExtraKeys = property.extras.map((e) => e.key).toSet();
+    expect(
+      propertyExtraKeys,
+      containsAll(<String>[
+        'custom_extra_photography_property_additional_rooms',
+        'custom_extra_photography_property_exterior_garden',
+        'custom_extra_photography_property_twilight_session',
+        'custom_extra_photography_property_additional_property',
+        'custom_extra_photography_property_express_editing',
+      ]),
+    );
+
+    final product = definition.services.singleWhere(
+      (service) => service.serviceId == 'photography_product',
+    );
+    final productExtraKeys = product.extras.map((e) => e.key).toSet();
+    expect(
+      productExtraKeys,
+      containsAll(<String>[
+        'custom_extra_photography_product_additional_product',
+        'custom_extra_photography_product_additional_image',
+        'custom_extra_photography_product_background_removal',
+        'custom_extra_photography_product_lifestyle_setup',
+        'custom_extra_photography_product_express_editing',
+      ]),
+    );
+  });
+}
