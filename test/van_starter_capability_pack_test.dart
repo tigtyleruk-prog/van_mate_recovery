@@ -9,9 +9,9 @@ import 'package:van_mate_app/features/van_mate/models/van_service_template.dart'
 import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 
 void main() {
-  test('Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services, Handyman, Window Cleaning and Photography packs', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(8));
-    expect(kVanStarterCapabilityPacks, hasLength(8));
+  test('Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services, Handyman, Window Cleaning, Photography and Bakery packs', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(9));
+    expect(kVanStarterCapabilityPacks, hasLength(9));
     expect(kVanServiceTemplateCategories, isEmpty);
     expect(findVanStarterCapabilityPackById('courier'), isNotNull);
     expect(
@@ -1669,8 +1669,8 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
       }
     });
 
-    test('Existing seven curated categories remain unchanged', () {
-      expect(kVanBusinessTemplateLibrary, hasLength(8));
+    test('Existing eight curated categories remain unchanged', () {
+      expect(kVanBusinessTemplateLibrary, hasLength(9));
       expect(findVanStarterCapabilityPackById('courier'), isNotNull);
       expect(
         findVanStarterCapabilityPackById('removals_man_with_van'),
@@ -1790,8 +1790,8 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
     });
 
   test('Photography pack has stable identity, aliases and two services', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(8));
-    expect(kVanStarterCapabilityPacks, hasLength(8));
+    expect(kVanBusinessTemplateLibrary, hasLength(9));
+    expect(kVanStarterCapabilityPacks, hasLength(9));
     expect(findVanStarterCapabilityPackById('photography'), isNotNull);
 
     final definition = kVanBusinessTemplateLibrary.singleWhere(
@@ -2248,5 +2248,284 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
         'custom_extra_photography_product_express_editing',
       ]),
     );
+  });
+
+  test('Bakery pack has stable identity and four order services', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(9));
+    expect(kVanStarterCapabilityPacks, hasLength(9));
+    expect(findVanStarterCapabilityPackById('bakery'), isNotNull);
+
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'bakery',
+    );
+
+    expect(definition.categoryId, 'bakery');
+    expect(definition.categoryName, 'Cake & Bakery Orders');
+    expect(definition.businessTypeId, 'bakery');
+    expect(definition.businessTypeName, 'Cake & Bakery Orders');
+    expect(
+      definition.description,
+      'Made-to-order cakes, cupcakes, traybakes and event bakes for collection or delivery.',
+    );
+    expect(definition.iconKey, 'sparkle');
+    expect(definition.colorValue, 0xFF9C27B0);
+    expect(definition.featured, isTrue);
+    expect(
+      definition.searchKeywords,
+      containsAll(<String>[
+        'bakery',
+        'cake shop',
+        'celebration cake',
+        'cupcakes',
+        'treat boxes',
+        'brownies',
+        'traybakes',
+        'dessert boxes',
+        'custom cakes',
+        'event bakes',
+      ]),
+    );
+    expect(
+      definition.searchAliases.map((alias) => alias.label),
+      containsAll(<String>[
+        'Celebration Cakes',
+        'Cupcakes',
+        'Treat Boxes',
+        'Brownies',
+        'Dessert Boxes',
+        'Corporate Bakes',
+      ]),
+    );
+    expect(definition.services.map((service) => service.serviceId), <String>[
+      'bakery_celebration_cakes',
+      'bakery_cupcakes_treat_boxes',
+      'bakery_brownies_traybakes',
+      'bakery_custom_event_business_bakes',
+    ]);
+  });
+
+  test('Bakery services use the shared Order Request fulfilment flow', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'bakery')
+        .services;
+
+    for (final service in services) {
+      expect(service.customerJourney, VanCustomerJourneyType.order);
+      expect(service.requestType, VanCustomerRequestType.orderRequest);
+      expect(service.requestFlowOptions.showFulfilmentChoice, isTrue);
+      expect(service.requireAddress, isFalse);
+      expect(service.requestFlowOptions.askPreferredDate, isTrue);
+      expect(service.requestFlowOptions.askPreferredTime, isTrue);
+      expect(service.requestFlowOptions.showNotes, isTrue);
+      expect(service.requestPhotos, isTrue);
+      expect(service.startHandover, isNull);
+      expect(service.endHandover, isNull);
+      expect(service.requestFlowOptions.showPickupAddress, isFalse);
+      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+      expect(service.requestFlowOptions.showDropOffDate, isFalse);
+      expect(service.requestFlowOptions.showDropOffTime, isFalse);
+      expect(service.requestFlowOptions.showPickUpDate, isFalse);
+      expect(service.requestFlowOptions.showPickUpTime, isFalse);
+      expect(
+        service.builtInQuestionKeys,
+        containsAll(<String>[
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        ]),
+      );
+      expect(service.builtInQuestionSettings['phone']?['required'], isTrue);
+      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+      expect(
+        service.builtInQuestionSettings['preferred_date']?['required'],
+        isTrue,
+      );
+      expect(
+        service.builtInQuestionSettings['preferred_time']?['required'],
+        isTrue,
+      );
+      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+    }
+  });
+
+  test('Bakery services have final question and extra counts', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'bakery')
+        .services;
+
+    expect(services, hasLength(4));
+    expect(
+      services.map((service) => service.questions.length),
+      everyElement(12),
+    );
+    expect(services.map((service) => service.extras.length), everyElement(5));
+    expect(
+      services.expand((service) => service.questions).map((q) => q.libraryId),
+      hasLength(48),
+    );
+    expect(
+      services.expand((service) => service.extras).map((extra) => extra.key),
+      hasLength(20),
+    );
+
+    final questionIds = services
+        .expand((service) => service.questions)
+        .map((question) => question.libraryId)
+        .toSet();
+    expect(questionIds, hasLength(48));
+    expect(
+      questionIds,
+      containsAll(<String>[
+        'bakery_celebration_cakes_occasion',
+        'bakery_celebration_cakes_servings',
+        'bakery_celebration_cakes_size_tiers',
+        'bakery_celebration_cakes_sponge_flavour',
+        'bakery_celebration_cakes_filling',
+        'bakery_celebration_cakes_finish',
+        'bakery_celebration_cakes_design_brief',
+        'bakery_celebration_cakes_message',
+        'bakery_celebration_cakes_decorations',
+        'bakery_celebration_cakes_setup',
+        'bakery_celebration_cakes_allergy_declaration',
+        'bakery_celebration_cakes_allergy_details',
+        'bakery_cupcakes_treat_boxes_occasion',
+        'bakery_cupcakes_treat_boxes_product_type',
+        'bakery_cupcakes_treat_boxes_quantity',
+        'bakery_cupcakes_treat_boxes_packaging',
+        'bakery_cupcakes_treat_boxes_main_flavour',
+        'bakery_cupcakes_treat_boxes_flavour_details',
+        'bakery_cupcakes_treat_boxes_design_style',
+        'bakery_cupcakes_treat_boxes_theme_colours',
+        'bakery_cupcakes_treat_boxes_personalisation',
+        'bakery_cupcakes_treat_boxes_individual_distribution',
+        'bakery_cupcakes_treat_boxes_allergy_declaration',
+        'bakery_cupcakes_treat_boxes_allergy_details',
+        'bakery_brownies_traybakes_product_type',
+        'bakery_brownies_traybakes_occasion',
+        'bakery_brownies_traybakes_portion_count',
+        'bakery_brownies_traybakes_portion_format',
+        'bakery_brownies_traybakes_main_flavour',
+        'bakery_brownies_traybakes_flavour_details',
+        'bakery_brownies_traybakes_toppings_fillings',
+        'bakery_brownies_traybakes_packaging',
+        'bakery_brownies_traybakes_personalised_message',
+        'bakery_brownies_traybakes_serving_storage',
+        'bakery_brownies_traybakes_allergy_declaration',
+        'bakery_brownies_traybakes_allergy_details',
+        'bakery_custom_event_business_bakes_purpose',
+        'bakery_custom_event_business_bakes_product_types',
+        'bakery_custom_event_business_bakes_quantity',
+        'bakery_custom_event_business_bakes_serving_format',
+        'bakery_custom_event_business_bakes_branding',
+        'bakery_custom_event_business_bakes_design_brief',
+        'bakery_custom_event_business_bakes_individual_wrapping',
+        'bakery_custom_event_business_bakes_packaging_display',
+        'bakery_custom_event_business_bakes_setup_access',
+        'bakery_custom_event_business_bakes_image_use',
+        'bakery_custom_event_business_bakes_allergy_declaration',
+        'bakery_custom_event_business_bakes_allergy_details',
+      ]),
+    );
+
+    final extraKeys = services
+        .expand((service) => service.extras)
+        .map((extra) => extra.key)
+        .toSet();
+    expect(extraKeys, hasLength(20));
+    expect(
+      extraKeys,
+      containsAll(<String>[
+        'custom_extra_bakery_celebration_cakes_additional_servings',
+        'custom_extra_bakery_celebration_cakes_additional_tier',
+        'custom_extra_bakery_celebration_cakes_handmade_topper',
+        'custom_extra_bakery_celebration_cakes_premium_decoration',
+        'custom_extra_bakery_celebration_cakes_venue_setup',
+        'custom_extra_bakery_cupcakes_treat_boxes_additional_dozen',
+        'custom_extra_bakery_cupcakes_treat_boxes_mixed_flavours',
+        'custom_extra_bakery_cupcakes_treat_boxes_personalised_toppers',
+        'custom_extra_bakery_cupcakes_treat_boxes_individual_wrapping',
+        'custom_extra_bakery_cupcakes_treat_boxes_presentation_box',
+        'custom_extra_bakery_brownies_traybakes_additional_portions',
+        'custom_extra_bakery_brownies_traybakes_mixed_flavours',
+        'custom_extra_bakery_brownies_traybakes_premium_toppings',
+        'custom_extra_bakery_brownies_traybakes_personalised_message',
+        'custom_extra_bakery_brownies_traybakes_gift_packaging',
+        'custom_extra_bakery_custom_event_business_bakes_additional_quantity',
+        'custom_extra_bakery_custom_event_business_bakes_individual_wrapping',
+        'custom_extra_bakery_custom_event_business_bakes_edible_logo',
+        'custom_extra_bakery_custom_event_business_bakes_display_packaging',
+        'custom_extra_bakery_custom_event_business_bakes_venue_setup',
+      ]),
+    );
+  });
+
+  test('Bakery custom questions do not duplicate built-in fields or fulfilment extras', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'bakery')
+        .services;
+    final forbiddenQuestionTerms = <String>[
+      'collection or delivery',
+      'delivery address',
+      'preferred date',
+      'preferred time',
+      'phone',
+      'email',
+      'order notes',
+      'photo upload',
+    ];
+
+    for (final service in services) {
+      for (final question in service.questions) {
+        final text = question.text.toLowerCase();
+        for (final term in forbiddenQuestionTerms) {
+          expect(text, isNot(contains(term)));
+        }
+      }
+      expect(
+        service.extras.map((extra) => extra.label.toLowerCase()),
+        isNot(contains('collection')),
+      );
+      expect(
+        service.extras.map((extra) => extra.label.toLowerCase()),
+        isNot(contains('delivery')),
+      );
+    }
+  });
+
+  test('Bakery safety helpers keep allergen, copyright and logistics promises bounded', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'bakery')
+        .services;
+    const allergenSafeguards = <String>[
+      'does not guarantee that the business can accept the order',
+      'do not guarantee an allergen-free environment',
+      'Cross-contamination risks must be discussed directly',
+      'confirm whether it can fulfil the request safely',
+    ];
+
+    for (final service in services) {
+      final allText = <String>[
+        service.description,
+        service.suggestedCustomerMessage,
+        for (final question in service.questions) question.text,
+        for (final question in service.questions) question.helperText,
+        for (final extra in service.extras) extra.label,
+      ].join(' ');
+
+      final allergyDetails = service.questions.singleWhere(
+        (question) => question.libraryId.endsWith('_allergy_details'),
+      );
+      for (final safeguard in allergenSafeguards) {
+        expect(allergyDetails.helperText, contains(safeguard));
+      }
+      expect(allText, isNot(contains('allergen-free production')));
+      expect(allText, isNot(contains('licensed-character permission')));
+      expect(allText, isNot(contains('exact colour matching is guaranteed')));
+      expect(allText, isNot(contains('refrigerated transport is included')));
+      expect(allText, isNot(contains('national shipping is included')));
+      expect(allText, isNot(contains('venue setup is included')));
+    }
   });
 }

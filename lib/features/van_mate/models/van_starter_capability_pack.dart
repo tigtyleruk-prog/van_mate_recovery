@@ -353,6 +353,933 @@ const List<VanTemplateDayAvailability> _photographyEventAvailability =
   VanTemplateDayAvailability(day: 7, startMinutes: 420, endMinutes: 1200),
 ];
 
+const VanCustomerRequestFlowOptions _bakeryStandardOrderFlow =
+    VanCustomerRequestFlowOptions(
+  showFulfilmentChoice: true,
+  askPreferredDate: true,
+  askPreferredTime: true,
+  showPickupAddress: false,
+  showDeliveryAddress: false,
+  showDropOffDate: false,
+  showDropOffTime: false,
+  showPickUpDate: false,
+  showPickUpTime: false,
+  showNotes: true,
+);
+
+const List<VanTemplateDayAvailability> _bakeryMondayToSaturday =
+    <VanTemplateDayAvailability>[
+  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1020),
+  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1020),
+  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1020),
+  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1020),
+  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1020),
+  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1020),
+];
+
+const String _bakeryAllergenHelperText =
+    'Declaring an allergy or dietary requirement does not guarantee that the business can accept the order. Free-from ingredients do not guarantee an allergen-free environment. Cross-contamination risks must be discussed directly with the business, which must confirm whether it can fulfil the request safely.';
+
+const String _bakeryDesignHelperText =
+    'Inspiration images and colour preferences are guides only. Exact copying, licensed-character availability and exact colour matching are not guaranteed.';
+
+const String _bakeryPhotoHelperText =
+    'Optional reference images can show the design, theme, colours or presentation style you prefer. Only upload images you are permitted to share.';
+
+const Set<String> _bakeryBuiltInQuestionKeys = <String>{
+  'phone',
+  'email',
+  'preferred_date',
+  'preferred_time',
+  'photos',
+};
+
+const Map<String, Map<String, dynamic>> _bakeryBuiltInQuestionSettings =
+    <String, Map<String, dynamic>>{
+  'phone': <String, dynamic>{'required': true, 'helperText': ''},
+  'email': <String, dynamic>{'required': false, 'helperText': ''},
+  'preferred_date': <String, dynamic>{
+    'required': true,
+    'helperText': 'Choose your preferred date.',
+  },
+  'preferred_time': <String, dynamic>{
+    'required': true,
+    'helperText': 'Choose your preferred time.',
+  },
+  'photos': <String, dynamic>{
+    'required': false,
+    'helperText': _bakeryPhotoHelperText,
+  },
+};
+
+const List<String> _bakeryFeatureIds = <String>[
+  VanServiceCapabilityIds.booking,
+  VanServiceCapabilityIds.placeOrder,
+  VanServiceCapabilityIds.preOrder,
+  VanServiceCapabilityIds.customQuote,
+  VanServiceCapabilityIds.estimatedDuration,
+  VanServiceCapabilityIds.leadTime,
+  VanServiceCapabilityIds.photoUpload,
+];
+
+const List<String> _bakeryBookingOptionIds = <String>[
+  VanServiceCapabilityIds.booking,
+  VanServiceCapabilityIds.placeOrder,
+];
+
+const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
+    <VanBusinessTemplateDefinition>[
+  VanBusinessTemplateDefinition(
+    categoryId: 'bakery',
+    categoryName: 'Cake & Bakery Orders',
+    businessTypeId: 'bakery',
+    businessTypeName: 'Cake & Bakery Orders',
+    description:
+        'Made-to-order cakes, cupcakes, traybakes and event bakes for collection or delivery.',
+    iconKey: 'sparkle',
+    colorValue: 0xFF9C27B0,
+    featured: true,
+    searchKeywords: <String>[
+      'bakery',
+      'cake shop',
+      'celebration cake',
+      'cupcakes',
+      'treat boxes',
+      'brownies',
+      'traybakes',
+      'dessert boxes',
+      'custom cakes',
+      'event bakes',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Celebration Cakes'),
+      VanBusinessSearchAlias('Cupcakes'),
+      VanBusinessSearchAlias('Treat Boxes'),
+      VanBusinessSearchAlias('Brownies'),
+      VanBusinessSearchAlias('Dessert Boxes'),
+      VanBusinessSearchAlias('Corporate Bakes'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'bakery_celebration_cakes',
+        name: 'Celebration Cakes',
+        description:
+            'Made-to-order celebration cakes, with servings, flavours, design, allergens and collection or delivery requirements confirmed before the order is accepted.',
+        featureIds: _bakeryFeatureIds,
+        bookingOptionIds: _bakeryBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.order,
+        requestType: VanCustomerRequestType.orderRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _bakeryStandardOrderFlow,
+        builtInQuestionKeys: _bakeryBuiltInQuestionKeys,
+        builtInQuestionSettings: _bakeryBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_occasion',
+            text: 'What is the cake for?',
+            helperText:
+                'Wedding cakes and large event cakes may require a separate consultation and additional notice.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            choiceOptions: <String>[
+              'Birthday',
+              'Anniversary',
+              'Baby shower or new baby',
+              'Graduation',
+              'Engagement',
+              'Wedding enquiry',
+              'Business or community event',
+              'Other',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_servings',
+            text: 'Approximately how many servings are required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Up to 10',
+              '11 to 20',
+              '21 to 40',
+              '41 to 60',
+              '61 to 100',
+              'More than 100',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_size_tiers',
+            text: 'What size or style of cake are you considering?',
+            helperText:
+                'Final size and tier structure depend on servings, design and safe transport.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Single-tier cake',
+              'Tall single-tier cake',
+              'Two-tier cake',
+              'Three or more tiers',
+              'Shaped or novelty cake',
+              'Cake and cupcake combination',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_sponge_flavour',
+            text: 'What main sponge flavour would you prefer?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Vanilla',
+              'Chocolate',
+              'Lemon',
+              'Red velvet',
+              'Carrot',
+              'Fruit cake',
+              'Other or mixed flavours',
+              'Please advise',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_filling',
+            text: 'What filling would you prefer?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Buttercream',
+              'Jam and buttercream',
+              'Chocolate filling',
+              'Ganache',
+              'Fruit filling',
+              'Other or mixed fillings',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_finish',
+            text: 'What type of finish would you prefer?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Buttercream',
+              'Fondant',
+              'Ganache',
+              'Naked or semi-naked',
+              'Textured finish',
+              'Other',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_design_brief',
+            text: 'Describe the theme, design and colours you have in mind',
+            helperText: _bakeryDesignHelperText,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.photos,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_message',
+            text: 'What personalised message should appear on the cake?',
+            helperText:
+                'Check the spelling carefully. The business will confirm whether the message fits the selected design.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.shortText,
+            category: VanCustomQuestionCategory.generalNotes,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_decorations',
+            text: 'What decorations or toppers are required?',
+            helperText:
+                'Branded logos, characters, flowers and customer-supplied decorations are subject to permission, suitability and agreement.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'No topper required',
+              'Customer will supply a topper',
+              'Simple personalised topper',
+              'Handmade decoration',
+              'Edible image or logo',
+              'Flowers or other decorations',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_setup',
+            text: 'Is venue delivery or cake setup likely to be required?',
+            helperText:
+                'This records the expected handling requirement only. Use the Collection or Delivery choice above for fulfilment. Venue setup is not included unless separately agreed.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.delivery,
+            choiceOptions: <String>[
+              'No',
+              'Delivery only',
+              'Delivery and setup',
+              'Customer will collect',
+              'Unsure',
+              'Please advise',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_allergy_declaration',
+            text:
+                'Do you need to declare any allergies, intolerances or dietary requirements?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_celebration_cakes_allergy_details',
+            text:
+                'List any ingredients that must be avoided and describe the requirement',
+            helperText: _bakeryAllergenHelperText,
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_celebration_cakes_additional_servings',
+            label: 'Additional servings',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_celebration_cakes_additional_tier',
+            label: 'Additional cake tier',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_celebration_cakes_handmade_topper',
+            label: 'Handmade topper',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_celebration_cakes_premium_decoration',
+            label: 'Premium decoration',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_celebration_cakes_venue_setup',
+            label: 'Venue setup, subject to agreement',
+          ),
+        ],
+        availability: _bakeryMondayToSaturday,
+        suggestedDurationMinutes: 60,
+        suggestedNoticeHours: 168,
+        maximumBookingsPerDay: 2,
+        requestPhotos: true,
+        requireAddress: false,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the cake style, servings, date and fulfilment preference. The bakery will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'bakery_cupcakes_treat_boxes',
+        name: 'Cupcakes & Treat Boxes',
+        description:
+            'Made-to-order cupcakes and treat boxes, with quantities, flavours, presentation, allergens and collection or delivery confirmed before acceptance.',
+        featureIds: _bakeryFeatureIds,
+        bookingOptionIds: _bakeryBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.order,
+        requestType: VanCustomerRequestType.orderRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _bakeryStandardOrderFlow,
+        builtInQuestionKeys: _bakeryBuiltInQuestionKeys,
+        builtInQuestionSettings: _bakeryBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_occasion',
+            text: 'What are the cupcakes or treats for?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            choiceOptions: <String>[
+              'Birthday or celebration',
+              'Gift',
+              'Baby shower',
+              'Wedding or engagement',
+              'School or community event',
+              'Business or promotional event',
+              'General order',
+              'Other',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_product_type',
+            text: 'What would you mainly like to order?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: <String>[
+              'Standard cupcakes',
+              'Mini cupcakes',
+              'Filled cupcakes',
+              'Mixed treat box',
+              'Cupcakes and other treats',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_quantity',
+            text: 'Approximately how many items are required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Up to 6',
+              '7 to 12',
+              '13 to 24',
+              '25 to 48',
+              '49 to 100',
+              'More than 100',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_packaging',
+            text: 'How should the order be packaged?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.packing,
+            choiceOptions: <String>[
+              'One presentation box',
+              'Several presentation boxes',
+              'Individual boxes',
+              'Individually wrapped',
+              'Standard transport packaging',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_main_flavour',
+            text: 'What main flavour would you prefer?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Vanilla',
+              'Chocolate',
+              'Lemon',
+              'Red velvet',
+              'Carrot',
+              'Mixed flavours',
+              'Other',
+              'Please advise',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_flavour_details',
+            text: 'List any additional flavours or mixed-box combinations',
+            helperText:
+                'Multiple flavours are requests only and depend on the order quantity and business availability.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_design_style',
+            text: 'How should the items be decorated?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.photos,
+            choiceOptions: <String>[
+              'Matching simple design',
+              'Matching themed design',
+              'Mixed coordinated designs',
+              'Business or branded design',
+              'Minimal decoration',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_theme_colours',
+            text: 'Describe the theme and colour preferences',
+            helperText: _bakeryDesignHelperText,
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.photos,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_personalisation',
+            text: 'Describe any names, messages, toppers or logos required',
+            helperText:
+                'Customers should only provide logos or branding they are authorised to use. The business will confirm what can be reproduced.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId:
+                'bakery_cupcakes_treat_boxes_individual_distribution',
+            text: 'Will the items be handed out individually?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.collectionDelivery,
+            choiceOptions: <String>[
+              'No',
+              'Yes, individual wrapping required',
+              'Yes, individual boxes required',
+              'Unsure',
+              'Please advise',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_allergy_declaration',
+            text:
+                'Do you need to declare any allergies, intolerances or dietary requirements?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_cupcakes_treat_boxes_allergy_details',
+            text:
+                'List any ingredients that must be avoided and describe the requirement',
+            helperText: _bakeryAllergenHelperText,
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_cupcakes_treat_boxes_additional_dozen',
+            label: 'Additional dozen cupcakes',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_cupcakes_treat_boxes_mixed_flavours',
+            label: 'Mixed-flavour selection',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_bakery_cupcakes_treat_boxes_personalised_toppers',
+            label: 'Personalised toppers',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_cupcakes_treat_boxes_individual_wrapping',
+            label: 'Individual wrapping',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_cupcakes_treat_boxes_presentation_box',
+            label: 'Premium presentation box',
+          ),
+        ],
+        availability: _bakeryMondayToSaturday,
+        suggestedDurationMinutes: 30,
+        suggestedNoticeHours: 72,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: false,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Tell us the item type, quantity, flavours, presentation and fulfilment preference. The bakery will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'bakery_brownies_traybakes',
+        name: 'Brownies, Traybakes & Dessert Boxes',
+        description:
+            'Made-to-order brownies, traybakes and dessert boxes, with portions, flavours, presentation, allergens and collection or delivery confirmed before acceptance.',
+        featureIds: _bakeryFeatureIds,
+        bookingOptionIds: _bakeryBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.order,
+        requestType: VanCustomerRequestType.orderRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _bakeryStandardOrderFlow,
+        builtInQuestionKeys: _bakeryBuiltInQuestionKeys,
+        builtInQuestionSettings: _bakeryBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_product_type',
+            text: 'What would you mainly like to order?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: <String>[
+              'Brownies',
+              'Blondies',
+              'Cookie bars',
+              'Traybake slices',
+              'Dessert box',
+              'Mixed selection',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_occasion',
+            text: 'What is the order for?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            choiceOptions: <String>[
+              'Birthday or celebration',
+              'Gift',
+              'Workplace treat',
+              'Party or event',
+              'General order',
+              'Other',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_portion_count',
+            text: 'Approximately how many portions are required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Up to 6',
+              '7 to 12',
+              '13 to 24',
+              '25 to 48',
+              '49 to 100',
+              'More than 100',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_portion_format',
+            text: 'How should the portions be supplied?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.packing,
+            choiceOptions: <String>[
+              'Whole tray',
+              'Pre-cut portions',
+              'Mixed dessert box',
+              'Individual portions',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_main_flavour',
+            text: 'What main flavour would you prefer?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Chocolate brownie',
+              'Blondie',
+              'Cookie dough',
+              'Caramel',
+              'Biscoff-style',
+              'Mixed flavours',
+              'Other',
+              'Please advise',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_flavour_details',
+            text: 'List any mixed flavours or flavour requests',
+            helperText:
+                'Mixed flavours are requests only and depend on quantity, notice and business availability.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_toppings_fillings',
+            text: 'What toppings or fillings would you like?',
+            helperText:
+                'Premium toppings, fillings and branded items are subject to agreement and availability.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_packaging',
+            text: 'How should the order be packaged?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.packing,
+            choiceOptions: <String>[
+              'Standard box',
+              'Presentation box',
+              'Gift box',
+              'Individual wrapping',
+              'Several boxes',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_personalised_message',
+            text: 'Describe any personalised message or decoration required',
+            helperText:
+                'Check spelling carefully. The business will confirm whether the message or decoration can fit the selected product.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_serving_storage',
+            text: 'Are there any serving or storage expectations?',
+            helperText:
+                'The business will confirm storage guidance. Refrigerated transport, national shipping and temperature-controlled delivery are not included unless separately agreed.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_allergy_declaration',
+            text:
+                'Do you need to declare any allergies, intolerances or dietary requirements?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_brownies_traybakes_allergy_details',
+            text:
+                'List any ingredients that must be avoided and describe the requirement',
+            helperText: _bakeryAllergenHelperText,
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_bakery_brownies_traybakes_additional_portions',
+            label: 'Additional portions',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_brownies_traybakes_mixed_flavours',
+            label: 'Mixed-flavour selection',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_brownies_traybakes_premium_toppings',
+            label: 'Premium toppings or fillings',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_bakery_brownies_traybakes_personalised_message',
+            label: 'Personalised message or decoration',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_bakery_brownies_traybakes_gift_packaging',
+            label: 'Gift packaging',
+          ),
+        ],
+        availability: _bakeryMondayToSaturday,
+        suggestedDurationMinutes: 30,
+        suggestedNoticeHours: 72,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: false,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Tell us the product type, quantity, flavours, packaging and fulfilment preference. The bakery will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'bakery_custom_event_business_bakes',
+        name: 'Custom Event & Business Bakes',
+        description:
+            'Custom baked products for events, organisations and businesses, with quantity, branding, packaging, allergens and collection or delivery agreed before acceptance.',
+        featureIds: _bakeryFeatureIds,
+        bookingOptionIds: _bakeryBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.order,
+        requestType: VanCustomerRequestType.orderRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _bakeryStandardOrderFlow,
+        builtInQuestionKeys: _bakeryBuiltInQuestionKeys,
+        builtInQuestionSettings: _bakeryBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_purpose',
+            text: 'What is the event or business purpose?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            choiceOptions: <String>[
+              'Corporate event',
+              'Staff or client gifts',
+              'Product launch',
+              'Wedding or private event',
+              'Community event',
+              'Retail or wholesale enquiry',
+              'Other',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_product_types',
+            text: 'What baked products are you considering?',
+            helperText:
+                'List every product type needed so the business can confirm what is practical for the date and quantity.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_quantity',
+            text: 'Approximately what quantity is required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Up to 25',
+              '26 to 50',
+              '51 to 100',
+              '101 to 250',
+              'More than 250',
+              'Phased or repeat order',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_serving_format',
+            text: 'How will the products be served or presented?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Individually served',
+              'Shared platters or boxes',
+              'Display table',
+              'Gift packs',
+              'Retail-ready packaging',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_branding',
+            text: 'Is any logo, branding or topper required?',
+            helperText:
+                'Customers should only provide logos or branding they are authorised to use. The business will confirm whether edible logos or branded toppers are available.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.photos,
+            choiceOptions: <String>[
+              'No branding',
+              'Printed logo or edible image',
+              'Branded topper',
+              'Colour theme only',
+              'Customer-supplied branding',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_design_brief',
+            text: 'Describe the design brief, colours and style',
+            helperText: _bakeryDesignHelperText,
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.photos,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId:
+                'bakery_custom_event_business_bakes_individual_wrapping',
+            text: 'Is individual wrapping or labelling required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.packing,
+            choiceOptions: <String>[
+              'No',
+              'Individual wrapping',
+              'Individual boxes',
+              'Ingredient labels requested',
+              'Business labels requested',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_packaging_display',
+            text: 'What packaging or display presentation is needed?',
+            helperText:
+                'Display packaging and presentation materials are subject to agreement and availability.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.packing,
+            choiceOptions: <String>[
+              'Standard packaging',
+              'Gift packaging',
+              'Display boxes',
+              'Presentation platters',
+              'Retail-style packaging',
+              'Please advise',
+              'Unsure',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_setup_access',
+            text: 'Describe any venue access or setup considerations',
+            helperText:
+                'Venue setup is not included unless separately agreed. Share access times, loading details and display requirements if relevant.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.delivery,
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_image_use',
+            text: 'Will the products be used in promotional images or media?',
+            helperText:
+                'Promotional use can affect finish, labelling and timing. Exact colour matching and exact reproduction are not guaranteed.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.photos,
+            choiceOptions: <String>[
+              'No',
+              'Yes, internal photos only',
+              'Yes, social media',
+              'Yes, campaign or launch images',
+              'Unsure',
+              'Please advise',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId:
+                'bakery_custom_event_business_bakes_allergy_declaration',
+            text:
+                'Do you need to declare any allergies, intolerances or dietary requirements?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'bakery_custom_event_business_bakes_allergy_details',
+            text:
+                'List any ingredients that must be avoided and describe the requirement',
+            helperText: _bakeryAllergenHelperText,
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_bakery_custom_event_business_bakes_additional_quantity',
+            label: 'Additional quantity',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_bakery_custom_event_business_bakes_individual_wrapping',
+            label: 'Individual wrapping',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_bakery_custom_event_business_bakes_edible_logo',
+            label: 'Edible logo or branded topper, subject to agreement',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_bakery_custom_event_business_bakes_display_packaging',
+            label: 'Display or presentation packaging',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_bakery_custom_event_business_bakes_venue_setup',
+            label: 'Venue setup, subject to agreement',
+          ),
+        ],
+        availability: _bakeryMondayToSaturday,
+        suggestedDurationMinutes: 60,
+        suggestedNoticeHours: 168,
+        maximumBookingsPerDay: 2,
+        requestPhotos: true,
+        requireAddress: false,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the products, quantity, branding, date and fulfilment preference. The bakery will confirm availability and pricing.',
+      ),
+    ],
+  ),
+];
+
 const List<VanBusinessTemplateDefinition>
 kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
   VanBusinessTemplateDefinition(
@@ -6438,7 +7365,8 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           ),
         ],
       ),
-    ];
+  ..._bakeryBusinessTemplates,
+];
 
 class VanStarterCapabilityPack {
   const VanStarterCapabilityPack({
