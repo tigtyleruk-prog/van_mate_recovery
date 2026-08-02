@@ -415,6 +415,7 @@ class _JobDetailPageState extends State<JobDetailPage>
         !_isAlreadyInCalendar,
     requiresExactPin: reply.requiresAnyExactPin,
     hasExactPin: reply.exactPinSaved,
+    customerJourneyType: reply.customerJourneyType,
   );
   VanBlockedCustomerRecord? get _blockedCustomerMatch => DriverReplyMockState
       .instance
@@ -853,6 +854,10 @@ class _JobDetailPageState extends State<JobDetailPage>
   }
 
   bool get _hasRequest => reply.hasRequest;
+  bool get _isPreOrder =>
+      reply.customerJourneyType.trim().toLowerCase() == 'preorder' ||
+      reply.customerJourneyType.trim().toLowerCase() == 'pre_order';
+  String get _documentName => _isPreOrder ? 'Order Summary' : 'quote';
 
   VanJobActionState get _actionState => deriveVanJobActionState(
     reply,
@@ -1207,7 +1212,7 @@ class _JobDetailPageState extends State<JobDetailPage>
           items.add(
             _buildOverflowMenuItem(
               value: _JobDetailOverflowAction.reviseQuote,
-              label: 'Revise / resend quote',
+              label: 'Revise / resend $_documentName',
               icon: Icons.refresh_rounded,
             ),
           );
@@ -1217,14 +1222,14 @@ class _JobDetailPageState extends State<JobDetailPage>
           items.add(
             _buildOverflowMenuItem(
               value: _JobDetailOverflowAction.copyQuoteMessage,
-              label: 'Copy quote message',
+              label: 'Copy $_documentName message',
               icon: Icons.copy,
             ),
           );
           items.add(
             _buildOverflowMenuItem(
               value: _JobDetailOverflowAction.copyQuoteLink,
-              label: 'Copy quote link',
+              label: 'Copy $_documentName link',
               icon: Icons.link,
             ),
           );
@@ -1641,6 +1646,9 @@ class _JobDetailPageState extends State<JobDetailPage>
   }
 
   String _windowLabel(String value) {
+    if (RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(value.trim())) {
+      return value.trim();
+    }
     switch (value.trim().toLowerCase()) {
       case 'morning':
         return 'Morning';
@@ -2162,6 +2170,7 @@ class _JobDetailPageState extends State<JobDetailPage>
       quoteResponseLink: quoteResponseLink,
       businessName: '',
       proposedAppointmentText: proposedAppointment,
+      customerJourneyType: reply.customerJourneyType,
     );
   }
 
@@ -2464,7 +2473,7 @@ class _JobDetailPageState extends State<JobDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Customer request',
             style: TextStyle(
               color: Colors.white,
@@ -3053,8 +3062,9 @@ class _JobDetailPageState extends State<JobDetailPage>
     }
 
     final quoteAmount = reply.quoteAmount;
+    final isPreOrder = _isPreOrder;
     final amountLabel = quoteAmount == null
-        ? 'Quote saved'
+        ? (isPreOrder ? 'Order Summary saved' : 'Quote saved')
         : formatCurrency(quoteAmount);
     final declineReasonText = _declineReasonText();
 
@@ -3062,8 +3072,8 @@ class _JobDetailPageState extends State<JobDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Quote',
+          Text(
+            isPreOrder ? 'Order Summary' : 'Quote',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -3086,7 +3096,7 @@ class _JobDetailPageState extends State<JobDetailPage>
           ],
           const SizedBox(height: 12),
           _buildActionButton(
-            label: 'View quote',
+            label: isPreOrder ? 'View Order Summary' : 'View quote',
             icon: Icons.open_in_new,
             tone: VanStatusTone.primary,
             onTap: _openQuote,

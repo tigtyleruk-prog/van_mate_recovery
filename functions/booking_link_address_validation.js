@@ -8,9 +8,12 @@ function clean(value) {
 
 function bookingLinkAddressValidationError({
   requireAddress,
+  showAddress = true,
+  standardAddressRequiredMessage,
   supportsStructuredRequestFlow,
   requestType,
   requestFlowOptions,
+  usesAutomaticFulfilment = false,
   supportsHandover,
   startHandover,
   endHandover,
@@ -45,22 +48,32 @@ function bookingLinkAddressValidationError({
   }
 
   const options = requestFlowOptions || {};
+  const normalizedFulfilmentType = clean(fulfilmentType).toLowerCase();
+  const usesMovementAddress =
+    supportsStructuredRequestFlow &&
+    usesAutomaticFulfilment &&
+    ['delivery', 'localdelivery', 'nationwidedelivery', 'businessreturns'].includes(
+      normalizedFulfilmentType,
+    );
   const requiresStandardAddress =
     Boolean(requireAddress) &&
+    showAddress !== false &&
+    !usesMovementAddress &&
     (!supportsStructuredRequestFlow ||
       (requestType !== 'orderRequest' &&
         requestType !== 'pickupDeliveryRequest'));
   if (requiresStandardAddress && !clean(address) && !clean(postcode)) {
     return {
       code: 'missing_address_or_postcode',
-      message: 'Address or postcode is required for this service.',
+      message:
+        clean(standardAddressRequiredMessage) ||
+        'Address or postcode is required for this service.',
     };
   }
 
   if (
     supportsStructuredRequestFlow &&
-    requestType === 'orderRequest' &&
-    options.showFulfilmentChoice &&
+    (options.showFulfilmentChoice || usesAutomaticFulfilment) &&
     !clean(fulfilmentType)
   ) {
     return {
@@ -70,14 +83,26 @@ function bookingLinkAddressValidationError({
   }
   if (
     supportsStructuredRequestFlow &&
-    requestType === 'orderRequest' &&
-    options.showFulfilmentChoice &&
-    clean(fulfilmentType) === 'delivery' &&
+    (options.showFulfilmentChoice || usesAutomaticFulfilment) &&
+    ['delivery', 'localdelivery', 'nationwidedelivery'].includes(
+      normalizedFulfilmentType,
+    ) &&
     !clean(deliveryAddress)
   ) {
     return {
       code: 'missing_delivery_address',
       message: 'Delivery address is required.',
+    };
+  }
+  if (
+    supportsStructuredRequestFlow &&
+    (options.showFulfilmentChoice || usesAutomaticFulfilment) &&
+    normalizedFulfilmentType === 'businessreturns' &&
+    !clean(returnAddress)
+  ) {
+    return {
+      code: 'missing_return_address',
+      message: 'Return address is required.',
     };
   }
   if (

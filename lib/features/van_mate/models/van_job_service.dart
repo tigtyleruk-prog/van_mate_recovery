@@ -1,6 +1,7 @@
 import 'van_customer_request_flow.dart';
 import 'van_customer_journey.dart';
 import 'van_quote_extra_defaults.dart';
+import 'van_service_capability.dart';
 import 'van_service_template.dart';
 import 'van_service_handover.dart';
 
@@ -89,6 +90,8 @@ class VanJobService {
     this.capabilityGeneratedExtraKeys = const <String>[],
     this.capabilityGeneratedBuiltInQuestionKeys = const <String>[],
     this.pricingMode = '',
+    this.fixedPriceAmount = 0,
+    this.fromPriceAmount = 0,
     this.suggestedReminderMinutes = const <int>[],
     this.suggestedStatusNames = const <String, String>{},
     this.appointmentDurationMinutes = 60,
@@ -154,6 +157,8 @@ class VanJobService {
   final List<String> capabilityGeneratedExtraKeys;
   final List<String> capabilityGeneratedBuiltInQuestionKeys;
   final String pricingMode;
+  final num fixedPriceAmount;
+  final num fromPriceAmount;
   final List<int> suggestedReminderMinutes;
   final Map<String, String> suggestedStatusNames;
   final int appointmentDurationMinutes;
@@ -173,6 +178,13 @@ class VanJobService {
   final bool? _allowBusinessDelivery;
 
   bool get isCapabilityDriven => capabilitySchemaVersion > 0;
+
+  VanCapabilityContract get capabilityContract => resolveVanCapabilityContract(
+    serviceCapabilityIds,
+    journeyTypeOverride: isCapabilityDriven ? null : customerJourneyType,
+    requestTypeOverride: isCapabilityDriven ? null : requestType,
+    recommendedNoticeHours: noticeHours.ceil(),
+  );
 
   bool get hasExplicitHandoverCapabilities =>
       _allowCustomerDropOff != null ||
@@ -271,6 +283,13 @@ class VanJobService {
   bool showsBuiltInQuestion(String key) =>
       effectiveSelectedBuiltInQuestionKeys.contains(key);
 
+  bool showsConfiguredBuiltInQuestion(String key, {bool defaultValue = true}) {
+    final settings = builtInQuestionSettings[key];
+    final configured = settings?['show'] ?? settings?['visible'];
+    if (configured is bool) return configured;
+    return defaultValue;
+  }
+
   bool requiresBuiltInQuestion(String key, {bool legacyDefault = false}) {
     final configured = builtInQuestionSettings[key]?['required'];
     if (configured is bool) return configured;
@@ -332,6 +351,8 @@ class VanJobService {
     List<String>? capabilityGeneratedExtraKeys,
     List<String>? capabilityGeneratedBuiltInQuestionKeys,
     String? pricingMode,
+    num? fixedPriceAmount,
+    num? fromPriceAmount,
     List<int>? suggestedReminderMinutes,
     Map<String, String>? suggestedStatusNames,
     int? appointmentDurationMinutes,
@@ -411,6 +432,8 @@ class VanJobService {
           capabilityGeneratedBuiltInQuestionKeys ??
           this.capabilityGeneratedBuiltInQuestionKeys,
       pricingMode: pricingMode ?? this.pricingMode,
+      fixedPriceAmount: fixedPriceAmount ?? this.fixedPriceAmount,
+      fromPriceAmount: fromPriceAmount ?? this.fromPriceAmount,
       suggestedReminderMinutes:
           suggestedReminderMinutes ?? this.suggestedReminderMinutes,
       suggestedStatusNames: suggestedStatusNames ?? this.suggestedStatusNames,
@@ -492,6 +515,8 @@ class VanJobService {
       'capabilityGeneratedBuiltInQuestionKeys':
           capabilityGeneratedBuiltInQuestionKeys,
       'pricingMode': pricingMode,
+      'fixedPriceAmount': fixedPriceAmount,
+      'fromPriceAmount': fromPriceAmount,
       'suggestedReminderMinutes': suggestedReminderMinutes,
       'suggestedStatusNames': suggestedStatusNames,
       'appointmentDurationMinutes': appointmentDurationMinutes,
@@ -772,6 +797,8 @@ class VanJobService {
         'capabilityGeneratedBuiltInQuestionKeys',
       ),
       pricingMode: readText('pricingMode'),
+      fixedPriceAmount: readDouble('fixedPriceAmount', 0),
+      fromPriceAmount: readDouble('fromPriceAmount', 0),
       suggestedReminderMinutes: readPositiveIntList('suggestedReminderMinutes'),
       suggestedStatusNames: readStringMap('suggestedStatusNames'),
       appointmentDurationMinutes: readInt(

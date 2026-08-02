@@ -1274,6 +1274,7 @@ class DriverCustomerReplyMockData {
     needsAgreedTime: isAwaitingAgreedTime,
     requiresExactPin: requiresAnyExactPin,
     hasExactPin: exactPinSaved,
+    customerJourneyType: customerJourneyType,
   );
 
   String get requestStatusLabel {
@@ -2592,7 +2593,9 @@ String _preferredTimeWindowLabel(String value) {
     case 'anytime':
       return 'Anytime';
     default:
-      return '';
+      return RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(value.trim())
+          ? value.trim()
+          : '';
   }
 }
 
@@ -12370,6 +12373,21 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   }
 
   bool get _requiresProposedAppointment => _isBookingLinkQuote;
+  bool get _usesOrderSummaryDocument =>
+      reply.customerJourney == VanCustomerJourneyType.preOrder;
+  String get _responseDocumentName =>
+      _usesOrderSummaryDocument ? 'Order Summary' : 'Quote';
+  String get _responseDocumentLower =>
+      _usesOrderSummaryDocument ? 'order summary' : 'quote';
+  String get _responseDocumentWithArticle =>
+      _usesOrderSummaryDocument ? 'an order summary' : 'a quote';
+  String get _responseDocumentMessageLabel =>
+      _usesOrderSummaryDocument ? 'Order Summary message' : 'quote message';
+  String get _responseDocumentLinkLabel =>
+      _usesOrderSummaryDocument ? 'Order Summary link' : 'quote link';
+  String get _responseSendingLabel => _usesOrderSummaryDocument
+      ? 'Sending Order Summary...'
+      : 'Sending quote...';
 
   Iterable<VanInvoiceReplyAnswer> _suggestionChecklistResponses() {
     if (reply.checklistResponses.isNotEmpty) {
@@ -13048,7 +13066,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
         );
     if (!isCompleteVanQuoteResponseLink(customerQuoteLink)) {
       _showSnack(
-        'Could not create a valid customer quote link. Quote was not sent.',
+        'Could not create a valid customer $_responseDocumentLower link. $_responseDocumentName was not sent.',
       );
       setState(() => _openingSendChannel = false);
       return;
@@ -13122,7 +13140,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       if (!isCompleteVanQuoteResponseLink(publishedQuoteLink) ||
           publishedQuoteLink != customerQuoteLink) {
         _showSnack(
-          'Could not verify the customer quote link. Messages was not opened.',
+          'Could not verify the customer $_responseDocumentLower link. Message was not opened.',
         );
         return;
       }
@@ -13146,11 +13164,11 @@ class _CreateQuotePageState extends State<CreateQuotePage>
           return;
         }
         if (handoffOpened) {
-          _showSnack('Quote opened for sending.');
+          _showSnack('$_responseDocumentName opened for sending.');
         }
       } else if (cleanedEmail.isNotEmpty) {
         final emailUri = Uri.parse(
-          'mailto:$cleanedEmail?subject=${Uri.encodeComponent('Van Mate quote')}&body=${Uri.encodeComponent(message)}',
+          'mailto:$cleanedEmail?subject=${Uri.encodeComponent('Van Mate $_responseDocumentLower')}&body=${Uri.encodeComponent(message)}',
         );
         handoffOpened = await launchUrl(
           emailUri,
@@ -13160,7 +13178,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
           return;
         }
         if (handoffOpened) {
-          _showSnack('Quote opened for sending.');
+          _showSnack('$_responseDocumentName opened for sending.');
         }
       } else {
         await shareRequestMessage(message);
@@ -13168,7 +13186,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
           return;
         }
         handoffOpened = true;
-        _showSnack('Quote shared.');
+        _showSnack('$_responseDocumentName shared.');
       }
 
       if (!handoffOpened &&
@@ -13176,7 +13194,9 @@ class _CreateQuotePageState extends State<CreateQuotePage>
         if (!mounted) {
           return;
         }
-        _showSnack('Could not open quote in Messages or email.');
+        _showSnack(
+          'Could not open $_responseDocumentLower in Messages or email.',
+        );
       }
     } catch (error, stackTrace) {
       debugPrint('[QuoteSend] publish or handoff failed: $error');
@@ -13184,8 +13204,8 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       if (mounted) {
         _showSnack(
           quotePublished
-              ? 'Quote published, but the message could not be opened. Please try again.'
-              : 'Could not publish the customer quote link. Please try again.',
+              ? '$_responseDocumentName published, but the message could not be opened. Please try again.'
+              : 'Could not publish the customer $_responseDocumentLower link. Please try again.',
         );
       }
     } finally {
@@ -13201,14 +13221,14 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     final link = reply.activeQuoteResponseLink;
     final uri = Uri.tryParse(link);
     if (uri == null) {
-      _showSnack('Could not open the quote.');
+      _showSnack('Could not open the $_responseDocumentLower.');
       return;
     }
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!mounted || opened) {
       return;
     }
-    _showSnack('Could not open the quote.');
+    _showSnack('Could not open the $_responseDocumentLower.');
   }
 
   void _copyQuoteLink() {
@@ -13217,7 +13237,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       creatingFreshQuote: reply.isQuoteDeclined,
     );
     Clipboard.setData(ClipboardData(text: link));
-    _showSnack('Quote link copied.');
+    _showSnack('$_responseDocumentName link copied.');
   }
 
   Future<void> _shareQuoteMessage(String message) async {
@@ -13231,7 +13251,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
     if (!mounted) {
       return;
     }
-    _showSnack('Quote message shared.');
+    _showSnack('$_responseDocumentName message shared.');
   }
 
   Future<void> _addAcceptedQuoteToCalendar() async {
@@ -13319,7 +13339,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       return;
     }
     Clipboard.setData(ClipboardData(text: _quotePreviewText()));
-    _showSnack('Quote message copied.');
+    _showSnack('$_responseDocumentName message copied.');
   }
 
   List<String> _quoteExtraItemsForPayload() {
@@ -13582,12 +13602,13 @@ class _CreateQuotePageState extends State<CreateQuotePage>
   }
 
   Future<bool> _confirmHighQuoteAmount(double amount) async {
+    final documentLower = _responseDocumentLower;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Send high quote amount?'),
+        title: Text('Send high $documentLower amount?'),
         content: Text(
-          'This quote is ${formatCurrency(amount)}. Double-check the amount before sending.',
+          'This $documentLower is ${formatCurrency(amount)}. Double-check the amount before sending.',
         ),
         actions: [
           TextButton(
@@ -13596,7 +13617,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Send quote'),
+            child: Text('Send $_responseDocumentLower'),
           ),
         ],
       ),
@@ -13629,6 +13650,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       proposedAppointmentText: proposedDateTime == null
           ? ''
           : _formatQuoteAppointmentDateTime(proposedDateTime),
+      customerJourneyType: reply.customerJourneyType,
     );
   }
 
@@ -13995,8 +14017,8 @@ class _CreateQuotePageState extends State<CreateQuotePage>
         ? 'Revise ${journeyCopy.requestNoun.toLowerCase()}'
         : journeyCopy.businessAction;
     final pageSubtitle = _isRevisingQuote
-        ? 'Update the previous quote and resend it to the customer.'
-        : 'Review the customer request and send a quote.';
+        ? 'Update the previous $_responseDocumentLower and resend it to the customer.'
+        : 'Review the customer request and send $_responseDocumentWithArticle.';
     final quoteAccepted = actionState.isQuoteAccepted;
     final quoteDeclined = reply.isQuoteDeclined;
     final awaitingCustomerResponse =
@@ -14284,9 +14306,9 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const _ReplySectionHeader(
+                            _ReplySectionHeader(
                               icon: Icons.receipt,
-                              title: 'Quote details',
+                              title: '$_responseDocumentName details',
                             ),
                             const SizedBox(height: 12),
                             Container(
@@ -14304,7 +14326,9 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                               ),
                               child: _buildField(
                                 controller: _amountController,
-                                label: 'Total quote',
+                                label: _usesOrderSummaryDocument
+                                    ? 'Order total'
+                                    : 'Total quote',
                                 hint: '0.00',
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
@@ -14327,7 +14351,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                             if (showHighQuoteWarning) ...[
                               const SizedBox(height: 8),
                               Text(
-                                'High quote amount. Double-check before sending.',
+                                'High $_responseDocumentLower amount. Double-check before sending.',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: const Color(0xFFFFD166),
                                   fontWeight: FontWeight.w700,
@@ -14344,7 +14368,9 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                             const SizedBox(height: 12),
                             _buildField(
                               controller: _quoteNotesController,
-                              label: 'Quote notes',
+                              label: _usesOrderSummaryDocument
+                                  ? 'Order Summary notes'
+                                  : 'Quote notes',
                               hint:
                                   'Includes collection, delivery, loading help, waiting time, or any special terms...',
                               maxLines: 3,
@@ -14366,7 +14392,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                             Text(
                               _requiresProposedAppointment
                                   ? 'Choose the exact date and start time you want the customer to accept.'
-                                  : 'Optional exact appointment details for the quote.',
+                                  : 'Optional exact appointment details for the $_responseDocumentLower.',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.72),
                                 height: 1.4,
@@ -14501,7 +14527,8 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                         ) >
                                         0)
                                       PopupMenuButton<String>(
-                                        tooltip: 'More quote actions',
+                                        tooltip:
+                                            'More $_responseDocumentLower actions',
                                         icon: const Icon(
                                           Icons.more_vert,
                                           color: Colors.white,
@@ -14524,18 +14551,24 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                               break;
                                           }
                                         },
-                                        itemBuilder: (context) => const [
+                                        itemBuilder: (context) => [
                                           PopupMenuItem<String>(
                                             value: 'copy_message',
-                                            child: Text('Copy quote message'),
+                                            child: Text(
+                                              'Copy $_responseDocumentMessageLabel',
+                                            ),
                                           ),
                                           PopupMenuItem<String>(
                                             value: 'share_message',
-                                            child: Text('Share quote message'),
+                                            child: Text(
+                                              'Share $_responseDocumentMessageLabel',
+                                            ),
                                           ),
                                           PopupMenuItem<String>(
                                             value: 'copy_link',
-                                            child: Text('Copy quote link'),
+                                            child: Text(
+                                              'Copy $_responseDocumentLinkLabel',
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -14574,7 +14607,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                               if (hasValidQuoteAmount) ...[
                                 const SizedBox(height: 12),
                                 _buildQuoteChip(
-                                  'Quote response link ready',
+                                  '$_responseDocumentName response link ready',
                                   color: const Color(0xFF4A7DFF),
                                   icon: Icons.link,
                                 ),
@@ -14591,7 +14624,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                     if (awaitingCustomerResponse &&
                                         _isRevisingQuote)
                                       _buildQuoteChip(
-                                        'Revised quote sent',
+                                        'Revised $_responseDocumentLower sent',
                                         color: const Color(0xFF58D0A4),
                                         icon: Icons.refresh_rounded,
                                         filled: true,
@@ -14605,14 +14638,14 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                       ),
                                     if (quoteAccepted)
                                       _buildQuoteChip(
-                                        'Quote accepted',
+                                        '$_responseDocumentName accepted',
                                         color: const Color(0xFF58D0A4),
                                         icon: Icons.check_circle,
                                         filled: true,
                                       ),
                                     if (quoteDeclined)
                                       _buildQuoteChip(
-                                        'Quote declined',
+                                        '$_responseDocumentName declined',
                                         color: const Color(0xFFFF6E6E),
                                         icon: Icons.cancel,
                                         filled: true,
@@ -14622,7 +14655,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                               ] else if (_saved) ...[
                                 const SizedBox(height: 12),
                                 _buildQuoteChip(
-                                  'Quote saved',
+                                  '$_responseDocumentName saved',
                                   color: const Color(0xFF58D0A4),
                                   icon: Icons.check_circle,
                                   filled: true,
@@ -14699,7 +14732,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                     : _sendQuote,
                                 icon: Icons.send,
                                 label: _openingSendChannel
-                                    ? 'Sending quote...'
+                                    ? _responseSendingLabel
                                     : journeyCopy.businessAction,
                               ),
                             if (quoteDeclined)
@@ -14710,14 +14743,14 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                     : _sendQuote,
                                 icon: Icons.refresh_rounded,
                                 label: _openingSendChannel
-                                    ? 'Sending quote...'
-                                    : 'Revise / resend quote',
+                                    ? _responseSendingLabel
+                                    : 'Revise / resend $_responseDocumentLower',
                               ),
                             if (actionState.canViewQuote)
                               outlinedAction(
                                 onPressed: () => unawaited(_openQuoteLink()),
                                 icon: Icons.open_in_new,
-                                label: 'View quote',
+                                label: 'View $_responseDocumentLower',
                                 color: const Color(0xFF4A7DFF),
                               ),
                             if (canAddAcceptedQuoteToCalendar)
@@ -14768,7 +14801,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                         children: [
                           Expanded(
                             child: Text(
-                              'Quote and message preview.',
+                              '$_responseDocumentName and message preview.',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: Colors.white.withValues(alpha: 0.62),
                                 height: 1.4,
@@ -14784,7 +14817,7 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                   hasValidQuoteAmount) ||
                               hasValidQuoteAmount)
                             PopupMenuButton<String>(
-                              tooltip: 'More quote actions',
+                              tooltip: 'More $_responseDocumentLower actions',
                               icon: const Icon(
                                 Icons.more_vert,
                                 color: Colors.white,
@@ -14808,21 +14841,27 @@ class _CreateQuotePageState extends State<CreateQuotePage>
                                         quoteDeclined ||
                                         (!quoteAccepted && !quoteDeclined)) &&
                                     hasValidQuoteAmount)
-                                  const PopupMenuItem<String>(
+                                  PopupMenuItem<String>(
                                     value: 'copy_message',
-                                    child: Text('Copy quote message'),
+                                    child: Text(
+                                      'Copy $_responseDocumentMessageLabel',
+                                    ),
                                   ),
                                 if ((awaitingCustomerResponse ||
                                         (!quoteAccepted && !quoteDeclined)) &&
                                     hasValidQuoteAmount)
-                                  const PopupMenuItem<String>(
+                                  PopupMenuItem<String>(
                                     value: 'share_message',
-                                    child: Text('Share quote message'),
+                                    child: Text(
+                                      'Share $_responseDocumentMessageLabel',
+                                    ),
                                   ),
                                 if (hasValidQuoteAmount)
-                                  const PopupMenuItem<String>(
+                                  PopupMenuItem<String>(
                                     value: 'copy_link',
-                                    child: Text('Copy quote link'),
+                                    child: Text(
+                                      'Copy $_responseDocumentLinkLabel',
+                                    ),
                                   ),
                               ],
                             ),
@@ -15356,6 +15395,7 @@ class _DriverQuoteMockPageState extends State<DriverQuoteMockPage> {
           ),
       businessName: _businessName,
       proposedAppointmentText: _preferredTimingSummaryForQuote(reply),
+      customerJourneyType: reply.customerJourneyType,
     );
   }
 

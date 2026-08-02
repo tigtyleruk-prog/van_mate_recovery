@@ -183,199 +183,199 @@ const List<String> _cleaningSupplyOptions = <String>[
 
 const VanCustomerRequestFlowOptions _gardeningStandardQuoteFlow =
     VanCustomerRequestFlowOptions(
-  showFulfilmentChoice: false,
-  askPreferredDate: true,
-  askPreferredTime: true,
-  showPickupAddress: false,
-  showDeliveryAddress: false,
-  showDropOffDate: false,
-  showDropOffTime: false,
-  showPickUpDate: false,
-  showPickUpTime: false,
-  showNotes: false,
-);
+      showFulfilmentChoice: false,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: false,
+    );
 
 const List<VanTemplateDayAvailability> _gardeningMondayToSaturday =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+    ];
 
 const List<VanTemplateDayAvailability> _petServicesMondayToSaturday =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1140),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1140),
+    ];
 
 const List<VanTemplateDayAvailability> _petServicesMondayToSunday =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 7, startMinutes: 420, endMinutes: 1200),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 7, startMinutes: 420, endMinutes: 1200),
+    ];
 
 const List<VanTemplateDayAvailability> _petServicesDayCareAvailability =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1080),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1080),
+    ];
 
 const List<VanTemplateDayAvailability> _petServicesBoardingAvailability =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 7, startMinutes: 480, endMinutes: 1080),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 7, startMinutes: 480, endMinutes: 1080),
+    ];
 
 const VanCustomerRequestFlowOptions _petServicesStandardQuoteFlow =
     VanCustomerRequestFlowOptions(
-  showFulfilmentChoice: false,
-  askPreferredDate: true,
-  askPreferredTime: true,
-  showPickupAddress: false,
-  showDeliveryAddress: false,
-  showDropOffDate: false,
-  showDropOffTime: false,
-  showPickUpDate: false,
-  showPickUpTime: false,
-  showNotes: false,
-);
+      showFulfilmentChoice: false,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: false,
+    );
 
 const VanCustomerRequestFlowOptions _windowCleaningStandardQuoteFlow =
     VanCustomerRequestFlowOptions(
-  showFulfilmentChoice: false,
-  askPreferredDate: true,
-  askPreferredTime: true,
-  showPickupAddress: false,
-  showDeliveryAddress: false,
-  showDropOffDate: false,
-  showDropOffTime: false,
-  showPickUpDate: false,
-  showPickUpTime: false,
-  showNotes: false,
-);
+      showFulfilmentChoice: false,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: false,
+    );
 
 const VanCustomerRequestFlowOptions _handymanStandardQuoteFlow =
-     VanCustomerRequestFlowOptions(
-   showFulfilmentChoice: false,
-   askPreferredDate: true,
-   askPreferredTime: true,
-   showPickupAddress: false,
-   showDeliveryAddress: false,
-   showDropOffDate: false,
-   showDropOffTime: false,
-   showPickUpDate: false,
-   showPickUpTime: false,
-   showNotes: false,
- );
+    VanCustomerRequestFlowOptions(
+      showFulfilmentChoice: false,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: false,
+    );
 
 const List<VanTemplateDayAvailability> _windowCleaningMondayToSaturday =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+    ];
 
 const List<VanTemplateDayAvailability> _windowCleaningCommercialAvailability =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1140),
-  VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1140),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1140),
+      VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1140),
+    ];
 
 const List<VanTemplateDayAvailability> _handymanMondayToSaturday =
-     <VanTemplateDayAvailability>[
-   VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
-   VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
-   VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
-   VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
-   VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
-   VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
-  ];
+    <VanTemplateDayAvailability>[
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+    ];
 
 const VanCustomerRequestFlowOptions _photographyStandardQuoteFlow =
     VanCustomerRequestFlowOptions(
-  showFulfilmentChoice: false,
-  askPreferredDate: true,
-  askPreferredTime: true,
-  showPickupAddress: false,
-  showDeliveryAddress: false,
-  showDropOffDate: false,
-  showDropOffTime: false,
-  showPickUpDate: false,
-  showPickUpTime: false,
-  showNotes: false,
-);
+      showFulfilmentChoice: false,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: false,
+    );
 
 const List<VanTemplateDayAvailability> _photographyFamilyPortraitAvailability =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
-  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+    ];
 
 const List<VanTemplateDayAvailability> _photographyEventAvailability =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1200),
-  VanTemplateDayAvailability(day: 7, startMinutes: 420, endMinutes: 1200),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1200),
+      VanTemplateDayAvailability(day: 7, startMinutes: 420, endMinutes: 1200),
+    ];
 
 const VanCustomerRequestFlowOptions _bakeryStandardOrderFlow =
     VanCustomerRequestFlowOptions(
-  showFulfilmentChoice: true,
-  askPreferredDate: true,
-  askPreferredTime: true,
-  showPickupAddress: false,
-  showDeliveryAddress: false,
-  showDropOffDate: false,
-  showDropOffTime: false,
-  showPickUpDate: false,
-  showPickUpTime: false,
-  showNotes: true,
-);
+      showFulfilmentChoice: true,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: true,
+    );
 
 const List<VanTemplateDayAvailability> _bakeryMondayToSaturday =
     <VanTemplateDayAvailability>[
-  VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1020),
-  VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1020),
-  VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1020),
-  VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1020),
-  VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1020),
-  VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1020),
-];
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1020),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1020),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1020),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1020),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1020),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1020),
+    ];
 
 const String _bakeryAllergenHelperText =
     'Declaring an allergy or dietary requirement does not guarantee that the business can accept the order. Free-from ingredients do not guarantee an allergen-free environment. Cross-contamination risks must be discussed directly with the business, which must confirm whether it can fulfil the request safely.';
@@ -396,25 +396,34 @@ const Set<String> _bakeryBuiltInQuestionKeys = <String>{
 
 const Map<String, Map<String, dynamic>> _bakeryBuiltInQuestionSettings =
     <String, Map<String, dynamic>>{
-  'phone': <String, dynamic>{'required': true, 'helperText': ''},
-  'email': <String, dynamic>{'required': false, 'helperText': ''},
-  'preferred_date': <String, dynamic>{
-    'required': true,
-    'helperText': 'Choose your preferred date.',
-  },
-  'preferred_time': <String, dynamic>{
-    'required': true,
-    'helperText': 'Choose your preferred time.',
-  },
-  'photos': <String, dynamic>{
-    'required': false,
-    'helperText': _bakeryPhotoHelperText,
-  },
-};
+      'phone': <String, dynamic>{'required': true, 'helperText': ''},
+      'email': <String, dynamic>{'required': false, 'helperText': ''},
+      'preferred_date': <String, dynamic>{
+        'required': true,
+        'helperText': 'Choose your preferred date.',
+      },
+      'preferred_time': <String, dynamic>{
+        'required': true,
+        'helperText': 'Choose your preferred time.',
+      },
+      'photos': <String, dynamic>{
+        'required': false,
+        'helperText': _bakeryPhotoHelperText,
+      },
+    };
 
 const List<String> _bakeryFeatureIds = <String>[
   VanServiceCapabilityIds.booking,
   VanServiceCapabilityIds.placeOrder,
+  VanServiceCapabilityIds.preOrder,
+  VanServiceCapabilityIds.customQuote,
+  VanServiceCapabilityIds.estimatedDuration,
+  VanServiceCapabilityIds.leadTime,
+  VanServiceCapabilityIds.photoUpload,
+];
+
+const List<String> _bakeryPreOrderFeatureIds = <String>[
+  VanServiceCapabilityIds.booking,
   VanServiceCapabilityIds.preOrder,
   VanServiceCapabilityIds.customQuote,
   VanServiceCapabilityIds.estimatedDuration,
@@ -427,8 +436,13 @@ const List<String> _bakeryBookingOptionIds = <String>[
   VanServiceCapabilityIds.placeOrder,
 ];
 
-const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
-    <VanBusinessTemplateDefinition>[
+const List<String> _bakeryPreOrderBookingOptionIds = <String>[
+  VanServiceCapabilityIds.booking,
+  VanServiceCapabilityIds.preOrder,
+];
+
+const List<VanBusinessTemplateDefinition>
+_bakeryBusinessTemplates = <VanBusinessTemplateDefinition>[
   VanBusinessTemplateDefinition(
     categoryId: 'bakery',
     categoryName: 'Cake & Bakery Orders',
@@ -680,9 +694,9 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
         name: 'Cupcakes & Treat Boxes',
         description:
             'Made-to-order cupcakes and treat boxes, with quantities, flavours, presentation, allergens and collection or delivery confirmed before acceptance.',
-        featureIds: _bakeryFeatureIds,
-        bookingOptionIds: _bakeryBookingOptionIds,
-        customerJourney: VanCustomerJourneyType.order,
+        featureIds: _bakeryPreOrderFeatureIds,
+        bookingOptionIds: _bakeryPreOrderBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.preOrder,
         requestType: VanCustomerRequestType.orderRequest,
         startHandover: null,
         endHandover: null,
@@ -810,8 +824,7 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
             category: VanCustomQuestionCategory.generalNotes,
           ),
           VanServiceTemplateQuestion(
-            libraryId:
-                'bakery_cupcakes_treat_boxes_individual_distribution',
+            libraryId: 'bakery_cupcakes_treat_boxes_individual_distribution',
             text: 'Will the items be handed out individually?',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
             category: VanCustomQuestionCategory.collectionDelivery,
@@ -879,9 +892,9 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
         name: 'Brownies, Traybakes & Dessert Boxes',
         description:
             'Made-to-order brownies, traybakes and dessert boxes, with portions, flavours, presentation, allergens and collection or delivery confirmed before acceptance.',
-        featureIds: _bakeryFeatureIds,
-        bookingOptionIds: _bakeryBookingOptionIds,
-        customerJourney: VanCustomerJourneyType.order,
+        featureIds: _bakeryPreOrderFeatureIds,
+        bookingOptionIds: _bakeryPreOrderBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.preOrder,
         requestType: VanCustomerRequestType.orderRequest,
         startHandover: null,
         endHandover: null,
@@ -1036,8 +1049,7 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
         ],
         extras: <VanServiceTemplateExtra>[
           VanServiceTemplateExtra(
-            key:
-                'custom_extra_bakery_brownies_traybakes_additional_portions',
+            key: 'custom_extra_bakery_brownies_traybakes_additional_portions',
             label: 'Additional portions',
           ),
           VanServiceTemplateExtra(
@@ -1049,8 +1061,7 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
             label: 'Premium toppings or fillings',
           ),
           VanServiceTemplateExtra(
-            key:
-                'custom_extra_bakery_brownies_traybakes_personalised_message',
+            key: 'custom_extra_bakery_brownies_traybakes_personalised_message',
             label: 'Personalised message or decoration',
           ),
           VanServiceTemplateExtra(
@@ -1163,8 +1174,7 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
             category: VanCustomQuestionCategory.photos,
           ),
           VanServiceTemplateQuestion(
-            libraryId:
-                'bakery_custom_event_business_bakes_individual_wrapping',
+            libraryId: 'bakery_custom_event_business_bakes_individual_wrapping',
             text: 'Is individual wrapping or labelling required?',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
             category: VanCustomQuestionCategory.packing,
@@ -1221,8 +1231,7 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
             ],
           ),
           VanServiceTemplateQuestion(
-            libraryId:
-                'bakery_custom_event_business_bakes_allergy_declaration',
+            libraryId: 'bakery_custom_event_business_bakes_allergy_declaration',
             text:
                 'Do you need to declare any allergies, intolerances or dietary requirements?',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
@@ -1251,8 +1260,7 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
             label: 'Individual wrapping',
           ),
           VanServiceTemplateExtra(
-            key:
-                'custom_extra_bakery_custom_event_business_bakes_edible_logo',
+            key: 'custom_extra_bakery_custom_event_business_bakes_edible_logo',
             label: 'Edible logo or branded topper, subject to agreement',
           ),
           VanServiceTemplateExtra(
@@ -1261,8 +1269,7 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
             label: 'Display or presentation packaging',
           ),
           VanServiceTemplateExtra(
-            key:
-                'custom_extra_bakery_custom_event_business_bakes_venue_setup',
+            key: 'custom_extra_bakery_custom_event_business_bakes_venue_setup',
             label: 'Venue setup, subject to agreement',
           ),
         ],
@@ -1275,6 +1282,1215 @@ const List<VanBusinessTemplateDefinition> _bakeryBusinessTemplates =
         pricingMode: VanServiceCapabilityIds.customQuote,
         suggestedCustomerMessage:
             'Describe the products, quantity, branding, date and fulfilment preference. The bakery will confirm availability and pricing.',
+      ),
+    ],
+  ),
+];
+
+const VanCustomerRequestFlowOptions _mobileCarValetingStandardQuoteFlow =
+    VanCustomerRequestFlowOptions(
+      showFulfilmentChoice: false,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: true,
+    );
+
+const List<VanTemplateDayAvailability> _mobileCarValetingMondayToSaturday =
+    <VanTemplateDayAvailability>[
+      VanTemplateDayAvailability(day: 1, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 2, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 3, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 4, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 5, startMinutes: 480, endMinutes: 1080),
+      VanTemplateDayAvailability(day: 6, startMinutes: 480, endMinutes: 1080),
+    ];
+
+const String _mobileCarValetingPhotoHelperText =
+    'Optional photos can help show the vehicle size, condition, access and any areas that need extra attention.';
+
+const Set<String> _mobileCarValetingBuiltInQuestionKeys = <String>{
+  'address',
+  'phone',
+  'email',
+  'preferred_date',
+  'preferred_time',
+  'photos',
+};
+
+const Map<String, Map<String, dynamic>>
+_mobileCarValetingBuiltInQuestionSettings = <String, Map<String, dynamic>>{
+  'address': <String, dynamic>{
+    'required': true,
+    'helperText': 'Enter where the vehicle will be available for the service.',
+  },
+  'phone': <String, dynamic>{'required': true, 'helperText': ''},
+  'email': <String, dynamic>{'required': false, 'helperText': ''},
+  'preferred_date': <String, dynamic>{'required': true, 'helperText': ''},
+  'preferred_time': <String, dynamic>{'required': true, 'helperText': ''},
+  'photos': <String, dynamic>{
+    'required': false,
+    'helperText': _mobileCarValetingPhotoHelperText,
+  },
+};
+
+const List<String> _mobileCarValetingFeatureIds = <String>[
+  VanServiceCapabilityIds.oneOff,
+  VanServiceCapabilityIds.appointmentRequired,
+  VanServiceCapabilityIds.businessVisitsCustomer,
+  VanServiceCapabilityIds.customQuote,
+  VanServiceCapabilityIds.estimatedDuration,
+  VanServiceCapabilityIds.leadTime,
+  VanServiceCapabilityIds.photoUpload,
+];
+
+const List<String> _mobileCarValetingBookingOptionIds = <String>[
+  VanServiceCapabilityIds.booking,
+  VanServiceCapabilityIds.requestQuote,
+];
+
+const List<VanBusinessTemplateDefinition>
+_mobileCarValetingBusinessTemplates = <VanBusinessTemplateDefinition>[
+  VanBusinessTemplateDefinition(
+    categoryId: 'mobile_car_valeting',
+    categoryName: 'Mobile Car Valeting & Detailing',
+    businessTypeId: 'mobile_car_valeting',
+    businessTypeName: 'Mobile Car Valeting & Detailing',
+    description:
+        'Mobile vehicle washing and valeting services quoted for each vehicle, condition and location.',
+    iconKey: 'local_car_wash',
+    colorValue: 0xFF0097A7,
+    featured: true,
+    searchKeywords: <String>[
+      'mobile car valeting',
+      'car valet',
+      'car wash',
+      'mobile car wash',
+      'vehicle detailing',
+      'interior valet',
+      'full valet',
+      'machine polish',
+      'paint enhancement',
+      'exterior wash',
+      'car cleaning',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Mobile Car Valeting'),
+      VanBusinessSearchAlias('Car Valet'),
+      VanBusinessSearchAlias('Car Wash'),
+      VanBusinessSearchAlias('Interior Valet'),
+      VanBusinessSearchAlias('Full Valet'),
+      VanBusinessSearchAlias('Paint Enhancement'),
+      VanBusinessSearchAlias('Machine Polish'),
+      VanBusinessSearchAlias('Vehicle Detailing'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'mobile_car_valeting_exterior_car_wash',
+        name: 'Exterior Car Wash',
+        description:
+            'Mobile exterior vehicle washing, with vehicle size, condition, wheels, access and working space confirmed before quoting.',
+        featureIds: _mobileCarValetingFeatureIds,
+        bookingOptionIds: _mobileCarValetingBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _mobileCarValetingStandardQuoteFlow,
+        builtInQuestionKeys: _mobileCarValetingBuiltInQuestionKeys,
+        builtInQuestionSettings: _mobileCarValetingBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_exterior_vehicle_type',
+            text: 'What type of vehicle needs washing?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: <String>[
+              'Small car',
+              'Medium car',
+              'Large car',
+              'SUV or 4x4',
+              'Van',
+              'Pickup',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'exterior', 'vehicle type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_exterior_vehicle_size',
+            text: 'How large is the vehicle?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Compact',
+              'Standard',
+              'Large',
+              'Extra large or commercial',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'exterior', 'vehicle size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_exterior_heavy_soiling',
+            text: 'Is there heavy dirt, mud, salt or road grime build-up?',
+            helperText:
+                'Heavy build-up may require extra time and may affect what can be safely cleaned in one visit.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'No, normal road dirt',
+              'Light build-up',
+              'Heavy mud',
+              'Heavy salt or winter grime',
+              'Bug or tar marks',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'exterior', 'soiling'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_exterior_wheels_alloys',
+            text: 'Should wheels and alloys be included?',
+            helperText:
+                'Wheel condition, brake dust and delicate finishes may affect the recommended cleaning method.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Standard wheel clean',
+              'Deep wheel clean requested',
+              'Alloys need attention',
+              'Wheel trims only',
+              'No wheel cleaning needed',
+              'Please advise',
+            ],
+            tags: <String>['valeting', 'exterior', 'wheels'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_exterior_bodywork_concerns',
+            text: 'Are there any paint, trim or bodywork concerns?',
+            helperText:
+                'Mention loose trim, damaged paint, wrap, decals, previous repairs or areas that should be treated carefully.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['valeting', 'exterior', 'bodywork'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_exterior_water_access',
+            text: 'Is water available at the service location?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Outdoor tap available',
+              'Water may be available, please confirm',
+              'No water access',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'exterior', 'water access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_exterior_electricity_access',
+            text: 'Is electricity available if equipment needs it?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Outdoor socket available',
+              'Indoor socket nearby',
+              'No electricity access',
+              'Unsure',
+              'Please advise',
+            ],
+            tags: <String>['valeting', 'exterior', 'electricity access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_exterior_working_space',
+            text: 'Is there safe parking and working space around the vehicle?',
+            helperText:
+                'The business may need level parking, room to work around the vehicle and permission to wash at the location.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Private driveway',
+              'Allocated parking space',
+              'Street parking',
+              'Workplace car park',
+              'Restricted space',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'exterior', 'working space'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_exterior_wheel_deep_clean',
+            label: 'Wheel deep clean',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_exterior_wax_finish',
+            label: 'Wax or protective finish',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_mobile_car_valeting_exterior_large_vehicle_supplement',
+            label: 'Large vehicle supplement',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_exterior_bug_tar_removal',
+            label: 'Bug or tar removal',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_exterior_interior_windows',
+            label: 'Interior window clean',
+          ),
+        ],
+        availability: _mobileCarValetingMondayToSaturday,
+        suggestedDurationMinutes: 90,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the vehicle, exterior condition, access and any extras required. The valeter will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'mobile_car_valeting_interior_valet',
+        name: 'Interior Valet',
+        description:
+            'Mobile interior vehicle valeting, with seats, pet hair, spills, stains, odours, boot cleaning and priority areas confirmed before quoting.',
+        featureIds: _mobileCarValetingFeatureIds,
+        bookingOptionIds: _mobileCarValetingBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _mobileCarValetingStandardQuoteFlow,
+        builtInQuestionKeys: _mobileCarValetingBuiltInQuestionKeys,
+        builtInQuestionSettings: _mobileCarValetingBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_vehicle_type',
+            text: 'What is the vehicle make and model for the interior valet?',
+            answerType: VanCustomQuestionAnswerType.shortText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['valeting', 'interior', 'make model'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_vehicle_size',
+            text: 'What size is the vehicle for the interior valet?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Small car',
+              'Medium car',
+              'Large car',
+              'SUV or 4x4',
+              'Van',
+              'Pickup',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'interior', 'vehicle size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_condition',
+            text: 'What is the interior condition like?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Light tidy-up',
+              'Normal everyday use',
+              'Quite dirty',
+              'Very dirty',
+              'Work vehicle',
+              'Please advise',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'interior', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_pet_hair',
+            text: 'Is there pet hair in the vehicle?',
+            helperText:
+                'Pet hair removal can take extra time and results depend on fabric type and how embedded the hair is.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'No pet hair',
+              'Light pet hair',
+              'Heavy pet hair',
+              'Boot area only',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'interior', 'pet hair'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_spills_stains',
+            text: 'Are there food spills, drink spills or visible stains?',
+            helperText:
+                'Stain treatment can improve appearance, but complete removal cannot be guaranteed.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'No visible stains',
+              'Light marks',
+              'Food or drink spills',
+              'Older set-in stains',
+              'Multiple stained areas',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'interior', 'stains'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_odours',
+            text: 'Are there any odours that need attention?',
+            helperText:
+                'Odour treatment can reduce smells, but the cause and full removal must be assessed by the business.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'No odour issue',
+              'Pet odour',
+              'Food or drink odour',
+              'Smoke odour',
+              'Damp or musty smell',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'interior', 'odours'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_boot_cleaning',
+            text: 'Does the boot or load area need cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'No boot clean needed',
+              'Standard boot clean',
+              'Deep boot clean',
+              'Pet hair in boot',
+              'Work tools or load area',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'interior', 'boot'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_child_seats',
+            text: 'Are child seats or fitted accessories in the vehicle?',
+            helperText:
+                'The business may ask for removable items to be taken out before the valet.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'No child seats or accessories',
+              'Child seats fitted',
+              'Seat covers fitted',
+              'Boot liner fitted',
+              'Other fitted accessories',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'interior', 'child seats'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_seat_material',
+            text: 'What type of seats does the vehicle have?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            choiceOptions: <String>[
+              'Fabric seats',
+              'Leather seats',
+              'Part leather / part fabric',
+              'Vinyl or synthetic seats',
+              'Mixed materials',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'interior', 'seats'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_interior_priority_areas',
+            text: 'Which interior areas should be prioritised?',
+            helperText:
+                'List any seats, carpets, mats, dashboard, doors, boot or storage areas that need particular attention.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['valeting', 'interior', 'priority areas'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_interior_seat_shampoo',
+            label: 'Seat shampoo',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_interior_pet_hair_removal',
+            label: 'Pet hair removal',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_interior_boot_deep_clean',
+            label: 'Carpet shampoo',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_interior_odour_treatment',
+            label: 'Odour removal',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_interior_fabric_protection',
+            label: 'Leather treatment',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_interior_child_seat_clean',
+            label: 'Child seat clean',
+          ),
+        ],
+        availability: _mobileCarValetingMondayToSaturday,
+        suggestedDurationMinutes: 120,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 3,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the vehicle interior, seat material, condition and any extras required. The valeter will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'mobile_car_valeting_full_valet',
+        name: 'Full Valet',
+        description:
+            'A mobile inside-and-out valet, with vehicle size, exterior condition, interior condition, access and optional detailing extras confirmed before quoting.',
+        featureIds: _mobileCarValetingFeatureIds,
+        bookingOptionIds: _mobileCarValetingBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _mobileCarValetingStandardQuoteFlow,
+        builtInQuestionKeys: _mobileCarValetingBuiltInQuestionKeys,
+        builtInQuestionSettings: _mobileCarValetingBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_full_vehicle_make_model',
+            text: 'What is the vehicle make and model for the full valet?',
+            answerType: VanCustomQuestionAnswerType.shortText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['valeting', 'full valet', 'make model'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_full_vehicle_size',
+            text: 'What size is the vehicle for the full valet?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Small car',
+              'Medium car',
+              'Large car',
+              'SUV or 4x4',
+              'Van',
+              'Pickup',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'full valet', 'vehicle size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_full_water_supply',
+            text: 'Is water available where the full valet will take place?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Outdoor tap available',
+              'Water may be available, please confirm',
+              'No water access',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'full valet', 'water supply'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_full_exterior_condition',
+            text: 'What is the outside of the vehicle like?',
+            helperText:
+                'Mention heavy mud, road grime, tree sap, bird mess, bug marks or anything delicate.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Light road dirt',
+              'Normal everyday dirt',
+              'Heavy mud or grime',
+              'Bug, tar or tree sap marks',
+              'Needs careful attention',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'full valet', 'exterior condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_full_interior_condition',
+            text: 'What is the inside of the vehicle like?',
+            helperText:
+                'Mention pet hair, child seats, stains, odours or anything that may need extra time.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Light tidy-up',
+              'Normal everyday use',
+              'Quite dirty',
+              'Very dirty',
+              'Work vehicle',
+              'Please advise',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'full valet', 'interior condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_full_electricity_access',
+            text: 'Is electricity available if equipment needs it?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            choiceOptions: <String>[
+              'Outdoor socket available',
+              'Indoor socket nearby',
+              'No electricity access',
+              'Unsure',
+              'Please advise',
+            ],
+            tags: <String>['valeting', 'full valet', 'electricity access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_full_working_space',
+            text: 'Is there safe space to work around the vehicle?',
+            helperText:
+                'The business may need level parking, room to work around the vehicle and permission to wash at the location.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Private driveway',
+              'Allocated parking space',
+              'Street parking',
+              'Workplace car park',
+              'Restricted space',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'full valet', 'working space'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_full_priority_areas',
+            text: 'Anything you would like us to pay particular attention to?',
+            helperText:
+                'Examples: wheels, seats, carpets, mats, paintwork, trim, boot or storage areas.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['valeting', 'full valet', 'priority areas'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_full_machine_polish',
+            label: 'Machine polish',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_full_clay_bar',
+            label: 'Clay bar treatment',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_full_ceramic_spray',
+            label: 'Ceramic spray protection',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_full_engine_bay_clean',
+            label: 'Engine bay clean',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_full_alloy_protection',
+            label: 'Alloy protection',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_car_valeting_full_leather_treatment',
+            label: 'Leather treatment',
+          ),
+        ],
+        availability: _mobileCarValetingMondayToSaturday,
+        suggestedDurationMinutes: 240,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 2,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the vehicle, inside and outside condition, access and any extras required. The valeter will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'mobile_car_valeting_paint_enhancement',
+        name: 'Paint Enhancement / Machine Polish',
+        description:
+            'Paint enhancement and machine polishing quoted after checking vehicle size, paint condition, scratches, working space and optional protection extras.',
+        featureIds: _mobileCarValetingFeatureIds,
+        bookingOptionIds: _mobileCarValetingBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _mobileCarValetingStandardQuoteFlow,
+        builtInQuestionKeys: _mobileCarValetingBuiltInQuestionKeys,
+        builtInQuestionSettings: _mobileCarValetingBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId:
+                'mobile_car_valeting_paint_enhancement_vehicle_make_model',
+            text:
+                'What is the vehicle make and model for the paint enhancement?',
+            answerType: VanCustomQuestionAnswerType.shortText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['valeting', 'paint enhancement', 'make model'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_paint_enhancement_vehicle_size',
+            text: 'What size is the vehicle for the paint enhancement?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Small car',
+              'Medium car',
+              'Large car',
+              'SUV or 4x4',
+              'Van',
+              'Pickup',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'paint enhancement', 'vehicle size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_paint_enhancement_paint_condition',
+            text: 'What is the paintwork like at the moment?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Generally good',
+              'Light swirls or dullness',
+              'Noticeable marks',
+              'Heavy marks or weathering',
+              'Recently painted',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'paint enhancement', 'paint condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_paint_enhancement_scratches',
+            text: 'Are there any scratches or marks you are worried about?',
+            helperText:
+                'Polishing can improve many marks, but deeper scratches, chips and damaged paint may still remain.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            tags: <String>['valeting', 'paint enhancement', 'scratches'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_paint_enhancement_garage_space',
+            text: 'Is there a garage or covered space available?',
+            helperText:
+                'Covered space can help with weather, lighting and machine polishing, but the business will confirm what is suitable.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Garage available',
+              'Car port or covered area',
+              'Driveway only',
+              'Street parking only',
+              'Workplace indoor space',
+              'Unsure',
+            ],
+            tags: <String>['valeting', 'paint enhancement', 'garage space'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_paint_enhancement_power_access',
+            text: 'Is electricity available for polishing equipment?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Outdoor socket available',
+              'Indoor socket nearby',
+              'No electricity access',
+              'Unsure',
+              'Please advise',
+            ],
+            tags: <String>['valeting', 'paint enhancement', 'power access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_car_valeting_paint_enhancement_attention_areas',
+            text:
+                'Anything you would like us to pay particular attention to on the paintwork?',
+            helperText:
+                'Mention panels, bumpers, mirrors, headlights, trim, previous repairs, wrap or decals.',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            tags: <String>['valeting', 'paint enhancement', 'attention areas'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_mobile_car_valeting_paint_enhancement_ceramic_coating',
+            label: 'Ceramic coating',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_mobile_car_valeting_paint_enhancement_headlight_restoration',
+            label: 'Headlight restoration',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_mobile_car_valeting_paint_enhancement_scratch_reduction',
+            label: 'Scratch reduction',
+          ),
+          VanServiceTemplateExtra(
+            key:
+                'custom_extra_mobile_car_valeting_paint_enhancement_alloy_sealant',
+            label: 'Alloy sealant',
+          ),
+        ],
+        availability: _mobileCarValetingMondayToSaturday,
+        suggestedDurationMinutes: 300,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 1,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the vehicle, paint condition, working space and areas that need attention. The detailer will confirm availability and pricing.',
+      ),
+    ],
+  ),
+];
+
+const VanCustomerRequestFlowOptions _mobileFoodVanOrderFlow =
+    VanCustomerRequestFlowOptions(
+      showFulfilmentChoice: true,
+      askPreferredDate: true,
+      askPreferredTime: true,
+      showPickupAddress: false,
+      showDeliveryAddress: false,
+      showDropOffDate: false,
+      showDropOffTime: false,
+      showPickUpDate: false,
+      showPickUpTime: false,
+      showNotes: true,
+    );
+
+const List<VanTemplateDayAvailability> _mobileFoodVanServiceAvailability =
+    <VanTemplateDayAvailability>[
+      VanTemplateDayAvailability(day: 1, startMinutes: 420, endMinutes: 1260),
+      VanTemplateDayAvailability(day: 2, startMinutes: 420, endMinutes: 1260),
+      VanTemplateDayAvailability(day: 3, startMinutes: 420, endMinutes: 1260),
+      VanTemplateDayAvailability(day: 4, startMinutes: 420, endMinutes: 1260),
+      VanTemplateDayAvailability(day: 5, startMinutes: 420, endMinutes: 1260),
+      VanTemplateDayAvailability(day: 6, startMinutes: 420, endMinutes: 1260),
+    ];
+
+const String _mobileFoodVanDietaryHelperText =
+    'Tell the business about allergies, intolerances or dietary preferences. The business must confirm whether it can prepare the order safely.';
+
+const List<String> _mobileFoodVanMainItemOptions = <String>[
+  'Burger',
+  'Cheeseburger',
+  'Double Cheeseburger',
+  'Hot Dog',
+  'Bacon Bap',
+  'Sausage Bap',
+];
+
+const List<String> _mobileFoodVanOptionalMainItemOptions = <String>[
+  'None',
+  ..._mobileFoodVanMainItemOptions,
+];
+
+const List<String> _mobileFoodVanQuantityOptions = <String>[
+  '1',
+  '2',
+  '3',
+  '4',
+  '5+',
+];
+
+const List<String> _mobileFoodVanSideOptions = <String>[
+  'None',
+  'Chips',
+  'Loaded Fries',
+];
+
+const List<String> _mobileFoodVanSauceOptions = <String>[
+  'None',
+  'Tomato Ketchup',
+  'Brown Sauce',
+  'BBQ Sauce',
+  'Burger Sauce',
+  'Mayonnaise',
+  'Mustard',
+  'Chilli Sauce',
+];
+
+const List<String> _mobileFoodVanDrinkOptions = <String>[
+  'None',
+  'Tea',
+  'Coffee',
+  'Coke',
+  'Diet Coke',
+  'Water',
+];
+
+const Set<String> _mobileFoodVanBuiltInQuestionKeys = <String>{
+  'phone',
+  'email',
+  'preferred_date',
+  'preferred_time',
+};
+
+const Map<String, Map<String, dynamic>> _mobileFoodVanBuiltInQuestionSettings =
+    <String, Map<String, dynamic>>{
+      'phone': <String, dynamic>{'required': true, 'helperText': ''},
+      'email': <String, dynamic>{'required': false, 'helperText': ''},
+      'preferred_date': <String, dynamic>{
+        'required': false,
+        'show': false,
+        'helperText': '',
+      },
+      'preferred_time': <String, dynamic>{
+        'required': true,
+        'show': true,
+        'label': 'Collection Time',
+        'helperText': 'Use this for the requested collection time.',
+      },
+      'flexible_timing': <String, dynamic>{
+        'required': false,
+        'show': false,
+        'label': 'Timing is flexible',
+        'helperText': '',
+      },
+    };
+
+const List<String> _mobileFoodVanFeatureIds = <String>[
+  VanServiceCapabilityIds.booking,
+  VanServiceCapabilityIds.placeOrder,
+  VanServiceCapabilityIds.preOrder,
+  VanServiceCapabilityIds.customQuote,
+  VanServiceCapabilityIds.estimatedDuration,
+  VanServiceCapabilityIds.leadTime,
+];
+
+const List<String> _mobileFoodVanBookingOptionIds = <String>[
+  VanServiceCapabilityIds.booking,
+  VanServiceCapabilityIds.placeOrder,
+  VanServiceCapabilityIds.preOrder,
+];
+
+const List<VanBusinessTemplateDefinition>
+_mobileFoodVanBusinessTemplates = <VanBusinessTemplateDefinition>[
+  VanBusinessTemplateDefinition(
+    categoryId: 'mobile_food_van',
+    categoryName: 'Mobile Food Van',
+    businessTypeId: 'mobile_food_van',
+    businessTypeName: 'Mobile Food Van',
+    description:
+        'Simple mobile food ordering for collection, with starter menu items and customer preferences ready to customise.',
+    iconKey: 'sparkle',
+    colorValue: 0xFFE45775,
+    featured: true,
+    searchKeywords: <String>[
+      'mobile food van',
+      'food van',
+      'burger van',
+      'street food',
+      'catering van',
+      'takeaway food',
+      'hot food',
+      'event food',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Burger Van'),
+      VanBusinessSearchAlias('Food Van'),
+      VanBusinessSearchAlias('Street Food Van'),
+      VanBusinessSearchAlias('Mobile Catering'),
+      VanBusinessSearchAlias('Hot Food Van'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'mobile_food_van_burger_van',
+        name: 'Burger Van',
+        description:
+            'A simple starter burger-van menu for collection orders, with menu items and preferences ready for the business owner to customise.',
+        featureIds: _mobileFoodVanFeatureIds,
+        bookingOptionIds: _mobileFoodVanBookingOptionIds,
+        customerJourney: VanCustomerJourneyType.preOrder,
+        requestType: VanCustomerRequestType.orderRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _mobileFoodVanOrderFlow,
+        builtInQuestionKeys: _mobileFoodVanBuiltInQuestionKeys,
+        builtInQuestionSettings: _mobileFoodVanBuiltInQuestionSettings,
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_1_main_item',
+            text: 'Item 1 - Main Item',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: _mobileFoodVanMainItemOptions,
+            tags: <String>['food van', 'burger van', 'item 1', 'main item'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_1_quantity',
+            text: 'Item 1 - Quantity',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: _mobileFoodVanQuantityOptions,
+            tags: <String>['food van', 'burger van', 'item 1', 'quantity'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_1_side',
+            text: 'Item 1 - Side',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: _mobileFoodVanSideOptions,
+            tags: <String>['food van', 'burger van', 'item 1', 'side'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_1_sauce',
+            text: 'Item 1 - Sauce',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: _mobileFoodVanSauceOptions,
+            tags: <String>['food van', 'burger van', 'item 1', 'sauce'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_1_drink',
+            text: 'Item 1 - Drink',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: _mobileFoodVanDrinkOptions,
+            tags: <String>['food van', 'burger van', 'item 1', 'drink'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_2_main_item',
+            text: 'Item 2 (Optional) - Main Item',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanOptionalMainItemOptions,
+            tags: <String>['food van', 'burger van', 'item 2', 'main item'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_2_quantity',
+            text: 'Item 2 - Quantity',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanQuantityOptions,
+            tags: <String>['food van', 'burger van', 'item 2', 'quantity'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_2_side',
+            text: 'Item 2 - Side',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanSideOptions,
+            tags: <String>['food van', 'burger van', 'item 2', 'side'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_2_sauce',
+            text: 'Item 2 - Sauce',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanSauceOptions,
+            tags: <String>['food van', 'burger van', 'item 2', 'sauce'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_2_drink',
+            text: 'Item 2 - Drink',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanDrinkOptions,
+            tags: <String>['food van', 'burger van', 'item 2', 'drink'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_3_main_item',
+            text: 'Item 3 (Optional) - Main Item',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanOptionalMainItemOptions,
+            tags: <String>['food van', 'burger van', 'item 3', 'main item'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_3_quantity',
+            text: 'Item 3 - Quantity',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanQuantityOptions,
+            tags: <String>['food van', 'burger van', 'item 3', 'quantity'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_3_side',
+            text: 'Item 3 - Side',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanSideOptions,
+            tags: <String>['food van', 'burger van', 'item 3', 'side'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_3_sauce',
+            text: 'Item 3 - Sauce',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanSauceOptions,
+            tags: <String>['food van', 'burger van', 'item 3', 'sauce'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_3_drink',
+            text: 'Item 3 - Drink',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanDrinkOptions,
+            tags: <String>['food van', 'burger van', 'item 3', 'drink'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_4_main_item',
+            text: 'Item 4 (Optional) - Main Item',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanOptionalMainItemOptions,
+            tags: <String>['food van', 'burger van', 'item 4', 'main item'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_4_quantity',
+            text: 'Item 4 - Quantity',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanQuantityOptions,
+            tags: <String>['food van', 'burger van', 'item 4', 'quantity'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_4_side',
+            text: 'Item 4 - Side',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanSideOptions,
+            tags: <String>['food van', 'burger van', 'item 4', 'side'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_4_sauce',
+            text: 'Item 4 - Sauce',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanSauceOptions,
+            tags: <String>['food van', 'burger van', 'item 4', 'sauce'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_item_4_drink',
+            text: 'Item 4 - Drink',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            choiceOptions: _mobileFoodVanDrinkOptions,
+            tags: <String>['food van', 'burger van', 'item 4', 'drink'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_dietary_requirements',
+            text: 'Dietary Requirements',
+            helperText: _mobileFoodVanDietaryHelperText,
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+            tags: <String>['food van', 'burger van', 'dietary'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'mobile_food_van_burger_van_anything_else',
+            text: 'Anything Else?',
+            requiredByDefault: false,
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+            tags: <String>['food van', 'burger van', 'order details'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_burger',
+            label: 'Burger',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_cheeseburger',
+            label: 'Cheeseburger',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_double_cheeseburger',
+            label: 'Double Cheeseburger',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_hot_dog',
+            label: 'Hot Dog',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_bacon_bap',
+            label: 'Bacon Bap',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_sausage_bap',
+            label: 'Sausage Bap',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_chips',
+            label: 'Chips',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_loaded_fries',
+            label: 'Loaded Fries',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_tea',
+            label: 'Tea',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_coffee',
+            label: 'Coffee',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_coke',
+            label: 'Coke',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_diet_coke',
+            label: 'Diet Coke',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_mobile_food_van_burger_van_water',
+            label: 'Water',
+          ),
+        ],
+        availability: _mobileFoodVanServiceAvailability,
+        suggestedDurationMinutes: 15,
+        suggestedNoticeHours: 1,
+        maximumBookingsPerDay: 40,
+        requestPhotos: false,
+        requireAddress: false,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Choose from the starter menu and share any preferences. The food van will confirm the order and collection time.',
       ),
     ],
   ),
@@ -3008,8 +4224,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           VanServiceTemplateQuestion(
             libraryId: 'gardening_lawn_parking_access',
             text: 'Parking and access details',
-            helperText:
-                'Do not provide door, alarm or key-safe codes.',
+            helperText: 'Do not provide door, alarm or key-safe codes.',
             answerType: VanCustomQuestionAnswerType.longText,
             category: VanCustomQuestionCategory.access,
             requiredByDefault: false,
@@ -3200,8 +4415,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           VanServiceTemplateQuestion(
             libraryId: 'gardening_maintenance_access_issues',
             text: 'Are there access, parking, pet or obstacle issues?',
-            helperText:
-                'Do not provide door, alarm or key-safe codes.',
+            helperText: 'Do not provide door, alarm or key-safe codes.',
             answerType: VanCustomQuestionAnswerType.longText,
             category: VanCustomQuestionCategory.access,
             requiredByDefault: false,
@@ -3373,11 +4587,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
                 'If active nests or protected wildlife are present, the work may need to be postponed or restricted.',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
             category: VanCustomQuestionCategory.gardening,
-            choiceOptions: <String>[
-              'Yes',
-              'No',
-              'Unsure',
-            ],
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
             tags: <String>['gardening', 'hedge', 'wildlife'],
           ),
           VanServiceTemplateQuestion(
@@ -3396,8 +4606,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           VanServiceTemplateQuestion(
             libraryId: 'gardening_hedge_parking_access',
             text: 'Parking and access details',
-            helperText:
-                'Do not provide door, alarm or key-safe codes.',
+            helperText: 'Do not provide door, alarm or key-safe codes.',
             answerType: VanCustomQuestionAnswerType.longText,
             category: VanCustomQuestionCategory.access,
             requiredByDefault: false,
@@ -3555,11 +4764,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             text: 'Is heavy lifting likely to be required?',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
             category: VanCustomQuestionCategory.loading,
-            choiceOptions: <String>[
-              'Yes',
-              'No',
-              'Unsure',
-            ],
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
             tags: <String>['gardening', 'clearance', 'lifting'],
           ),
           VanServiceTemplateQuestion(
@@ -3591,7 +4796,8 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           ),
           VanServiceTemplateQuestion(
             libraryId: 'gardening_clearance_protected_areas',
-            text: 'Are there plants, items or areas that must remain untouched?',
+            text:
+                'Are there plants, items or areas that must remain untouched?',
             answerType: VanCustomQuestionAnswerType.longText,
             category: VanCustomQuestionCategory.gardening,
             requiredByDefault: false,
@@ -3602,11 +4808,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             text: 'Are any restricted or specialist materials present?',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
             category: VanCustomQuestionCategory.gardening,
-            choiceOptions: <String>[
-              'Yes',
-              'No',
-              'Unsure',
-            ],
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
             tags: <String>['gardening', 'clearance', 'restricted'],
           ),
           VanServiceTemplateQuestion(
@@ -3622,8 +4824,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           VanServiceTemplateQuestion(
             libraryId: 'gardening_clearance_parking_access',
             text: 'Parking and access details',
-            helperText:
-                'Do not provide door, alarm or key-safe codes.',
+            helperText: 'Do not provide door, alarm or key-safe codes.',
             answerType: VanCustomQuestionAnswerType.longText,
             category: VanCustomQuestionCategory.access,
             requiredByDefault: false,
@@ -3668,8 +4869,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
     categoryName: 'Pet Services',
     businessTypeId: 'pet_services',
     businessTypeName: 'Pet Services',
-    description:
-        'Pet care services including dog walking and drop-in visits.',
+    description: 'Pet care services including dog walking and drop-in visits.',
     iconKey: 'pets',
     colorValue: 0xFF7E57C2,
     featured: true,
@@ -3737,12 +4937,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             text: 'How many dogs need walking?',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
             category: VanCustomQuestionCategory.items,
-            choiceOptions: <String>[
-              'One',
-              'Two',
-              'Three or more',
-              'Unsure',
-            ],
+            choiceOptions: <String>['One', 'Two', 'Three or more', 'Unsure'],
             tags: <String>['pet services', 'dog walking', 'dog count'],
           ),
           VanServiceTemplateQuestion(
@@ -3771,8 +4966,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           VanServiceTemplateQuestion(
             libraryId: 'pet_services_dog_walking_walk_group',
             text: 'What type of walk would you prefer?',
-            helperText:
-                'The business will confirm what is safe and suitable.',
+            helperText: 'The business will confirm what is safe and suitable.',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
             category: VanCustomQuestionCategory.other,
             choiceOptions: <String>[
@@ -3800,8 +4994,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           ),
           VanServiceTemplateQuestion(
             libraryId: 'pet_services_dog_walking_behaviour',
-            text:
-                'Are there any behaviour, handling or escape-risk concerns?',
+            text: 'Are there any behaviour, handling or escape-risk concerns?',
             answerType: VanCustomQuestionAnswerType.longText,
             category: VanCustomQuestionCategory.generalNotes,
             requiredByDefault: false,
@@ -3913,8 +5106,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
         builtInQuestionSettings: <String, Map<String, dynamic>>{
           'address': <String, dynamic>{
             'required': true,
-            'helperText':
-                'Enter the address where the visit will take place.',
+            'helperText': 'Enter the address where the visit will take place.',
           },
           'phone': <String, dynamic>{'required': true, 'helperText': ''},
           'email': <String, dynamic>{'required': false, 'helperText': ''},
@@ -3929,8 +5121,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
           },
           'photos': <String, dynamic>{
             'required': false,
-            'helperText':
-                'Optional photos can help the visitor plan care.',
+            'helperText': 'Optional photos can help the visitor plan care.',
           },
         },
         questions: <VanServiceTemplateQuestion>[
@@ -3996,11 +5187,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
                 'Listing medication does not mean the business can administer it.',
             answerType: VanCustomQuestionAnswerType.multipleChoice,
             category: VanCustomQuestionCategory.medicalHandling,
-            choiceOptions: <String>[
-              'Yes',
-              'No',
-              'Unsure',
-            ],
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
             tags: <String>['pet services', 'drop-in', 'medication'],
           ),
           VanServiceTemplateQuestion(
@@ -4048,12 +5235,7 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             answerType: VanCustomQuestionAnswerType.longText,
             category: VanCustomQuestionCategory.access,
             requiredByDefault: false,
-            tags: <String>[
-              'pet services',
-              'drop-in',
-              'parking',
-              'access',
-            ],
+            tags: <String>['pet services', 'drop-in', 'parking', 'access'],
           ),
         ],
         extras: <VanServiceTemplateExtra>[
@@ -4062,7 +5244,8 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
             label: 'Additional pet',
           ),
           VanServiceTemplateExtra(
-            key: 'custom_extra_pet_services_drop_in_visit_additional_15_minutes',
+            key:
+                'custom_extra_pet_services_drop_in_visit_additional_15_minutes',
             label: 'Additional 15 minutes',
           ),
           VanServiceTemplateExtra(
@@ -4085,3287 +5268,3244 @@ kVanBusinessTemplateLibrary = <VanBusinessTemplateDefinition>[
         requestPhotos: true,
         requireAddress: true,
         pricingMode: VanServiceCapabilityIds.customQuote,
-         suggestedCustomerMessage:
-             'We will confirm the visit details, feeding and care requirements before accepting.',
-       ),
-       VanBusinessServiceTemplateDefinition(
-         serviceId: 'pet_services_dog_day_care',
-         name: 'Dog Day Care',
-         description:
-             'Same-day care for dogs, including agreed supervision, exercise, rest and feeding.',
-         featureIds: <String>[
-           VanServiceCapabilityIds.oneOff,
-           VanServiceCapabilityIds.customerDropsOff,
-           VanServiceCapabilityIds.customerCollects,
-           VanServiceCapabilityIds.customQuote,
-           VanServiceCapabilityIds.estimatedDuration,
-           VanServiceCapabilityIds.leadTime,
-           VanServiceCapabilityIds.photoUpload,
-         ],
-         bookingOptionIds: <String>[
-           VanServiceCapabilityIds.booking,
-           VanServiceCapabilityIds.requestQuote,
-         ],
-         customerJourney: VanCustomerJourneyType.quote,
-         requestType: VanCustomerRequestType.dropOffPickupRequest,
-         startHandover: VanStartHandover.customerDropsOff,
-         endHandover: VanEndHandover.customerCollects,
-         requestFlowOptions: VanCustomerRequestFlowOptions(
-           showFulfilmentChoice: false,
-           askPreferredDate: false,
-           askPreferredTime: false,
-           showPickupAddress: false,
-           showDeliveryAddress: false,
-           showDropOffDate: true,
-           showDropOffTime: true,
-           showPickUpDate: true,
-           showPickUpTime: true,
-           showNotes: false,
-         ),
-         builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
-         builtInQuestionSettings: <String, Map<String, dynamic>>{
-           'phone': <String, dynamic>{'required': true, 'helperText': ''},
-           'email': <String, dynamic>{'required': false, 'helperText': ''},
-           'photos': <String, dynamic>{
-             'required': false,
-             'helperText':
-                 'Optional photos can help the carer plan the day.',
-           },
-         },
-         questions: <VanServiceTemplateQuestion>[
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_dog_details',
-             text: 'Tell us about the dog',
-             helperText:
-                 'Include name, breed/type, age and approximate size.',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             tags: <String>['pet services', 'day care', 'dog details'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_previous_attendance',
-             text: 'Has the dog attended day care before?',
-             answerType: VanCustomQuestionAnswerType.multipleChoice,
-             category: VanCustomQuestionCategory.items,
-             choiceOptions: <String>[
-               'Regularly attends day care',
-               'Has attended before',
-               'First time',
-               'Unsure',
-             ],
-             tags: <String>['pet services', 'day care', 'attendance'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_vaccination_records',
-             text: 'Can vaccination records be provided if required?',
-             helperText:
-                 'The business will confirm its own requirements. This does not guarantee acceptance.',
-             answerType: VanCustomQuestionAnswerType.multipleChoice,
-             category: VanCustomQuestionCategory.medicalHandling,
-             choiceOptions: <String>[
-               'Yes',
-               'No',
-               'Unsure',
-             ],
-             tags: <String>['pet services', 'day care', 'vaccination'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_social_behaviour',
-             text:
-                 'How does the dog behave around other dogs and people?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.generalNotes,
-             tags: <String>['pet services', 'day care', 'behaviour'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_behaviour_concerns',
-             text:
-                 'Are there any behaviour, separation, resource-guarding or escape-risk concerns?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.generalNotes,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'day care', 'behaviour concerns'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_feeding',
-             text: 'Are there any feeding requirements?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'day care', 'feeding'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_health',
-             text: 'Are there any health, allergy or medication needs?',
-             helperText:
-                 'The business must confirm whether it can safely meet these needs.',
-             answerType: VanCustomQuestionAnswerType.multipleChoice,
-             category: VanCustomQuestionCategory.medicalHandling,
-             choiceOptions: <String>[
-               'Yes',
-               'No',
-               'Unsure',
-             ],
-             tags: <String>['pet services', 'day care', 'health'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_health_details',
-             text: 'Describe any health or medication needs',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.medicalHandling,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'day care', 'health details'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_rest_routine',
-             text: 'Does the dog need a rest, crate or settling routine?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'day care', 'rest routine'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_day_care_items',
-             text:
-                 'What items are being brought, and is there any essential safe-care information?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'day care', 'items'],
-           ),
-         ],
-         extras: <VanServiceTemplateExtra>[
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_day_care_additional_dog',
-             label: 'Additional dog from the same household',
-           ),
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_day_care_extended_care_hour',
-             label: 'Extended-care hour',
-           ),
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_day_care_meal_preparation',
-             label: 'Meal preparation',
-           ),
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_day_care_medication_support',
-             label: 'Medication support, subject to agreement',
-           ),
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_day_care_weekend_holiday',
-             label: 'Weekend or bank-holiday care',
-           ),
-         ],
-         availability: _petServicesDayCareAvailability,
-         suggestedDurationMinutes: 480,
-         suggestedNoticeHours: 48,
-         maximumBookingsPerDay: 4,
-         requestPhotos: true,
-         requireAddress: false,
-         pricingMode: VanServiceCapabilityIds.customQuote,
-         suggestedCustomerMessage:
-             'We will confirm the day care arrangements and suitability before accepting.',
-       ),
-       VanBusinessServiceTemplateDefinition(
-         serviceId: 'pet_services_dog_boarding',
-         name: 'Dog Boarding',
-         description:
-             'Overnight or multi-day care for dogs, with routines, suitability and care requirements reviewed before confirmation.',
-         featureIds: <String>[
-           VanServiceCapabilityIds.oneOff,
-           VanServiceCapabilityIds.customerDropsOff,
-           VanServiceCapabilityIds.customerCollects,
-           VanServiceCapabilityIds.customQuote,
-           VanServiceCapabilityIds.leadTime,
-           VanServiceCapabilityIds.photoUpload,
-         ],
-         bookingOptionIds: <String>[
-           VanServiceCapabilityIds.booking,
-           VanServiceCapabilityIds.requestQuote,
-         ],
-         customerJourney: VanCustomerJourneyType.quote,
-         requestType: VanCustomerRequestType.dropOffPickupRequest,
-         startHandover: VanStartHandover.customerDropsOff,
-         endHandover: VanEndHandover.customerCollects,
-         requestFlowOptions: VanCustomerRequestFlowOptions(
-           showFulfilmentChoice: false,
-           askPreferredDate: false,
-           askPreferredTime: false,
-           showPickupAddress: false,
-           showDeliveryAddress: false,
-           showDropOffDate: true,
-           showDropOffTime: true,
-           showPickUpDate: true,
-           showPickUpTime: true,
-           showNotes: false,
-         ),
-         builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
-         builtInQuestionSettings: <String, Map<String, dynamic>>{
-           'phone': <String, dynamic>{'required': true, 'helperText': ''},
-           'email': <String, dynamic>{'required': false, 'helperText': ''},
-           'photos': <String, dynamic>{
-             'required': false,
-             'helperText':
-                 'Optional photos can help the boarder plan care.',
-           },
-         },
-         questions: <VanServiceTemplateQuestion>[
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_dog_count',
-             text: 'How many dogs need boarding?',
-             answerType: VanCustomQuestionAnswerType.multipleChoice,
-             category: VanCustomQuestionCategory.items,
-             choiceOptions: <String>[
-               'One',
-               'Two',
-               'Three or more',
-               'Unsure',
-             ],
-             tags: <String>['pet services', 'boarding', 'dog count'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_dog_details',
-             text: 'Tell us about the dogs',
-             helperText:
-                 'Include names, breeds/types, ages, sizes and temperament.',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             tags: <String>['pet services', 'boarding', 'dog details'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_previous_stay',
-             text: 'Has the dog stayed in boarding before?',
-             answerType: VanCustomQuestionAnswerType.multipleChoice,
-             category: VanCustomQuestionCategory.items,
-             choiceOptions: <String>[
-               'Boards regularly',
-               'Has boarded before',
-               'First time',
-               'Unsure',
-             ],
-             tags: <String>['pet services', 'boarding', 'previous stay'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_vaccination_records',
-             text: 'Can vaccination or health records be provided if required?',
-             helperText:
-                 'The business will confirm its own requirements. This does not guarantee acceptance.',
-             answerType: VanCustomQuestionAnswerType.multipleChoice,
-             category: VanCustomQuestionCategory.medicalHandling,
-             choiceOptions: <String>[
-               'Yes',
-               'No',
-               'Unsure',
-             ],
-             tags: <String>['pet services', 'boarding', 'vaccination'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_social_behaviour',
-             text:
-                 'How is the dog around dogs, cats, children and unfamiliar people?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.generalNotes,
-             tags: <String>['pet services', 'boarding', 'social behaviour'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_feeding_routine',
-             text: 'What is the dog\'s feeding routine?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             tags: <String>['pet services', 'boarding', 'feeding routine'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_sleeping_routine',
-             text: 'Does the dog need a sleeping or crate routine?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'boarding', 'sleeping routine'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_exercise_toilet',
-             text: 'What is the dog\'s exercise and toilet routine?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             tags: <String>['pet services', 'boarding', 'exercise toilet'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_behaviour_concerns',
-             text: 'Are there any behaviour or escape-risk concerns?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.generalNotes,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'boarding', 'behaviour concerns'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_health',
-             text: 'Are there any health, allergy or medication needs?',
-             helperText:
-                 'The business must confirm whether it can safely meet these needs.',
-             answerType: VanCustomQuestionAnswerType.multipleChoice,
-             category: VanCustomQuestionCategory.medicalHandling,
-             choiceOptions: <String>[
-               'Yes',
-               'No',
-               'Unsure',
-             ],
-             tags: <String>['pet services', 'boarding', 'health'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_health_details',
-             text: 'Describe any health or medication needs',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.medicalHandling,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'boarding', 'health details'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_items',
-             text: 'What items are being brought?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.items,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'boarding', 'items'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_emergency_contact',
-             text:
-                 'Can emergency-contact and veterinary details be supplied if the booking proceeds?',
-             helperText:
-                 'These details can be arranged privately after the booking is accepted.',
-             answerType: VanCustomQuestionAnswerType.multipleChoice,
-             category: VanCustomQuestionCategory.medicalHandling,
-             choiceOptions: <String>[
-               'Yes',
-               'No',
-               'Unsure',
-             ],
-             tags: <String>['pet services', 'boarding', 'emergency contact'],
-           ),
-           VanServiceTemplateQuestion(
-             libraryId: 'pet_services_dog_boarding_safe_care_info',
-             text: 'Is there any essential safe-care information?',
-             answerType: VanCustomQuestionAnswerType.longText,
-             category: VanCustomQuestionCategory.generalNotes,
-             requiredByDefault: false,
-             tags: <String>['pet services', 'boarding', 'safe care info'],
-           ),
-         ],
-         extras: <VanServiceTemplateExtra>[
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_boarding_additional_dog',
-             label: 'Additional dog from the same household',
-           ),
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_boarding_additional_night',
-             label: 'Additional night',
-           ),
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_boarding_special_feeding',
-             label: 'Special feeding preparation',
-           ),
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_boarding_medication_support',
-             label: 'Medication support, subject to agreement',
-           ),
-           VanServiceTemplateExtra(
-             key: 'custom_extra_pet_services_dog_boarding_weekend_holiday',
-             label: 'Weekend or bank-holiday boarding',
-           ),
-         ],
-         availability: _petServicesBoardingAvailability,
-         suggestedNoticeHours: 72,
-         maximumBookingsPerDay: 3,
-         requestPhotos: true,
-         requireAddress: false,
-         pricingMode: VanServiceCapabilityIds.customQuote,
-         suggestedCustomerMessage:
-              'We will confirm the boarding suitability and routines before accepting.',
-        ),
-      ],
-    ),
-    VanBusinessTemplateDefinition(
-      categoryId: 'window_cleaning',
-      categoryName: 'Window Cleaning',
-      businessTypeId: 'window_cleaning',
-      businessTypeName: 'Window Cleaning',
-      description:
-          'Domestic and commercial window and conservatory cleaning services.',
-      iconKey: 'home',
-      colorValue: 0xFF29B6F4,
-      featured: true,
-      searchKeywords: <String>[
-        'window cleaning',
-        'domestic window cleaning',
-        'commercial window cleaning',
-        'shopfront cleaning',
-        'conservatory cleaning',
-        'one-off window cleaning',
-      ],
-      searchAliases: <VanBusinessSearchAlias>[
-        VanBusinessSearchAlias('Window cleaner'),
-        VanBusinessSearchAlias('Domestic window cleaner'),
-        VanBusinessSearchAlias('Shopfront cleaner'),
-        VanBusinessSearchAlias('Commercial window cleaner'),
-        VanBusinessSearchAlias('Conservatory cleaning'),
-        VanBusinessSearchAlias('One-off window cleaning'),
-      ],
-      services: <VanBusinessServiceTemplateDefinition>[
-        VanBusinessServiceTemplateDefinition(
-          serviceId: 'window_cleaning_domestic',
-          name: 'Domestic Window Cleaning',
-          description:
-              'Routine window cleaning for houses, flats and other domestic properties, subject to safe access and scope confirmation.',
-          featureIds: <String>[
-            VanServiceCapabilityIds.appointmentRequired,
-            VanServiceCapabilityIds.businessVisitsCustomer,
-            VanServiceCapabilityIds.customQuote,
-            VanServiceCapabilityIds.estimatedDuration,
-            VanServiceCapabilityIds.leadTime,
-            VanServiceCapabilityIds.photoUpload,
-          ],
-          bookingOptionIds: <String>[
-            VanServiceCapabilityIds.booking,
-            VanServiceCapabilityIds.requestQuote,
-          ],
-          customerJourney: VanCustomerJourneyType.quote,
-          requestType: VanCustomerRequestType.quoteRequest,
-          startHandover: null,
-          endHandover: null,
-          requestFlowOptions: _windowCleaningStandardQuoteFlow,
-          builtInQuestionKeys: <String>{
-            'address',
-            'phone',
-            'email',
-            'preferred_date',
-            'preferred_time',
-            'photos',
-          },
-          builtInQuestionSettings: <String, Map<String, dynamic>>{
-            'address': <String, dynamic>{
-              'required': true,
-              'helperText':
-                  'Enter the address where the cleaning will take place.',
-            },
-            'phone': <String, dynamic>{'required': true, 'helperText': ''},
-            'email': <String, dynamic>{'required': false, 'helperText': ''},
-            'preferred_date': <String, dynamic>{
-              'required': true,
-              'helperText': 'Choose your preferred cleaning date.',
-            },
-            'preferred_time': <String, dynamic>{
-              'required': true,
-              'helperText':
-                  'Choose a preferred start time or time window. The business will confirm availability.',
-            },
-            'photos': <String, dynamic>{
-              'required': false,
-              'helperText':
-                  'Optional photos can show the window condition, access issues or priority areas. Avoid including private documents or sensitive information.',
-            },
-          },
-          questions: <VanServiceTemplateQuestion>[
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_property_type',
-              text: 'What type of property is it?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.property,
-              choiceOptions: <String>[
-                'House',
-                'Bungalow',
-                'Flat or maisonette',
-                'Other',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'domestic', 'property'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_storeys',
-              text: 'How many storeys need window cleaning?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.access,
-              choiceOptions: <String>[
-                'Ground floor only',
-                'Two storeys',
-                'Three storeys or more',
-                'Unsure',
-              ],
-              helperText:
-                  'Higher or difficult-to-reach windows are subject to the business confirming safe access.',
-              tags: <String>['window cleaning', 'domestic', 'storeys', 'access'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_window_count',
-              text: 'Approximately how many windows need cleaning?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.sizeWeight,
-              choiceOptions: <String>[
-                'Up to 10',
-                '11–20',
-                '21–30',
-                'More than 30',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'domestic', 'window count'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_inside_outside',
-              text: 'Which areas need cleaning?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.jobDetails,
-              choiceOptions: <String>[
-                'Outside only',
-                'Inside only',
-                'Inside and outside',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'domestic', 'inside', 'outside'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_frames_sills',
-              text: 'Should frames and sills be included?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.jobDetails,
-              choiceOptions: <String>[
-                'Yes',
-                'No',
-                'Please advise',
-              ],
-              tags: <String>['window cleaning', 'domestic', 'frames', 'sills'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_condition',
-              text: 'How would you describe the current condition?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.survey,
-              choiceOptions: <String>[
-                'Regularly maintained',
-                'Moderate dirt or marks',
-                'Heavy buildup',
-                'Specialist residue may be present',
-                'Unsure',
-              ],
-              helperText:
-                  'Paint, cement, adhesive, mineral deposits or other specialist residue may require separate assessment and may not be removable.',
-              tags: <String>['window cleaning', 'domestic', 'condition'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_access_issues',
-              text: 'Are there any access or safety issues around the windows?',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.access,
-              requiredByDefault: false,
-              helperText:
-                  'Examples may include locked gates, narrow side access, extensions or conservatories below windows, sloping or uneven ground, overhead cables, or windows above fragile surfaces. Do not include door, alarm or key-safe codes.',
-              tags: <String>['window cleaning', 'domestic', 'access', 'safety'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_frequency',
-              text: 'How often would you ideally like the windows cleaned?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.timing,
-              choiceOptions: <String>[
-                'One-off',
-                'Every four weeks',
-                'Every six to eight weeks',
-                'Quarterly',
-                'Ad hoc',
-                'Unsure',
-              ],
-              helperText:
-                  'This records your preference only and does not automatically create recurring bookings.',
-              tags: <String>['window cleaning', 'domestic', 'frequency'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_domestic_parking_access',
-              text: 'Parking and access information',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.access,
-              requiredByDefault: false,
-              helperText:
-                  'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-              tags: <String>['window cleaning', 'domestic', 'parking', 'access'],
-            ),
-          ],
-          extras: <VanServiceTemplateExtra>[
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_domestic_interior_windows',
-              label: 'Interior windows',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_domestic_frames_sills',
-              label: 'Frames and sills',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_domestic_patio_doors',
-              label: 'Patio or French doors',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_domestic_skylights',
-              label: 'Skylights, subject to safe access',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_domestic_first_clean',
-              label: 'First clean or heavy buildup',
-            ),
-          ],
-          availability: _windowCleaningMondayToSaturday,
-          suggestedDurationMinutes: 90,
-          suggestedNoticeHours: 24,
-          maximumBookingsPerDay: 6,
-          requestPhotos: true,
-          requireAddress: true,
-          pricingMode: VanServiceCapabilityIds.customQuote,
-          suggestedCustomerMessage:
-              'Tell us about the property, window type and access. We will confirm the scope and price before accepting.',
-        ),
-        VanBusinessServiceTemplateDefinition(
-          serviceId: 'window_cleaning_commercial',
-          name: 'Commercial / Shopfront Window Cleaning',
-          description:
-              'Window and shopfront cleaning for commercial premises, with access, timing and surface condition confirmed before work is agreed.',
-          featureIds: <String>[
-            VanServiceCapabilityIds.appointmentRequired,
-            VanServiceCapabilityIds.businessVisitsCustomer,
-            VanServiceCapabilityIds.customQuote,
-            VanServiceCapabilityIds.estimatedDuration,
-            VanServiceCapabilityIds.leadTime,
-            VanServiceCapabilityIds.photoUpload,
-          ],
-          bookingOptionIds: <String>[
-            VanServiceCapabilityIds.booking,
-            VanServiceCapabilityIds.requestQuote,
-          ],
-          customerJourney: VanCustomerJourneyType.quote,
-          requestType: VanCustomerRequestType.quoteRequest,
-          startHandover: null,
-          endHandover: null,
-          requestFlowOptions: _windowCleaningStandardQuoteFlow,
-          builtInQuestionKeys: <String>{
-            'address',
-            'phone',
-            'email',
-            'preferred_date',
-            'preferred_time',
-            'photos',
-          },
-          builtInQuestionSettings: <String, Map<String, dynamic>>{
-            'address': <String, dynamic>{
-              'required': true,
-              'helperText':
-                  'Enter the address where the cleaning will take place.',
-            },
-            'phone': <String, dynamic>{'required': true, 'helperText': ''},
-            'email': <String, dynamic>{'required': false, 'helperText': ''},
-            'preferred_date': <String, dynamic>{
-              'required': true,
-              'helperText': 'Choose your preferred cleaning date.',
-            },
-            'preferred_time': <String, dynamic>{
-              'required': true,
-              'helperText':
-                  'Choose a preferred start time or time window. The business will confirm availability.',
-            },
-            'photos': <String, dynamic>{
-              'required': false,
-              'helperText':
-                  'Optional photos can show the window condition, access issues or priority areas. Avoid including private documents or sensitive information.',
-            },
-          },
-          questions: <VanServiceTemplateQuestion>[
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_premises_type',
-              text: 'What type of premises needs cleaning?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.property,
-              choiceOptions: <String>[
-                'Shopfront',
-                'Office',
-                'Salon, café or restaurant',
-                'Small commercial property',
-                'Other',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'commercial', 'premises'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_areas',
-              text: 'Which glass areas need cleaning?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.jobDetails,
-              choiceOptions: <String>[
-                'Outside only',
-                'Inside only',
-                'Inside and outside',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'commercial', 'areas'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_frontage_size',
-              text: 'Approximately how much window frontage is there?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.sizeWeight,
-              choiceOptions: <String>[
-                'Small frontage',
-                'Medium frontage',
-                'Large frontage',
-                'Multiple frontage sections',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'commercial', 'frontage'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_height',
-              text: 'At what level are the windows?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.access,
-              choiceOptions: <String>[
-                'Ground floor only',
-                'Ground and first floor',
-                'Higher-level windows',
-                'Mixed levels',
-                'Unsure',
-              ],
-              helperText:
-                  'Higher-level or difficult-access work is subject to the business confirming suitable equipment and safe access.',
-              tags: <String>['window cleaning', 'commercial', 'height', 'access'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_condition',
-              text: 'How would you describe the current condition?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.survey,
-              choiceOptions: <String>[
-                'Regularly maintained',
-                'Fingerprints and general marks',
-                'Grease or heavier buildup',
-                'Stickers, adhesive or specialist residue',
-                'Unsure',
-              ],
-              helperText:
-                  'Specialist residue removal is not guaranteed and may require separate assessment.',
-              tags: <String>['window cleaning', 'commercial', 'condition'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_frequency',
-              text: 'How often would you ideally like the windows cleaned?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.timing,
-              choiceOptions: <String>[
-                'One-off',
-                'Weekly',
-                'Fortnightly',
-                'Every four weeks',
-                'Ad hoc',
-                'Unsure',
-              ],
-              helperText:
-                  'This records your preference only and does not automatically create recurring bookings.',
-              tags: <String>['window cleaning', 'commercial', 'frequency'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_service_timing',
-              text: 'When would you prefer the work to take place?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.timing,
-              choiceOptions: <String>[
-                'Before opening',
-                'During business hours',
-                'After closing',
-                'Flexible',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'commercial', 'timing'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_public_access',
-              text:
-                  'Are there public-access, loading or trading restrictions to consider?',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.access,
-              requiredByDefault: false,
-              helperText:
-                  'Examples may include busy pedestrian areas, market days, loading restrictions, customer entrances, outdoor seating, or displays close to the glass.',
-              tags: <String>['window cleaning', 'commercial', 'public access'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_signage',
-              text: 'Are there signs, displays or equipment close to the windows?',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.jobDetails,
-              requiredByDefault: false,
-              tags: <String>['window cleaning', 'commercial', 'signage'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_commercial_parking_access',
-              text: 'Parking and access information',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.access,
-              requiredByDefault: false,
-              helperText:
-                  'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-              tags: <String>['window cleaning', 'commercial', 'parking', 'access'],
-            ),
-          ],
-          extras: <VanServiceTemplateExtra>[
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_commercial_interior_glass',
-              label: 'Interior glass',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_commercial_frames_sills',
-              label: 'Frames and sills',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_commercial_glass_doors',
-              label: 'Glass doors',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_commercial_additional_frontage',
-              label: 'Additional frontage section',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_commercial_out_of_hours',
-              label: 'Out-of-hours visit',
-            ),
-          ],
-          availability: _windowCleaningCommercialAvailability,
-          suggestedDurationMinutes: 180,
-          suggestedNoticeHours: 24,
-          maximumBookingsPerDay: 3,
-          requestPhotos: true,
-          requireAddress: true,
-          pricingMode: VanServiceCapabilityIds.customQuote,
-          suggestedCustomerMessage:
-              'Tell us about the premises, glass areas and access requirements. We will confirm the scope, timing and price before accepting.',
-        ),
-        VanBusinessServiceTemplateDefinition(
-          serviceId: 'window_cleaning_conservatory',
-          name: 'Conservatory Cleaning',
-          description:
-              'Conservatory glass and panel cleaning, with condition and safe access confirmed before work is agreed.',
-          featureIds: <String>[
-            VanServiceCapabilityIds.appointmentRequired,
-            VanServiceCapabilityIds.businessVisitsCustomer,
-            VanServiceCapabilityIds.customQuote,
-            VanServiceCapabilityIds.estimatedDuration,
-            VanServiceCapabilityIds.leadTime,
-            VanServiceCapabilityIds.photoUpload,
-          ],
-          bookingOptionIds: <String>[
-            VanServiceCapabilityIds.booking,
-            VanServiceCapabilityIds.requestQuote,
-          ],
-          customerJourney: VanCustomerJourneyType.quote,
-          requestType: VanCustomerRequestType.quoteRequest,
-          startHandover: null,
-          endHandover: null,
-          requestFlowOptions: _windowCleaningStandardQuoteFlow,
-          builtInQuestionKeys: <String>{
-            'address',
-            'phone',
-            'email',
-            'preferred_date',
-            'preferred_time',
-            'photos',
-          },
-          builtInQuestionSettings: <String, Map<String, dynamic>>{
-            'address': <String, dynamic>{
-              'required': true,
-              'helperText':
-                  'Enter the address where the cleaning will take place.',
-            },
-            'phone': <String, dynamic>{'required': true, 'helperText': ''},
-            'email': <String, dynamic>{'required': false, 'helperText': ''},
-            'preferred_date': <String, dynamic>{
-              'required': true,
-              'helperText': 'Choose your preferred cleaning date.',
-            },
-            'preferred_time': <String, dynamic>{
-              'required': true,
-              'helperText':
-                  'Choose a preferred start time or time window. The business will confirm availability.',
-            },
-            'photos': <String, dynamic>{
-              'required': false,
-              'helperText':
-                  'Optional photos can show the conservatory size, condition or access issues. Avoid including private documents or sensitive information.',
-            },
-          },
-          questions: <VanServiceTemplateQuestion>[
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_size',
-              text: 'Approximately how large is the conservatory?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.sizeWeight,
-              choiceOptions: <String>[
-                'Small',
-                'Medium',
-                'Large',
-                'Very large',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'conservatory', 'size'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_priority',
-              text: 'Which area is the main priority?',
-              helperText:
-                  'Additional areas can be selected as extras or discussed before the work is agreed.',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.jobDetails,
-              choiceOptions: <String>[
-                'Whole exterior',
-                'Roof panels',
-                'Side glass and doors',
-                'Interior glass',
-                'Inside and outside',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'conservatory', 'priority'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_roof_material',
-              text: 'What is the conservatory roof made from?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.jobDetails,
-              choiceOptions: <String>[
-                'Glass',
-                'Polycarbonate panels',
-                'Mixed materials',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'conservatory', 'roof'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_access',
-              text: 'How would you describe access around the conservatory?',
-              helperText:
-                  'Roof panels and difficult areas are subject to the business confirming safe access and suitable equipment.',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.access,
-              choiceOptions: <String>[
-                'Clear ground-level access',
-                'Restricted side access',
-                'Obstacles or extensions affect access',
-                'Sloping or uneven ground',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'conservatory', 'access'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_condition',
-              text: 'How would you describe the current condition?',
-              helperText:
-                  'Paint, cement, adhesive, mineral deposits or other specialist residue may require separate assessment and may not be removable.',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.survey,
-              choiceOptions: <String>[
-                'Regularly maintained',
-                'General dirt or marks',
-                'Algae or heavier buildup',
-                'Specialist residue may be present',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'conservatory', 'condition'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_damage',
-              text: 'Are there any damaged, loose, leaking or fragile areas?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.survey,
-              choiceOptions: <String>[
-                'Yes',
-                'No',
-                'Unsure',
-              ],
-              helperText:
-                  'The business must confirm whether the area can be cleaned safely.',
-              tags: <String>['window cleaning', 'conservatory', 'damage'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_frequency',
-              text: 'How often would you ideally like the conservatory cleaned?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.timing,
-              requiredByDefault: false,
-              choiceOptions: <String>[
-                'One-off',
-                'Twice a year',
-                'Annually',
-                'Ad hoc',
-                'Unsure',
-              ],
-              helperText:
-                  'This records your preference only and does not automatically create recurring bookings.',
-              tags: <String>['window cleaning', 'conservatory', 'frequency'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_interior_preparation',
-              text: 'Are there blinds, furniture or other items close to the interior glass?',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.access,
-              requiredByDefault: false,
-              tags: <String>['window cleaning', 'conservatory', 'interior', 'preparation'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_conservatory_parking_access',
-              text: 'Parking and access information',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.access,
-              requiredByDefault: false,
-              helperText:
-                  'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-              tags: <String>['window cleaning', 'conservatory', 'parking', 'access'],
-            ),
-          ],
-          extras: <VanServiceTemplateExtra>[
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_conservatory_interior_glass',
-              label: 'Interior conservatory glass',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_conservatory_frames_sills',
-              label: 'Frames and sills',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_conservatory_doors',
-              label: 'Conservatory doors',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_conservatory_roof_panels',
-              label: 'Roof panels, subject to safe access',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_conservatory_first_clean',
-              label: 'First clean or heavy buildup',
-            ),
-          ],
-          availability: _windowCleaningMondayToSaturday,
-          suggestedDurationMinutes: 180,
-          suggestedNoticeHours: 48,
-          maximumBookingsPerDay: 2,
-          requestPhotos: true,
-          requireAddress: true,
-          pricingMode: VanServiceCapabilityIds.customQuote,
-          suggestedCustomerMessage:
-              'Tell us about the conservatory size, areas, condition and access. We will confirm safe access and scope before accepting.',
-        ),
-        VanBusinessServiceTemplateDefinition(
-          serviceId: 'window_cleaning_one_off',
-          name: 'One-off Window Cleaning',
-          description:
-              'A one-time window clean for moving, property preparation, first cleans or other occasional requirements.',
-          featureIds: <String>[
-            VanServiceCapabilityIds.appointmentRequired,
-            VanServiceCapabilityIds.businessVisitsCustomer,
-            VanServiceCapabilityIds.customQuote,
-            VanServiceCapabilityIds.estimatedDuration,
-            VanServiceCapabilityIds.leadTime,
-            VanServiceCapabilityIds.oneOff,
-            VanServiceCapabilityIds.photoUpload,
-          ],
-          bookingOptionIds: <String>[
-            VanServiceCapabilityIds.booking,
-            VanServiceCapabilityIds.requestQuote,
-          ],
-          customerJourney: VanCustomerJourneyType.quote,
-          requestType: VanCustomerRequestType.quoteRequest,
-          startHandover: null,
-          endHandover: null,
-          requestFlowOptions: _windowCleaningStandardQuoteFlow,
-          builtInQuestionKeys: <String>{
-            'address',
-            'phone',
-            'email',
-            'preferred_date',
-            'preferred_time',
-            'photos',
-          },
-          builtInQuestionSettings: <String, Map<String, dynamic>>{
-            'address': <String, dynamic>{
-              'required': true,
-              'helperText':
-                  'Enter the address where the cleaning will take place.',
-            },
-            'phone': <String, dynamic>{'required': true, 'helperText': ''},
-            'email': <String, dynamic>{'required': false, 'helperText': ''},
-            'preferred_date': <String, dynamic>{
-              'required': true,
-              'helperText': 'Choose your preferred cleaning date.',
-            },
-            'preferred_time': <String, dynamic>{
-              'required': true,
-              'helperText':
-                  'Choose a preferred start time or time window. The business will confirm availability.',
-            },
-            'photos': <String, dynamic>{
-              'required': false,
-              'helperText':
-                  'Optional photos can show the window type, condition and access. Avoid including private documents or sensitive information.',
-            },
-          },
-          questions: <VanServiceTemplateQuestion>[
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_reason',
-              text: 'What is the main reason for the clean?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.jobDetails,
-              choiceOptions: <String>[
-                'Moving in or out',
-                'After building or decorating work',
-                'Preparing for a sale or inspection',
-                'First clean after a long gap',
-                'Other',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'one-off', 'reason'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_property_type',
-              text: 'What type of property is it?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.property,
-              choiceOptions: <String>[
-                'House',
-                'Bungalow',
-                'Flat or maisonette',
-                'Commercial property',
-                'Other',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'one-off', 'property'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_storeys',
-              text: 'How many storeys need window cleaning?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.access,
-              choiceOptions: <String>[
-                'Ground floor only',
-                'Two storeys',
-                'Three storeys or more',
-                'Unsure',
-              ],
-              helperText:
-                  'Higher or difficult-to-reach windows are subject to the business confirming safe access.',
-              tags: <String>['window cleaning', 'one-off', 'storeys', 'access'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_window_count',
-              text: 'Approximately how many windows need cleaning?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.sizeWeight,
-              choiceOptions: <String>[
-                'Up to 10',
-                '11–20',
-                '21–30',
-                'More than 30',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'one-off', 'window count'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_areas',
-              text: 'Which areas need cleaning?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.jobDetails,
-              choiceOptions: <String>[
-                'Outside only',
-                'Inside only',
-                'Inside and outside',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'one-off', 'areas'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_frames_sills',
-              text: 'Should frames and sills be included?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.jobDetails,
-              choiceOptions: <String>[
-                'Yes',
-                'No',
-                'Please advise',
-              ],
-              tags: <String>['window cleaning', 'one-off', 'frames', 'sills'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_condition',
-              text: 'How would you describe the current condition?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.survey,
-              choiceOptions: <String>[
-                'General dirt or marks',
-                'Heavy buildup',
-                'Post-building dust or residue',
-                'Paint, adhesive or specialist residue may be present',
-                'Unsure',
-              ],
-              helperText:
-                  'Specialist residue removal is not guaranteed and may require separate assessment.',
-              tags: <String>['window cleaning', 'one-off', 'condition'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_specialist_residue',
-              text: 'Is any paint, cement, adhesive or other specialist residue present?',
-              answerType: VanCustomQuestionAnswerType.multipleChoice,
-              category: VanCustomQuestionCategory.survey,
-              choiceOptions: <String>[
-                'Yes',
-                'No',
-                'Unsure',
-              ],
-              tags: <String>['window cleaning', 'one-off', 'specialist residue'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_access_safety',
-              text: 'Describe any residue, access or safety concerns',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.access,
-              requiredByDefault: false,
-              helperText:
-                  'Examples may include restricted gates, extensions below windows, fragile surfaces, sloping ground, overhead cables, or known residue or damaged glass. Do not request security codes.',
-              tags: <String>['window cleaning', 'one-off', 'access', 'safety'],
-            ),
-            VanServiceTemplateQuestion(
-              libraryId: 'window_cleaning_one_off_parking_access',
-              text: 'Parking and access information',
-              answerType: VanCustomQuestionAnswerType.longText,
-              category: VanCustomQuestionCategory.access,
-              requiredByDefault: false,
-              helperText:
-                  'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-              tags: <String>['window cleaning', 'one-off', 'parking', 'access'],
-            ),
-          ],
-          extras: <VanServiceTemplateExtra>[
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_one_off_interior_windows',
-              label: 'Interior windows',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_one_off_frames_sills',
-              label: 'Frames and sills',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_one_off_patio_doors',
-              label: 'Patio or French doors',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_one_off_additional_area',
-              label: 'Additional window area',
-            ),
-            VanServiceTemplateExtra(
-              key: 'custom_extra_window_cleaning_one_off_first_clean',
-              label: 'First clean or heavy buildup',
-            ),
-          ],
-          availability: _windowCleaningMondayToSaturday,
-          suggestedDurationMinutes: 90,
-          suggestedNoticeHours: 24,
-          maximumBookingsPerDay: 6,
-          requestPhotos: true,
-          requireAddress: true,
-          pricingMode: VanServiceCapabilityIds.customQuote,
-         suggestedCustomerMessage:
-               'Tell us about the property, window type, condition and access. We will confirm the scope and price before accepting.',
-         ),
-       ],
-     ),
-     VanBusinessTemplateDefinition(
-       categoryId: 'handyman',
-       categoryName: 'Handyman & General Services',
-       businessTypeId: 'handyman',
-       businessTypeName: 'Handyman & General Services',
-       description:
-           'Small household jobs, furniture assembly, mounting and non-specialist repairs.',
-       iconKey: 'home',
-       colorValue: 0xFFFFC107,
-       featured: true,
-       searchKeywords: <String>[
-         'handyman',
-         'general handyman',
-         'odd jobs',
-         'household jobs',
-         'small repairs',
-         'furniture assembly',
-         'flat-pack assembly',
-         'wall mounting',
-         'shelf fitting',
-       ],
-       searchAliases: <VanBusinessSearchAlias>[
-         VanBusinessSearchAlias('Handyman'),
-         VanBusinessSearchAlias('General Handyman'),
-         VanBusinessSearchAlias('Odd Jobs'),
-         VanBusinessSearchAlias('Small Repairs'),
-         VanBusinessSearchAlias('Household Fixes'),
-         VanBusinessSearchAlias('Flat-Pack Assembly'),
-       ],
-       services: <VanBusinessServiceTemplateDefinition>[
-         VanBusinessServiceTemplateDefinition(
-           serviceId: 'handyman_general_visit',
-           name: 'General Handyman Visit',
-           description:
-               'A flexible visit for several small household jobs. The business will confirm what can safely be completed within the agreed visit.',
-           featureIds: <String>[
-             VanServiceCapabilityIds.appointmentRequired,
-             VanServiceCapabilityIds.businessVisitsCustomer,
-             VanServiceCapabilityIds.customQuote,
-             VanServiceCapabilityIds.estimatedDuration,
-             VanServiceCapabilityIds.leadTime,
-             VanServiceCapabilityIds.photoUpload,
-           ],
-           bookingOptionIds: <String>[
-             VanServiceCapabilityIds.booking,
-             VanServiceCapabilityIds.requestQuote,
-           ],
-           customerJourney: VanCustomerJourneyType.quote,
-           requestType: VanCustomerRequestType.quoteRequest,
-           startHandover: null,
-           endHandover: null,
-           requestFlowOptions: _handymanStandardQuoteFlow,
-           builtInQuestionKeys: <String>{
-             'address',
-             'phone',
-             'email',
-             'preferred_date',
-             'preferred_time',
-             'photos',
-           },
-           builtInQuestionSettings: <String, Map<String, dynamic>>{
-             'address': <String, dynamic>{
-               'required': true,
-               'helperText':
-                   'Enter the address where the work will take place.',
-             },
-             'phone': <String, dynamic>{'required': true, 'helperText': ''},
-             'email': <String, dynamic>{'required': false, 'helperText': ''},
-             'preferred_date': <String, dynamic>{
-               'required': true,
-               'helperText': 'Choose your preferred date.',
-             },
-             'preferred_time': <String, dynamic>{
-               'required': true,
-               'helperText':
-                   'Choose a preferred start time or time window. The business will confirm availability.',
-             },
-             'photos': <String, dynamic>{
-               'required': false,
-               'helperText':
-                   'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
-             },
-           },
-           questions: <VanServiceTemplateQuestion>[
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_task_list',
-               text: 'What jobs need doing?',
-               answerType: VanCustomQuestionAnswerType.longText,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               helperText:
-                   'List each job separately. Electrical, gas, structural, roofing and major plumbing work are not included.',
-               tags: <String>['handyman', 'general', 'tasks'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_task_count',
-               text: 'Approximately how many separate jobs are there?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'One',
-                 'Two or three',
-                 'Four or five',
-                 'Six or more',
-                 'Unsure',
-               ],
-               tags: <String>['handyman', 'general', 'task count'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_priorities',
-               text: 'Which jobs are the highest priority?',
-               answerType: VanCustomQuestionAnswerType.longText,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: false,
-               helperText:
-                   'The business may not be able to complete every requested job in one visit.',
-               tags: <String>['handyman', 'general', 'priorities'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_duration_preference',
-               text: 'How much time do you think may be needed?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.timing,
-               requiredByDefault: false,
-               choiceOptions: <String>[
-                 'Less than two hours',
-                 'Two to four hours',
-                 'Half day',
-                 'Full day',
-                 'Unsure',
-               ],
-               helperText:
-                   'This is a guide only. The business will confirm the expected time after reviewing the work.',
-               tags: <String>['handyman', 'general', 'duration'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_materials_responsibility',
-               text: 'Who should provide materials and fixings?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Business to supply',
-                 'Customer will supply',
-                 'Some items are already supplied',
-                 'Please advise',
-               ],
-               tags: <String>['handyman', 'general', 'materials'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_materials_details',
-               text: 'Describe any materials, parts or fixings already available',
-               answerType: VanCustomQuestionAnswerType.longText,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: false,
-               tags: <String>['handyman', 'general', 'materials details'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_workspace',
-               text: 'Is the working area ready and accessible?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.access,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Clear and ready',
-                 'Some items need moving',
-                 'Access is restricted',
-                 'Unsure',
-               ],
-               tags: <String>['handyman', 'general', 'workspace'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_specialist_work',
-               text: 'Could any requested job involve specialist or regulated work?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Yes',
-                 'No',
-                 'Unsure',
-               ],
-               helperText:
-                   'This includes electrical, gas, structural, roofing, asbestos-related or major plumbing work. Listing it does not mean the business can undertake it.',
-               tags: <String>['handyman', 'general', 'specialist'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_safety_details',
-               text: 'Describe any access, height or safety concerns',
-               answerType: VanCustomQuestionAnswerType.longText,
-               category: VanCustomQuestionCategory.access,
-               requiredByDefault: false,
-               helperText:
-                   'Examples may include: fragile surfaces, restricted working space, heavy items, damaged walls, suspected pipes or cables, work above normal standing height.',
-               tags: <String>['handyman', 'general', 'safety'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_general_visit_parking_access',
-               text: 'Parking and property access information',
-               answerType: VanCustomQuestionAnswerType.longText,
-               category: VanCustomQuestionCategory.access,
-               requiredByDefault: false,
-               helperText:
-                   'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-               tags: <String>['handyman', 'general', 'parking', 'access'],
-             ),
-           ],
-           extras: <VanServiceTemplateExtra>[
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_general_visit_additional_hour',
-               label: 'Additional labour hour',
-             ),
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_general_visit_half_day',
-               label: 'Half-day visit',
-             ),
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_general_visit_materials_fixings',
-               label: 'Materials and fixings',
-             ),
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_general_visit_second_person',
-               label: 'Second-person assistance, subject to agreement',
-             ),
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_general_visit_small_waste_removal',
-               label: 'Small non-hazardous waste removal, subject to agreement',
-             ),
-           ],
-           availability: _handymanMondayToSaturday,
-           suggestedDurationMinutes: 120,
-           suggestedNoticeHours: 24,
-           maximumBookingsPerDay: 4,
-           requestPhotos: true,
-           requireAddress: true,
-           pricingMode: VanServiceCapabilityIds.customQuote,
-           suggestedCustomerMessage:
-               'Describe the jobs you need done. The business will confirm what can safely be completed within the agreed visit.',
-         ),
-         VanBusinessServiceTemplateDefinition(
-           serviceId: 'handyman_flat_pack_assembly',
-           name: 'Flat-Pack Furniture Assembly',
-           description:
-               'Flat-pack furniture assembly, with item size, parts, working space and any wall-fixing requirements confirmed before work is agreed.',
-           featureIds: <String>[
-             VanServiceCapabilityIds.appointmentRequired,
-             VanServiceCapabilityIds.businessVisitsCustomer,
-             VanServiceCapabilityIds.customQuote,
-             VanServiceCapabilityIds.estimatedDuration,
-             VanServiceCapabilityIds.leadTime,
-             VanServiceCapabilityIds.photoUpload,
-           ],
-           bookingOptionIds: <String>[
-             VanServiceCapabilityIds.booking,
-             VanServiceCapabilityIds.requestQuote,
-           ],
-           customerJourney: VanCustomerJourneyType.quote,
-           requestType: VanCustomerRequestType.quoteRequest,
-           startHandover: null,
-           endHandover: null,
-           requestFlowOptions: _handymanStandardQuoteFlow,
-           builtInQuestionKeys: <String>{
-             'address',
-             'phone',
-             'email',
-             'preferred_date',
-             'preferred_time',
-             'photos',
-           },
-           builtInQuestionSettings: <String, Map<String, dynamic>>{
-             'address': <String, dynamic>{
-               'required': true,
-               'helperText':
-                   'Enter the address where the assembly will take place.',
-             },
-             'phone': <String, dynamic>{'required': true, 'helperText': ''},
-             'email': <String, dynamic>{'required': false, 'helperText': ''},
-             'preferred_date': <String, dynamic>{
-               'required': true,
-               'helperText': 'Choose your preferred date.',
-             },
-             'preferred_time': <String, dynamic>{
-               'required': true,
-               'helperText':
-                   'Choose a preferred start time or time window. The business will confirm availability.',
-             },
-             'photos': <String, dynamic>{
-               'required': false,
-               'helperText':
-                   'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
-             },
-           },
-           questions: <VanServiceTemplateQuestion>[
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_furniture_type',
-               text: 'What is the main item being assembled?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Wardrobe',
-                 'Chest of drawers',
-                 'Bed frame',
-                 'Table or desk',
-                 'Shelving or storage unit',
-                 'Other',
-                 'Unsure',
-               ],
-               tags: <String>['handyman', 'flat-pack', 'furniture type'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_item_count',
-               text: 'How many items need assembling?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'One',
-                 'Two',
-                 'Three or four',
-                 'Five or more',
-                 'Unsure',
-               ],
-               tags: <String>['handyman', 'flat-pack', 'item count'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_product_details',
-               text: 'Provide the brand, model or product details where known',
-               answerType: VanCustomQuestionAnswerType.longText,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: false,
-               helperText:
-                   'Product names, model numbers or links can help the business estimate the assembly time.',
-               tags: <String>['handyman', 'flat-pack', 'product details'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_current_condition',
-               text: 'What condition are the items currently in?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Unopened boxes',
-                 'Boxes opened but not assembled',
-                 'Partially assembled',
-                 'Previously assembled and dismantled',
-                 'Mixed',
-                 'Unsure',
-               ],
-               tags: <String>['handyman', 'flat-pack', 'condition'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_parts_available',
-               text: 'Are all parts, fittings and instructions available?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Yes',
-                 'No',
-                 'Unsure',
-               ],
-               helperText:
-                   'Missing or damaged parts may prevent completion.',
-               tags: <String>['handyman', 'flat-pack', 'parts'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_workspace',
-               text: 'Is there enough clear space for assembly?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.access,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Clear working space',
-                 'Some furniture needs moving',
-                 'Limited working space',
-                 'Unsure',
-               ],
-               tags: <String>['handyman', 'flat-pack', 'workspace'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_wall_fixing',
-               text: 'Does any item require fixing to a wall?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Yes',
-                 'No',
-                 'Unsure',
-               ],
-               helperText:
-                   'Wall fixing is subject to the business confirming the wall condition, item weight and safe drilling location.',
-               tags: <String>['handyman', 'flat-pack', 'wall fixing'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_access',
-               text: 'Are there stairs, narrow access or large-item restrictions?',
-               answerType: VanCustomQuestionAnswerType.longText,
-               category: VanCustomQuestionCategory.access,
-               requiredByDefault: false,
-               tags: <String>['handyman', 'flat-pack', 'access'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_packaging',
-               text: 'What should happen to the packaging?',
-               answerType: VanCustomQuestionAnswerType.multipleChoice,
-               category: VanCustomQuestionCategory.jobDetails,
-               requiredByDefault: true,
-               choiceOptions: <String>[
-                 'Leave it on site',
-                 'Use the customer\'s recycling or waste bins',
-                 'Business to remove it, subject to agreement',
-                 'Please advise',
-               ],
-               tags: <String>['handyman', 'flat-pack', 'packaging'],
-             ),
-             VanServiceTemplateQuestion(
-               libraryId: 'handyman_flat_pack_parking_access',
-               text: 'Parking and property access information',
-               answerType: VanCustomQuestionAnswerType.longText,
-               category: VanCustomQuestionCategory.access,
-               requiredByDefault: false,
-               helperText:
-                   'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-               tags: <String>['handyman', 'flat-pack', 'parking', 'access'],
-             ),
-           ],
-           extras: <VanServiceTemplateExtra>[
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_flat_pack_additional_item',
-               label: 'Additional furniture item',
-             ),
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_flat_pack_additional_hour',
-               label: 'Additional assembly hour',
-             ),
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_flat_pack_large_unit',
-               label: 'Large wardrobe or storage unit',
-             ),
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_flat_pack_wall_fixing',
-               label: 'Wall fixing, subject to safe assessment',
-             ),
-             VanServiceTemplateExtra(
-               key: 'custom_extra_handyman_flat_pack_packaging_removal',
-               label: 'Packaging removal',
-             ),
-           ],
-           availability: _handymanMondayToSaturday,
-           suggestedDurationMinutes: 90,
-           suggestedNoticeHours: 24,
-           maximumBookingsPerDay: 4,
-           requestPhotos: true,
-           requireAddress: true,
-           pricingMode: VanServiceCapabilityIds.customQuote,
-            suggestedCustomerMessage:
-                'Tell us about the furniture to assemble, its condition and any wall-fixing requirements. We will confirm the scope and price before accepting.',
-          ),
-          VanBusinessServiceTemplateDefinition(
-            serviceId: 'handyman_wall_mounting',
-            name: 'Shelves, Curtain Poles & Wall Mounting',
-            description:
-                'Mounting shelves, curtain poles, mirrors, pictures and similar household items, subject to the wall condition, item weight and a safe fixing location being confirmed.',
-            featureIds: <String>[
-              VanServiceCapabilityIds.appointmentRequired,
-              VanServiceCapabilityIds.businessVisitsCustomer,
-              VanServiceCapabilityIds.customQuote,
-              VanServiceCapabilityIds.estimatedDuration,
-              VanServiceCapabilityIds.leadTime,
-              VanServiceCapabilityIds.photoUpload,
-            ],
-            bookingOptionIds: <String>[
-              VanServiceCapabilityIds.booking,
-              VanServiceCapabilityIds.requestQuote,
-            ],
-            customerJourney: VanCustomerJourneyType.quote,
-            requestType: VanCustomerRequestType.quoteRequest,
-            startHandover: null,
-            endHandover: null,
-            requestFlowOptions: _handymanStandardQuoteFlow,
-            builtInQuestionKeys: <String>{
-              'address',
-              'phone',
-              'email',
-              'preferred_date',
-              'preferred_time',
-              'photos',
-            },
-            builtInQuestionSettings: <String, Map<String, dynamic>>{
-              'address': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Enter the address where the work will take place.',
-              },
-              'phone': <String, dynamic>{'required': true, 'helperText': ''},
-              'email': <String, dynamic>{'required': false, 'helperText': ''},
-              'preferred_date': <String, dynamic>{
-                'required': true,
-                'helperText': 'Choose your preferred date.',
-              },
-              'preferred_time': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Choose a preferred start time or time window. The business will confirm availability.',
-              },
-              'photos': <String, dynamic>{
-                'required': false,
-                'helperText':
-                    'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
-              },
-            },
-            questions: <VanServiceTemplateQuestion>[
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_item_type',
-                text: 'What is the main item being fitted or mounted?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Shelves',
-                  'Curtain pole or blind',
-                  'Mirror',
-                  'Picture or wall decoration',
-                  'Television bracket',
-                  'Storage or wall unit',
-                  'Other',
-                  'Unsure',
-                ],
-                tags: <String>['handyman', 'wall mounting', 'item type'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_item_count',
-                text: 'How many items need fitting or mounting?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'One',
-                  'Two',
-                  'Three or four',
-                  'Five or more',
-                  'Unsure',
-                ],
-                tags: <String>['handyman', 'wall mounting', 'item count'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_item_details',
-                text: 'Describe the items, including approximate size and weight',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                helperText:
-                    'Product details, dimensions and approximate weight can help the business assess the work.',
-                tags: <String>['handyman', 'wall mounting', 'item details'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_wall_type',
-                text: 'What type of wall or surface will the items be fixed to?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Brick or block',
-                  'Plasterboard',
-                  'Solid plaster',
-                  'Tile',
-                  'Mixed surfaces',
-                  'Unsure',
-                ],
-                helperText:
-                    'The business must confirm the wall condition and suitable fixing method before drilling.',
-                tags: <String>['handyman', 'wall mounting', 'wall type'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_height',
-                text: 'Approximately how high will the items be mounted?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Normal standing height',
-                  'Above head height',
-                  'Near ceiling height',
-                  'Multiple heights',
-                  'Unsure',
-                ],
-                helperText:
-                    'Higher work is subject to safe access and suitable equipment.',
-                tags: <String>['handyman', 'wall mounting', 'height'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_fixings',
-                text: 'Who should provide the brackets, fittings and fixings?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Customer has all fittings and fixings',
-                  'Customer has the item but needs fixings',
-                  'Business to supply suitable fixings',
-                  'Some items are already supplied',
-                  'Please advise',
-                ],
-                tags: <String>['handyman', 'wall mounting', 'fixings'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_hidden_services',
-                text: 'Are there any known or suspected pipes, cables or other services behind the wall?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Yes',
-                  'No',
-                  'Unsure',
-                ],
-                helperText:
-                    'Work may not proceed if a safe drilling location cannot be confirmed.',
-                tags: <String>['handyman', 'wall mounting', 'hidden services'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_wall_condition',
-                text: 'Are there any cracks, loose plaster, damp, tiles or other wall-condition concerns?',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: false,
-                tags: <String>['handyman', 'wall mounting', 'wall condition'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_workspace',
-                text: 'Is the working area clear and safely accessible?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Clear and ready',
-                  'Some furniture needs moving',
-                  'Access is restricted',
-                  'Unsure',
-                ],
-                tags: <String>['handyman', 'wall mounting', 'workspace'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_wall_mounting_parking_access',
-                text: 'Parking and property access information',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: false,
-                helperText:
-                    'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-                tags: <String>['handyman', 'wall mounting', 'parking', 'access'],
-              ),
-            ],
-            extras: <VanServiceTemplateExtra>[
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_wall_mounting_additional_item',
-                label: 'Additional mounted item',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_wall_mounting_fixings',
-                label: 'Suitable fixings, subject to assessment',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_wall_mounting_heavy_item',
-                label: 'Heavy or oversized item, subject to assessment',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_wall_mounting_furniture_moving',
-                label: 'Furniture moving',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_wall_mounting_additional_hour',
-                label: 'Additional labour hour',
-              ),
-            ],
-            availability: _handymanMondayToSaturday,
-            suggestedDurationMinutes: 90,
-            suggestedNoticeHours: 24,
-            maximumBookingsPerDay: 4,
-            requestPhotos: true,
-            requireAddress: true,
-            pricingMode: VanServiceCapabilityIds.customQuote,
-            suggestedCustomerMessage:
-                'Tell us about the items to mount, their size, weight and the wall type. We will confirm the scope and price before accepting.',
-          ),
-          VanBusinessServiceTemplateDefinition(
-            serviceId: 'handyman_minor_home_repairs',
-            name: 'Minor Home Repairs',
-            description:
-                'Small non-specialist household repairs and adjustments. Electrical, gas, structural, roofing and major plumbing work are not included.',
-            featureIds: <String>[
-              VanServiceCapabilityIds.appointmentRequired,
-              VanServiceCapabilityIds.businessVisitsCustomer,
-              VanServiceCapabilityIds.customQuote,
-              VanServiceCapabilityIds.estimatedDuration,
-              VanServiceCapabilityIds.leadTime,
-              VanServiceCapabilityIds.photoUpload,
-            ],
-            bookingOptionIds: <String>[
-              VanServiceCapabilityIds.booking,
-              VanServiceCapabilityIds.requestQuote,
-            ],
-            customerJourney: VanCustomerJourneyType.quote,
-            requestType: VanCustomerRequestType.quoteRequest,
-            startHandover: null,
-            endHandover: null,
-            requestFlowOptions: _handymanStandardQuoteFlow,
-            builtInQuestionKeys: <String>{
-              'address',
-              'phone',
-              'email',
-              'preferred_date',
-              'preferred_time',
-              'photos',
-            },
-            builtInQuestionSettings: <String, Map<String, dynamic>>{
-              'address': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Enter the address where the repair will take place.',
-              },
-              'phone': <String, dynamic>{'required': true, 'helperText': ''},
-              'email': <String, dynamic>{'required': false, 'helperText': ''},
-              'preferred_date': <String, dynamic>{
-                'required': true,
-                'helperText': 'Choose your preferred date.',
-              },
-              'preferred_time': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Choose a preferred start time or time window. The business will confirm availability.',
-              },
-              'photos': <String, dynamic>{
-                'required': false,
-                'helperText':
-                    'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
-              },
-            },
-            questions: <VanServiceTemplateQuestion>[
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_main_type',
-                text: 'What is the main repair needed?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Door, hinge or handle adjustment',
-                  'Cupboard or drawer repair',
-                  'Loose fitting or fixture',
-                  'Sealant or caulking',
-                  'Minor cosmetic repair',
-                  'Small household adjustment',
-                  'Other non-specialist repair',
-                  'Unsure',
-                ],
-                tags: <String>['handyman', 'minor repairs', 'repair type'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_description',
-                text: 'Describe the problem and what needs repairing',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                helperText:
-                    'Include what is damaged, loose, sticking, leaking or no longer working as expected.',
-                tags: <String>['handyman', 'minor repairs', 'description'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_item_count',
-                text: 'How many separate repairs are required?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'One',
-                  'Two',
-                  'Three or four',
-                  'Five or more',
-                  'Unsure',
-                ],
-                tags: <String>['handyman', 'minor repairs', 'item count'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_condition',
-                text: 'How would you describe the current condition?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Minor adjustment needed',
-                  'Loose or worn',
-                  'Damaged but still usable',
-                  'Broken or unusable',
-                  'Unsure',
-                ],
-                tags: <String>['handyman', 'minor repairs', 'condition'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_parts_available',
-                text: 'Are replacement parts or materials already available?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Yes, all parts are available',
-                  'Some parts are available',
-                  'No parts are available',
-                  'Unsure',
-                  'Please advise',
-                ],
-                tags: <String>['handyman', 'minor repairs', 'parts available'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_parts_details',
-                text: 'Describe any replacement parts or materials already available',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: false,
-                tags: <String>['handyman', 'minor repairs', 'parts details'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_specialist_risk',
-                text: 'Could the repair involve electrical, gas, structural or major plumbing work?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Yes',
-                  'No',
-                  'Unsure',
-                ],
-                helperText:
-                    'These jobs require an appropriately qualified specialist and are not included in this service.',
-                tags: <String>['handyman', 'minor repairs', 'specialist risk'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_damage_risk',
-                text: 'Are there any signs of damp, asbestos, major cracking or hidden damage?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Yes',
-                  'No',
-                  'Unsure',
-                ],
-                helperText:
-                    'Listing a concern does not mean the business can inspect, disturb or repair hazardous or structural materials.',
-                tags: <String>['handyman', 'minor repairs', 'damage risk'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_workspace',
-                text: 'Is the repair area clear and safely accessible?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Clear and ready',
-                  'Some items need moving',
-                  'Access is restricted',
-                  'Unsure',
-                ],
-                tags: <String>['handyman', 'minor repairs', 'workspace'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'handyman_minor_repairs_parking_access',
-                text: 'Parking and property access information',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: false,
-                helperText:
-                    'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-                tags: <String>['handyman', 'minor repairs', 'parking', 'access'],
-              ),
-            ],
-            extras: <VanServiceTemplateExtra>[
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_minor_repairs_additional_repair',
-                label: 'Additional minor repair',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_minor_repairs_additional_hour',
-                label: 'Additional labour hour',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_minor_repairs_parts_materials',
-                label: 'Parts and materials',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_minor_repairs_sealant',
-                label: 'Sealant or caulking',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_handyman_minor_repairs_small_waste_removal',
-                label: 'Small non-hazardous waste removal, subject to agreement',
-              ),
-            ],
-            availability: _handymanMondayToSaturday,
-            suggestedDurationMinutes: 60,
-            suggestedNoticeHours: 24,
-            maximumBookingsPerDay: 6,
-            requestPhotos: true,
-            requireAddress: true,
-            pricingMode: VanServiceCapabilityIds.customQuote,
-            suggestedCustomerMessage:
-                'Describe the repair needed. The business will confirm what can safely be completed.',
-          ),
-        ],
+        suggestedCustomerMessage:
+            'We will confirm the visit details, feeding and care requirements before accepting.',
       ),
-      VanBusinessTemplateDefinition(
-        categoryId: 'photography',
-        categoryName: 'Photography',
-        businessTypeId: 'photography',
-        businessTypeName: 'Photography',
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'pet_services_dog_day_care',
+        name: 'Dog Day Care',
         description:
-            'Photography services for people, events, properties and products, quoted for each job.',
-        iconKey: 'sparkle',
-        colorValue: 0xFFFF6E40,
-        featured: true,
-        searchKeywords: <String>[
-          'photography',
-          'photographer',
-          'portrait photography',
-          'family photographer',
-          'event photographer',
-          'property photographer',
-          'product photographer',
-          'headshots',
+            'Same-day care for dogs, including agreed supervision, exercise, rest and feeding.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.customerDropsOff,
+          VanServiceCapabilityIds.customerCollects,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
         ],
-        searchAliases: <VanBusinessSearchAlias>[
-          VanBusinessSearchAlias('Photographer'),
-          VanBusinessSearchAlias('Portrait Photography'),
-          VanBusinessSearchAlias('Family Photography'),
-          VanBusinessSearchAlias('Event Photographer'),
-          VanBusinessSearchAlias('Property Photographer'),
-          VanBusinessSearchAlias('Product Photographer'),
-          VanBusinessSearchAlias('Headshots'),
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
         ],
-        services: <VanBusinessServiceTemplateDefinition>[
-          VanBusinessServiceTemplateDefinition(
-            serviceId: 'photography_family_portrait',
-            name: 'Family & Portrait Photography',
-            description:
-                'Family, couple, individual and portrait photography at an agreed location, with the session style and requirements confirmed before booking.',
-            featureIds: <String>[
-              VanServiceCapabilityIds.appointmentRequired,
-              VanServiceCapabilityIds.businessVisitsCustomer,
-              VanServiceCapabilityIds.customQuote,
-              VanServiceCapabilityIds.estimatedDuration,
-              VanServiceCapabilityIds.leadTime,
-              VanServiceCapabilityIds.photoUpload,
-            ],
-            bookingOptionIds: <String>[
-              VanServiceCapabilityIds.booking,
-              VanServiceCapabilityIds.requestQuote,
-            ],
-            customerJourney: VanCustomerJourneyType.quote,
-            requestType: VanCustomerRequestType.quoteRequest,
-            startHandover: null,
-            endHandover: null,
-            requestFlowOptions: _photographyStandardQuoteFlow,
-            builtInQuestionKeys: <String>{
-              'address',
-              'phone',
-              'email',
-              'preferred_date',
-              'preferred_time',
-              'photos',
-            },
-            builtInQuestionSettings: <String, Map<String, dynamic>>{
-              'address': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Enter the address where the photography session will take place.',
-              },
-              'phone': <String, dynamic>{'required': true, 'helperText': ''},
-              'email': <String, dynamic>{'required': false, 'helperText': ''},
-              'preferred_date': <String, dynamic>{
-                'required': true,
-                'helperText': 'Choose your preferred date.',
-              },
-              'preferred_time': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Choose a preferred start time or time window. The photographer will confirm availability.',
-              },
-              'photos': <String, dynamic>{
-                'required': false,
-                'helperText':
-                    'Optional reference images can help show the preferred style, venue, location or important details. Only upload images you are permitted to share.',
-              },
-            },
-            questions: <VanServiceTemplateQuestion>[
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_shoot_type',
-                text: 'What type of photography session would you like?',
-                helperText:
-                    'Specialist newborn sessions are not automatically included and must be confirmed with the photographer.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.customerDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Individual portrait',
-                  'Couple',
-                  'Family',
-                  'Children',
-                  'Maternity',
-                  'Professional headshots',
-                  'Other',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'family portrait', 'shoot type'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_people_count',
-                text: 'How many people will take part?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.customerDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'One',
-                  'Two',
-                  'Three to five',
-                  'Six to ten',
-                  'More than ten',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'family portrait', 'people count'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_children',
-                text: 'Will anyone under 18 take part?',
-                helperText:
-                    'A parent or responsible adult must arrange and supervise participation. This does not grant permission for marketing or public use.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.customerDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Yes',
-                  'No',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'family portrait', 'children'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_age_details',
-                text: 'Provide approximate age ranges where this may affect the session',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.customerDetails,
-                requiredByDefault: false,
-                helperText:
-                    'Do not include children\'s full names, schools or other unnecessary personal information.',
-                tags: <String>['photography', 'family portrait', 'age details'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_location_style',
-                text: 'What type of location would you prefer?',
-                helperText:
-                    'Location availability and any required permission must be confirmed before booking.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  "Customer's home",
-                  'Outdoor location',
-                  "Photographer's studio",
-                  'Workplace or business',
-                  'Multiple locations',
-                  'Please advise',
-                ],
-                tags: <String>['photography', 'family portrait', 'location'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_visual_style',
-                text: 'What style of photographs do you prefer?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Natural and candid',
-                  'Posed portraits',
-                  'Lifestyle',
-                  'Formal',
-                  'Professional headshots',
-                  'A mixture',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'family portrait', 'visual style'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_session_length',
-                text: 'What session length would you prefer?',
-                helperText:
-                    'This is a preference only. The photographer will confirm the recommended session length.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.timing,
-                requiredByDefault: false,
-                choiceOptions: <String>[
-                  'Up to 30 minutes',
-                  'Around one hour',
-                  'Around 90 minutes',
-                  'Two hours or more',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'family portrait', 'session length'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_outfit_changes',
-                text: 'Are outfit changes planned?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'No',
-                  'One change',
-                  'Two or more changes',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'family portrait', 'outfit changes'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_image_requirements',
-                text: 'What finished images or formats are you hoping to receive?',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.photos,
-                requiredByDefault: false,
-                helperText:
-                    'Examples: Approximate number of edited images, Digital gallery, High-resolution files, Prints, Social-media images. Do not imply copyright transfer or unrestricted commercial use.',
-                tags: <String>['photography', 'family portrait', 'image requirements'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_accessibility',
-                text: 'Are there any accessibility, mobility or location requirements?',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: false,
-                tags: <String>['photography', 'family portrait', 'accessibility'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_family_portrait_parking_access',
-                text: 'Parking and location access information',
-                helperText:
-                    'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: false,
-                tags: <String>['photography', 'family portrait', 'parking', 'access'],
-              ),
-            ],
-            extras: <VanServiceTemplateExtra>[
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_family_portrait_additional_time',
-                label: 'Additional session time',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_family_portrait_additional_images',
-                label: 'Additional edited images',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_family_portrait_outfit_change',
-                label: 'Additional outfit change',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_family_portrait_additional_location',
-                label: 'Additional location',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_family_portrait_express_editing',
-                label: 'Express editing, subject to availability',
-              ),
-            ],
-            availability: _photographyFamilyPortraitAvailability,
-            suggestedDurationMinutes: 90,
-            suggestedNoticeHours: 48,
-            maximumBookingsPerDay: 3,
-            requestPhotos: true,
-            requireAddress: true,
-            pricingMode: VanServiceCapabilityIds.customQuote,
-            suggestedCustomerMessage:
-                'Describe the session style and requirements. The photographer will confirm availability and pricing.',
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.dropOffPickupRequest,
+        startHandover: VanStartHandover.customerDropsOff,
+        endHandover: VanEndHandover.customerCollects,
+        requestFlowOptions: VanCustomerRequestFlowOptions(
+          showFulfilmentChoice: false,
+          askPreferredDate: false,
+          askPreferredTime: false,
+          showPickupAddress: false,
+          showDeliveryAddress: false,
+          showDropOffDate: true,
+          showDropOffTime: true,
+          showPickUpDate: true,
+          showPickUpTime: true,
+          showNotes: false,
+        ),
+        builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText': 'Optional photos can help the carer plan the day.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_dog_details',
+            text: 'Tell us about the dog',
+            helperText: 'Include name, breed/type, age and approximate size.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['pet services', 'day care', 'dog details'],
           ),
-          VanBusinessServiceTemplateDefinition(
-            serviceId: 'photography_event',
-            name: 'Event Photography',
-            description:
-                'Photography coverage for private, community and business events, with timings, venue restrictions and required coverage agreed beforehand.',
-            featureIds: <String>[
-              VanServiceCapabilityIds.appointmentRequired,
-              VanServiceCapabilityIds.businessVisitsCustomer,
-              VanServiceCapabilityIds.customQuote,
-              VanServiceCapabilityIds.estimatedDuration,
-              VanServiceCapabilityIds.leadTime,
-              VanServiceCapabilityIds.photoUpload,
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_previous_attendance',
+            text: 'Has the dog attended day care before?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: <String>[
+              'Regularly attends day care',
+              'Has attended before',
+              'First time',
+              'Unsure',
             ],
-            bookingOptionIds: <String>[
-              VanServiceCapabilityIds.booking,
-              VanServiceCapabilityIds.requestQuote,
-            ],
-            customerJourney: VanCustomerJourneyType.quote,
-            requestType: VanCustomerRequestType.quoteRequest,
-            startHandover: null,
-            endHandover: null,
-            requestFlowOptions: _photographyStandardQuoteFlow,
-            builtInQuestionKeys: <String>{
-              'address',
-              'phone',
-              'email',
-              'preferred_date',
-              'preferred_time',
-              'photos',
-            },
-            builtInQuestionSettings: <String, Map<String, dynamic>>{
-              'address': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Enter the venue address where the event will take place.',
-              },
-              'phone': <String, dynamic>{'required': true, 'helperText': ''},
-              'email': <String, dynamic>{'required': false, 'helperText': ''},
-              'preferred_date': <String, dynamic>{
-                'required': true,
-                'helperText': 'Choose your preferred date.',
-              },
-              'preferred_time': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Choose a preferred start time or time window. The photographer will confirm availability.',
-              },
-              'photos': <String, dynamic>{
-                'required': false,
-                'helperText':
-                    'Optional reference images can help show the venue layout, important areas or access points. Only upload images you are permitted to share.',
-              },
-            },
-            questions: <VanServiceTemplateQuestion>[
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_type',
-                text: 'What type of event is it?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Birthday or celebration',
-                  'Wedding reception or party',
-                  'Community event',
-                  'Corporate or business event',
-                  'Performance or presentation',
-                  'Charity event',
-                  'Other',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'event', 'type'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_venue',
-                text: 'Describe the venue and event areas',
-                helperText:
-                    'Include whether the event uses indoor areas, outdoor areas or more than one room.',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                tags: <String>['photography', 'event', 'venue'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_coverage_duration',
-                text: 'How much photography coverage is required?',
-                helperText:
-                    'The selected duration is a request only. The photographer will confirm coverage and pricing.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.timing,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Up to one hour',
-                  'Two to three hours',
-                  'Four to six hours',
-                  'More than six hours',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'event', 'coverage duration'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_guest_count',
-                text: 'Approximately how many guests are expected?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.customerDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Fewer than 25',
-                  '25 to 50',
-                  '51 to 100',
-                  '101 to 200',
-                  'More than 200',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'event', 'guest count'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_key_moments',
-                text: 'Which moments or activities are most important to capture?',
-                helperText:
-                    'Examples: Guest arrivals, Speeches, Awards, Performances, Cake cutting, Group photographs',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                tags: <String>['photography', 'event', 'key moments'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_indoor_outdoor',
-                text: 'Where will photography take place?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Indoors',
-                  'Outdoors',
-                  'Both indoors and outdoors',
-                  'Multiple venue areas',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'event', 'indoor outdoor'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_lighting',
-                text: 'What are the expected lighting conditions?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Normal indoor lighting',
-                  'Low light',
-                  'Stage or coloured lighting',
-                  'Daylight outdoors',
-                  'Evening or night outdoors',
-                  'Mixed',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'event', 'lighting'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_venue_restrictions',
-                text: 'Are there any photography or access restrictions at the venue?',
-                helperText:
-                    'The customer or organiser should confirm venue permission and relevant restrictions. The photographer is not automatically responsible for arranging them.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Yes',
-                  'No',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'event', 'venue restrictions'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_restriction_details',
-                text: 'Describe any venue rules, restricted areas or limitations',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: false,
-                tags: <String>['photography', 'event', 'restriction details'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_delivery_preference',
-                text: 'How would you prefer the finished photographs to be delivered?',
-                helperText:
-                    'Availability, delivery times and privacy settings will be confirmed by the photographer.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.photos,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Private online gallery',
-                  'Digital download',
-                  'Shared business gallery',
-                  'Physical media or prints',
-                  'Please advise',
-                ],
-                tags: <String>['photography', 'event', 'delivery preference'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_image_use',
-                text: 'How will the photographs mainly be used?',
-                helperText:
-                    'Commercial, press or publication use may require a separate agreement. This question does not transfer copyright or provide legal advice.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.photos,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Personal use',
-                  'Private organisation use',
-                  'Business marketing',
-                  'Press or publication',
-                  'Social media',
-                  'Mixed use',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'event', 'image use'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_event_parking_access',
-                text: 'Parking, loading and venue access information',
-                helperText:
-                    'Do not provide alarm, door or restricted-access codes publicly. Sensitive arrangements can be agreed privately after acceptance.',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: false,
-                tags: <String>['photography', 'event', 'parking', 'access'],
-              ),
-            ],
-            extras: <VanServiceTemplateExtra>[
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_event_additional_hour',
-                label: 'Additional coverage hour',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_event_second_photographer',
-                label: 'Second photographer, subject to availability',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_event_express_gallery',
-                label: 'Express gallery, subject to availability',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_event_additional_venue_area',
-                label: 'Additional venue or coverage area',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_event_print_package',
-                label: 'Printed image package',
-              ),
-            ],
-            availability: _photographyEventAvailability,
-            suggestedDurationMinutes: 180,
-            suggestedNoticeHours: 72,
-            maximumBookingsPerDay: 2,
-            requestPhotos: true,
-            requireAddress: true,
-            pricingMode: VanServiceCapabilityIds.customQuote,
-            suggestedCustomerMessage:
-                'Describe the event type, timings and coverage needed. The photographer will confirm availability and pricing.',
+            tags: <String>['pet services', 'day care', 'attendance'],
           ),
-          VanBusinessServiceTemplateDefinition(
-            serviceId: 'photography_property',
-            name: 'Property Photography',
-            description:
-                'Interior and exterior property photography for sales, lettings and business promotion, with the required areas and property readiness agreed beforehand.',
-            featureIds: <String>[
-              VanServiceCapabilityIds.appointmentRequired,
-              VanServiceCapabilityIds.businessVisitsCustomer,
-              VanServiceCapabilityIds.customQuote,
-              VanServiceCapabilityIds.estimatedDuration,
-              VanServiceCapabilityIds.leadTime,
-              VanServiceCapabilityIds.photoUpload,
-            ],
-            bookingOptionIds: <String>[
-              VanServiceCapabilityIds.booking,
-              VanServiceCapabilityIds.requestQuote,
-            ],
-            customerJourney: VanCustomerJourneyType.quote,
-            requestType: VanCustomerRequestType.quoteRequest,
-            startHandover: null,
-            endHandover: null,
-            requestFlowOptions: _photographyStandardQuoteFlow,
-            builtInQuestionKeys: <String>{
-              'address',
-              'phone',
-              'email',
-              'preferred_date',
-              'preferred_time',
-              'photos',
-            },
-            builtInQuestionSettings: <String, Map<String, dynamic>>{
-              'address': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Enter the property address where photography will take place.',
-              },
-              'phone': <String, dynamic>{'required': true, 'helperText': ''},
-              'email': <String, dynamic>{'required': false, 'helperText': ''},
-              'preferred_date': <String, dynamic>{
-                'required': true,
-                'helperText': 'Choose your preferred date.',
-              },
-              'preferred_time': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Choose a preferred start time or time window. The photographer will confirm availability.',
-              },
-              'photos': <String, dynamic>{
-                'required': false,
-                'helperText':
-                    'Optional reference images can help show the property style, condition or important details. Only upload images you are permitted to share.',
-              },
-            },
-            questions: <VanServiceTemplateQuestion>[
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_type',
-                text: 'What type of property needs photographing?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'House',
-                  'Bungalow',
-                  'Flat or apartment',
-                  'Commercial premises',
-                  'Holiday accommodation',
-                  'Land or development',
-                  'Other',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'property', 'type'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_intended_use',
-                text: 'What will the photographs mainly be used for?',
-                helperText:
-                    'Commercial, press or publication use may require a separate agreement. This question does not transfer copyright or provide legal advice.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Property sale',
-                  'Property letting',
-                  'Holiday-let listing',
-                  'Business website or marketing',
-                  'Portfolio or records',
-                  'Press or publication',
-                  'Other',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'property', 'intended use'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_occupancy',
-                text: 'What will the property\'s condition be during the photography visit?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Empty',
-                  'Occupied',
-                  'Furnished but unoccupied',
-                  'Professionally staged',
-                  'Under renovation',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'property', 'occupancy'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_size',
-                text: 'Approximately how many rooms or main areas need photographing?',
-                helperText:
-                    'Include main living areas, bedrooms, bathrooms and business rooms where relevant.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Up to five',
-                  'Six to ten',
-                  'Eleven to fifteen',
-                  'More than fifteen',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'property', 'size'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_required_areas',
-                text: 'Which areas need to be photographed?',
-                helperText:
-                    'Examples: Main rooms, Kitchen and bathrooms, Exterior, Garden, Outbuildings, Communal spaces, Commercial work areas.',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                tags: <String>['photography', 'property', 'required areas'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_exterior_requirements',
-                text: 'Is exterior, garden or outbuilding photography required?',
-                helperText:
-                    'Exterior photography is subject to safe access, suitable conditions and available daylight.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Exterior only',
-                  'Garden only',
-                  'Exterior and garden',
-                  'Outbuildings or additional areas',
-                  'No exterior photography',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'property', 'exterior'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_readiness',
-                text: 'Will the property be ready for photography?',
-                helperText:
-                    'The photographer is not automatically responsible for cleaning, staging, moving furniture or storing belongings.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Fully prepared',
-                  'Minor tidying remains',
-                  'Furniture or belongings need moving',
-                  'Renovation work is ongoing',
-                  'Please advise',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'property', 'readiness'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_key_features',
-                text: 'Which features are most important to capture?',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: false,
-                helperText:
-                    'Examples: Views, Kitchen details, Period features, Garden, Workspace, Accessibility features, Recent improvements.',
-                tags: <String>['photography', 'property', 'key features'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_people_pets',
-                text: 'Will people or pets be present during the visit?',
-                helperText:
-                    'The customer remains responsible for supervising children, pets and access to occupied areas.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.customerDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'No',
-                  'People will be present',
-                  'Pets will be present',
-                  'Both people and pets',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'property', 'people pets'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_access_restrictions',
-                text: 'Are there any restricted, unsafe or unavailable areas?',
-                helperText:
-                    'The photographer may decline areas that cannot be accessed safely or legally.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Yes',
-                  'No',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'property', 'access restrictions'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_property_parking_access',
-                text: 'Parking and property access information',
-                helperText:
-                    'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.access,
-                requiredByDefault: false,
-                tags: <String>['photography', 'property', 'parking', 'access'],
-              ),
-            ],
-            extras: <VanServiceTemplateExtra>[
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_property_additional_rooms',
-                label: 'Additional rooms or areas',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_property_exterior_garden',
-                label: 'Exterior and garden coverage',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_property_twilight_session',
-                label: 'Twilight session, subject to conditions',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_property_additional_property',
-                label: 'Additional property',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_property_express_editing',
-                label: 'Express editing, subject to availability',
-              ),
-            ],
-            availability: _photographyFamilyPortraitAvailability,
-            suggestedDurationMinutes: 90,
-            suggestedNoticeHours: 24,
-            maximumBookingsPerDay: 4,
-            requestPhotos: true,
-            requireAddress: true,
-            pricingMode: VanServiceCapabilityIds.customQuote,
-            suggestedCustomerMessage:
-                'Describe the property type, required areas and readiness. The photographer will confirm availability and pricing.',
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_vaccination_records',
+            text: 'Can vaccination records be provided if required?',
+            helperText:
+                'The business will confirm its own requirements. This does not guarantee acceptance.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['pet services', 'day care', 'vaccination'],
           ),
-          VanBusinessServiceTemplateDefinition(
-            serviceId: 'photography_product',
-            name: 'Product Photography',
-            description:
-                'Product photography for websites, catalogues, marketplaces and marketing, with the products, shoot location and required image style agreed beforehand.',
-            featureIds: <String>[
-              VanServiceCapabilityIds.appointmentRequired,
-              VanServiceCapabilityIds.businessVisitsCustomer,
-              VanServiceCapabilityIds.customQuote,
-              VanServiceCapabilityIds.estimatedDuration,
-              VanServiceCapabilityIds.leadTime,
-              VanServiceCapabilityIds.photoUpload,
-            ],
-            bookingOptionIds: <String>[
-              VanServiceCapabilityIds.booking,
-              VanServiceCapabilityIds.requestQuote,
-            ],
-            customerJourney: VanCustomerJourneyType.quote,
-            requestType: VanCustomerRequestType.quoteRequest,
-            startHandover: null,
-            endHandover: null,
-            requestFlowOptions: _photographyStandardQuoteFlow,
-            builtInQuestionKeys: <String>{
-              'address',
-              'phone',
-              'email',
-              'preferred_date',
-              'preferred_time',
-              'photos',
-            },
-            builtInQuestionSettings: <String, Map<String, dynamic>>{
-              'address': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Enter the proposed shoot location if known. For studio-based work, enter your business or contact address and select the studio option below. The photographer will confirm the final location privately.',
-              },
-              'phone': <String, dynamic>{'required': true, 'helperText': ''},
-              'email': <String, dynamic>{'required': false, 'helperText': ''},
-              'preferred_date': <String, dynamic>{
-                'required': true,
-                'helperText': 'Choose your preferred date.',
-              },
-              'preferred_time': <String, dynamic>{
-                'required': true,
-                'helperText':
-                    'Choose a preferred start time or time window. The photographer will confirm availability.',
-              },
-              'photos': <String, dynamic>{
-                'required': false,
-                'helperText':
-                    'Optional reference images can help show the preferred style, venue, location or important details. Only upload images you are permitted to share.',
-              },
-            },
-            questions: <VanServiceTemplateQuestion>[
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_type',
-                text: 'What type of products need photographing?',
-                helperText:
-                    'Restricted, dangerous or specialist products must be discussed and may not be accepted.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Clothing or accessories',
-                  'Food or drink',
-                  'Jewellery or small valuables',
-                  'Furniture or homeware',
-                  'Electronics',
-                  'Beauty or personal-care products',
-                  'Artwork or handmade products',
-                  'Other',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'type'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_count',
-                text: 'How many different products need photographing?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.customerDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'One',
-                  'Two to five',
-                  'Six to ten',
-                  'Eleven to twenty',
-                  'More than twenty',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'count'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_image_count',
-                text: 'Approximately how many finished images or angles are required per product?',
-                helperText:
-                    'The photographer will confirm the final image count and editing scope.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'One',
-                  'Two or three',
-                  'Four to six',
-                  'More than six',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'image count'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_size_weight',
-                text: 'Describe the approximate size and weight of the products',
-                helperText:
-                    'Include dimensions or weight where items are large, heavy or difficult to move.',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                tags: <String>['photography', 'product', 'size weight'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_condition',
-                text: 'What condition will the products be in?',
-                helperText:
-                    'Cleaning, repair, assembly and preparation are not automatically included.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'New and presentation-ready',
-                  'Packaged',
-                  'Used but clean',
-                  'Requires unpacking or assembly',
-                  'Mixed condition',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'condition'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_location_preference',
-                text: 'Where would you prefer the photography to take place?',
-                helperText:
-                    'The final location and any access requirements must be agreed before booking.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  "Customer's premises",
-                  "Photographer's studio",
-                  'Business or retail premises',
-                  'Outdoor location',
-                  'Please advise',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'location'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_background_style',
-                text: 'What type of image style or background is required?',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Plain white background',
-                  'Plain coloured background',
-                  'Transparent or cut-out result',
-                  'Lifestyle setting',
-                  'Natural environment',
-                  'A mixture',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'background style'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_styling_props',
-                text: 'Are styling, props or arranged scenes required?',
-                helperText:
-                    'Styling, specialist props and set construction must be agreed separately.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'No',
-                  'Customer will supply everything',
-                  'Photographer to supply basic styling',
-                  'Detailed lifestyle setup required',
-                  'Please advise',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'styling props'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_fragile_value',
-                text: 'Do any products require special handling?',
-                helperText:
-                    'Listing an item does not confirm that the photographer can accept, store, insure or handle it.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.jobDetails,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'No',
-                  'Fragile items',
-                  'High-value items',
-                  'Heavy or oversized items',
-                  'Food, liquid or perishable items',
-                  'Restricted or potentially hazardous items',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'fragile value'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_intended_use',
-                text: 'How will the finished images mainly be used?',
-                helperText:
-                    'Commercial, advertising or publication use may require a separate agreement. This question does not transfer copyright or provide legal advice.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.photos,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Online shop or marketplace',
-                  'Business website',
-                  'Social media',
-                  'Catalogue or brochure',
-                  'Advertising campaign',
-                  'Press or publication',
-                  'Internal business use',
-                  'Mixed use',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'intended use'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_editing_requirements',
-                text: 'Describe any editing or image-format requirements',
-                answerType: VanCustomQuestionAnswerType.longText,
-                category: VanCustomQuestionCategory.photos,
-                requiredByDefault: false,
-                helperText:
-                    'Examples: Background removal, Colour correction, Cropping, File dimensions, Transparent files, Marketplace specifications. Do not guarantee exact colour reproduction or platform approval.',
-                tags: <String>['photography', 'product', 'editing requirements'],
-              ),
-              VanServiceTemplateQuestion(
-                libraryId: 'photography_product_delivery_timeframe',
-                text: 'When are the finished images required?',
-                helperText:
-                    'This is a requested timeframe only. Availability and delivery dates must be confirmed by the photographer.',
-                answerType: VanCustomQuestionAnswerType.multipleChoice,
-                category: VanCustomQuestionCategory.timing,
-                requiredByDefault: true,
-                choiceOptions: <String>[
-                  'Within two working days',
-                  'Within one week',
-                  'Within two weeks',
-                  'No fixed deadline',
-                  'Please advise',
-                  'Unsure',
-                ],
-                tags: <String>['photography', 'product', 'delivery timeframe'],
-              ),
-            ],
-            extras: <VanServiceTemplateExtra>[
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_product_additional_product',
-                label: 'Additional product',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_product_additional_image',
-                label: 'Additional finished image',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_product_background_removal',
-                label: 'Background removal',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_product_lifestyle_setup',
-                label: 'Lifestyle setup or styling',
-              ),
-              VanServiceTemplateExtra(
-                key: 'custom_extra_photography_product_express_editing',
-                label: 'Express editing, subject to availability',
-              ),
-            ],
-            availability: _photographyEventAvailability,
-            suggestedDurationMinutes: 120,
-            suggestedNoticeHours: 48,
-            maximumBookingsPerDay: 3,
-            requestPhotos: true,
-            requireAddress: true,
-            pricingMode: VanServiceCapabilityIds.customQuote,
-            suggestedCustomerMessage:
-                'Describe the products, shoot location and image style. The photographer will confirm availability and pricing.',
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_social_behaviour',
+            text: 'How does the dog behave around other dogs and people?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+            tags: <String>['pet services', 'day care', 'behaviour'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_behaviour_concerns',
+            text:
+                'Are there any behaviour, separation, resource-guarding or escape-risk concerns?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'day care', 'behaviour concerns'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_feeding',
+            text: 'Are there any feeding requirements?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'day care', 'feeding'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_health',
+            text: 'Are there any health, allergy or medication needs?',
+            helperText:
+                'The business must confirm whether it can safely meet these needs.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['pet services', 'day care', 'health'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_health_details',
+            text: 'Describe any health or medication needs',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'day care', 'health details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_rest_routine',
+            text: 'Does the dog need a rest, crate or settling routine?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'day care', 'rest routine'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_day_care_items',
+            text:
+                'What items are being brought, and is there any essential safe-care information?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'day care', 'items'],
           ),
         ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_day_care_additional_dog',
+            label: 'Additional dog from the same household',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_day_care_extended_care_hour',
+            label: 'Extended-care hour',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_day_care_meal_preparation',
+            label: 'Meal preparation',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_day_care_medication_support',
+            label: 'Medication support, subject to agreement',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_day_care_weekend_holiday',
+            label: 'Weekend or bank-holiday care',
+          ),
+        ],
+        availability: _petServicesDayCareAvailability,
+        suggestedDurationMinutes: 480,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: false,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'We will confirm the day care arrangements and suitability before accepting.',
       ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'pet_services_dog_boarding',
+        name: 'Dog Boarding',
+        description:
+            'Overnight or multi-day care for dogs, with routines, suitability and care requirements reviewed before confirmation.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.customerDropsOff,
+          VanServiceCapabilityIds.customerCollects,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.dropOffPickupRequest,
+        startHandover: VanStartHandover.customerDropsOff,
+        endHandover: VanEndHandover.customerCollects,
+        requestFlowOptions: VanCustomerRequestFlowOptions(
+          showFulfilmentChoice: false,
+          askPreferredDate: false,
+          askPreferredTime: false,
+          showPickupAddress: false,
+          showDeliveryAddress: false,
+          showDropOffDate: true,
+          showDropOffTime: true,
+          showPickUpDate: true,
+          showPickUpTime: true,
+          showNotes: false,
+        ),
+        builtInQuestionKeys: <String>{'phone', 'email', 'photos'},
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText': 'Optional photos can help the boarder plan care.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_dog_count',
+            text: 'How many dogs need boarding?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: <String>['One', 'Two', 'Three or more', 'Unsure'],
+            tags: <String>['pet services', 'boarding', 'dog count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_dog_details',
+            text: 'Tell us about the dogs',
+            helperText:
+                'Include names, breeds/types, ages, sizes and temperament.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['pet services', 'boarding', 'dog details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_previous_stay',
+            text: 'Has the dog stayed in boarding before?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.items,
+            choiceOptions: <String>[
+              'Boards regularly',
+              'Has boarded before',
+              'First time',
+              'Unsure',
+            ],
+            tags: <String>['pet services', 'boarding', 'previous stay'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_vaccination_records',
+            text: 'Can vaccination or health records be provided if required?',
+            helperText:
+                'The business will confirm its own requirements. This does not guarantee acceptance.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['pet services', 'boarding', 'vaccination'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_social_behaviour',
+            text:
+                'How is the dog around dogs, cats, children and unfamiliar people?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+            tags: <String>['pet services', 'boarding', 'social behaviour'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_feeding_routine',
+            text: 'What is the dog\'s feeding routine?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['pet services', 'boarding', 'feeding routine'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_sleeping_routine',
+            text: 'Does the dog need a sleeping or crate routine?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'boarding', 'sleeping routine'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_exercise_toilet',
+            text: 'What is the dog\'s exercise and toilet routine?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            tags: <String>['pet services', 'boarding', 'exercise toilet'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_behaviour_concerns',
+            text: 'Are there any behaviour or escape-risk concerns?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'boarding', 'behaviour concerns'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_health',
+            text: 'Are there any health, allergy or medication needs?',
+            helperText:
+                'The business must confirm whether it can safely meet these needs.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['pet services', 'boarding', 'health'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_health_details',
+            text: 'Describe any health or medication needs',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.medicalHandling,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'boarding', 'health details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_items',
+            text: 'What items are being brought?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.items,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'boarding', 'items'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_emergency_contact',
+            text:
+                'Can emergency-contact and veterinary details be supplied if the booking proceeds?',
+            helperText:
+                'These details can be arranged privately after the booking is accepted.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.medicalHandling,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['pet services', 'boarding', 'emergency contact'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'pet_services_dog_boarding_safe_care_info',
+            text: 'Is there any essential safe-care information?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.generalNotes,
+            requiredByDefault: false,
+            tags: <String>['pet services', 'boarding', 'safe care info'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_boarding_additional_dog',
+            label: 'Additional dog from the same household',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_boarding_additional_night',
+            label: 'Additional night',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_boarding_special_feeding',
+            label: 'Special feeding preparation',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_boarding_medication_support',
+            label: 'Medication support, subject to agreement',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_pet_services_dog_boarding_weekend_holiday',
+            label: 'Weekend or bank-holiday boarding',
+          ),
+        ],
+        availability: _petServicesBoardingAvailability,
+        suggestedNoticeHours: 72,
+        maximumBookingsPerDay: 3,
+        requestPhotos: true,
+        requireAddress: false,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'We will confirm the boarding suitability and routines before accepting.',
+      ),
+    ],
+  ),
+  VanBusinessTemplateDefinition(
+    categoryId: 'window_cleaning',
+    categoryName: 'Window Cleaning',
+    businessTypeId: 'window_cleaning',
+    businessTypeName: 'Window Cleaning',
+    description:
+        'Domestic and commercial window and conservatory cleaning services.',
+    iconKey: 'home',
+    colorValue: 0xFF29B6F4,
+    featured: true,
+    searchKeywords: <String>[
+      'window cleaning',
+      'domestic window cleaning',
+      'commercial window cleaning',
+      'shopfront cleaning',
+      'conservatory cleaning',
+      'one-off window cleaning',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Window cleaner'),
+      VanBusinessSearchAlias('Domestic window cleaner'),
+      VanBusinessSearchAlias('Shopfront cleaner'),
+      VanBusinessSearchAlias('Commercial window cleaner'),
+      VanBusinessSearchAlias('Conservatory cleaning'),
+      VanBusinessSearchAlias('One-off window cleaning'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'window_cleaning_domestic',
+        name: 'Domestic Window Cleaning',
+        description:
+            'Routine window cleaning for houses, flats and other domestic properties, subject to safe access and scope confirmation.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _windowCleaningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the cleaning will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred cleaning date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the window condition, access issues or priority areas. Avoid including private documents or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_property_type',
+            text: 'What type of property is it?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.property,
+            choiceOptions: <String>[
+              'House',
+              'Bungalow',
+              'Flat or maisonette',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'domestic', 'property'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_storeys',
+            text: 'How many storeys need window cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Ground floor only',
+              'Two storeys',
+              'Three storeys or more',
+              'Unsure',
+            ],
+            helperText:
+                'Higher or difficult-to-reach windows are subject to the business confirming safe access.',
+            tags: <String>['window cleaning', 'domestic', 'storeys', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_window_count',
+            text: 'Approximately how many windows need cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Up to 10',
+              '11–20',
+              '21–30',
+              'More than 30',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'domestic', 'window count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_inside_outside',
+            text: 'Which areas need cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Outside only',
+              'Inside only',
+              'Inside and outside',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'domestic', 'inside', 'outside'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_frames_sills',
+            text: 'Should frames and sills be included?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>['Yes', 'No', 'Please advise'],
+            tags: <String>['window cleaning', 'domestic', 'frames', 'sills'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_condition',
+            text: 'How would you describe the current condition?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.survey,
+            choiceOptions: <String>[
+              'Regularly maintained',
+              'Moderate dirt or marks',
+              'Heavy buildup',
+              'Specialist residue may be present',
+              'Unsure',
+            ],
+            helperText:
+                'Paint, cement, adhesive, mineral deposits or other specialist residue may require separate assessment and may not be removable.',
+            tags: <String>['window cleaning', 'domestic', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_access_issues',
+            text: 'Are there any access or safety issues around the windows?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Examples may include locked gates, narrow side access, extensions or conservatories below windows, sloping or uneven ground, overhead cables, or windows above fragile surfaces. Do not include door, alarm or key-safe codes.',
+            tags: <String>['window cleaning', 'domestic', 'access', 'safety'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_frequency',
+            text: 'How often would you ideally like the windows cleaned?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              'One-off',
+              'Every four weeks',
+              'Every six to eight weeks',
+              'Quarterly',
+              'Ad hoc',
+              'Unsure',
+            ],
+            helperText:
+                'This records your preference only and does not automatically create recurring bookings.',
+            tags: <String>['window cleaning', 'domestic', 'frequency'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_domestic_parking_access',
+            text: 'Parking and access information',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            tags: <String>['window cleaning', 'domestic', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_domestic_interior_windows',
+            label: 'Interior windows',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_domestic_frames_sills',
+            label: 'Frames and sills',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_domestic_patio_doors',
+            label: 'Patio or French doors',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_domestic_skylights',
+            label: 'Skylights, subject to safe access',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_domestic_first_clean',
+            label: 'First clean or heavy buildup',
+          ),
+        ],
+        availability: _windowCleaningMondayToSaturday,
+        suggestedDurationMinutes: 90,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 6,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Tell us about the property, window type and access. We will confirm the scope and price before accepting.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'window_cleaning_commercial',
+        name: 'Commercial / Shopfront Window Cleaning',
+        description:
+            'Window and shopfront cleaning for commercial premises, with access, timing and surface condition confirmed before work is agreed.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _windowCleaningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the cleaning will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred cleaning date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the window condition, access issues or priority areas. Avoid including private documents or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_premises_type',
+            text: 'What type of premises needs cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.property,
+            choiceOptions: <String>[
+              'Shopfront',
+              'Office',
+              'Salon, café or restaurant',
+              'Small commercial property',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'commercial', 'premises'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_areas',
+            text: 'Which glass areas need cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Outside only',
+              'Inside only',
+              'Inside and outside',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'commercial', 'areas'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_frontage_size',
+            text: 'Approximately how much window frontage is there?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Small frontage',
+              'Medium frontage',
+              'Large frontage',
+              'Multiple frontage sections',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'commercial', 'frontage'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_height',
+            text: 'At what level are the windows?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Ground floor only',
+              'Ground and first floor',
+              'Higher-level windows',
+              'Mixed levels',
+              'Unsure',
+            ],
+            helperText:
+                'Higher-level or difficult-access work is subject to the business confirming suitable equipment and safe access.',
+            tags: <String>['window cleaning', 'commercial', 'height', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_condition',
+            text: 'How would you describe the current condition?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.survey,
+            choiceOptions: <String>[
+              'Regularly maintained',
+              'Fingerprints and general marks',
+              'Grease or heavier buildup',
+              'Stickers, adhesive or specialist residue',
+              'Unsure',
+            ],
+            helperText:
+                'Specialist residue removal is not guaranteed and may require separate assessment.',
+            tags: <String>['window cleaning', 'commercial', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_frequency',
+            text: 'How often would you ideally like the windows cleaned?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              'One-off',
+              'Weekly',
+              'Fortnightly',
+              'Every four weeks',
+              'Ad hoc',
+              'Unsure',
+            ],
+            helperText:
+                'This records your preference only and does not automatically create recurring bookings.',
+            tags: <String>['window cleaning', 'commercial', 'frequency'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_service_timing',
+            text: 'When would you prefer the work to take place?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            choiceOptions: <String>[
+              'Before opening',
+              'During business hours',
+              'After closing',
+              'Flexible',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'commercial', 'timing'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_public_access',
+            text:
+                'Are there public-access, loading or trading restrictions to consider?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Examples may include busy pedestrian areas, market days, loading restrictions, customer entrances, outdoor seating, or displays close to the glass.',
+            tags: <String>['window cleaning', 'commercial', 'public access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_signage',
+            text:
+                'Are there signs, displays or equipment close to the windows?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            tags: <String>['window cleaning', 'commercial', 'signage'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_commercial_parking_access',
+            text: 'Parking and access information',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            tags: <String>[
+              'window cleaning',
+              'commercial',
+              'parking',
+              'access',
+            ],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_commercial_interior_glass',
+            label: 'Interior glass',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_commercial_frames_sills',
+            label: 'Frames and sills',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_commercial_glass_doors',
+            label: 'Glass doors',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_commercial_additional_frontage',
+            label: 'Additional frontage section',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_commercial_out_of_hours',
+            label: 'Out-of-hours visit',
+          ),
+        ],
+        availability: _windowCleaningCommercialAvailability,
+        suggestedDurationMinutes: 180,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 3,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Tell us about the premises, glass areas and access requirements. We will confirm the scope, timing and price before accepting.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'window_cleaning_conservatory',
+        name: 'Conservatory Cleaning',
+        description:
+            'Conservatory glass and panel cleaning, with condition and safe access confirmed before work is agreed.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _windowCleaningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the cleaning will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred cleaning date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the conservatory size, condition or access issues. Avoid including private documents or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_size',
+            text: 'Approximately how large is the conservatory?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Small',
+              'Medium',
+              'Large',
+              'Very large',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'conservatory', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_priority',
+            text: 'Which area is the main priority?',
+            helperText:
+                'Additional areas can be selected as extras or discussed before the work is agreed.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Whole exterior',
+              'Roof panels',
+              'Side glass and doors',
+              'Interior glass',
+              'Inside and outside',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'conservatory', 'priority'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_roof_material',
+            text: 'What is the conservatory roof made from?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Glass',
+              'Polycarbonate panels',
+              'Mixed materials',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'conservatory', 'roof'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_access',
+            text: 'How would you describe access around the conservatory?',
+            helperText:
+                'Roof panels and difficult areas are subject to the business confirming safe access and suitable equipment.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Clear ground-level access',
+              'Restricted side access',
+              'Obstacles or extensions affect access',
+              'Sloping or uneven ground',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'conservatory', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_condition',
+            text: 'How would you describe the current condition?',
+            helperText:
+                'Paint, cement, adhesive, mineral deposits or other specialist residue may require separate assessment and may not be removable.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.survey,
+            choiceOptions: <String>[
+              'Regularly maintained',
+              'General dirt or marks',
+              'Algae or heavier buildup',
+              'Specialist residue may be present',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'conservatory', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_damage',
+            text: 'Are there any damaged, loose, leaking or fragile areas?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.survey,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            helperText:
+                'The business must confirm whether the area can be cleaned safely.',
+            tags: <String>['window cleaning', 'conservatory', 'damage'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_frequency',
+            text: 'How often would you ideally like the conservatory cleaned?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            requiredByDefault: false,
+            choiceOptions: <String>[
+              'One-off',
+              'Twice a year',
+              'Annually',
+              'Ad hoc',
+              'Unsure',
+            ],
+            helperText:
+                'This records your preference only and does not automatically create recurring bookings.',
+            tags: <String>['window cleaning', 'conservatory', 'frequency'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_interior_preparation',
+            text:
+                'Are there blinds, furniture or other items close to the interior glass?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>[
+              'window cleaning',
+              'conservatory',
+              'interior',
+              'preparation',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_conservatory_parking_access',
+            text: 'Parking and access information',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            tags: <String>[
+              'window cleaning',
+              'conservatory',
+              'parking',
+              'access',
+            ],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_conservatory_interior_glass',
+            label: 'Interior conservatory glass',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_conservatory_frames_sills',
+            label: 'Frames and sills',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_conservatory_doors',
+            label: 'Conservatory doors',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_conservatory_roof_panels',
+            label: 'Roof panels, subject to safe access',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_conservatory_first_clean',
+            label: 'First clean or heavy buildup',
+          ),
+        ],
+        availability: _windowCleaningMondayToSaturday,
+        suggestedDurationMinutes: 180,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 2,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Tell us about the conservatory size, areas, condition and access. We will confirm safe access and scope before accepting.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'window_cleaning_one_off',
+        name: 'One-off Window Cleaning',
+        description:
+            'A one-time window clean for moving, property preparation, first cleans or other occasional requirements.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.oneOff,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _windowCleaningStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the cleaning will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred cleaning date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the window type, condition and access. Avoid including private documents or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_reason',
+            text: 'What is the main reason for the clean?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Moving in or out',
+              'After building or decorating work',
+              'Preparing for a sale or inspection',
+              'First clean after a long gap',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'one-off', 'reason'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_property_type',
+            text: 'What type of property is it?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.property,
+            choiceOptions: <String>[
+              'House',
+              'Bungalow',
+              'Flat or maisonette',
+              'Commercial property',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'one-off', 'property'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_storeys',
+            text: 'How many storeys need window cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            choiceOptions: <String>[
+              'Ground floor only',
+              'Two storeys',
+              'Three storeys or more',
+              'Unsure',
+            ],
+            helperText:
+                'Higher or difficult-to-reach windows are subject to the business confirming safe access.',
+            tags: <String>['window cleaning', 'one-off', 'storeys', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_window_count',
+            text: 'Approximately how many windows need cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.sizeWeight,
+            choiceOptions: <String>[
+              'Up to 10',
+              '11–20',
+              '21–30',
+              'More than 30',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'one-off', 'window count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_areas',
+            text: 'Which areas need cleaning?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>[
+              'Outside only',
+              'Inside only',
+              'Inside and outside',
+              'Unsure',
+            ],
+            tags: <String>['window cleaning', 'one-off', 'areas'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_frames_sills',
+            text: 'Should frames and sills be included?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            choiceOptions: <String>['Yes', 'No', 'Please advise'],
+            tags: <String>['window cleaning', 'one-off', 'frames', 'sills'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_condition',
+            text: 'How would you describe the current condition?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.survey,
+            choiceOptions: <String>[
+              'General dirt or marks',
+              'Heavy buildup',
+              'Post-building dust or residue',
+              'Paint, adhesive or specialist residue may be present',
+              'Unsure',
+            ],
+            helperText:
+                'Specialist residue removal is not guaranteed and may require separate assessment.',
+            tags: <String>['window cleaning', 'one-off', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_specialist_residue',
+            text:
+                'Is any paint, cement, adhesive or other specialist residue present?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.survey,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['window cleaning', 'one-off', 'specialist residue'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_access_safety',
+            text: 'Describe any residue, access or safety concerns',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Examples may include restricted gates, extensions below windows, fragile surfaces, sloping ground, overhead cables, or known residue or damaged glass. Do not request security codes.',
+            tags: <String>['window cleaning', 'one-off', 'access', 'safety'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'window_cleaning_one_off_parking_access',
+            text: 'Parking and access information',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            tags: <String>['window cleaning', 'one-off', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_one_off_interior_windows',
+            label: 'Interior windows',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_one_off_frames_sills',
+            label: 'Frames and sills',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_one_off_patio_doors',
+            label: 'Patio or French doors',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_one_off_additional_area',
+            label: 'Additional window area',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_window_cleaning_one_off_first_clean',
+            label: 'First clean or heavy buildup',
+          ),
+        ],
+        availability: _windowCleaningMondayToSaturday,
+        suggestedDurationMinutes: 90,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 6,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Tell us about the property, window type, condition and access. We will confirm the scope and price before accepting.',
+      ),
+    ],
+  ),
+  VanBusinessTemplateDefinition(
+    categoryId: 'handyman',
+    categoryName: 'Handyman & General Services',
+    businessTypeId: 'handyman',
+    businessTypeName: 'Handyman & General Services',
+    description:
+        'Small household jobs, furniture assembly, mounting and non-specialist repairs.',
+    iconKey: 'home',
+    colorValue: 0xFFFFC107,
+    featured: true,
+    searchKeywords: <String>[
+      'handyman',
+      'general handyman',
+      'odd jobs',
+      'household jobs',
+      'small repairs',
+      'furniture assembly',
+      'flat-pack assembly',
+      'wall mounting',
+      'shelf fitting',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Handyman'),
+      VanBusinessSearchAlias('General Handyman'),
+      VanBusinessSearchAlias('Odd Jobs'),
+      VanBusinessSearchAlias('Small Repairs'),
+      VanBusinessSearchAlias('Household Fixes'),
+      VanBusinessSearchAlias('Flat-Pack Assembly'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'handyman_general_visit',
+        name: 'General Handyman Visit',
+        description:
+            'A flexible visit for several small household jobs. The business will confirm what can safely be completed within the agreed visit.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _handymanStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText': 'Enter the address where the work will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_task_list',
+            text: 'What jobs need doing?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            helperText:
+                'List each job separately. Electrical, gas, structural, roofing and major plumbing work are not included.',
+            tags: <String>['handyman', 'general', 'tasks'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_task_count',
+            text: 'Approximately how many separate jobs are there?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'One',
+              'Two or three',
+              'Four or five',
+              'Six or more',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'general', 'task count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_priorities',
+            text: 'Which jobs are the highest priority?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            helperText:
+                'The business may not be able to complete every requested job in one visit.',
+            tags: <String>['handyman', 'general', 'priorities'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_duration_preference',
+            text: 'How much time do you think may be needed?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            requiredByDefault: false,
+            choiceOptions: <String>[
+              'Less than two hours',
+              'Two to four hours',
+              'Half day',
+              'Full day',
+              'Unsure',
+            ],
+            helperText:
+                'This is a guide only. The business will confirm the expected time after reviewing the work.',
+            tags: <String>['handyman', 'general', 'duration'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_materials_responsibility',
+            text: 'Who should provide materials and fixings?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Business to supply',
+              'Customer will supply',
+              'Some items are already supplied',
+              'Please advise',
+            ],
+            tags: <String>['handyman', 'general', 'materials'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_materials_details',
+            text: 'Describe any materials, parts or fixings already available',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            tags: <String>['handyman', 'general', 'materials details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_workspace',
+            text: 'Is the working area ready and accessible?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Clear and ready',
+              'Some items need moving',
+              'Access is restricted',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'general', 'workspace'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_specialist_work',
+            text:
+                'Could any requested job involve specialist or regulated work?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            helperText:
+                'This includes electrical, gas, structural, roofing, asbestos-related or major plumbing work. Listing it does not mean the business can undertake it.',
+            tags: <String>['handyman', 'general', 'specialist'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_safety_details',
+            text: 'Describe any access, height or safety concerns',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Examples may include: fragile surfaces, restricted working space, heavy items, damaged walls, suspected pipes or cables, work above normal standing height.',
+            tags: <String>['handyman', 'general', 'safety'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_general_visit_parking_access',
+            text: 'Parking and property access information',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            tags: <String>['handyman', 'general', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_general_visit_additional_hour',
+            label: 'Additional labour hour',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_general_visit_half_day',
+            label: 'Half-day visit',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_general_visit_materials_fixings',
+            label: 'Materials and fixings',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_general_visit_second_person',
+            label: 'Second-person assistance, subject to agreement',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_general_visit_small_waste_removal',
+            label: 'Small non-hazardous waste removal, subject to agreement',
+          ),
+        ],
+        availability: _handymanMondayToSaturday,
+        suggestedDurationMinutes: 120,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the jobs you need done. The business will confirm what can safely be completed within the agreed visit.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'handyman_flat_pack_assembly',
+        name: 'Flat-Pack Furniture Assembly',
+        description:
+            'Flat-pack furniture assembly, with item size, parts, working space and any wall-fixing requirements confirmed before work is agreed.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _handymanStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the assembly will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_furniture_type',
+            text: 'What is the main item being assembled?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Wardrobe',
+              'Chest of drawers',
+              'Bed frame',
+              'Table or desk',
+              'Shelving or storage unit',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'flat-pack', 'furniture type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_item_count',
+            text: 'How many items need assembling?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'One',
+              'Two',
+              'Three or four',
+              'Five or more',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'flat-pack', 'item count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_product_details',
+            text: 'Provide the brand, model or product details where known',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            helperText:
+                'Product names, model numbers or links can help the business estimate the assembly time.',
+            tags: <String>['handyman', 'flat-pack', 'product details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_current_condition',
+            text: 'What condition are the items currently in?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Unopened boxes',
+              'Boxes opened but not assembled',
+              'Partially assembled',
+              'Previously assembled and dismantled',
+              'Mixed',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'flat-pack', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_parts_available',
+            text: 'Are all parts, fittings and instructions available?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            helperText: 'Missing or damaged parts may prevent completion.',
+            tags: <String>['handyman', 'flat-pack', 'parts'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_workspace',
+            text: 'Is there enough clear space for assembly?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Clear working space',
+              'Some furniture needs moving',
+              'Limited working space',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'flat-pack', 'workspace'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_wall_fixing',
+            text: 'Does any item require fixing to a wall?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            helperText:
+                'Wall fixing is subject to the business confirming the wall condition, item weight and safe drilling location.',
+            tags: <String>['handyman', 'flat-pack', 'wall fixing'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_access',
+            text: 'Are there stairs, narrow access or large-item restrictions?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['handyman', 'flat-pack', 'access'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_packaging',
+            text: 'What should happen to the packaging?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Leave it on site',
+              'Use the customer\'s recycling or waste bins',
+              'Business to remove it, subject to agreement',
+              'Please advise',
+            ],
+            tags: <String>['handyman', 'flat-pack', 'packaging'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_flat_pack_parking_access',
+            text: 'Parking and property access information',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            tags: <String>['handyman', 'flat-pack', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_flat_pack_additional_item',
+            label: 'Additional furniture item',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_flat_pack_additional_hour',
+            label: 'Additional assembly hour',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_flat_pack_large_unit',
+            label: 'Large wardrobe or storage unit',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_flat_pack_wall_fixing',
+            label: 'Wall fixing, subject to safe assessment',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_flat_pack_packaging_removal',
+            label: 'Packaging removal',
+          ),
+        ],
+        availability: _handymanMondayToSaturday,
+        suggestedDurationMinutes: 90,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Tell us about the furniture to assemble, its condition and any wall-fixing requirements. We will confirm the scope and price before accepting.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'handyman_wall_mounting',
+        name: 'Shelves, Curtain Poles & Wall Mounting',
+        description:
+            'Mounting shelves, curtain poles, mirrors, pictures and similar household items, subject to the wall condition, item weight and a safe fixing location being confirmed.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _handymanStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText': 'Enter the address where the work will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_item_type',
+            text: 'What is the main item being fitted or mounted?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Shelves',
+              'Curtain pole or blind',
+              'Mirror',
+              'Picture or wall decoration',
+              'Television bracket',
+              'Storage or wall unit',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'wall mounting', 'item type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_item_count',
+            text: 'How many items need fitting or mounting?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'One',
+              'Two',
+              'Three or four',
+              'Five or more',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'wall mounting', 'item count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_item_details',
+            text: 'Describe the items, including approximate size and weight',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            helperText:
+                'Product details, dimensions and approximate weight can help the business assess the work.',
+            tags: <String>['handyman', 'wall mounting', 'item details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_wall_type',
+            text: 'What type of wall or surface will the items be fixed to?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Brick or block',
+              'Plasterboard',
+              'Solid plaster',
+              'Tile',
+              'Mixed surfaces',
+              'Unsure',
+            ],
+            helperText:
+                'The business must confirm the wall condition and suitable fixing method before drilling.',
+            tags: <String>['handyman', 'wall mounting', 'wall type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_height',
+            text: 'Approximately how high will the items be mounted?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Normal standing height',
+              'Above head height',
+              'Near ceiling height',
+              'Multiple heights',
+              'Unsure',
+            ],
+            helperText:
+                'Higher work is subject to safe access and suitable equipment.',
+            tags: <String>['handyman', 'wall mounting', 'height'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_fixings',
+            text: 'Who should provide the brackets, fittings and fixings?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Customer has all fittings and fixings',
+              'Customer has the item but needs fixings',
+              'Business to supply suitable fixings',
+              'Some items are already supplied',
+              'Please advise',
+            ],
+            tags: <String>['handyman', 'wall mounting', 'fixings'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_hidden_services',
+            text:
+                'Are there any known or suspected pipes, cables or other services behind the wall?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            helperText:
+                'Work may not proceed if a safe drilling location cannot be confirmed.',
+            tags: <String>['handyman', 'wall mounting', 'hidden services'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_wall_condition',
+            text:
+                'Are there any cracks, loose plaster, damp, tiles or other wall-condition concerns?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            tags: <String>['handyman', 'wall mounting', 'wall condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_workspace',
+            text: 'Is the working area clear and safely accessible?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Clear and ready',
+              'Some furniture needs moving',
+              'Access is restricted',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'wall mounting', 'workspace'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_wall_mounting_parking_access',
+            text: 'Parking and property access information',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            tags: <String>['handyman', 'wall mounting', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_wall_mounting_additional_item',
+            label: 'Additional mounted item',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_wall_mounting_fixings',
+            label: 'Suitable fixings, subject to assessment',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_wall_mounting_heavy_item',
+            label: 'Heavy or oversized item, subject to assessment',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_wall_mounting_furniture_moving',
+            label: 'Furniture moving',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_wall_mounting_additional_hour',
+            label: 'Additional labour hour',
+          ),
+        ],
+        availability: _handymanMondayToSaturday,
+        suggestedDurationMinutes: 90,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Tell us about the items to mount, their size, weight and the wall type. We will confirm the scope and price before accepting.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'handyman_minor_home_repairs',
+        name: 'Minor Home Repairs',
+        description:
+            'Small non-specialist household repairs and adjustments. Electrical, gas, structural, roofing and major plumbing work are not included.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _handymanStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText': 'Enter the address where the repair will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The business will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional photos can show the work required, available space, fittings and access issues. Avoid including private documents or sensitive information.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_main_type',
+            text: 'What is the main repair needed?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Door, hinge or handle adjustment',
+              'Cupboard or drawer repair',
+              'Loose fitting or fixture',
+              'Sealant or caulking',
+              'Minor cosmetic repair',
+              'Small household adjustment',
+              'Other non-specialist repair',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'minor repairs', 'repair type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_description',
+            text: 'Describe the problem and what needs repairing',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            helperText:
+                'Include what is damaged, loose, sticking, leaking or no longer working as expected.',
+            tags: <String>['handyman', 'minor repairs', 'description'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_item_count',
+            text: 'How many separate repairs are required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'One',
+              'Two',
+              'Three or four',
+              'Five or more',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'minor repairs', 'item count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_condition',
+            text: 'How would you describe the current condition?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Minor adjustment needed',
+              'Loose or worn',
+              'Damaged but still usable',
+              'Broken or unusable',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'minor repairs', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_parts_available',
+            text: 'Are replacement parts or materials already available?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Yes, all parts are available',
+              'Some parts are available',
+              'No parts are available',
+              'Unsure',
+              'Please advise',
+            ],
+            tags: <String>['handyman', 'minor repairs', 'parts available'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_parts_details',
+            text:
+                'Describe any replacement parts or materials already available',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            tags: <String>['handyman', 'minor repairs', 'parts details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_specialist_risk',
+            text:
+                'Could the repair involve electrical, gas, structural or major plumbing work?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            helperText:
+                'These jobs require an appropriately qualified specialist and are not included in this service.',
+            tags: <String>['handyman', 'minor repairs', 'specialist risk'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_damage_risk',
+            text:
+                'Are there any signs of damp, asbestos, major cracking or hidden damage?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            helperText:
+                'Listing a concern does not mean the business can inspect, disturb or repair hazardous or structural materials.',
+            tags: <String>['handyman', 'minor repairs', 'damage risk'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_workspace',
+            text: 'Is the repair area clear and safely accessible?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Clear and ready',
+              'Some items need moving',
+              'Access is restricted',
+              'Unsure',
+            ],
+            tags: <String>['handyman', 'minor repairs', 'workspace'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'handyman_minor_repairs_parking_access',
+            text: 'Parking and property access information',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            tags: <String>['handyman', 'minor repairs', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_minor_repairs_additional_repair',
+            label: 'Additional minor repair',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_minor_repairs_additional_hour',
+            label: 'Additional labour hour',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_minor_repairs_parts_materials',
+            label: 'Parts and materials',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_minor_repairs_sealant',
+            label: 'Sealant or caulking',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_handyman_minor_repairs_small_waste_removal',
+            label: 'Small non-hazardous waste removal, subject to agreement',
+          ),
+        ],
+        availability: _handymanMondayToSaturday,
+        suggestedDurationMinutes: 60,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 6,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the repair needed. The business will confirm what can safely be completed.',
+      ),
+    ],
+  ),
+  VanBusinessTemplateDefinition(
+    categoryId: 'photography',
+    categoryName: 'Photography',
+    businessTypeId: 'photography',
+    businessTypeName: 'Photography',
+    description:
+        'Photography services for people, events, properties and products, quoted for each job.',
+    iconKey: 'sparkle',
+    colorValue: 0xFFFF6E40,
+    featured: true,
+    searchKeywords: <String>[
+      'photography',
+      'photographer',
+      'portrait photography',
+      'family photographer',
+      'event photographer',
+      'property photographer',
+      'product photographer',
+      'headshots',
+    ],
+    searchAliases: <VanBusinessSearchAlias>[
+      VanBusinessSearchAlias('Photographer'),
+      VanBusinessSearchAlias('Portrait Photography'),
+      VanBusinessSearchAlias('Family Photography'),
+      VanBusinessSearchAlias('Event Photographer'),
+      VanBusinessSearchAlias('Property Photographer'),
+      VanBusinessSearchAlias('Product Photographer'),
+      VanBusinessSearchAlias('Headshots'),
+    ],
+    services: <VanBusinessServiceTemplateDefinition>[
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'photography_family_portrait',
+        name: 'Family & Portrait Photography',
+        description:
+            'Family, couple, individual and portrait photography at an agreed location, with the session style and requirements confirmed before booking.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _photographyStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the address where the photography session will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The photographer will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional reference images can help show the preferred style, venue, location or important details. Only upload images you are permitted to share.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_shoot_type',
+            text: 'What type of photography session would you like?',
+            helperText:
+                'Specialist newborn sessions are not automatically included and must be confirmed with the photographer.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Individual portrait',
+              'Couple',
+              'Family',
+              'Children',
+              'Maternity',
+              'Professional headshots',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'family portrait', 'shoot type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_people_count',
+            text: 'How many people will take part?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'One',
+              'Two',
+              'Three to five',
+              'Six to ten',
+              'More than ten',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'family portrait', 'people count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_children',
+            text: 'Will anyone under 18 take part?',
+            helperText:
+                'A parent or responsible adult must arrange and supervise participation. This does not grant permission for marketing or public use.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['photography', 'family portrait', 'children'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_age_details',
+            text:
+                'Provide approximate age ranges where this may affect the session',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.customerDetails,
+            requiredByDefault: false,
+            helperText:
+                'Do not include children\'s full names, schools or other unnecessary personal information.',
+            tags: <String>['photography', 'family portrait', 'age details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_location_style',
+            text: 'What type of location would you prefer?',
+            helperText:
+                'Location availability and any required permission must be confirmed before booking.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              "Customer's home",
+              'Outdoor location',
+              "Photographer's studio",
+              'Workplace or business',
+              'Multiple locations',
+              'Please advise',
+            ],
+            tags: <String>['photography', 'family portrait', 'location'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_visual_style',
+            text: 'What style of photographs do you prefer?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Natural and candid',
+              'Posed portraits',
+              'Lifestyle',
+              'Formal',
+              'Professional headshots',
+              'A mixture',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'family portrait', 'visual style'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_session_length',
+            text: 'What session length would you prefer?',
+            helperText:
+                'This is a preference only. The photographer will confirm the recommended session length.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            requiredByDefault: false,
+            choiceOptions: <String>[
+              'Up to 30 minutes',
+              'Around one hour',
+              'Around 90 minutes',
+              'Two hours or more',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'family portrait', 'session length'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_outfit_changes',
+            text: 'Are outfit changes planned?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'No',
+              'One change',
+              'Two or more changes',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'family portrait', 'outfit changes'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_image_requirements',
+            text: 'What finished images or formats are you hoping to receive?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.photos,
+            requiredByDefault: false,
+            helperText:
+                'Examples: Approximate number of edited images, Digital gallery, High-resolution files, Prints, Social-media images. Do not imply copyright transfer or unrestricted commercial use.',
+            tags: <String>[
+              'photography',
+              'family portrait',
+              'image requirements',
+            ],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_accessibility',
+            text:
+                'Are there any accessibility, mobility or location requirements?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['photography', 'family portrait', 'accessibility'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_family_portrait_parking_access',
+            text: 'Parking and location access information',
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>[
+              'photography',
+              'family portrait',
+              'parking',
+              'access',
+            ],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_family_portrait_additional_time',
+            label: 'Additional session time',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_family_portrait_additional_images',
+            label: 'Additional edited images',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_family_portrait_outfit_change',
+            label: 'Additional outfit change',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_family_portrait_additional_location',
+            label: 'Additional location',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_family_portrait_express_editing',
+            label: 'Express editing, subject to availability',
+          ),
+        ],
+        availability: _photographyFamilyPortraitAvailability,
+        suggestedDurationMinutes: 90,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 3,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the session style and requirements. The photographer will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'photography_event',
+        name: 'Event Photography',
+        description:
+            'Photography coverage for private, community and business events, with timings, venue restrictions and required coverage agreed beforehand.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _photographyStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the venue address where the event will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The photographer will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional reference images can help show the venue layout, important areas or access points. Only upload images you are permitted to share.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_type',
+            text: 'What type of event is it?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Birthday or celebration',
+              'Wedding reception or party',
+              'Community event',
+              'Corporate or business event',
+              'Performance or presentation',
+              'Charity event',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'event', 'type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_venue',
+            text: 'Describe the venue and event areas',
+            helperText:
+                'Include whether the event uses indoor areas, outdoor areas or more than one room.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            tags: <String>['photography', 'event', 'venue'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_coverage_duration',
+            text: 'How much photography coverage is required?',
+            helperText:
+                'The selected duration is a request only. The photographer will confirm coverage and pricing.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Up to one hour',
+              'Two to three hours',
+              'Four to six hours',
+              'More than six hours',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'event', 'coverage duration'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_guest_count',
+            text: 'Approximately how many guests are expected?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Fewer than 25',
+              '25 to 50',
+              '51 to 100',
+              '101 to 200',
+              'More than 200',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'event', 'guest count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_key_moments',
+            text: 'Which moments or activities are most important to capture?',
+            helperText:
+                'Examples: Guest arrivals, Speeches, Awards, Performances, Cake cutting, Group photographs',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            tags: <String>['photography', 'event', 'key moments'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_indoor_outdoor',
+            text: 'Where will photography take place?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Indoors',
+              'Outdoors',
+              'Both indoors and outdoors',
+              'Multiple venue areas',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'event', 'indoor outdoor'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_lighting',
+            text: 'What are the expected lighting conditions?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Normal indoor lighting',
+              'Low light',
+              'Stage or coloured lighting',
+              'Daylight outdoors',
+              'Evening or night outdoors',
+              'Mixed',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'event', 'lighting'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_venue_restrictions',
+            text:
+                'Are there any photography or access restrictions at the venue?',
+            helperText:
+                'The customer or organiser should confirm venue permission and relevant restrictions. The photographer is not automatically responsible for arranging them.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['photography', 'event', 'venue restrictions'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_restriction_details',
+            text: 'Describe any venue rules, restricted areas or limitations',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['photography', 'event', 'restriction details'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_delivery_preference',
+            text:
+                'How would you prefer the finished photographs to be delivered?',
+            helperText:
+                'Availability, delivery times and privacy settings will be confirmed by the photographer.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.photos,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Private online gallery',
+              'Digital download',
+              'Shared business gallery',
+              'Physical media or prints',
+              'Please advise',
+            ],
+            tags: <String>['photography', 'event', 'delivery preference'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_image_use',
+            text: 'How will the photographs mainly be used?',
+            helperText:
+                'Commercial, press or publication use may require a separate agreement. This question does not transfer copyright or provide legal advice.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.photos,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Personal use',
+              'Private organisation use',
+              'Business marketing',
+              'Press or publication',
+              'Social media',
+              'Mixed use',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'event', 'image use'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_event_parking_access',
+            text: 'Parking, loading and venue access information',
+            helperText:
+                'Do not provide alarm, door or restricted-access codes publicly. Sensitive arrangements can be agreed privately after acceptance.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['photography', 'event', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_event_additional_hour',
+            label: 'Additional coverage hour',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_event_second_photographer',
+            label: 'Second photographer, subject to availability',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_event_express_gallery',
+            label: 'Express gallery, subject to availability',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_event_additional_venue_area',
+            label: 'Additional venue or coverage area',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_event_print_package',
+            label: 'Printed image package',
+          ),
+        ],
+        availability: _photographyEventAvailability,
+        suggestedDurationMinutes: 180,
+        suggestedNoticeHours: 72,
+        maximumBookingsPerDay: 2,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the event type, timings and coverage needed. The photographer will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'photography_property',
+        name: 'Property Photography',
+        description:
+            'Interior and exterior property photography for sales, lettings and business promotion, with the required areas and property readiness agreed beforehand.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _photographyStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the property address where photography will take place.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The photographer will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional reference images can help show the property style, condition or important details. Only upload images you are permitted to share.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_type',
+            text: 'What type of property needs photographing?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'House',
+              'Bungalow',
+              'Flat or apartment',
+              'Commercial premises',
+              'Holiday accommodation',
+              'Land or development',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'property', 'type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_intended_use',
+            text: 'What will the photographs mainly be used for?',
+            helperText:
+                'Commercial, press or publication use may require a separate agreement. This question does not transfer copyright or provide legal advice.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Property sale',
+              'Property letting',
+              'Holiday-let listing',
+              'Business website or marketing',
+              'Portfolio or records',
+              'Press or publication',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'property', 'intended use'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_occupancy',
+            text:
+                'What will the property\'s condition be during the photography visit?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Empty',
+              'Occupied',
+              'Furnished but unoccupied',
+              'Professionally staged',
+              'Under renovation',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'property', 'occupancy'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_size',
+            text:
+                'Approximately how many rooms or main areas need photographing?',
+            helperText:
+                'Include main living areas, bedrooms, bathrooms and business rooms where relevant.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Up to five',
+              'Six to ten',
+              'Eleven to fifteen',
+              'More than fifteen',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'property', 'size'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_required_areas',
+            text: 'Which areas need to be photographed?',
+            helperText:
+                'Examples: Main rooms, Kitchen and bathrooms, Exterior, Garden, Outbuildings, Communal spaces, Commercial work areas.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            tags: <String>['photography', 'property', 'required areas'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_exterior_requirements',
+            text: 'Is exterior, garden or outbuilding photography required?',
+            helperText:
+                'Exterior photography is subject to safe access, suitable conditions and available daylight.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Exterior only',
+              'Garden only',
+              'Exterior and garden',
+              'Outbuildings or additional areas',
+              'No exterior photography',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'property', 'exterior'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_readiness',
+            text: 'Will the property be ready for photography?',
+            helperText:
+                'The photographer is not automatically responsible for cleaning, staging, moving furniture or storing belongings.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Fully prepared',
+              'Minor tidying remains',
+              'Furniture or belongings need moving',
+              'Renovation work is ongoing',
+              'Please advise',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'property', 'readiness'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_key_features',
+            text: 'Which features are most important to capture?',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: false,
+            helperText:
+                'Examples: Views, Kitchen details, Period features, Garden, Workspace, Accessibility features, Recent improvements.',
+            tags: <String>['photography', 'property', 'key features'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_people_pets',
+            text: 'Will people or pets be present during the visit?',
+            helperText:
+                'The customer remains responsible for supervising children, pets and access to occupied areas.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'No',
+              'People will be present',
+              'Pets will be present',
+              'Both people and pets',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'property', 'people pets'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_access_restrictions',
+            text: 'Are there any restricted, unsafe or unavailable areas?',
+            helperText:
+                'The photographer may decline areas that cannot be accessed safely or legally.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: true,
+            choiceOptions: <String>['Yes', 'No', 'Unsure'],
+            tags: <String>['photography', 'property', 'access restrictions'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_property_parking_access',
+            text: 'Parking and property access information',
+            helperText:
+                'Do not provide alarm, door or key-safe codes publicly. Sensitive access arrangements can be agreed privately after acceptance.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.access,
+            requiredByDefault: false,
+            tags: <String>['photography', 'property', 'parking', 'access'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_property_additional_rooms',
+            label: 'Additional rooms or areas',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_property_exterior_garden',
+            label: 'Exterior and garden coverage',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_property_twilight_session',
+            label: 'Twilight session, subject to conditions',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_property_additional_property',
+            label: 'Additional property',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_property_express_editing',
+            label: 'Express editing, subject to availability',
+          ),
+        ],
+        availability: _photographyFamilyPortraitAvailability,
+        suggestedDurationMinutes: 90,
+        suggestedNoticeHours: 24,
+        maximumBookingsPerDay: 4,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the property type, required areas and readiness. The photographer will confirm availability and pricing.',
+      ),
+      VanBusinessServiceTemplateDefinition(
+        serviceId: 'photography_product',
+        name: 'Product Photography',
+        description:
+            'Product photography for websites, catalogues, marketplaces and marketing, with the products, shoot location and required image style agreed beforehand.',
+        featureIds: <String>[
+          VanServiceCapabilityIds.appointmentRequired,
+          VanServiceCapabilityIds.businessVisitsCustomer,
+          VanServiceCapabilityIds.customQuote,
+          VanServiceCapabilityIds.estimatedDuration,
+          VanServiceCapabilityIds.leadTime,
+          VanServiceCapabilityIds.photoUpload,
+        ],
+        bookingOptionIds: <String>[
+          VanServiceCapabilityIds.booking,
+          VanServiceCapabilityIds.requestQuote,
+        ],
+        customerJourney: VanCustomerJourneyType.quote,
+        requestType: VanCustomerRequestType.quoteRequest,
+        startHandover: null,
+        endHandover: null,
+        requestFlowOptions: _photographyStandardQuoteFlow,
+        builtInQuestionKeys: <String>{
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        },
+        builtInQuestionSettings: <String, Map<String, dynamic>>{
+          'address': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Enter the proposed shoot location if known. For studio-based work, enter your business or contact address and select the studio option below. The photographer will confirm the final location privately.',
+          },
+          'phone': <String, dynamic>{'required': true, 'helperText': ''},
+          'email': <String, dynamic>{'required': false, 'helperText': ''},
+          'preferred_date': <String, dynamic>{
+            'required': true,
+            'helperText': 'Choose your preferred date.',
+          },
+          'preferred_time': <String, dynamic>{
+            'required': true,
+            'helperText':
+                'Choose a preferred start time or time window. The photographer will confirm availability.',
+          },
+          'photos': <String, dynamic>{
+            'required': false,
+            'helperText':
+                'Optional reference images can help show the preferred style, venue, location or important details. Only upload images you are permitted to share.',
+          },
+        },
+        questions: <VanServiceTemplateQuestion>[
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_type',
+            text: 'What type of products need photographing?',
+            helperText:
+                'Restricted, dangerous or specialist products must be discussed and may not be accepted.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Clothing or accessories',
+              'Food or drink',
+              'Jewellery or small valuables',
+              'Furniture or homeware',
+              'Electronics',
+              'Beauty or personal-care products',
+              'Artwork or handmade products',
+              'Other',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'type'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_count',
+            text: 'How many different products need photographing?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.customerDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'One',
+              'Two to five',
+              'Six to ten',
+              'Eleven to twenty',
+              'More than twenty',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_image_count',
+            text:
+                'Approximately how many finished images or angles are required per product?',
+            helperText:
+                'The photographer will confirm the final image count and editing scope.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'One',
+              'Two or three',
+              'Four to six',
+              'More than six',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'image count'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_size_weight',
+            text: 'Describe the approximate size and weight of the products',
+            helperText:
+                'Include dimensions or weight where items are large, heavy or difficult to move.',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            tags: <String>['photography', 'product', 'size weight'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_condition',
+            text: 'What condition will the products be in?',
+            helperText:
+                'Cleaning, repair, assembly and preparation are not automatically included.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'New and presentation-ready',
+              'Packaged',
+              'Used but clean',
+              'Requires unpacking or assembly',
+              'Mixed condition',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'condition'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_location_preference',
+            text: 'Where would you prefer the photography to take place?',
+            helperText:
+                'The final location and any access requirements must be agreed before booking.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              "Customer's premises",
+              "Photographer's studio",
+              'Business or retail premises',
+              'Outdoor location',
+              'Please advise',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'location'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_background_style',
+            text: 'What type of image style or background is required?',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Plain white background',
+              'Plain coloured background',
+              'Transparent or cut-out result',
+              'Lifestyle setting',
+              'Natural environment',
+              'A mixture',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'background style'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_styling_props',
+            text: 'Are styling, props or arranged scenes required?',
+            helperText:
+                'Styling, specialist props and set construction must be agreed separately.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'No',
+              'Customer will supply everything',
+              'Photographer to supply basic styling',
+              'Detailed lifestyle setup required',
+              'Please advise',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'styling props'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_fragile_value',
+            text: 'Do any products require special handling?',
+            helperText:
+                'Listing an item does not confirm that the photographer can accept, store, insure or handle it.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.jobDetails,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'No',
+              'Fragile items',
+              'High-value items',
+              'Heavy or oversized items',
+              'Food, liquid or perishable items',
+              'Restricted or potentially hazardous items',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'fragile value'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_intended_use',
+            text: 'How will the finished images mainly be used?',
+            helperText:
+                'Commercial, advertising or publication use may require a separate agreement. This question does not transfer copyright or provide legal advice.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.photos,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Online shop or marketplace',
+              'Business website',
+              'Social media',
+              'Catalogue or brochure',
+              'Advertising campaign',
+              'Press or publication',
+              'Internal business use',
+              'Mixed use',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'intended use'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_editing_requirements',
+            text: 'Describe any editing or image-format requirements',
+            answerType: VanCustomQuestionAnswerType.longText,
+            category: VanCustomQuestionCategory.photos,
+            requiredByDefault: false,
+            helperText:
+                'Examples: Background removal, Colour correction, Cropping, File dimensions, Transparent files, Marketplace specifications. Do not guarantee exact colour reproduction or platform approval.',
+            tags: <String>['photography', 'product', 'editing requirements'],
+          ),
+          VanServiceTemplateQuestion(
+            libraryId: 'photography_product_delivery_timeframe',
+            text: 'When are the finished images required?',
+            helperText:
+                'This is a requested timeframe only. Availability and delivery dates must be confirmed by the photographer.',
+            answerType: VanCustomQuestionAnswerType.multipleChoice,
+            category: VanCustomQuestionCategory.timing,
+            requiredByDefault: true,
+            choiceOptions: <String>[
+              'Within two working days',
+              'Within one week',
+              'Within two weeks',
+              'No fixed deadline',
+              'Please advise',
+              'Unsure',
+            ],
+            tags: <String>['photography', 'product', 'delivery timeframe'],
+          ),
+        ],
+        extras: <VanServiceTemplateExtra>[
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_product_additional_product',
+            label: 'Additional product',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_product_additional_image',
+            label: 'Additional finished image',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_product_background_removal',
+            label: 'Background removal',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_product_lifestyle_setup',
+            label: 'Lifestyle setup or styling',
+          ),
+          VanServiceTemplateExtra(
+            key: 'custom_extra_photography_product_express_editing',
+            label: 'Express editing, subject to availability',
+          ),
+        ],
+        availability: _photographyEventAvailability,
+        suggestedDurationMinutes: 120,
+        suggestedNoticeHours: 48,
+        maximumBookingsPerDay: 3,
+        requestPhotos: true,
+        requireAddress: true,
+        pricingMode: VanServiceCapabilityIds.customQuote,
+        suggestedCustomerMessage:
+            'Describe the products, shoot location and image style. The photographer will confirm availability and pricing.',
+      ),
+    ],
+  ),
   ..._bakeryBusinessTemplates,
+  ..._mobileCarValetingBusinessTemplates,
+  ..._mobileFoodVanBusinessTemplates,
 ];
 
 class VanStarterCapabilityPack {

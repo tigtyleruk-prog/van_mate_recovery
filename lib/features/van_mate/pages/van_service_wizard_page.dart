@@ -113,6 +113,8 @@ class _VanServiceCreationEntryPageState
   late final TextEditingController _dropOffController;
   late final TextEditingController _collectionController;
   late final TextEditingController _customerMessageController;
+  late final TextEditingController _fixedPriceController;
+  late final TextEditingController _fromPriceController;
   late final TextEditingController _businessSearchController;
   late final String _serviceId;
   late String _category;
@@ -183,6 +185,22 @@ class _VanServiceCreationEntryPageState
   bool get _usesUniversalCapabilityEditor =>
       (_source?.isCapabilityDriven ?? false) ||
       (_source == null && _creationSource == 'blank');
+  String get _resolvedPricingMode {
+    if (_usesUniversalCapabilityEditor) {
+      return resolveVanCapabilityContract(_manualCapabilityIds).pricingMode;
+    }
+    return _source?.pricingMode ?? '';
+  }
+
+  bool get _usesFixedPrice =>
+      _resolvedPricingMode == VanServiceCapabilityIds.fixedPrice;
+  bool get _usesFromPrice =>
+      _resolvedPricingMode == VanServiceCapabilityIds.fromPrice;
+
+  num get _fixedPriceAmount =>
+      _usesFixedPrice ? parseCurrencyValue(_fixedPriceController.text) : 0;
+  num get _fromPriceAmount =>
+      _usesFromPrice ? parseCurrencyValue(_fromPriceController.text) : 0;
   bool get _isUnchangedStandardWithoutFullHandover =>
       _source != null &&
       _source!.serviceFlow == VanServiceFlow.standard &&
@@ -271,6 +289,16 @@ class _VanServiceCreationEntryPageState
     );
     _customerMessageController = TextEditingController(
       text: source?.customerMessage ?? '',
+    );
+    _fixedPriceController = TextEditingController(
+      text: source == null || source.fixedPriceAmount <= 0
+          ? ''
+          : formatCurrencyInputValue(source.fixedPriceAmount),
+    );
+    _fromPriceController = TextEditingController(
+      text: source == null || source.fromPriceAmount <= 0
+          ? ''
+          : formatCurrencyInputValue(source.fromPriceAmount),
     );
     _businessSearchController = TextEditingController();
     _category = source?.category ?? 'General';
@@ -682,6 +710,7 @@ class _VanServiceCreationEntryPageState
       final hasJourney = setup.capabilityIds.any(
         const <String>{
           VanServiceCapabilityIds.placeOrder,
+          VanServiceCapabilityIds.preOrder,
           VanServiceCapabilityIds.requestQuote,
           VanServiceCapabilityIds.bookAppointment,
         }.contains,
@@ -690,23 +719,6 @@ class _VanServiceCreationEntryPageState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Choose a customer journey for ${setup.name}.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return false;
-      }
-      final hasStart =
-          setup.allowCustomerDropOff || setup.allowBusinessCollection;
-      final hasEnd =
-          setup.allowCustomerCollection ||
-          setup.allowBusinessReturn ||
-          setup.allowBusinessDelivery;
-      if (hasStart != hasEnd) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'For ${setup.name}, choose at least one matching start and end handover option.',
-            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -821,11 +833,15 @@ class _VanServiceCreationEntryPageState
     _appointmentDurationMinutes = resolved.suggestedDurationMinutes;
     _noticeHours = resolved.suggestedNoticeHours;
     _selectedBuiltInQuestions.addAll(resolved.builtInQuestionKeys);
+    _requestExactPin = resolved.builtInQuestionKeys.contains('exact_pin');
     for (final key in resolved.builtInQuestionKeys) {
       _builtInQuestionSettings.putIfAbsent(
         key,
         () => <String, dynamic>{
-          'required': key == 'address' || key == 'preferred_date',
+          'required':
+              key == 'address' ||
+              key == 'preferred_date' ||
+              key == 'preferred_time',
           'helperText': '',
         },
       );
@@ -986,7 +1002,10 @@ class _VanServiceCreationEntryPageState
           builtInSettings.putIfAbsent(
             key,
             () => <String, dynamic>{
-              'required': key == 'address' || key == 'preferred_date',
+              'required':
+                  key == 'address' ||
+                  key == 'preferred_date' ||
+                  key == 'preferred_time',
               'helperText': '',
             },
           );
@@ -1336,6 +1355,8 @@ class _VanServiceCreationEntryPageState
     _dropOffController.dispose();
     _collectionController.dispose();
     _customerMessageController.dispose();
+    _fixedPriceController.dispose();
+    _fromPriceController.dispose();
     _businessSearchController.dispose();
     super.dispose();
   }
@@ -1350,6 +1371,8 @@ class _VanServiceCreationEntryPageState
             recommendedNoticeHours: _noticeHours,
           )
         : null;
+    final pricingMode =
+        resolvedCapabilities?.pricingMode ?? source?.pricingMode ?? '';
     final cleanName = sanitizeVanText(_nameController.text).trim();
     final flowOptions = _flowOptions.copyWith(
       askPreferredDate: _selectedBuiltInQuestions.contains('preferred_date'),
@@ -1450,8 +1473,13 @@ class _VanServiceCreationEntryPageState
       ),
       capabilityGeneratedBuiltInQuestionKeys:
           _capabilityGeneratedBuiltInQuestionKeys.toList(growable: false),
-      pricingMode:
-          resolvedCapabilities?.pricingMode ?? source?.pricingMode ?? '',
+      pricingMode: pricingMode,
+      fixedPriceAmount: pricingMode == VanServiceCapabilityIds.fixedPrice
+          ? _fixedPriceAmount
+          : 0,
+      fromPriceAmount: pricingMode == VanServiceCapabilityIds.fromPrice
+          ? _fromPriceAmount
+          : 0,
       suggestedReminderMinutes:
           resolvedCapabilities?.suggestedReminderMinutes ??
           source?.suggestedReminderMinutes ??
@@ -1590,6 +1618,14 @@ class _VanServiceCreationEntryPageState
         _allowedEnds.isEmpty &&
         !_isUnchangedStandardWithoutFullHandover) {
       message = 'Choose at least one way for the service to end.';
+    } else if (step == 5 &&
+        _usesFixedPrice &&
+        validateVanMateQuoteAmountInput(_fixedPriceController.text) != null) {
+      message = 'Enter the fixed price for this service.';
+    } else if (step == 5 &&
+        _usesFromPrice &&
+        validateVanMateQuoteAmountInput(_fromPriceController.text) != null) {
+      message = 'Enter the starting price for this service.';
     }
     if (message == null) return true;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -2413,11 +2449,21 @@ class _VanServiceCreationEntryPageState
         const SizedBox(height: 10),
         _SelectionCard(
           icon: Icons.shopping_bag_outlined,
-          title: 'Order',
+          title: 'Order Request',
           description:
-              'Customer places an order. You prepare it for collection or delivery.',
+              'Customer requests a custom-made or made-to-order product. You review and confirm the details.',
           selected: _journey == VanCustomerJourneyType.order,
           onTap: () => setState(() => _journey = VanCustomerJourneyType.order),
+        ),
+        const SizedBox(height: 10),
+        _SelectionCard(
+          icon: Icons.shopping_basket_outlined,
+          title: 'Pre Order',
+          description:
+              'Customer orders an existing product ahead of collection or delivery. You review and confirm the timing.',
+          selected: _journey == VanCustomerJourneyType.preOrder,
+          onTap: () =>
+              setState(() => _journey = VanCustomerJourneyType.preOrder),
         ),
       ],
     );
@@ -3021,6 +3067,14 @@ class _VanServiceCreationEntryPageState
           'How would you like to charge?',
           'Choose any extras you use. You will set prices only for those choices next.',
         ),
+        if (_usesFixedPrice) ...[
+          _FixedPriceAmountCard(controller: _fixedPriceController),
+          const SizedBox(height: 12),
+        ],
+        if (_usesFromPrice) ...[
+          _FromPriceAmountCard(controller: _fromPriceController),
+          const SizedBox(height: 12),
+        ],
         if (_selectedStarterTemplate != null)
           _RecommendationBanner(
             text:
@@ -3291,7 +3345,11 @@ class _VanServiceCreationEntryPageState
         _ReviewRow(
           icon: Icons.payments_outlined,
           label: 'Pricing extras',
-          value: '${_extras.enabledExtras.length} enabled',
+          value: _usesFixedPrice
+              ? '${formatCurrency(_fixedPriceAmount)} fixed price, ${_extras.enabledExtras.length} extras'
+              : _usesFromPrice
+              ? 'From ${formatCurrency(_fromPriceAmount)}, ${_extras.enabledExtras.length} extras'
+              : '${_extras.enabledExtras.length} enabled',
           onEdit: () => setState(() {
             _configuringExtras = false;
             _step = 5;
@@ -3550,6 +3608,7 @@ class _LiveJourneyPreview extends StatelessWidget {
     VanCustomerJourneyType.quote => 'Business completes service',
     VanCustomerJourneyType.booking => 'Business completes appointment',
     VanCustomerJourneyType.order => 'Business prepares order',
+    VanCustomerJourneyType.preOrder => 'Business prepares Pre Order',
   };
 
   List<String> get _routes => [
@@ -5273,6 +5332,66 @@ class _CustomQuestionConfigCard extends StatelessWidget {
       ),
     ],
   );
+}
+
+class _FixedPriceAmountCard extends StatelessWidget {
+  const _FixedPriceAmountCard({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ConfigCard(
+      icon: Icons.price_check_outlined,
+      title: 'Fixed service price',
+      children: [
+        TextFormField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: vanMateFieldDecoration(
+            label: 'Fixed price',
+            hintText: '50.00',
+            prefixText: '\u00A3',
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Customers will see this as the set service price. Extras can still be added on top where you use them.',
+          style: TextStyle(color: Colors.white.withValues(alpha: .62)),
+        ),
+      ],
+    );
+  }
+}
+
+class _FromPriceAmountCard extends StatelessWidget {
+  const _FromPriceAmountCard({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ConfigCard(
+      icon: Icons.price_change_outlined,
+      title: 'Starting price',
+      children: [
+        TextFormField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: vanMateFieldDecoration(
+            label: 'From price',
+            hintText: '50.00',
+            prefixText: '\u00A3',
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Customers will see this as the starting price. The final quoted amount may vary once you review the details.',
+          style: TextStyle(color: Colors.white.withValues(alpha: .62)),
+        ),
+      ],
+    );
+  }
 }
 
 class _ExtraConfigurationCard extends StatelessWidget {

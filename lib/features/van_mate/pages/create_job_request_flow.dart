@@ -190,6 +190,8 @@ class _CreateJobRequestPageState extends State<CreateJobRequestPage> {
         'Hi, please fill in this quick booking request so I can confirm the details.',
       VanCustomerJourneyType.order =>
         'Hi, please fill in this quick order request so I can confirm your order.',
+      VanCustomerJourneyType.preOrder =>
+        'Hi, please fill in this quick form so I can confirm your Pre Order.',
     };
     if (!_requestExactPin) {
       return requestText;

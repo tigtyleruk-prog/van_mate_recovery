@@ -4,6 +4,8 @@ const String kVanMatePaymentInstructionsFallback =
     'Payment will be arranged directly with the driver/business.';
 const String kVanMatePastBookingMessage =
     "You can't book a job in the past. Please choose today or a future date.";
+const String kVanMateLeadTimeBookingMessage =
+    'This service needs more notice. Please choose a later date or time.';
 const double kVanMateMaxQuoteAmount = 99999.99;
 const double kVanMateHighQuoteAmountWarningThreshold = 10000.0;
 
@@ -102,23 +104,52 @@ String? validateVanMatePreferredBookingWindow({
   required DateTime? preferredDate,
   required String preferredTimeWindow,
   required bool preferredIsFlexible,
+  num noticeHours = 0,
   DateTime? now,
 }) {
   if (preferredDate == null) {
     return null;
   }
   final reference = now ?? DateTime.now();
+  final noticeMinutes = (noticeHours * 60).round();
+  final earliestAllowed = noticeMinutes > 0
+      ? reference.add(Duration(minutes: noticeMinutes))
+      : reference;
+  final selectedDay = DateUtils.dateOnly(preferredDate);
   if (isVanMatePastDate(preferredDate, now: reference)) {
     return kVanMatePastBookingMessage;
+  }
+  if (noticeMinutes > 0 &&
+      selectedDay.isBefore(DateUtils.dateOnly(earliestAllowed))) {
+    return kVanMateLeadTimeBookingMessage;
   }
   if (preferredIsFlexible) {
     return null;
   }
-  if (!DateUtils.isSameDay(preferredDate, reference)) {
+  if (!DateUtils.isSameDay(preferredDate, reference) &&
+      !DateUtils.isSameDay(preferredDate, earliestAllowed)) {
     return null;
   }
 
   final normalizedWindow = preferredTimeWindow.trim().toLowerCase();
+  final exactTimeMatch = RegExp(
+    r'^([01]\d|2[0-3]):[0-5]\d$',
+  ).firstMatch(normalizedWindow);
+  if (exactTimeMatch != null) {
+    final selectedTime = DateTime(
+      preferredDate.year,
+      preferredDate.month,
+      preferredDate.day,
+      int.parse(normalizedWindow.substring(0, 2)),
+      int.parse(normalizedWindow.substring(3, 5)),
+    );
+    if (selectedTime.isBefore(reference)) {
+      return kVanMatePastBookingMessage;
+    }
+    return noticeMinutes > 0 && selectedTime.isBefore(earliestAllowed)
+        ? kVanMateLeadTimeBookingMessage
+        : null;
+  }
   final slotEndHour = switch (normalizedWindow) {
     'morning' => 12,
     'afternoon' => 17,
@@ -128,14 +159,31 @@ String? validateVanMatePreferredBookingWindow({
   if (slotEndHour == null) {
     return null;
   }
+  final slotStartHour = switch (normalizedWindow) {
+    'morning' => 9,
+    'afternoon' => 12,
+    'evening' => 17,
+    _ => slotEndHour,
+  };
 
   final slotEnd = DateTime(
-    reference.year,
-    reference.month,
-    reference.day,
+    preferredDate.year,
+    preferredDate.month,
+    preferredDate.day,
     slotEndHour,
   );
-  return reference.isAfter(slotEnd) ? kVanMatePastBookingMessage : null;
+  if (reference.isAfter(slotEnd)) {
+    return kVanMatePastBookingMessage;
+  }
+  final slotStart = DateTime(
+    preferredDate.year,
+    preferredDate.month,
+    preferredDate.day,
+    slotStartHour,
+  );
+  return noticeMinutes > 0 && slotStart.isBefore(earliestAllowed)
+      ? kVanMateLeadTimeBookingMessage
+      : null;
 }
 
 String formatDate(DateTime date) {

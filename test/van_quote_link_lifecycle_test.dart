@@ -123,7 +123,9 @@ void main() {
     expect(sendSource, contains('publishedQuoteLink != customerQuoteLink'));
     expect(
       sendSource,
-      contains('Could not create a valid customer quote link.'),
+      contains(
+        'Could not create a valid customer \$_responseDocumentLower link.',
+      ),
     );
   });
 

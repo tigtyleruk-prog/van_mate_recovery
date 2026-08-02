@@ -890,7 +890,7 @@
 
     function customerJourneyCopy(request) {
       let value = String(request && request.customerJourneyType || "").trim().toLowerCase();
-      if (value !== "quote" && value !== "booking" && value !== "order") {
+      if (value !== "quote" && value !== "booking" && value !== "order" && value !== "preorder" && value !== "pre_order" && value !== "pre-order") {
         const legacy = String(request && request.requestType || "").trim().toLowerCase();
         value = legacy === "bookingrequest" ? "booking" : (legacy === "orderrequest" ? "order" : "quote");
       }
@@ -898,7 +898,10 @@
         return { noun: "Booking request", submit: "Request booking", received: "Booking request received" };
       }
       if (value === "order") {
-        return { noun: "Order request", submit: "Place order", received: "Order received" };
+        return { noun: "Order request", submit: "Send order request", received: "Order request received" };
+      }
+      if (value === "preorder" || value === "pre_order" || value === "pre-order") {
+        return { noun: "Pre Order", submit: "Place Pre Order", received: "Pre Order received" };
       }
       return { noun: "Quote request", submit: "Request quote", received: "Quote request received" };
     }

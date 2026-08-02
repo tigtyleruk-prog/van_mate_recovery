@@ -28,6 +28,8 @@ String buildRequestShareMessage({
       'Please fill in this quick request so I can confirm your booking.',
     VanCustomerJourneyType.order =>
       'Please fill in this quick request so I can confirm your order.',
+    VanCustomerJourneyType.preOrder =>
+      'Please fill in this quick form so I can confirm your Pre Order.',
   };
 
   final lines = <String>[
@@ -249,6 +251,8 @@ String buildRequestEmailBody({
       'Hi, please fill in these quick job questions so I can confirm your booking.',
     VanCustomerJourneyType.order =>
       'Hi, please fill in these quick questions so I can confirm your order.',
+    VanCustomerJourneyType.preOrder =>
+      'Hi, please fill in these quick questions so I can confirm your Pre Order.',
   };
 
   final lines = <String>[opening, ''];

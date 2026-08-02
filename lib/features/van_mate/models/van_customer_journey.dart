@@ -1,6 +1,6 @@
 import 'van_customer_request_flow.dart';
 
-enum VanCustomerJourneyType { quote, booking, order }
+enum VanCustomerJourneyType { quote, booking, order, preOrder }
 
 VanCustomerJourneyType defaultVanCustomerJourneyTypeForService({
   required String serviceId,
@@ -27,6 +27,7 @@ VanCustomerJourneyType vanCustomerJourneyTypeFromStorage(
     'quote' => VanCustomerJourneyType.quote,
     'booking' => VanCustomerJourneyType.booking,
     'order' => VanCustomerJourneyType.order,
+    'preorder' || 'pre_order' || 'pre-order' => VanCustomerJourneyType.preOrder,
     _ => fallback,
   };
 }
@@ -38,6 +39,7 @@ extension VanCustomerJourneyTypeX on VanCustomerJourneyType {
     VanCustomerJourneyType.quote => 'Request a quote',
     VanCustomerJourneyType.booking => 'Make a booking',
     VanCustomerJourneyType.order => 'Place an order',
+    VanCustomerJourneyType.preOrder => 'Place a Pre Order',
   };
 
   String get description => switch (this) {
@@ -46,13 +48,16 @@ extension VanCustomerJourneyTypeX on VanCustomerJourneyType {
     VanCustomerJourneyType.booking =>
       'Customers ask you to confirm a booking for this service.',
     VanCustomerJourneyType.order =>
-      'Customers place an order for this service.',
+      'Customers request a custom-made or made-to-order product.',
+    VanCustomerJourneyType.preOrder =>
+      'Customers place a Pre Order for an existing product to collect or receive.',
   };
 
   VanCustomerJourneyCopy get copy => switch (this) {
     VanCustomerJourneyType.quote => VanCustomerJourneyCopy.quote,
     VanCustomerJourneyType.booking => VanCustomerJourneyCopy.booking,
     VanCustomerJourneyType.order => VanCustomerJourneyCopy.order,
+    VanCustomerJourneyType.preOrder => VanCustomerJourneyCopy.preOrder,
   };
 }
 
@@ -88,13 +93,23 @@ class VanCustomerJourneyCopy {
   );
 
   static const order = VanCustomerJourneyCopy(
-    customerAction: 'Place an order',
+    customerAction: 'Request an Order',
     requestNoun: 'Order request',
-    submitAction: 'Place order',
-    receivedHeading: 'Order received',
-    businessAction: 'Confirm order',
-    acceptedLabel: 'Order confirmed',
-    declinedLabel: 'Order declined',
+    submitAction: 'Send order request',
+    receivedHeading: 'Order request received',
+    businessAction: 'Review order request',
+    acceptedLabel: 'Order request confirmed',
+    declinedLabel: 'Order request declined',
+  );
+
+  static const preOrder = VanCustomerJourneyCopy(
+    customerAction: 'Place a Pre Order',
+    requestNoun: 'Pre Order',
+    submitAction: 'Place Pre Order',
+    receivedHeading: 'Pre Order received',
+    businessAction: 'Review Pre Order',
+    acceptedLabel: 'Pre Order confirmed',
+    declinedLabel: 'Pre Order declined',
   );
 
   final String customerAction;
@@ -111,7 +126,8 @@ class VanCustomerJourneyCopy {
     return switch (this) {
       quote => 'Request a quote for $service',
       booking => 'Book $service',
-      order => 'Order $service',
+      order => 'Request an order for $service',
+      preOrder => 'Place a Pre Order for $service',
       _ => customerAction,
     };
   }
@@ -120,6 +136,7 @@ class VanCustomerJourneyCopy {
     quote => 'Your quote request has been sent to the business.',
     booking => 'Your booking request has been sent to the business.',
     order => 'Your order has been sent to the business.',
+    preOrder => 'Your Pre Order has been sent to the business.',
     _ => 'Your request has been sent to the business.',
   };
 }

@@ -153,6 +153,7 @@ String buildVanQuoteMessage({
   required String quoteResponseLink,
   String businessName = '',
   String proposedAppointmentText = '',
+  String customerJourneyType = 'quote',
 }) {
   final cleanedCustomerName = sanitizeVanText(customerName).trim();
   final cleanedJobTitle = sanitizeVanText(jobTitle).trim();
@@ -162,13 +163,18 @@ String buildVanQuoteMessage({
   final cleanedProposedAppointmentText = sanitizeVanText(
     proposedAppointmentText,
   ).trim();
+  final isPreOrder =
+      customerJourneyType.trim().toLowerCase() == 'preorder' ||
+      customerJourneyType.trim().toLowerCase() == 'pre_order';
+  final documentName = isPreOrder ? 'Order Summary' : 'quote';
+  final amountLabel = isPreOrder ? 'Order total' : 'Quote';
 
   final lines = <String>[
     cleanedCustomerName.isNotEmpty ? 'Hi $cleanedCustomerName,' : 'Hi,',
     '',
-    "Here's your quote for the ${cleanedJobTitle.toLowerCase()} job.",
+    "Here's your $documentName for the ${cleanedJobTitle.toLowerCase()} job.",
     '',
-    'Quote: $cleanedQuoteAmount',
+    '$amountLabel: $cleanedQuoteAmount',
   ];
   if (cleanedProposedAppointmentText.isNotEmpty) {
     lines.add('Proposed appointment: $cleanedProposedAppointmentText');

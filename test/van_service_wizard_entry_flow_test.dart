@@ -41,10 +41,7 @@ void main() {
     expect(find.text('Browse businesses'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    final manual = find.byKey(const Key('create_service_manually'));
-    await tester.ensureVisible(manual);
-    await tester.tap(manual);
-    await tester.pumpAndSettle();
+    await _tapCreateServiceManually(tester);
     expect(find.text('Step 1 of 8'), findsNothing);
     expect(find.text('Basic information'), findsNothing);
     expect(find.text('What service do you offer?'), findsOneWidget);
@@ -685,6 +682,78 @@ void main() {
     },
   );
 
+  testWidgets('Mobile Food Van template materialises through four stages', (
+    tester,
+  ) async {
+    _setPhoneView(tester);
+    await tester.pumpWidget(const MaterialApp(home: VanJobTypesServicesPage()));
+    await tester.pumpAndSettle();
+
+    await _openBusinessTemplate(
+      tester,
+      'food van',
+      businessName: 'Mobile Food Van',
+    );
+    final choice = find.widgetWithText(CheckboxListTile, 'Burger Van');
+    await tester.ensureVisible(choice);
+    await tester.tap(choice);
+    await tester.pump();
+    await _tapWizardAction(tester, 'Review Business');
+    await _tapWizardAction(tester, 'Create Service');
+
+    expect(find.text('Review Services'), findsOneWidget);
+    expect(find.text('Service 1 of 1'), findsOneWidget);
+    expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
+
+    await _tapReviewNext(tester);
+    expect(find.text('Item 1 - Main Item'), findsOneWidget);
+    expect(find.text('Item 4 - Drink'), findsOneWidget);
+    await _tapReviewNext(tester);
+    expect(find.text('Burger'), findsWidgets);
+    expect(find.text('Diet Coke'), findsWidgets);
+    expect(find.text('Loaded Fries'), findsWidgets);
+    await _tapReviewNext(tester);
+    await _tapReviewDefaults(tester);
+
+    final services = await VanJobServicesStorage.instance.loadAll();
+    final questions = await VanCustomJobQuestionsStorage.instance.loadAll();
+    expect(services, hasLength(1));
+    final service = services.single;
+    expect(service.starterPackId, 'mobile_food_van');
+    expect(service.starterTemplateId, 'mobile_food_van_burger_van');
+    expect(service.name, 'Burger Van');
+    expect(service.requestType, VanCustomerRequestType.orderRequest);
+    expect(service.effectiveRequestFlowOptions.showFulfilmentChoice, isTrue);
+    expect(service.effectiveRequestFlowOptions.askPreferredTime, isTrue);
+    expect(
+      service.builtInQuestionSettings['preferred_time']?['label'],
+      'Collection Time',
+    );
+    expect(service.quoteExtraDefaults.orderedExtras, hasLength(13));
+    expect(
+      service.quoteExtraDefaults.orderedExtras.map((extra) => extra.label),
+      containsAll(<String>['Burger', 'Loaded Fries', 'Diet Coke']),
+    );
+    expect(
+      questions.where(
+        (question) => question.libraryQuestionId.startsWith('mobile_food_van_'),
+      ),
+      hasLength(22),
+    );
+    expect(service.linkedQuestionIds, hasLength(22));
+    expect(service.optionalQuestionIds, hasLength(17));
+    expect(
+      questions
+          .where(
+            (question) =>
+                question.libraryQuestionId.startsWith('mobile_food_van_') &&
+                question.libraryQuestionId.contains('_item_2_'),
+          )
+          .map((question) => question.id),
+      everyElement(isIn(service.optionalQuestionIds)),
+    );
+  });
+
   testWidgets('cancelling manual configuration leaves no partial service', (
     tester,
   ) async {
@@ -695,10 +764,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Choose Business Type'));
     await tester.pumpAndSettle();
-    final manual = find.byKey(const Key('create_service_manually'));
-    await tester.ensureVisible(manual);
-    await tester.tap(manual);
-    await tester.pumpAndSettle();
+    await _tapCreateServiceManually(tester);
     final nameField = find.byWidgetPredicate(
       (widget) =>
           widget is TextField && widget.decoration?.labelText == 'Service name',
@@ -714,6 +780,18 @@ void main() {
     expect(find.text('Services'), findsWidgets);
     expect(await VanJobServicesStorage.instance.loadAll(), isEmpty);
   });
+}
+
+Future<void> _tapCreateServiceManually(WidgetTester tester) async {
+  final manual = find.byKey(const Key('create_service_manually'));
+  await tester.scrollUntilVisible(
+    manual,
+    200,
+    scrollable: find.byType(Scrollable).last,
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(manual);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _tapWizardAction(WidgetTester tester, String label) async {

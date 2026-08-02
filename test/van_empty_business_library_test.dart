@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:van_mate_app/features/van_mate/models/van_business_profile.dart';
 import 'package:van_mate_app/features/van_mate/models/van_customer_request_flow.dart';
+import 'package:van_mate_app/features/van_mate/models/van_customer_journey.dart';
 import 'package:van_mate_app/features/van_mate/models/van_custom_job_question.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.dart';
+import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 import 'package:van_mate_app/features/van_mate/pages/van_booking_link_page.dart';
 
 void main() {
@@ -154,6 +156,59 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text(question.questionText), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Mobile Food Van booking only shows configured collection time', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final setup = findVanStarterCapabilityPackById(
+      'mobile_food_van',
+    )!.recommendationsFor(const <String>['mobile_food_van_burger_van']).single;
+    final now = DateTime(2026, 7, 21);
+    final service = VanJobService(
+      id: setup.serviceKey,
+      name: setup.name,
+      description: setup.description,
+      isActive: true,
+      requestPhotos: setup.requestPhotos,
+      requireAddress: setup.requireAddress,
+      requestExactPinAfterQuoteAccepted: false,
+      requestType: VanCustomerRequestType.orderRequest,
+      customerJourneyType: VanCustomerJourneyType.order,
+      requestFlowOptions: setup.requestFlowOptions,
+      linkedQuestionIds: const <String>[],
+      quoteExtraDefaults: setup.quoteExtraDefaults(),
+      createdAt: now,
+      updatedAt: now,
+      selectedBuiltInQuestionKeys: setup.builtInQuestionKeys.toList(
+        growable: false,
+      ),
+      builtInQuestionSettings: setup.builtInQuestionSettings,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: VanBookingLinkCustomerFormPage(
+          profile: VanBusinessProfile.defaults(),
+          activeServices: <VanJobService>[service],
+          questionLookup: const <String, VanCustomJobQuestion>{},
+          bookingLinkActive: true,
+          bookingLinkUrl: '',
+          bookingLinkTitle: '',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Collection Time'), findsWidgets);
+    expect(find.text('Preferred date'), findsNothing);
+    expect(find.text('Timing is flexible'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

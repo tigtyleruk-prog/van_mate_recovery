@@ -30,6 +30,7 @@ import 'van_invoice_history_page.dart';
 import 'van_invoice_preview_page.dart';
 import 'van_quick_invoice_page.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
+import '../widgets/van_pre_order_calendar_entry.dart';
 
 class JobsCalendarPage extends StatefulWidget {
   const JobsCalendarPage({
@@ -1773,23 +1774,40 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
             ),
           ] else ...[
             for (var index = 0; index < jobs.length; index++) ...[
-              _JobsMockJobCard(
-                accent: vanCalendarAccentForJob(jobs[index]),
-                icon: vanCalendarIconForJob(jobs[index]),
-                eyebrow: _selectedDateLabel(_selectedDate),
-                title: jobs[index].customerName,
-                subtitle: vanCalendarDisplayJobTitle(jobs[index]),
-                body: _jobBodyText(jobs[index]),
-                debugSource: _debugSourceFor(jobs[index]),
-                debugDocId: jobs[index].jobId,
-                chips: _jobChips(jobs[index]),
-                actions: _jobActions(jobs[index]),
-                onTap: () => _openJobFor(jobs[index], completed: false),
-                onEditJob: () => _editJobFor(jobs[index]),
-                onChangeDateTime: () => _changeDateTimeFor(jobs[index]),
-                onDeleteJob: () => _deleteJobFor(jobs[index]),
-              ),
-              if (index < jobs.length - 1) const SizedBox(height: 12),
+              if (jobs[index].customerJourney ==
+                  VanCustomerJourneyType.preOrder)
+                VanPreOrderCalendarEntry(
+                  key: ValueKey<String>('pre-order-${jobs[index].jobId}'),
+                  timeLabel: _jobTimeText(jobs[index]),
+                  customerName: jobs[index].customerName,
+                  accent: vanCalendarAccentForJob(jobs[index]),
+                  onOpen: () => _openJobFor(jobs[index], completed: false),
+                )
+              else
+                _JobsMockJobCard(
+                  accent: vanCalendarAccentForJob(jobs[index]),
+                  icon: vanCalendarIconForJob(jobs[index]),
+                  eyebrow: _selectedDateLabel(_selectedDate),
+                  title: jobs[index].customerName,
+                  subtitle: vanCalendarDisplayJobTitle(jobs[index]),
+                  body: _jobBodyText(jobs[index]),
+                  debugSource: _debugSourceFor(jobs[index]),
+                  debugDocId: jobs[index].jobId,
+                  chips: _jobChips(jobs[index]),
+                  actions: _jobActions(jobs[index]),
+                  onTap: () => _openJobFor(jobs[index], completed: false),
+                  onEditJob: () => _editJobFor(jobs[index]),
+                  onChangeDateTime: () => _changeDateTimeFor(jobs[index]),
+                  onDeleteJob: () => _deleteJobFor(jobs[index]),
+                ),
+              if (index < jobs.length - 1)
+                SizedBox(
+                  height:
+                      jobs[index].customerJourney ==
+                          VanCustomerJourneyType.preOrder
+                      ? 6
+                      : 12,
+                ),
             ],
           ],
         ],

@@ -132,6 +132,212 @@ test('standard customer visit still requires address or postcode', () => {
   );
 });
 
+test('automatic local delivery requires delivery address instead of hidden generic address', () => {
+  assert.deepEqual(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'localdelivery',
+    }),
+    {
+      code: 'missing_delivery_address',
+      message: 'Delivery address is required.',
+    },
+  );
+  assert.equal(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'localdelivery',
+      deliveryAddress: '20 Delivery Street, E1 1AA',
+    }),
+    null,
+  );
+});
+
+test('automatic nationwide delivery requires canonical delivery address', () => {
+  assert.deepEqual(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'nationwidedelivery',
+    }),
+    {
+      code: 'missing_delivery_address',
+      message: 'Delivery address is required.',
+    },
+  );
+  assert.equal(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'nationwidedelivery',
+      deliveryAddress: '20 Delivery Street, E1 1AA',
+    }),
+    null,
+  );
+});
+
+test('automatic customer visits business collection does not require hidden addresses', () => {
+  assert.equal(
+    validate({
+      requireAddress: false,
+      supportsHandover: false,
+      requestType: 'orderRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'collection',
+      address: '',
+      postcode: '',
+      deliveryAddress: '',
+    }),
+    null,
+  );
+});
+
+test('automatic business visit requires a service address, not a delivery address', () => {
+  assert.deepEqual(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'businessvisit',
+      standardAddressRequiredMessage: 'Please add the service address.',
+    }),
+    {
+      code: 'missing_address_or_postcode',
+      message: 'Please add the service address.',
+    },
+  );
+  assert.equal(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'businessvisit',
+      address: '1 Customer Street',
+      deliveryAddress: '',
+      standardAddressRequiredMessage: 'Please add the service address.',
+    }),
+    null,
+  );
+});
+
+test('automatic customer drop-off does not require hidden address fields', () => {
+  assert.equal(
+    validate({
+      requireAddress: false,
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'customerdropsoff',
+      address: '',
+      postcode: '',
+      deliveryAddress: '',
+    }),
+    null,
+  );
+});
+
+test('automatic customer collection does not require hidden address fields', () => {
+  assert.equal(
+    validate({
+      requireAddress: false,
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'customercollects',
+      address: '',
+      postcode: '',
+      deliveryAddress: '',
+      collectionAddress: '',
+      returnAddress: '',
+    }),
+    null,
+  );
+});
+
+test('automatic business return requires canonical return address', () => {
+  assert.deepEqual(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'businessreturns',
+      address: '',
+      postcode: '',
+      deliveryAddress: '',
+      returnAddress: '',
+    }),
+    {
+      code: 'missing_return_address',
+      message: 'Return address is required.',
+    },
+  );
+  assert.equal(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      usesAutomaticFulfilment: true,
+      fulfilmentType: 'businessreturns',
+      address: '',
+      postcode: '',
+      deliveryAddress: '',
+      returnAddress: '20 Return Road, E1 1AA',
+    }),
+    null,
+  );
+});
+
+test('automatic business collection preserves the visible address canonically', () => {
+  assert.match(functionSource, /function isCollectionFulfilmentType\(value\)/);
+  assert.match(
+    functionSource,
+    /isCollectionFulfilmentType\(fulfilmentType\)[\s\S]*collectionAddress = \[address, postcode\]\.filter\(Boolean\)\.join\(', '\);/,
+  );
+});
+
+test('automatic business return preserves the visible address canonically', () => {
+  assert.match(functionSource, /function isReturnFulfilmentType\(value\)/);
+  assert.match(
+    functionSource,
+    /isReturnFulfilmentType\(fulfilmentType\)[\s\S]*returnAddress = \[address, postcode\]\.filter\(Boolean\)\.join\(', '\);/,
+  );
+});
+
+test('automatic movement choices are inferred and checked from the capability contract', () => {
+  assert.match(
+    functionSource,
+    /function automaticFulfilmentOptionsForService\(service\)/,
+  );
+  assert.match(
+    functionSource,
+    /if \(!fulfilmentType && automaticFulfilmentOptions\.length === 1\)/,
+  );
+  assert.match(
+    functionSource,
+    /Selected fulfilment option is not available for this service\./,
+  );
+  assert.match(
+    functionSource,
+    /deliveryAddress = \[address, postcode\]\.filter\(Boolean\)\.join\(', '\);/,
+  );
+});
+
+test('hidden built-in address question suppresses generic address validation', () => {
+  assert.equal(
+    validate({
+      supportsHandover: false,
+      requestType: 'quoteRequest',
+      showAddress: false,
+    }),
+    null,
+  );
+});
+
 test('pickup and delivery retains its journey-specific address checks', () => {
   assert.deepEqual(
     validate({

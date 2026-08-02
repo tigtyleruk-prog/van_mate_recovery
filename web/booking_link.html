@@ -420,6 +420,7 @@
           <div id="singleServiceCard" class="question hidden"></div>
           <select id="serviceSelect" class="select hidden"></select>
           <p id="serviceDescription" class="helper"></p>
+          <p id="servicePrice" class="helper hidden"></p>
         </div>
       </div>
 
@@ -451,12 +452,9 @@
 
         <div id="fulfilmentSection" class="section hidden">
           <div>
-            <h2>Collection or delivery?</h2>
+            <h2 id="fulfilmentHeading">Collection or delivery?</h2>
             <input id="fulfilmentType" type="hidden" value="" />
-            <div class="choice-row" role="group" aria-label="Collection or delivery">
-              <button id="collectionChoice" type="button" class="choice-btn" aria-pressed="false">Collection</button>
-              <button id="deliveryChoice" type="button" class="choice-btn" aria-pressed="false">Delivery</button>
-            </div>
+            <div id="fulfilmentChoiceGroup" class="choice-row" role="radiogroup" aria-label="How would you like to receive your order?"></div>
             <div id="orderDeliveryAddressWrap" class="hidden" style="margin-top: 10px;">
               <textarea id="orderDeliveryAddress" class="field" placeholder="Delivery address" autocomplete="off"></textarea>
             </div>
@@ -549,6 +547,7 @@
             <div id="preferredDateWrap">
               <label id="preferredDateLabel" class="helper" for="preferredDate">Preferred date</label>
               <input id="preferredDate" class="field" type="date" />
+              <div id="preferredDateHelper" class="helper hidden" style="margin-top: 8px;"></div>
             </div>
             <div id="preferredTimeWrap" style="margin-top: 10px;">
               <label id="preferredTimeLabel" class="helper" for="preferredTimeWindow">Preferred time</label>
@@ -558,11 +557,14 @@
                 <option value="evening">Evening</option>
                 <option value="anytime" selected>Anytime / Flexible</option>
               </select>
+              <input id="preferredTimeInput" class="field hidden" type="time" step="900" />
+              <div id="preferredTimeHelper" class="helper hidden" style="margin-top: 8px;"></div>
             </div>
             <label id="preferredFlexibleWrap" class="toggle-row" for="preferredIsFlexible">
               <input id="preferredIsFlexible" type="checkbox" />
-              <span>Timing is flexible</span>
+              <span id="preferredFlexibleLabel">Timing is flexible</span>
             </label>
+            <div id="preferredFlexibleHelper" class="helper hidden" style="margin-top: 8px;"></div>
           </div>
         </div>
 
@@ -624,6 +626,7 @@
     const singleServiceCard = document.getElementById("singleServiceCard");
     const serviceSelect = document.getElementById("serviceSelect");
     const serviceDescription = document.getElementById("serviceDescription");
+    const servicePrice = document.getElementById("servicePrice");
     const serviceFields = document.getElementById("serviceFields");
     const customerName = document.getElementById("customerName");
     const phoneNumber = document.getElementById("phoneNumber");
@@ -636,9 +639,9 @@
     const address = document.getElementById("address");
     const postcode = document.getElementById("postcode");
     const fulfilmentSection = document.getElementById("fulfilmentSection");
+    const fulfilmentHeading = document.getElementById("fulfilmentHeading");
     const fulfilmentType = document.getElementById("fulfilmentType");
-    const collectionChoice = document.getElementById("collectionChoice");
-    const deliveryChoice = document.getElementById("deliveryChoice");
+    const fulfilmentChoiceGroup = document.getElementById("fulfilmentChoiceGroup");
     const orderDeliveryAddressWrap = document.getElementById("orderDeliveryAddressWrap");
     const orderDeliveryAddress = document.getElementById("orderDeliveryAddress");
     const pickupDeliverySection = document.getElementById("pickupDeliverySection");
@@ -686,14 +689,19 @@
     const photoGrid = document.getElementById("photoGrid");
     const preferredDate = document.getElementById("preferredDate");
     const preferredTimeWindow = document.getElementById("preferredTimeWindow");
+    const preferredTimeInput = document.getElementById("preferredTimeInput");
     const preferredIsFlexible = document.getElementById("preferredIsFlexible");
     const preferredTimingSection = document.getElementById("preferredTimingSection");
     const preferredTimingHeading = document.getElementById("preferredTimingHeading");
     const preferredDateWrap = document.getElementById("preferredDateWrap");
     const preferredDateLabel = document.getElementById("preferredDateLabel");
+    const preferredDateHelper = document.getElementById("preferredDateHelper");
     const preferredTimeWrap = document.getElementById("preferredTimeWrap");
     const preferredTimeLabel = document.getElementById("preferredTimeLabel");
+    const preferredTimeHelper = document.getElementById("preferredTimeHelper");
     const preferredFlexibleWrap = document.getElementById("preferredFlexibleWrap");
+    const preferredFlexibleLabel = document.getElementById("preferredFlexibleLabel");
+    const preferredFlexibleHelper = document.getElementById("preferredFlexibleHelper");
     const preferredTimingNote = document.getElementById("preferredTimingNote");
     const notesSection = document.getElementById("notesSection");
     const notesHeading = document.getElementById("notesHeading");
@@ -780,6 +788,165 @@
       return String(value || "").trim();
     }
 
+    function fixedPriceAmountForService(service) {
+      const value = Number(service && service.fixedPriceAmount);
+      return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    function fromPriceAmountForService(service) {
+      const value = Number(service && service.fromPriceAmount);
+      return Number.isFinite(value) && value > 0 ? value : 0;
+    }
+
+    function pricingModeForService(service) {
+      return readText(
+        (service && service.pricingMode) ||
+          (service && service.capabilityContract && service.capabilityContract.pricingMode),
+      );
+    }
+
+    function fixedPriceLabelForService(service) {
+      if (pricingModeForService(service) !== "fixed_price") {
+        return "";
+      }
+      const amount = fixedPriceAmountForService(service);
+      return amount > 0 ? `Fixed price: \u00A3${amount.toFixed(2)}` : "";
+    }
+
+    function priceLabelForService(service) {
+      const mode = pricingModeForService(service);
+      if (mode === "fixed_price") {
+        return fixedPriceLabelForService(service);
+      }
+      if (mode === "from_price") {
+        const amount = fromPriceAmountForService(service);
+        return amount > 0
+          ? `From \u00A3${amount.toFixed(2)}. Final price may vary after we review your details.`
+          : "";
+      }
+      return "";
+    }
+
+    function bookingPastDateMessage() {
+      return "You can't book a job in the past. Please choose today or a future date.";
+    }
+
+    function bookingLeadTimeMessage() {
+      return "This service needs more notice. Please choose a later date or time.";
+    }
+
+    function startOfLocalDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function parseLocalDate(value) {
+      const text = readText(value);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+      if (!match) return null;
+      return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    }
+
+    function noticeHoursForService(service) {
+      const value = Number(service && service.noticeHours);
+      if (!Number.isFinite(value)) return 0;
+      return Math.max(0, value);
+    }
+
+    function validatePreferredBookingWindow({
+      preferredDate,
+      preferredTimeWindow,
+      preferredIsFlexible,
+      noticeHours = 0,
+      now = new Date(),
+    }) {
+      if (!(preferredDate instanceof Date) || Number.isNaN(preferredDate.getTime())) {
+        return null;
+      }
+      const selectedDay = startOfLocalDay(preferredDate);
+      const today = startOfLocalDay(now);
+      if (selectedDay.getTime() < today.getTime()) {
+        return bookingPastDateMessage();
+      }
+      const noticeMinutes = Math.max(0, Math.round(Number(noticeHours || 0) * 60));
+      const earliestAllowed = noticeMinutes > 0
+        ? new Date(now.getTime() + noticeMinutes * 60 * 1000)
+        : now;
+      const earliestDay = startOfLocalDay(earliestAllowed);
+      if (noticeMinutes > 0 && selectedDay.getTime() < earliestDay.getTime()) {
+        return bookingLeadTimeMessage();
+      }
+      if (preferredIsFlexible) {
+        return null;
+      }
+      if (
+        selectedDay.getTime() !== today.getTime() &&
+        selectedDay.getTime() !== earliestDay.getTime()
+      ) {
+        return null;
+      }
+      const normalizedWindow = readText(preferredTimeWindow).toLowerCase();
+      if (/^([01]\d|2[0-3]):[0-5]\d$/.test(normalizedWindow)) {
+        const selectedTime = new Date(
+          preferredDate.getFullYear(),
+          preferredDate.getMonth(),
+          preferredDate.getDate(),
+          Number(normalizedWindow.slice(0, 2)),
+          Number(normalizedWindow.slice(3, 5)),
+          0,
+          0,
+        );
+        if (selectedTime.getTime() < now.getTime()) {
+          return bookingPastDateMessage();
+        }
+        return noticeMinutes > 0 && selectedTime.getTime() < earliestAllowed.getTime()
+          ? bookingLeadTimeMessage()
+          : null;
+      }
+      const slotEndHour = (() => {
+        switch (normalizedWindow) {
+          case "morning":
+            return 12;
+          case "afternoon":
+            return 17;
+          case "evening":
+            return 21;
+          default:
+            return null;
+        }
+      })();
+      if (slotEndHour == null) return null;
+      const slotStartHour = (() => {
+        switch (normalizedWindow) {
+          case "morning":
+            return 9;
+          case "afternoon":
+            return 12;
+          case "evening":
+            return 17;
+          default:
+            return slotEndHour;
+        }
+      })();
+      const slotEnd = new Date(
+        preferredDate.getFullYear(),
+        preferredDate.getMonth(),
+        preferredDate.getDate(),
+        slotEndHour,
+      );
+      if (slotEnd.getTime() < now.getTime()) {
+        return bookingPastDateMessage();
+      }
+      const slotStart = new Date(
+        preferredDate.getFullYear(),
+        preferredDate.getMonth(),
+        preferredDate.getDate(),
+        slotStartHour,
+      );
+      return noticeMinutes > 0 && slotStart.getTime() < earliestAllowed.getTime()
+        ? bookingLeadTimeMessage()
+        : null;
+    }
+
     function createClientSubmissionId() {
       if (window.crypto && typeof window.crypto.randomUUID === "function") {
         return window.crypto.randomUUID();
@@ -830,11 +997,21 @@
 
     function customerJourneyForService(service) {
       const saved = readText(service && service.customerJourneyType).toLowerCase();
-      if (saved === "quote" || saved === "booking" || saved === "order") return saved;
+      if (saved === "quote" || saved === "booking" || saved === "order" || saved === "preorder" || saved === "pre_order" || saved === "pre-order") {
+        return saved === "pre_order" || saved === "pre-order" ? "preorder" : saved;
+      }
       const legacy = readText(service && service.requestType);
       if (legacy === "bookingRequest") return "booking";
       if (legacy === "orderRequest") return "order";
       return "quote";
+    }
+
+    function isPreOrderService(service) {
+      return customerJourneyForService(service) === "preorder";
+    }
+
+    function preferredTimeControlForService(service) {
+      return isPreOrderService(service) ? preferredTimeInput : preferredTimeWindow;
     }
 
     function journeyCopyForService(service) {
@@ -864,15 +1041,26 @@
           preferredHeading: "Preferred booking date and time",
         },
         order: {
-          heading: serviceName ? `Order ${serviceName}` : "Place an order",
-          submitLabel: "Place order",
-          sendingLabel: "Placing order...",
-          intro: "Tell us what you would like to order and how you would like to receive it.",
-          success: "Thank you. Your order has been sent to the business.",
-          successHeading: "Order received",
+          heading: serviceName ? `Order Request: ${serviceName}` : "Place an Order Request",
+          submitLabel: "Send order request",
+          sendingLabel: "Sending order request...",
+          intro: "Tell us about the custom-made or made-to-order product you need.",
+          success: "Thank you. Your order request has been sent to the business.",
+          successHeading: "Order request received",
           accent: "#ffa24c",
-          notesHeading: "Anything else about your order?",
+          notesHeading: "Anything else about your order request?",
           preferredHeading: "Preferred date and time",
+        },
+        preorder: {
+          heading: serviceName ? `Place a Pre Order for ${serviceName}` : "Place a Pre Order",
+          submitLabel: "Place Pre Order",
+          sendingLabel: "Sending Pre Order...",
+          intro: "Choose an existing product and tell us when you would like to collect it or receive it.",
+          success: "Thank you. Your Pre Order has been sent to the business.",
+          successHeading: "Pre Order received",
+          accent: "#58d0a4",
+          notesHeading: "Collection / Delivery Notes",
+          preferredHeading: "Collection or delivery time",
         },
       };
       return copies[journey] || copies.quote;
@@ -1027,10 +1215,10 @@
       collectionAddressWrap.classList.toggle("hidden", !needsCollectionAddress);
       sameReturnAddressWrap.classList.toggle("hidden", !(needsCollectionAddress && needsReturnAddress));
       returnAddressWrap.classList.toggle("hidden", (!needsReturnAddress && !needsDeliveryAddress) || (needsReturnAddress && needsCollectionAddress && sameReturnAddress.checked));
-const isDog = isDogService(service && service.starterTemplateId);
-       endHandoverChoicePrompt.textContent = needsDeliveryAddress ? "How should it reach the destination?" : (isDog ? "How will your dog return?" : "How would you like it returned?");
-       returnAddressLabel.textContent = needsDeliveryAddress ? "Delivery address" : "Return address";
-       returnAddress.placeholder = needsDeliveryAddress ? "Where should the business deliver to?" : (isDog ? "Where should your dog be returned to?" : "Where should the business return it?");
+      const isDog = isDogService(service && service.starterTemplateId);
+      endHandoverChoicePrompt.textContent = needsDeliveryAddress ? "How should it reach the destination?" : (isDog ? "How will your dog return?" : "How would you like it returned?");
+      returnAddressLabel.textContent = needsDeliveryAddress ? "Delivery address" : "Return address";
+      returnAddress.placeholder = needsDeliveryAddress ? "Where should the business deliver to?" : (isDog ? "Where should your dog be returned to?" : "Where should the business return it?");
       dropOffDateLabel.textContent = handover.start === "businessCollects" ? "Preferred collection date" : "Customer drop-off date";
       dropOffTimeLabel.textContent = handover.start === "businessCollects" ? "Preferred collection time" : "Customer drop-off time";
       pickUpDateLabel.textContent = needsDeliveryAddress ? "Preferred delivery date" : (needsReturnAddress ? "Business return date" : "Customer collection date");
@@ -1070,6 +1258,132 @@ const isDog = isDogService(service && service.starterTemplateId);
       );
     }
 
+    function serviceCapabilityIdsForService(service) {
+      return new Set(
+        Array.isArray(service && service.serviceCapabilityIds)
+          ? service.serviceCapabilityIds.map(readText).filter(Boolean)
+          : [],
+      );
+    }
+
+    function capabilityContractForService(service) {
+      const contract = service && service.capabilityContract;
+      return contract && typeof contract === "object" ? contract : null;
+    }
+
+    function automaticFulfilmentOptionsForService(service) {
+      const contract = capabilityContractForService(service);
+      const contractGroups = contract && Array.isArray(contract.movementChoiceGroups)
+        ? contract.movementChoiceGroups
+        : [];
+      if (contractGroups.length > 0 && Array.isArray(contractGroups[0].options)) {
+        return contractGroups[0].options
+          .map((option) => ({
+            value: readText(option && option.value),
+            label: readText(option && option.label),
+          }))
+          .filter((option) => option.value && option.label);
+      }
+      const ids = serviceCapabilityIdsForService(service);
+      const options = [];
+      const add = (value, label) => {
+        if (!options.some((option) => option.value === value)) {
+          options.push({ value, label });
+        }
+      };
+      if (ids.has("customer_visits_business")) add("collection", "Collect");
+      if (ids.has("business_visits_customer")) add("businessVisit", "Business visit");
+      if (ids.has("local_delivery")) add("localDelivery", "Local delivery");
+      if (ids.has("nationwide_delivery")) add("nationwideDelivery", "Nationwide delivery");
+      if (ids.has("digital_delivery")) add("digitalDelivery", "Digital delivery");
+
+      if (options.length === 0) {
+        const startOptions = [];
+        if (ids.has("customer_drops_off")) startOptions.push(["customerDropsOff", "I'll drop it off"]);
+        if (ids.has("business_collects")) startOptions.push(["businessCollects", "Please collect it"]);
+        const endOptions = [];
+        if (ids.has("customer_collects")) endOptions.push(["customerCollects", "I'll collect it"]);
+        if (ids.has("business_returns")) endOptions.push(["businessReturns", "Please return it"]);
+        if (startOptions.length > 1) {
+          startOptions.forEach(([value, label]) => add(value, label));
+        } else if (startOptions.length === 1 && endOptions.length === 0) {
+          startOptions.forEach(([value, label]) => add(value, label));
+        } else if (endOptions.length === 1 && startOptions.length === 0) {
+          endOptions.forEach(([value, label]) => add(value, label));
+        } else if (endOptions.length > 1) {
+          endOptions.forEach(([value, label]) => add(value, label));
+        }
+      }
+      return options;
+    }
+
+    function fulfilmentOptionsForService(service, flowOptions) {
+      const automatic = automaticFulfilmentOptionsForService(service);
+      if (automatic.length > 0) return automatic;
+      if (flowOptions && flowOptions.showFulfilmentChoice) {
+        return [
+          { value: "collection", label: "Collection" },
+          { value: "delivery", label: "Delivery" },
+        ];
+      }
+      return [];
+    }
+
+    function isDeliveryFulfilment(value) {
+      return ["delivery", "localDelivery", "nationwideDelivery"].includes(readText(value));
+    }
+
+    function isCollectionFulfilment(value) {
+      return readText(value) === "businessCollects";
+    }
+
+    function isReturnFulfilment(value) {
+      return readText(value) === "businessReturns";
+    }
+
+    function selectedFulfilmentOption(service) {
+      const options = fulfilmentOptionsForService(
+        service,
+        flowOptionsForService(service, inferredRequestType(service)),
+      );
+      return options.find((option) => option.value === readText(fulfilmentType.value)) || null;
+    }
+
+    function customerAddressForFulfilment(service) {
+      if (!Boolean(service && service.requireAddress)) return false;
+      if (service.showAddress === false) return false;
+      if (!showsConfiguredBuiltInQuestion(service, "address")) return false;
+      const selected = selectedFulfilmentOption(service);
+      if (!selected) return true;
+      return !["collection", "customerDropsOff", "customerCollects", "digitalDelivery"].includes(selected.value);
+    }
+
+    function addressContractText(service, key, fallback) {
+      const contract = capabilityContractForService(service);
+      return readText(contract && contract[key]) || fallback;
+    }
+
+    function addressHeadingForService(service) {
+      const heading = addressContractText(service, "addressHeading", "Address or postcode");
+      return service && service.requireAddress ? heading : `${heading} (optional)`;
+    }
+
+    function addressFieldLabelForService(service) {
+      return addressContractText(service, "addressFieldLabel", "Address");
+    }
+
+    function addressFieldHintForService(service) {
+      return addressContractText(service, "addressHint", "Enter address");
+    }
+
+    function addressRequiredMessageForService(service) {
+      return addressContractText(
+        service,
+        "addressRequiredMessage",
+        "Please add an address or postcode for this service.",
+      );
+    }
+
     function isSameDayCourierService(service) {
       return readText(service && service.starterTemplateId) === "courier_same_day_delivery";
     }
@@ -1103,20 +1417,54 @@ const isDog = isDogService(service && service.starterTemplateId);
     }
 
     function setFulfilmentChoice(value) {
-      const selected = value === "collection" || value === "delivery" ? value : "";
+      const service = selectedService();
+      const options = service
+        ? fulfilmentOptionsForService(
+            service,
+            flowOptionsForService(service, inferredRequestType(service)),
+          )
+        : [];
+      const selected = options.some((option) => option.value === value) ? value : "";
       fulfilmentType.value = selected;
-      for (const [button, option] of [
-        [collectionChoice, "collection"],
-        [deliveryChoice, "delivery"],
-      ]) {
-        const active = selected === option;
+      for (const button of fulfilmentChoiceGroup.querySelectorAll(".choice-btn")) {
+        const active = selected === readText(button.dataset.value);
         button.classList.toggle("active", active);
         button.setAttribute("aria-pressed", active ? "true" : "false");
       }
-      orderDeliveryAddressWrap.classList.toggle("hidden", selected !== "delivery");
-      if (selected !== "delivery") {
+      orderDeliveryAddressWrap.classList.toggle("hidden", !isDeliveryFulfilment(selected));
+      if (!isDeliveryFulfilment(selected)) {
         orderDeliveryAddress.value = "";
       }
+    }
+
+    function renderFulfilmentChoice(service, flowOptions) {
+      const options = fulfilmentOptionsForService(service, flowOptions);
+      fulfilmentChoiceGroup.innerHTML = "";
+      fulfilmentHeading.textContent = options.some((option) =>
+        ["customerDropsOff", "businessCollects"].includes(option.value),
+      )
+        ? "How would you like to get your item to us?"
+        : options.some((option) => ["customerCollects", "businessReturns"].includes(option.value))
+          ? "How would you like to receive your completed item?"
+          : "How would you like to receive your order?";
+      options.forEach((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "choice-btn";
+        button.dataset.value = option.value;
+        button.setAttribute("aria-pressed", "false");
+        button.textContent = option.label;
+        button.addEventListener("click", () => {
+          setFulfilmentChoice(option.value);
+          renderServiceFields();
+        });
+        fulfilmentChoiceGroup.appendChild(button);
+      });
+      const current = options.some((option) => option.value === readText(fulfilmentType.value))
+        ? readText(fulfilmentType.value)
+        : options.length === 1 ? options[0].value : "";
+      setFulfilmentChoice(current);
+      fulfilmentSection.classList.toggle("hidden", options.length < 2);
     }
 
     function resetFlowFields() {
@@ -1136,6 +1484,7 @@ const isDog = isDogService(service && service.starterTemplateId);
       pickUpTime.value = "";
       preferredDate.value = "";
       preferredTimeWindow.value = "anytime";
+      preferredTimeInput.value = "";
       preferredIsFlexible.checked = false;
       preferredTimingNote.value = "";
       journeyTimingError.textContent = "";
@@ -1179,9 +1528,66 @@ const isDog = isDogService(service && service.starterTemplateId);
       return builtInQuestionSetting(service, key).required === true;
     }
 
+    function showsConfiguredBuiltInQuestion(service, key, defaultValue = true) {
+      const setting = builtInQuestionSetting(service, key);
+      if (typeof setting.show === "boolean") return setting.show;
+      if (typeof setting.visible === "boolean") return setting.visible;
+      return defaultValue;
+    }
+
+    function showsPreferredDate(service, flowOptions) {
+      return Boolean(flowOptions && flowOptions.askPreferredDate) &&
+        showsConfiguredBuiltInQuestion(service, "preferred_date");
+    }
+
+    function showsPreferredTime(service, flowOptions) {
+      return Boolean(flowOptions && flowOptions.askPreferredTime) &&
+        showsConfiguredBuiltInQuestion(service, "preferred_time");
+    }
+
+    function showsFlexibleTiming(service, flowOptions) {
+      return (showsPreferredDate(service, flowOptions) ||
+        showsPreferredTime(service, flowOptions)) &&
+        showsConfiguredBuiltInQuestion(service, "flexible_timing");
+    }
+
     function requiresPreferredTiming(service) {
-      return requiresBuiltInQuestion(service, "preferred_date") ||
-        requiresBuiltInQuestion(service, "preferred_time");
+      const flow = requestFlowForService(service);
+      const flowOptions = flowOptionsForService(service, flow.requestType);
+      return (showsPreferredDate(service, flowOptions) &&
+        requiresBuiltInQuestion(service, "preferred_date")) ||
+        (showsPreferredTime(service, flowOptions) &&
+        requiresBuiltInQuestion(service, "preferred_time"));
+    }
+
+    function preferredTimingHeadingForService(service, flow, flowOptions) {
+      const showDate = showsPreferredDate(service, flowOptions);
+      const showTime = showsPreferredTime(service, flowOptions);
+      if (showDate && showTime) {
+        return requiresPreferredTiming(service)
+          ? "Preferred date and time"
+          : flow.preferredHeading;
+      }
+      if (showDate) {
+        return readText(builtInQuestionSetting(service, "preferred_date").label) ||
+          "Preferred date";
+      }
+      if (showTime) {
+        return readText(builtInQuestionSetting(service, "preferred_time").label) ||
+          "Preferred time";
+      }
+      return readText(builtInQuestionSetting(service, "flexible_timing").label) ||
+        "Timing is flexible";
+    }
+
+    function preferredTimeLabelForService(service) {
+      return readText(builtInQuestionSetting(service, "preferred_time").label) ||
+        (isPreOrderService(service) ? "Collection Time" : "Preferred time");
+    }
+
+    function preferredDateLabelForService(service) {
+      return readText(builtInQuestionSetting(service, "preferred_date").label) ||
+        (isPreOrderService(service) ? "Collection Date" : "Preferred date");
     }
 
     function photoLimitForService(service = selectedService()) {
@@ -1467,6 +1873,8 @@ const isDog = isDogService(service && service.starterTemplateId);
         dropOffPickupSection.classList.add("hidden");
         photosSection.classList.add("hidden");
         serviceDescription.textContent = "";
+        servicePrice.textContent = "";
+        servicePrice.classList.add("hidden");
         state.selectedPhotos.forEach((photo) => {
           if (photo.previewUrl) {
             URL.revokeObjectURL(photo.previewUrl);
@@ -1486,8 +1894,12 @@ const isDog = isDogService(service && service.starterTemplateId);
       }
       document.documentElement.style.setProperty("--accent", flow.accent);
       const flowOptions = flowOptionsForService(service, flow.requestType);
+      renderFulfilmentChoice(service, flowOptions);
       serviceDescription.textContent =
         readText(service.customerMessage) || readText(service.description);
+      const priceLabel = priceLabelForService(service);
+      servicePrice.textContent = priceLabel;
+      servicePrice.classList.toggle("hidden", !priceLabel);
       const showPhone = service.showPhoneNumber !== false;
       const requirePhone = service.requirePhoneNumber !== false;
       const showEmail = service.showEmailAddress !== false;
@@ -1496,26 +1908,14 @@ const isDog = isDogService(service && service.starterTemplateId);
       customerEmailWrap.classList.toggle("hidden", !showEmail);
       phoneNumber.placeholder = requirePhone ? "Phone number" : "Phone number (optional)";
       customerEmail.placeholder = requireEmail ? "Email address" : "Email (optional)";
-      const hasExplicitShowAddress = Object.prototype.hasOwnProperty.call(service, "showAddress");
-      const configuredShowAddress = hasExplicitShowAddress
-        ? Boolean(service.showAddress)
-        : Boolean(service.requireAddress);
-      const showStandardAddress =
-        configuredShowAddress &&
-        !handover &&
-        flow.requestType !== "orderRequest" &&
-        flow.requestType !== "pickupDeliveryRequest";
+      const showStandardAddress = customerAddressForFulfilment(service);
       addressSection.classList.toggle("hidden", !showStandardAddress);
-      addressHeading.textContent = service.requireAddress
-        ? "Address or postcode"
-        : "Address or postcode (optional)";
+      addressHeading.textContent = addressHeadingForService(service);
+      address.placeholder = addressFieldHintForService(service);
+      address.setAttribute("aria-label", addressFieldLabelForService(service));
       const addressHelperValue = readText(builtInQuestionSetting(service, "address").helperText);
       addressHelper.classList.toggle("hidden", !addressHelperValue);
       addressHelper.textContent = addressHelperValue;
-      fulfilmentSection.classList.toggle(
-        "hidden",
-        flow.requestType !== "orderRequest" || !flowOptions.showFulfilmentChoice,
-      );
       const showPickupDelivery =
         !handover &&
         flow.requestType === "pickupDeliveryRequest" &&
@@ -1535,21 +1935,47 @@ const isDog = isDogService(service && service.starterTemplateId);
       pickUpDateWrap.classList.toggle("hidden", !handover && !flowOptions.showPickUpDate);
       pickUpTimeWrap.classList.toggle("hidden", !handover && !flowOptions.showPickUpTime);
       const showPreferredTiming =
-        flowOptions.askPreferredDate || flowOptions.askPreferredTime;
+        showsPreferredDate(service, flowOptions) ||
+        showsPreferredTime(service, flowOptions) ||
+        showsFlexibleTiming(service, flowOptions);
       preferredTimingSection.classList.toggle("hidden", !showPreferredTiming);
-      preferredDateWrap.classList.toggle("hidden", !flowOptions.askPreferredDate);
-      preferredTimeWrap.classList.toggle("hidden", !flowOptions.askPreferredTime);
-      preferredFlexibleWrap.classList.toggle("hidden", !showPreferredTiming);
+      preferredDateWrap.classList.toggle("hidden", !showsPreferredDate(service, flowOptions));
+      preferredTimeWrap.classList.toggle("hidden", !showsPreferredTime(service, flowOptions));
+      const actualPreferredTime =
+        isPreOrderService(service) && showsPreferredTime(service, flowOptions);
+      preferredTimeWindow.classList.toggle("hidden", actualPreferredTime);
+      preferredTimeInput.classList.toggle("hidden", !actualPreferredTime);
+      preferredTimeLabel.htmlFor = actualPreferredTime
+        ? "preferredTimeInput"
+        : "preferredTimeWindow";
+      preferredFlexibleWrap.classList.toggle("hidden", !showsFlexibleTiming(service, flowOptions));
       notesSection.classList.toggle("hidden", !flowOptions.showNotes);
       photosSection.classList.toggle("hidden", !service.requestPhotos);
       photoHelperText.textContent =
         readText(builtInQuestionSetting(service, "photos").helperText) ||
         bookingPhotoHelperText();
-      preferredTimingHeading.textContent = requiresPreferredTiming(service)
-        ? "Preferred date and time"
-        : flow.preferredHeading;
-      preferredDateLabel.textContent = "Preferred date";
-      preferredTimeLabel.textContent = "Preferred time";
+      preferredTimingHeading.textContent =
+        preferredTimingHeadingForService(service, flow, flowOptions);
+      preferredDateLabel.textContent = preferredDateLabelForService(service);
+      const preferredDateHelperValue =
+        readText(builtInQuestionSetting(service, "preferred_date").helperText);
+      preferredDateHelper.classList.toggle("hidden", !preferredDateHelperValue);
+      preferredDateHelper.textContent = preferredDateHelperValue;
+      preferredTimeLabel.textContent = preferredTimeLabelForService(service);
+      const preferredTimeHelperValue =
+        readText(builtInQuestionSetting(service, "preferred_time").helperText);
+      preferredTimeHelper.classList.toggle("hidden", !preferredTimeHelperValue);
+      preferredTimeHelper.textContent = preferredTimeHelperValue;
+      preferredFlexibleLabel.textContent =
+        readText(builtInQuestionSetting(service, "flexible_timing").label) ||
+        "Timing is flexible";
+      const preferredFlexibleHelperValue =
+        readText(builtInQuestionSetting(service, "flexible_timing").helperText);
+      preferredFlexibleHelper.classList.toggle(
+        "hidden",
+        !showsFlexibleTiming(service, flowOptions) || !preferredFlexibleHelperValue,
+      );
+      preferredFlexibleHelper.textContent = preferredFlexibleHelperValue;
       notesHeading.textContent = flow.notesHeading;
       preferredTimingNote.placeholder = "Access notes, parking information, timing preferences or anything else that may help...";
       pageTitle.textContent = flow.heading;
@@ -1682,8 +2108,12 @@ const isDog = isDogService(service && service.starterTemplateId);
       const flow = requestFlowForService(service);
       const flowOptions = flowOptionsForService(service, flow.requestType);
       const handover = handoverForService(service);
+      const fulfilmentOptions = fulfilmentOptionsForService(service, flowOptions);
+      const showPreferredDate = showsPreferredDate(service, flowOptions);
+      const showPreferredTime = showsPreferredTime(service, flowOptions);
+      const showFlexibleTiming = showsFlexibleTiming(service, flowOptions);
       if (
-        flowOptions.askPreferredDate &&
+        showPreferredDate &&
         requiresBuiltInQuestion(service, "preferred_date") &&
         !readText(preferredDate.value)
       ) {
@@ -1695,47 +2125,54 @@ const isDog = isDogService(service && service.starterTemplateId);
         });
       }
       if (
-        flowOptions.askPreferredTime &&
+        showPreferredTime &&
         requiresBuiltInQuestion(service, "preferred_time") &&
-        !readText(preferredTimeWindow.value) &&
-        !Boolean(preferredIsFlexible.checked)
+        !readText(preferredTimeControlForService(service).value) &&
+        !(showFlexibleTiming && Boolean(preferredIsFlexible.checked))
       ) {
         return failValidation({
           message: "Please choose a preferred time.",
-          field: preferredTimeWindow,
+          field: preferredTimeControlForService(service),
           reason: "missing_preferred_time",
           serviceId: service.id,
         });
       }
-      const requiresStandardAddress =
-        Boolean(service.requireAddress) &&
-        !handover &&
-        flow.requestType !== "orderRequest" &&
-        flow.requestType !== "pickupDeliveryRequest";
+      const preferredTimingValidationMessage = validatePreferredBookingWindow({
+        preferredDate: showPreferredDate ? parseLocalDate(preferredDate.value) : null,
+        preferredTimeWindow: showPreferredTime
+          ? readText(preferredTimeControlForService(service).value)
+          : "",
+        preferredIsFlexible: showFlexibleTiming && Boolean(preferredIsFlexible.checked),
+        noticeHours: noticeHoursForService(service),
+      });
+      if (preferredTimingValidationMessage) {
+        return failValidation({
+          message: preferredTimingValidationMessage,
+          field: showPreferredDate ? preferredDate : preferredTimeControlForService(service),
+          reason: "invalid_preferred_timing",
+          serviceId: service.id,
+        });
+      }
+      const requiresStandardAddress = customerAddressForFulfilment(service);
       if (requiresStandardAddress && !readText(address.value) && !normalizePostcode(postcode.value)) {
         return failValidation({
-          message: "Please add an address or postcode for this service.",
+          message: addressRequiredMessageForService(service),
           field: address,
           reason: "missing_address_or_postcode",
           serviceId: service.id,
         });
       }
-      if (
-        flow.requestType === "orderRequest" &&
-        flowOptions.showFulfilmentChoice &&
-        !readText(fulfilmentType.value)
-      ) {
+      if (fulfilmentOptions.length > 1 && !readText(fulfilmentType.value)) {
         return failValidation({
-          message: "Please choose collection or delivery.",
-          field: collectionChoice,
+          message: "Please choose how you would like to receive this service.",
+          field: fulfilmentChoiceGroup,
           reason: "missing_fulfilment_type",
           serviceId: service.id,
         });
       }
       if (
-        flow.requestType === "orderRequest" &&
-        flowOptions.showFulfilmentChoice &&
-        readText(fulfilmentType.value) === "delivery" &&
+        isDeliveryFulfilment(readText(fulfilmentType.value)) &&
+        fulfilmentOptions.length > 0 &&
         !readText(orderDeliveryAddress.value)
       ) {
         return failValidation({
@@ -1962,19 +2399,23 @@ const isDog = isDogService(service && service.starterTemplateId);
       submitButton.setAttribute("aria-busy", "true");
 
       try {
+        const showPreferredDate = showsPreferredDate(service, flowOptions);
+        const showPreferredTime = showsPreferredTime(service, flowOptions);
+        const showFlexibleTiming = showsFlexibleTiming(service, flowOptions);
+        const preferredTimeControl = preferredTimeControlForService(service);
         console.log("[BookingLink] callable request start", {
           functionName: "submitBookingLinkRequest",
           serviceId: readText(service.id),
           answersCount: collectedAnswers.length,
           selectedPhotoCount: (state.selectedPhotos || []).length,
-          preferredDate: flowOptions.askPreferredDate
+          preferredDate: showPreferredDate
             ? readText(preferredDate.value) || null
             : null,
-          preferredTimeWindow: flowOptions.askPreferredTime
-            ? readText(preferredTimeWindow.value)
+          preferredTimeWindow: showPreferredTime
+            ? readText(preferredTimeControl.value)
             : "",
           preferredIsFlexible:
-            (flowOptions.askPreferredDate || flowOptions.askPreferredTime) &&
+            showFlexibleTiming &&
             Boolean(preferredIsFlexible.checked),
           additionalNotes: flowOptions.showNotes
             ? readText(preferredTimingNote.value)
@@ -1988,17 +2429,24 @@ const isDog = isDogService(service && service.starterTemplateId);
           serviceName: readText(service.name),
           clientSubmissionId: state.clientSubmissionId,
           requestType: flow.requestType,
+          pricingMode: pricingModeForService(service),
+          fixedPriceAmount: fixedPriceAmountForService(service),
+          fromPriceAmount: fromPriceAmountForService(service),
           startHandover: handover ? handover.start : "",
           endHandover: handover ? handover.end : "",
           collectionAddress:
             handover && handover.start === "businessCollects"
               ? readText(collectionAddress.value)
+              : isCollectionFulfilment(readText(fulfilmentType.value))
+                ? [readText(address.value), normalizePostcode(postcode.value)].filter(Boolean).join(", ")
               : "",
           returnAddress:
             handover && handover.end === "businessReturns"
               ? (sameReturnAddress.checked
                   ? readText(collectionAddress.value)
                   : readText(returnAddress.value))
+              : isReturnFulfilment(readText(fulfilmentType.value))
+                ? [readText(address.value), normalizePostcode(postcode.value)].filter(Boolean).join(", ")
               : "",
           returnAddressSameAsCollection:
             Boolean(handover && handover.start === "businessCollects" && handover.end === "businessReturns" && sameReturnAddress.checked),
@@ -2017,26 +2465,22 @@ const isDog = isDogService(service && service.starterTemplateId);
           customerName: readText(customerName.value),
           phoneNumber: readText(phoneNumber.value),
           customerEmail: readText(customerEmail.value),
-          address:
-            handover || flow.requestType === "orderRequest" || flow.requestType === "pickupDeliveryRequest"
-              ? ""
-              : readText(address.value),
-          postcode:
-            handover || flow.requestType === "orderRequest" || flow.requestType === "pickupDeliveryRequest"
-              ? ""
-              : normalizePostcode(postcode.value),
-          fulfilmentType: flowOptions.showFulfilmentChoice
+          address: readText(address.value),
+          postcode: normalizePostcode(postcode.value),
+          fulfilmentType: fulfilmentOptions.length > 0
             ? readText(fulfilmentType.value)
             : "",
           pickupAddress: handover && handover.start === "businessCollects"
             ? readText(collectionAddress.value)
+            : isCollectionFulfilment(readText(fulfilmentType.value))
+              ? [readText(address.value), normalizePostcode(postcode.value)].filter(Boolean).join(", ")
             : flowOptions.showPickupAddress
               ? readText(pickupAddress.value)
             : "",
           deliveryAddress:
             handover && handover.end === "businessDelivers"
               ? readText(returnAddress.value)
-              : flow.requestType === "orderRequest" && flowOptions.showFulfilmentChoice
+              : isDeliveryFulfilment(readText(fulfilmentType.value))
               ? readText(orderDeliveryAddress.value)
               : flowOptions.showDeliveryAddress
                 ? readText(deliveryAddress.value)
@@ -2053,23 +2497,23 @@ const isDog = isDogService(service && service.starterTemplateId);
           pickUpTime: handover || flowOptions.showPickUpTime
             ? readText(pickUpTime.value)
             : "",
-          preferredDate: flowOptions.askPreferredDate
+          preferredDate: showPreferredDate
             ? readText(preferredDate.value) || null
             : null,
-          preferredDateAt: flowOptions.askPreferredDate
+          preferredDateAt: showPreferredDate
             ? readText(preferredDate.value) || null
             : null,
-          preferredTimeWindow: flowOptions.askPreferredTime
-            ? readText(preferredTimeWindow.value)
+          preferredTimeWindow: showPreferredTime
+            ? readText(preferredTimeControl.value)
             : "",
-          preferredWindow: flowOptions.askPreferredTime
-            ? readText(preferredTimeWindow.value)
+          preferredWindow: showPreferredTime
+            ? readText(preferredTimeControl.value)
             : "",
           preferredIsFlexible:
-            (flowOptions.askPreferredDate || flowOptions.askPreferredTime) &&
+            showFlexibleTiming &&
             Boolean(preferredIsFlexible.checked),
           timingFlexible:
-            (flowOptions.askPreferredDate || flowOptions.askPreferredTime) &&
+            showFlexibleTiming &&
             Boolean(preferredIsFlexible.checked),
           preferredTimingNote: "",
           timingNote: "",
@@ -2213,12 +2657,6 @@ const isDog = isDogService(service && service.starterTemplateId);
         journeyTimingError.textContent = "";
         journeyTimingError.classList.add("hidden");
       });
-    });
-    collectionChoice.addEventListener("click", () => {
-      setFulfilmentChoice("collection");
-    });
-    deliveryChoice.addEventListener("click", () => {
-      setFulfilmentChoice("delivery");
     });
     postcode.addEventListener("input", () => {
       const normalized = normalizePostcode(postcode.value);

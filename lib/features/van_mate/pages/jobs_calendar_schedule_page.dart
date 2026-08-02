@@ -22,6 +22,7 @@ import 'job_detail_page.dart';
 import 'van_invoice_preview_page.dart';
 import '../widgets/van_back_business_hub_buttons.dart';
 import '../widgets/van_calendar_compact_action_card.dart';
+import '../widgets/van_pre_order_calendar_entry.dart';
 
 class JobsCalendarSchedulePage extends StatefulWidget {
   const JobsCalendarSchedulePage({super.key});
@@ -2766,6 +2767,17 @@ class _DayScheduleJobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (entry.job.customerJourney == VanCustomerJourneyType.preOrder) {
+      return VanPreOrderCalendarEntry(
+        key: ValueKey<String>(
+          'pre-order:${entry.job.jobId}:${entry.start.toIso8601String()}',
+        ),
+        timeLabel: entry.startLabel,
+        customerName: entry.customerName,
+        accent: entry.accent,
+        onOpen: onTap,
+      );
+    }
     final cardHeight = entry.computedCardHeight;
     final isProjectedAction = entry.actionLabel.isNotEmpty;
     if (isProjectedAction) {
@@ -3095,6 +3107,17 @@ class _DaySheetJobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (card.job.customerJourney == VanCustomerJourneyType.preOrder) {
+      return VanPreOrderCalendarEntry(
+        key: ValueKey<String>(
+          'pre-order:${card.job.jobId}:${card.displayStart.toIso8601String()}',
+        ),
+        timeLabel: card.timeLabel,
+        customerName: card.customer,
+        accent: card.accent,
+        onOpen: onTap,
+      );
+    }
     if (card.actionLabel.isNotEmpty) {
       return VanCalendarCompactActionCard(
         key: ValueKey<String>(

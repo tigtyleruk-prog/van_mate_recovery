@@ -180,6 +180,9 @@ String _formatIncomingJobTime(DateTime date) {
 }
 
 String _preferredWindowLabel(String value) {
+  if (RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(value)) {
+    return value;
+  }
   switch (value) {
     case 'morning':
       return 'Morning';

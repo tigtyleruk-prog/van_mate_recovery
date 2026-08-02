@@ -150,6 +150,8 @@ void main() {
       capabilityGeneratedExtraKeys: const <String>['custom_extra_deposit'],
       capabilityGeneratedBuiltInQuestionKeys: const <String>['preferred_date'],
       pricingMode: VanServiceCapabilityIds.fromPrice,
+      fixedPriceAmount: 50,
+      fromPriceAmount: 50,
       suggestedReminderMinutes: const <int>[1440, 120],
       suggestedStatusNames: const <String, String>{
         'accepted': 'Grooming confirmed',
@@ -197,6 +199,8 @@ void main() {
       'preferred_date',
     ]);
     expect(restored.pricingMode, VanServiceCapabilityIds.fromPrice);
+    expect(restored.fixedPriceAmount, 50);
+    expect(restored.fromPriceAmount, 50);
     expect(restored.suggestedReminderMinutes, <int>[1440, 120]);
     expect(restored.suggestedStatusNames['accepted'], 'Grooming confirmed');
     expect(restored.appointmentDurationMinutes, 90);

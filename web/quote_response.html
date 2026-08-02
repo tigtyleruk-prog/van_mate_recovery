@@ -639,9 +639,9 @@
 <body>
   <main class="page">
     <section class="hero">
-      <div class="eyebrow">Van Mate quote</div>
-      <h1>Review your quote</h1>
-      <p class="lede">Check the quote details below, then choose an option.</p>
+      <div class="eyebrow" id="heroEyebrow">Van Mate quote</div>
+      <h1 id="heroTitle">Review your quote</h1>
+      <p class="lede" id="heroLede">Check the quote details below, then choose an option.</p>
     </section>
 
     <div id="banner" class="banner"></div>
@@ -896,14 +896,17 @@
 
     const banner = document.getElementById("banner");
     const content = document.getElementById("content");
-    const heroTitle = document.querySelector(".hero h1");
-    const heroLede = document.querySelector(".hero .lede");
     const statusPill = document.getElementById("statusPill");
     const title = document.getElementById("title");
     const description = document.getElementById("description");
     const summaryGrid = document.getElementById("summaryGrid");
+    const heroEyebrow = document.getElementById("heroEyebrow");
+    const heroTitle = document.getElementById("heroTitle");
+    const heroLede = document.getElementById("heroLede");
     const respondCard = document.getElementById("respondCard");
     const arrangeTimeCard = document.getElementById("arrangeTimeCard");
+    const arrangeTimeTitle = arrangeTimeCard.querySelector("h2");
+    const arrangeTimeHelper = arrangeTimeCard.querySelector("p.section-text");
     const pinCard = document.getElementById("pinCard");
     const pinIntro = document.getElementById("pinIntro");
     const pinChoiceActions = document.getElementById("pinChoiceActions");
@@ -927,6 +930,7 @@
     const safetyModal = document.getElementById("safetyModal");
     const mapModal = document.getElementById("mapModal");
     const declineModal = document.getElementById("declineModal");
+    const declineModalTitle = document.getElementById("declineModalTitle");
     const confirmHereButton = document.getElementById("confirmHereButton");
     const chooseMapButton = document.getElementById("chooseMapButton");
     const cancelSafetyButton = document.getElementById("cancelSafetyButton");
@@ -1419,7 +1423,9 @@
 
     function customerJourneyType(quote) {
       const value = normaliseRequestFlowValue(quote && quote.customerJourneyType);
-      if (value === "quote" || value === "booking" || value === "order") return value;
+      if (value === "quote" || value === "booking" || value === "order" || value === "preorder" || value === "pre_order") {
+        return value === "pre_order" ? "preorder" : value;
+      }
       const legacy = normaliseRequestFlowValue(quote && quote.requestType);
       return legacy === "bookingrequest" ? "booking" : (legacy === "orderrequest" ? "order" : "quote");
     }
@@ -1428,9 +1434,9 @@
       const journey = customerJourneyType(quote);
       return {
         helper: "Use the buttons below to confirm your choice.",
-        accept: "Accept & book",
-        arrange: "Accept quote – rearrange appointment",
-        decline: journey === "booking" ? "Decline booking" : (journey === "order" ? "Decline order" : "Decline quote"),
+        accept: journey === "preorder" ? "Accept Pre Order" : (journey === "order" ? "Accept order request" : "Accept & book"),
+        arrange: journey === "preorder" ? "Accept Pre Order – arrange another time" : (journey === "order" ? "Accept order request – arrange another time" : "Accept quote – rearrange appointment"),
+        decline: journey === "booking" ? "Decline booking" : (journey === "order" ? "Decline order request" : (journey === "preorder" ? "Decline Pre Order" : "Decline quote")),
       };
     }
 
@@ -1439,7 +1445,8 @@
       const copies = {
         quote: { ready: "Quote ready", accepted: "Quote accepted", declined: "Quote declined", amount: "Quote amount" },
         booking: { ready: "Booking ready to confirm", accepted: "Booking confirmed", declined: "Booking declined", amount: "Booking price" },
-        order: { ready: "Order ready to confirm", accepted: "Order confirmed", declined: "Order declined", amount: "Order total" },
+        order: { ready: "Order request ready to confirm", accepted: "Order request confirmed", declined: "Order request declined", amount: "Order request total" },
+        preorder: { ready: "Order Summary ready", accepted: "Order confirmed", declined: "Order Summary declined", amount: "Order total" },
       };
       return copies[journey] || copies.quote;
     }
@@ -1790,6 +1797,14 @@
 
       document.title = `${journeyStatusCopy(quote).ready} | Van Mate`;
       const journey = customerJourneyType(quote);
+      const documentName = journey === "preorder" ? "Order Summary" : "Quote";
+      const documentNameLower = documentName.toLowerCase();
+      heroEyebrow.textContent = `Van Mate ${documentNameLower}`;
+      heroTitle.textContent = `Review your ${documentNameLower}`;
+      heroLede.textContent = `Check the ${documentNameLower} details below, then choose an option.`;
+      arrangeTimeTitle.textContent = `Accept ${journey === "preorder" ? "Pre Order" : documentNameLower} - arrange another time`;
+      arrangeTimeHelper.textContent = `Choose the date and time you prefer before accepting the ${documentNameLower}.`;
+      declineModalTitle.textContent = `Decline ${journey === "preorder" ? "Pre Order" : documentNameLower}?`;
       const journeyAccent = journey === "booking" ? "#9b7cff" : (journey === "order" ? "#ffa24c" : "#4a7dff");
       document.documentElement.style.setProperty("--accent", journeyAccent);
       const metadataTitle = `${journeyStatusCopy(quote).ready} | Van Mate`;
@@ -1822,7 +1837,7 @@
         : (declined ? "status-pill warning" : "status-pill pending");
       statusPill.textContent = accepted
         ? (needsExactPin
-            ? "Quote accepted, exact location needed"
+            ? `${documentName} accepted, exact location needed`
             : (collectionOrder
                 ? "Order accepted"
                 : (awaitingAgreedTime ? `${journeyCopy.accepted}, time to arrange` : journeyCopy.accepted)))
@@ -1843,18 +1858,18 @@
           ? (needsExactPin
               ? exactPinPrompt(quote)
               : (awaitingAgreedTime
-                  ? "Quote accepted. The business will contact you to arrange the appointment."
+                  ? `${documentName} accepted. The business will contact you to arrange the time.`
                   : (collectionOrder
                       ? "Your order has been accepted."
                       : `Your response has been sent to the ${contactNoun}.`)))
-          : "This quote has been declined.";
+          : `This ${documentNameLower} has been declined.`;
       }
 
       summaryGrid.innerHTML = "";
       const proposedAppointment = formatProposedAppointmentLabel(quote.proposedDate, quote.proposedStartTime);
       const handoverView = customerHandoverView(quote);
       renderRow("Customer", quote.customerName);
-      renderRow("Job", quote.jobTitle);
+      renderRow(journey === "preorder" ? "Items" : "Job", quote.jobTitle);
       if (proposedAppointment) {
         renderRow(proposedTimeLabel(quote), proposedAppointment);
       }
@@ -1891,7 +1906,7 @@
       }
       renderRow(journeyCopy.amount, formatMoney(quote.quoteAmount), "quote-amount-row");
       if (quote.quoteExtras.length) {
-        renderRow("Included extras", quote.quoteExtras.join("\n"));
+        renderRow(journey === "preorder" ? "Extras" : "Included extras", quote.quoteExtras.join("\n"));
       }
       const businessMessage = cleanBusinessMessage(quote.quoteNotes, quote);
       if (businessMessage) {
@@ -1949,7 +1964,7 @@
       confirmArrangeTimeButton.textContent =
         state.saving && state.selectedDecision === "accept_arrange"
           ? "Saving acceptance..."
-          : "Accept quote and send time";
+          : (customerJourneyType(quote) === "preorder" ? "Accept Pre Order and send time" : (customerJourneyType(quote) === "order" ? "Accept order request and send time" : "Accept quote and send time"));
       declineButton.textContent =
         state.saving && state.selectedDecision === "decline"
           ? "Saving response..."
@@ -1992,8 +2007,8 @@
           clearBanner();
           setBanner(
             awaitingAgreedTime
-              ? `Quote accepted. The business will contact you to arrange the appointment. ${pinPrompt}`
-              : `Quote accepted. ${pinPrompt}`,
+              ? `${documentName} accepted. The business will contact you to arrange the time. ${pinPrompt}`
+              : `${documentName} accepted. ${pinPrompt}`,
           );
           content.classList.remove("hidden");
           respondCard.classList.add("hidden");
@@ -2008,7 +2023,7 @@
               ? "Your order has been accepted.\nThe business will confirm collection details if needed.\n\nYou can close this page now."
               : hasExactPin
               ? (awaitingAgreedTime
-                  ? `Quote accepted. The business will contact you to arrange the appointment.\nYour exact location has been sent to the ${contactNoun}.\n\nYou can close this page now.`
+                  ? `${documentName} accepted. The business will contact you to arrange the time.\nYour exact location has been sent to the ${contactNoun}.\n\nYou can close this page now.`
                   : `Your exact location has been sent to the ${contactNoun}.\n\nYou can close this page now.`)
               : `Your response has been sent to the ${contactNoun}.\n\nYou can close this page now.`)
           : `Your response has been sent to the ${contactNoun}.\n\nYou can close this page now.`;
@@ -2022,25 +2037,25 @@
                 ? "Your order has been accepted. The business will confirm collection details if needed."
                 : hasExactPin
                 ? (awaitingAgreedTime
-                    ? "Quote accepted. The business will contact you to arrange the appointment. Exact location sent."
-                    : "Quote accepted. Exact location sent.")
+                    ? `${documentName} accepted. The business will contact you to arrange the time. Exact location sent.`
+                    : `${documentName} accepted. Exact location sent.`)
                 : (awaitingAgreedTime
-                    ? "Quote accepted. The business will contact you to arrange the appointment."
+                    ? `${documentName} accepted. The business will contact you to arrange the time.`
                     : `${journeyCopy.accepted}.`))
             : `${journeyCopy.declined}.`,
           "success",
         );
       } else {
-        heroTitle.textContent = `Review your ${customerJourneyType(quote)}`;
+        heroTitle.textContent = `Review your ${documentNameLower}`;
         heroLede.textContent =
-          "Check the quote details below, then choose an option.";
+          `Check the ${documentNameLower} details below, then choose an option.`;
         clearBanner();
         respondCard.classList.toggle("hidden", showingArrangeTime);
         arrangeTimeCard.classList.toggle("hidden", !showingArrangeTime);
         pinCard.classList.add("hidden");
         content.classList.remove("hidden");
         setBanner(
-          `Need a different time? Accept the quote and arrange another time with the ${contactNoun}.`,
+          `Need a different time? Accept the ${journey === "preorder" ? "Pre Order" : documentNameLower} and arrange another time with the ${contactNoun}.`,
           "success",
         );
       }

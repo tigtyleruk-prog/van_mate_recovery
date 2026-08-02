@@ -1328,7 +1328,9 @@ function normalizePreferredTimeWindow(value) {
     case 'flexible':
       return 'anytime';
     default:
-      return '';
+      return /^([01]\d|2[0-3]):[0-5]\d$/.test(normalized)
+        ? normalized
+        : '';
   }
 }
 
@@ -1348,8 +1350,8 @@ function normalizeCustomerRequestType(value, fallback = 'quoteRequest') {
 
 function normalizeCustomerJourneyType(value, fallback = 'quote') {
   const normalized = readString(value).toLowerCase();
-  return normalized === 'quote' || normalized === 'booking' || normalized === 'order'
-    ? normalized
+  return normalized === 'quote' || normalized === 'booking' || normalized === 'order' || normalized === 'preorder' || normalized === 'pre_order' || normalized === 'pre-order'
+    ? (normalized === 'pre_order' || normalized === 'pre-order' ? 'preorder' : normalized)
     : fallback;
 }
 
@@ -1403,9 +1405,115 @@ function normalizeHandoverOptions(value, allowedValues, selected) {
 
 function normalizeFulfilmentType(value) {
   const normalized = readString(value).toLowerCase();
-  return normalized === 'collection' || normalized === 'delivery'
+  return [
+    'collection',
+    'businessvisit',
+    'delivery',
+    'localdelivery',
+    'nationwidedelivery',
+    'digitaldelivery',
+    'customerdropsoff',
+    'businesscollects',
+    'customercollects',
+    'businessreturns',
+  ].includes(normalized)
     ? normalized
     : '';
+}
+
+function isDeliveryFulfilmentType(value) {
+  return [
+    'delivery',
+    'localdelivery',
+    'nationwidedelivery',
+  ].includes(normalizeFulfilmentType(value));
+}
+
+function isCollectionFulfilmentType(value) {
+  return normalizeFulfilmentType(value) === 'businesscollects';
+}
+
+function isReturnFulfilmentType(value) {
+  return normalizeFulfilmentType(value) === 'businessreturns';
+}
+
+function serviceAddressContractText(service, key, fallback) {
+  const contract = service && service.capabilityContract;
+  return readString(contract && contract[key]) || fallback;
+}
+
+function serviceUsesAutomaticFulfilment(service) {
+  const contract = service && service.capabilityContract;
+  if (
+    contract &&
+    Array.isArray(contract.movementChoiceGroups) &&
+    contract.movementChoiceGroups.some(
+      (group) => Array.isArray(group && group.options) && group.options.length > 0,
+    )
+  ) {
+    return true;
+  }
+  const ids = Array.isArray(service && service.serviceCapabilityIds)
+    ? service.serviceCapabilityIds.map(readString).filter(Boolean)
+    : [];
+  return ids.some((id) => [
+    'customer_visits_business',
+    'customer_drops_off',
+    'customer_collects',
+    'business_collects',
+    'business_returns',
+    'local_delivery',
+    'nationwide_delivery',
+    'digital_delivery',
+  ].includes(id));
+}
+
+function automaticFulfilmentOptionsForService(service) {
+  const contract = service && service.capabilityContract;
+  const contractGroups =
+    contract && Array.isArray(contract.movementChoiceGroups)
+      ? contract.movementChoiceGroups
+      : [];
+  if (
+    contractGroups.length > 0 &&
+    Array.isArray(contractGroups[0] && contractGroups[0].options)
+  ) {
+    return contractGroups[0].options
+      .map((option) => normalizeFulfilmentType(option && option.value))
+      .filter(Boolean);
+  }
+  const ids = Array.isArray(service && service.serviceCapabilityIds)
+    ? service.serviceCapabilityIds.map(readString).filter(Boolean)
+    : [];
+  const options = [];
+  const add = (id, value) => {
+    if (ids.includes(id) && !options.includes(value)) {
+      options.push(value);
+    }
+  };
+  add('customer_visits_business', 'collection');
+  add('business_visits_customer', 'businessvisit');
+  add('local_delivery', 'localdelivery');
+  add('nationwide_delivery', 'nationwidedelivery');
+  add('digital_delivery', 'digitaldelivery');
+  if (options.length === 0) {
+    const startOptions = [];
+    if (ids.includes('customer_drops_off')) startOptions.push('customerdropsoff');
+    if (ids.includes('business_collects')) startOptions.push('businesscollects');
+    const endOptions = [];
+    if (ids.includes('customer_collects')) endOptions.push('customercollects');
+    if (ids.includes('business_returns')) endOptions.push('businessreturns');
+    if (startOptions.length > 1) {
+      options.push(...startOptions);
+    } else if (startOptions.length === 1 && endOptions.length === 0) {
+      options.push(...startOptions);
+    } else if (endOptions.length === 1 && startOptions.length === 0) {
+      options.push(...endOptions);
+    } else if (endOptions.length > 1) {
+      options.push(...endOptions);
+    }
+  }
+  return options;
 }
 
 function timeOfDayMinutes(value) {
@@ -1455,8 +1563,25 @@ function normalizeRequestFlowOptions(value, requestType) {
   );
 }
 
+function builtInQuestionSetting(service, key) {
+  const settings = service && service.builtInQuestionSettings;
+  const value = settings && typeof settings === 'object' ? settings[key] : null;
+  return value && typeof value === 'object' ? value : {};
+}
+
+function showsConfiguredBuiltInQuestion(service, key, defaultValue = true) {
+  const setting = builtInQuestionSetting(service, key);
+  if (typeof setting.show === 'boolean') return setting.show;
+  if (typeof setting.visible === 'boolean') return setting.visible;
+  return defaultValue;
+}
+
 function bookingPastDateMessage() {
   return "You can't book a job in the past. Please choose today or a future date.";
+}
+
+function bookingLeadTimeMessage() {
+  return 'This service needs more notice. Please choose a later date or time.';
 }
 
 function startOfLocalDay(date) {
@@ -1467,6 +1592,7 @@ function validatePreferredBookingWindow({
   preferredDate,
   preferredTimeWindow,
   preferredIsFlexible,
+  noticeHours = 0,
   now = new Date(),
 }) {
   if (!(preferredDate instanceof Date) || Number.isNaN(preferredDate.getTime())) {
@@ -1478,14 +1604,42 @@ function validatePreferredBookingWindow({
   if (selectedDay.getTime() < today.getTime()) {
     return bookingPastDateMessage();
   }
+  const noticeMinutes = Math.max(0, Math.round(Number(noticeHours || 0) * 60));
+  const earliestAllowed = noticeMinutes > 0
+    ? new Date(now.getTime() + noticeMinutes * 60 * 1000)
+    : now;
+  const earliestDay = startOfLocalDay(earliestAllowed);
+  if (noticeMinutes > 0 && selectedDay.getTime() < earliestDay.getTime()) {
+    return bookingLeadTimeMessage();
+  }
   if (preferredIsFlexible) {
     return null;
   }
-  if (selectedDay.getTime() !== today.getTime()) {
+  if (
+    selectedDay.getTime() !== today.getTime() &&
+    selectedDay.getTime() !== earliestDay.getTime()
+  ) {
     return null;
   }
 
   const normalizedWindow = normalizePreferredTimeWindow(preferredTimeWindow);
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(normalizedWindow)) {
+    const selectedTime = new Date(
+      preferredDate.getFullYear(),
+      preferredDate.getMonth(),
+      preferredDate.getDate(),
+      Number(normalizedWindow.slice(0, 2)),
+      Number(normalizedWindow.slice(3, 5)),
+      0,
+      0,
+    );
+    if (selectedTime.getTime() < now.getTime()) {
+      return bookingPastDateMessage();
+    }
+    return noticeMinutes > 0 && selectedTime.getTime() < earliestAllowed.getTime()
+      ? bookingLeadTimeMessage()
+      : null;
+  }
   const slotEndHour = (() => {
     switch (normalizedWindow) {
       case 'morning':
@@ -1501,17 +1655,43 @@ function validatePreferredBookingWindow({
   if (slotEndHour == null) {
     return null;
   }
+  const slotStartHour = (() => {
+    switch (normalizedWindow) {
+      case 'morning':
+        return 9;
+      case 'afternoon':
+        return 12;
+      case 'evening':
+        return 17;
+      default:
+        return slotEndHour;
+    }
+  })();
 
   const slotEnd = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
+    preferredDate.getFullYear(),
+    preferredDate.getMonth(),
+    preferredDate.getDate(),
     slotEndHour,
     0,
     0,
     0,
   );
-  return now.getTime() > slotEnd.getTime() ? bookingPastDateMessage() : null;
+  if (now.getTime() > slotEnd.getTime()) {
+    return bookingPastDateMessage();
+  }
+  const slotStart = new Date(
+    preferredDate.getFullYear(),
+    preferredDate.getMonth(),
+    preferredDate.getDate(),
+    slotStartHour,
+    0,
+    0,
+    0,
+  );
+  return noticeMinutes > 0 && slotStart.getTime() < earliestAllowed.getTime()
+    ? bookingLeadTimeMessage()
+    : null;
 }
 
 function normalizeCalendarStatus(value) {
@@ -2989,8 +3169,10 @@ async function sendBookingRequestReceivedNotification({
 
   const journeyType = normalizeCustomerJourneyType(customerJourneyType);
   const notificationTitle = journeyType === 'order'
-    ? 'New order'
-    : (journeyType === 'booking' ? 'New booking request' : 'New quote request');
+    ? 'New order request'
+    : (journeyType === 'preorder'
+      ? 'New Pre Order'
+      : (journeyType === 'booking' ? 'New booking request' : 'New quote request'));
   const notificationBody = buildBookingRequestNotificationBody({
     customerName,
     serviceName,
@@ -3234,6 +3416,25 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     selectedService.customerJourneyType,
     legacyJourney,
   );
+  const pricingMode = readString(
+    firstNonEmpty([
+      data.pricingMode,
+      selectedService.pricingMode,
+      selectedService.capabilityContract && selectedService.capabilityContract.pricingMode,
+    ]),
+  );
+  const fixedPriceAmount = Math.max(
+    0,
+    readNullableNumber(
+      firstNonEmpty([data.fixedPriceAmount, selectedService.fixedPriceAmount]),
+    ) || 0,
+  );
+  const fromPriceAmount = Math.max(
+    0,
+    readNullableNumber(
+      firstNonEmpty([data.fromPriceAmount, selectedService.fromPriceAmount]),
+    ) || 0,
+  );
   const legacySupportsHandover =
     requestType === 'dropOffPickupRequest' ||
     requestType === 'pickupDeliveryRequest';
@@ -3371,11 +3572,59 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     selectedService.requestFlowOptions,
     requestType,
   );
+  const usesAutomaticFulfilment = serviceUsesAutomaticFulfilment(selectedService);
+  const automaticFulfilmentOptions =
+    automaticFulfilmentOptionsForService(selectedService);
+  if (!fulfilmentType && automaticFulfilmentOptions.length === 1) {
+    fulfilmentType = automaticFulfilmentOptions[0];
+  }
+  if (
+    !supportsHandover &&
+    fulfilmentType &&
+    automaticFulfilmentOptions.length > 0 &&
+    !automaticFulfilmentOptions.includes(fulfilmentType)
+  ) {
+    throw new HttpsError(
+      'invalid-argument',
+      'Selected fulfilment option is not available for this service.',
+    );
+  }
+  if (
+    !supportsHandover &&
+    usesAutomaticFulfilment &&
+    isDeliveryFulfilmentType(fulfilmentType) &&
+    !deliveryAddress
+  ) {
+    deliveryAddress = [address, postcode].filter(Boolean).join(', ');
+  }
+  if (
+    !supportsHandover &&
+    usesAutomaticFulfilment &&
+    isCollectionFulfilmentType(fulfilmentType) &&
+    !collectionAddress
+  ) {
+    collectionAddress = [address, postcode].filter(Boolean).join(', ');
+  }
+  if (
+    !supportsHandover &&
+    usesAutomaticFulfilment &&
+    isReturnFulfilmentType(fulfilmentType) &&
+    !returnAddress
+  ) {
+    returnAddress = [address, postcode].filter(Boolean).join(', ');
+  }
+  const showsPreferredDate =
+    requestFlowOptions.askPreferredDate &&
+    showsConfiguredBuiltInQuestion(selectedService, 'preferred_date', true);
+  const showsPreferredTime =
+    requestFlowOptions.askPreferredTime &&
+    showsConfiguredBuiltInQuestion(selectedService, 'preferred_time', true);
+  const showsFlexibleTiming =
+    (showsPreferredDate || showsPreferredTime) &&
+    showsConfiguredBuiltInQuestion(selectedService, 'flexible_timing', true);
   if (supportsStructuredRequestFlow) {
-    if (
-      requestType !== 'orderRequest' ||
-      !requestFlowOptions.showFulfilmentChoice
-    ) {
+    if (!usesAutomaticFulfilment &&
+      (requestType !== 'orderRequest' || !requestFlowOptions.showFulfilmentChoice)) {
       fulfilmentType = '';
     }
     if (
@@ -3388,11 +3637,12 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     const keepsDeliveryAddress =
       (supportsHandover && endHandover === 'businessDelivers') ||
       (!supportsHandover &&
-      ((requestType === 'orderRequest' &&
-        requestFlowOptions.showFulfilmentChoice &&
-        fulfilmentType === 'delivery') ||
-      (requestType === 'pickupDeliveryRequest' &&
-        requestFlowOptions.showDeliveryAddress)));
+        ((usesAutomaticFulfilment && isDeliveryFulfilmentType(fulfilmentType)) ||
+          (requestType === 'orderRequest' &&
+            requestFlowOptions.showFulfilmentChoice &&
+            isDeliveryFulfilmentType(fulfilmentType)) ||
+          (requestType === 'pickupDeliveryRequest' &&
+            requestFlowOptions.showDeliveryAddress)));
     if (!keepsDeliveryAddress) {
       deliveryAddress = '';
     }
@@ -3408,17 +3658,16 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     if (!supportsHandover && !requestFlowOptions.showPickUpTime) {
       pickUpTime = '';
     }
-    if (!requestFlowOptions.askPreferredDate) {
+    if (!showsPreferredDate) {
       preferredDate = null;
     }
-    if (!requestFlowOptions.askPreferredTime) {
+    if (!showsPreferredTime) {
       preferredTimeWindow = '';
     }
-    if (
-      !requestFlowOptions.askPreferredDate &&
-      !requestFlowOptions.askPreferredTime
-    ) {
+    if (!showsFlexibleTiming) {
       preferredIsFlexible = false;
+    }
+    if (!showsPreferredDate && !showsPreferredTime) {
       preferredTimingNote = '';
     }
     if (!requestFlowOptions.showNotes) {
@@ -3426,6 +3675,14 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     }
   }
   const requireAddress = readBool(selectedService.requireAddress);
+  const showAddress =
+    selectedService.showAddress !== false &&
+    showsConfiguredBuiltInQuestion(selectedService, 'address', true);
+  const standardAddressRequiredMessage = serviceAddressContractText(
+    selectedService,
+    'addressRequiredMessage',
+    'Address or postcode is required for this service.',
+  );
   const requestPhotos = readBool(selectedService.requestPhotos);
   const configuredExactPinAfterQuoteAccepted =
     readBool(selectedService.requestExactPinAfterQuoteAccepted) ||
@@ -3460,9 +3717,12 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
 
   const addressValidationError = bookingLinkAddressValidationError({
     requireAddress,
+    showAddress,
+    standardAddressRequiredMessage,
     supportsStructuredRequestFlow,
     requestType,
     requestFlowOptions,
+    usesAutomaticFulfilment,
     supportsHandover,
     startHandover,
     endHandover,
@@ -3579,6 +3839,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
       preferredDate: date,
       preferredTimeWindow: 'anytime',
       preferredIsFlexible: true,
+      noticeHours: selectedService.noticeHours,
       now: new Date(),
     });
     if (dateValidationMessage) {
@@ -3593,6 +3854,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     preferredDate,
     preferredTimeWindow,
     preferredIsFlexible,
+    noticeHours: selectedService.noticeHours,
     now: new Date(),
   });
   if (preferredTimingValidationMessage) {
@@ -3679,8 +3941,12 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
       ? [pickupAddress, deliveryAddress].filter(Boolean).join(' → ')
       : supportsStructuredRequestFlow &&
           requestType === 'orderRequest' &&
-          fulfilmentType === 'delivery'
+          isDeliveryFulfilmentType(fulfilmentType)
         ? deliveryAddress
+        : supportsStructuredRequestFlow &&
+          requestType === 'orderRequest' &&
+          isReturnFulfilmentType(fulfilmentType)
+        ? returnAddress
         : [address, postcode].filter(Boolean).join(' ').trim();
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const effectiveSchedule =
@@ -3756,6 +4022,9 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     serviceFlow,
     requestType,
     requestFlowOptions,
+    pricingMode,
+    fixedPriceAmount,
+    fromPriceAmount,
     fulfilmentType,
     pickupAddress,
     deliveryAddress,
@@ -5081,7 +5350,7 @@ exports.onVanJobQuoteMirror = onDocumentWritten(
         ]));
         const journeyNoun = customerJourneyType === 'booking'
           ? 'booking'
-          : (customerJourneyType === 'order' ? 'order' : 'quote');
+          : (customerJourneyType === 'order' ? 'order request' : (customerJourneyType === 'preorder' ? 'Pre Order' : 'quote'));
         const notificationBody = customerName
           ? `${customerName} ${quoteVerb} your ${journeyNoun}.`
           : `Your ${journeyNoun} was ${quoteVerb}.`;
@@ -5944,6 +6213,7 @@ exports.__test__ = {
   buildVanQuoteResponseToken,
   listChangedKeys,
   listDesiredChangedKeys,
+  validatePreferredBookingWindow,
   shouldRequireExactPinAfterQuoteAccepted,
   isPublicQuoteCurrentForJob,
   assertPublicQuoteIsCurrent,

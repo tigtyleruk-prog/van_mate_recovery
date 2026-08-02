@@ -19,6 +19,7 @@ import '../models/van_customer_request_flow.dart';
 import '../models/van_custom_job_question.dart';
 import '../models/van_job_service.dart';
 import '../models/van_service_handover.dart';
+import '../models/van_service_capability.dart';
 import '../pages/driver_customer_reply_mock_page.dart';
 import '../pages/van_job_types_services_page.dart';
 import '../services/van_booking_link_cloud_service.dart';
@@ -785,6 +786,8 @@ class _VanBookingLinkCustomerFormPageState
   final TextEditingController _postcodeController = TextEditingController();
   final TextEditingController _preferredDateController =
       TextEditingController();
+  final TextEditingController _preferredTimeController =
+      TextEditingController();
   final TextEditingController _collectionDateController =
       TextEditingController();
   final TextEditingController _collectionTimeController =
@@ -798,6 +801,7 @@ class _VanBookingLinkCustomerFormPageState
   final List<XFile> _selectedPhotos = <XFile>[];
 
   String? _selectedServiceId;
+  String? _selectedMovementValue;
   DateTime? _preferredDate;
   DateTime? _collectionDate;
   TimeOfDay? _collectionTime;
@@ -832,6 +836,102 @@ class _VanBookingLinkCustomerFormPageState
   VanCustomerJourneyCopy get _journeyCopy =>
       (_selectedService?.customerJourneyType ?? VanCustomerJourneyType.quote)
           .copy;
+
+  bool get _isPreOrder =>
+      _selectedService?.customerJourneyType == VanCustomerJourneyType.preOrder;
+
+  VanCapabilityMovementChoiceGroup? get _genericMovementChoiceGroup {
+    final service = _selectedService;
+    if (service == null || service.hasHandoverConfiguration) return null;
+    final groups = service.capabilityContract.movementChoiceGroups;
+    return groups.isEmpty ? null : groups.first;
+  }
+
+  String? get _effectiveMovementValue {
+    final group = _genericMovementChoiceGroup;
+    if (group == null) return null;
+    final selected = _selectedMovementValue;
+    if (selected != null &&
+        group.options.any((option) => option.value == selected)) {
+      return selected;
+    }
+    return group.options.length == 1 ? group.options.first.value : null;
+  }
+
+  bool get _showsGenericAddress {
+    final service = _selectedService;
+    if (service == null || service.hasHandoverConfiguration) return false;
+    if (!service.requireAddress) return false;
+    if (!service.showsBuiltInQuestion('address')) return false;
+    if (!service.showsConfiguredBuiltInQuestion('address')) return false;
+    final movement = _effectiveMovementValue;
+    if (movement == null) return _genericMovementChoiceGroup == null;
+    return movement != 'collection' &&
+        movement != 'customerDropsOff' &&
+        movement != 'customerCollects' &&
+        movement != 'digitalDelivery';
+  }
+
+  bool get _usesGenericDeliveryAddress {
+    final movement = _effectiveMovementValue;
+    return movement == 'localDelivery' || movement == 'nationwideDelivery';
+  }
+
+  bool get _usesGenericCollectionAddress =>
+      _effectiveMovementValue == 'businessCollects';
+
+  bool get _usesGenericReturnAddress =>
+      _effectiveMovementValue == 'businessReturns';
+
+  String _addressHeadingForService(VanJobService service) {
+    if (_usesGenericDeliveryAddress) {
+      final heading = service.capabilityContract.addressHeading.trim();
+      final fallback = heading.isEmpty || heading == 'Address or postcode'
+          ? 'Delivery address'
+          : heading;
+      return service.requireAddress ? fallback : '$fallback (optional)';
+    }
+    final heading = service.capabilityContract.addressHeading.trim();
+    final fallback = heading.isEmpty ? 'Address or postcode' : heading;
+    return service.requireAddress ? fallback : '$fallback (optional)';
+  }
+
+  String _addressFieldLabelForService(VanJobService service) {
+    if (_usesGenericDeliveryAddress) {
+      final label = service.capabilityContract.addressFieldLabel.trim();
+      return label.isEmpty || label == 'Address' ? 'Delivery address' : label;
+    }
+    final label = service.capabilityContract.addressFieldLabel.trim();
+    return label.isEmpty ? 'Address' : label;
+  }
+
+  String _addressHintForService(VanJobService service) {
+    if (_usesGenericDeliveryAddress) {
+      final hint = service.capabilityContract.addressHint.trim();
+      return hint.isEmpty || hint == 'Enter address'
+          ? 'Where should the order be delivered?'
+          : hint;
+    }
+    final hint = service.capabilityContract.addressHint.trim();
+    return hint.isEmpty ? 'Enter address' : hint;
+  }
+
+  bool _isFixedPriceService(VanJobService service) =>
+      service.pricingMode == VanServiceCapabilityIds.fixedPrice &&
+      service.fixedPriceAmount > 0;
+  bool _isFromPriceService(VanJobService service) =>
+      service.pricingMode == VanServiceCapabilityIds.fromPrice &&
+      service.fromPriceAmount > 0;
+
+  String _priceLabelForService(VanJobService service) {
+    if (_isFixedPriceService(service)) {
+      return 'Fixed price: ${formatCurrency(service.fixedPriceAmount)}';
+    }
+    if (_isFromPriceService(service)) {
+      return 'From ${formatCurrency(service.fromPriceAmount)}. Final price may vary after we review your details.';
+    }
+    return '';
+  }
 
   VanStartHandover? get _effectiveStartHandover {
     final service = _selectedService;
@@ -958,6 +1058,7 @@ class _VanBookingLinkCustomerFormPageState
     _returnAddressController.dispose();
     _postcodeController.dispose();
     _preferredDateController.dispose();
+    _preferredTimeController.dispose();
     _collectionDateController.dispose();
     _collectionTimeController.dispose();
     _deliveryDateController.dispose();
@@ -1072,13 +1173,46 @@ class _VanBookingLinkCustomerFormPageState
       return false;
     }
 
+    final movementGroup = _genericMovementChoiceGroup;
+    if (movementGroup != null &&
+        movementGroup.options.length > 1 &&
+        _effectiveMovementValue == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please choose how this service will be fulfilled.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
     if (service.requireAddress &&
         !service.hasHandoverConfiguration &&
+        _showsGenericAddress &&
+        _usesGenericDeliveryAddress &&
+        _addressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add the delivery address.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+
+    if (service.requireAddress &&
+        !service.hasHandoverConfiguration &&
+        _showsGenericAddress &&
+        !_usesGenericDeliveryAddress &&
         _addressController.text.trim().isEmpty &&
         _postcodeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add an address or postcode for this service.'),
+        SnackBar(
+          content: Text(
+            service.capabilityContract.addressRequiredMessage.trim().isEmpty
+                ? 'Please add an address or postcode for this service.'
+                : service.capabilityContract.addressRequiredMessage,
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1152,7 +1286,8 @@ class _VanBookingLinkCustomerFormPageState
       return false;
     }
 
-    if (service.requiresBuiltInQuestion('preferred_date') &&
+    if (_showsPreferredDate(service) &&
+        service.requiresBuiltInQuestion('preferred_date') &&
         _preferredDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1163,8 +1298,11 @@ class _VanBookingLinkCustomerFormPageState
       return false;
     }
 
-    if (service.requiresBuiltInQuestion('preferred_time') &&
-        _preferredTimeWindow.trim().isEmpty &&
+    if (_showsPreferredTime(service) &&
+        service.requiresBuiltInQuestion('preferred_time') &&
+        (_isPreOrder
+            ? !RegExp(r'^\d{2}:\d{2}$').hasMatch(_preferredTimeWindow)
+            : _preferredTimeWindow.trim().isEmpty) &&
         !_preferredIsFlexible) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1176,13 +1314,16 @@ class _VanBookingLinkCustomerFormPageState
     }
 
     final requiresPreferredTiming =
-        service.requiresBuiltInQuestion('preferred_date') ||
-        service.requiresBuiltInQuestion('preferred_time');
+        (_showsPreferredDate(service) &&
+            service.requiresBuiltInQuestion('preferred_date')) ||
+        (_showsPreferredTime(service) &&
+            service.requiresBuiltInQuestion('preferred_time'));
     final preferredTimingMessage = requiresPreferredTiming
         ? validateVanMatePreferredBookingWindow(
             preferredDate: _preferredDate,
             preferredTimeWindow: _preferredTimeWindow,
             preferredIsFlexible: _preferredIsFlexible,
+            noticeHours: service.noticeHours,
           )
         : null;
     if (preferredTimingMessage != null) {
@@ -1199,8 +1340,35 @@ class _VanBookingLinkCustomerFormPageState
   }
 
   bool get _requiresPreferredTiming =>
-      _selectedService?.requiresBuiltInQuestion('preferred_date') == true ||
-      _selectedService?.requiresBuiltInQuestion('preferred_time') == true;
+      (_selectedService != null &&
+          _showsPreferredDate(_selectedService!) &&
+          _selectedService!.requiresBuiltInQuestion('preferred_date')) ||
+      (_selectedService != null &&
+          _showsPreferredTime(_selectedService!) &&
+          _selectedService!.requiresBuiltInQuestion('preferred_time'));
+
+  bool _showsPreferredDate(VanJobService service) =>
+      service.effectiveRequestFlowOptions.askPreferredDate &&
+      service.showsConfiguredBuiltInQuestion('preferred_date');
+
+  bool _showsPreferredTime(VanJobService service) =>
+      service.effectiveRequestFlowOptions.askPreferredTime &&
+      service.showsConfiguredBuiltInQuestion('preferred_time');
+
+  bool _showsFlexibleTiming(VanJobService service) =>
+      (_showsPreferredDate(service) || _showsPreferredTime(service)) &&
+      service.showsConfiguredBuiltInQuestion('flexible_timing');
+
+  String _builtInQuestionLabel(
+    VanJobService service,
+    String key,
+    String fallback,
+  ) {
+    final label = service.builtInQuestionSettings[key]?['label']
+        ?.toString()
+        .trim();
+    return label == null || label.isEmpty ? fallback : label;
+  }
 
   bool get _hasValidPreferredTimingSelection =>
       !_requiresPreferredTiming ||
@@ -1208,8 +1376,39 @@ class _VanBookingLinkCustomerFormPageState
             preferredDate: _preferredDate,
             preferredTimeWindow: _preferredTimeWindow,
             preferredIsFlexible: _preferredIsFlexible,
+            noticeHours: _selectedService?.noticeHours ?? 0,
           ) ==
           null;
+
+  bool _showsPreferredTimingSection(VanJobService service) =>
+      _showsPreferredDate(service) ||
+      _showsPreferredTime(service) ||
+      _showsFlexibleTiming(service);
+
+  String _preferredTimingHeading(VanJobService service) {
+    final showsDate = _showsPreferredDate(service);
+    final showsTime = _showsPreferredTime(service);
+    if (showsDate && showsTime) {
+      return _requiresPreferredTiming
+          ? 'Preferred date and time'
+          : 'Preferred date and time (optional)';
+    }
+    if (showsDate) {
+      return _builtInQuestionLabel(
+        service,
+        'preferred_date',
+        _isPreOrder ? 'Collection Date' : 'Preferred date',
+      );
+    }
+    if (showsTime) {
+      return _builtInQuestionLabel(service, 'preferred_time', 'Preferred time');
+    }
+    return _builtInQuestionLabel(
+      service,
+      'flexible_timing',
+      'Timing is flexible',
+    );
+  }
 
   String? get _preferredTimingValidationMessage => !_requiresPreferredTiming
       ? null
@@ -1217,6 +1416,7 @@ class _VanBookingLinkCustomerFormPageState
           preferredDate: _preferredDate,
           preferredTimeWindow: _preferredTimeWindow,
           preferredIsFlexible: _preferredIsFlexible,
+          noticeHours: _selectedService?.noticeHours ?? 0,
         );
 
   String _formatDate(DateTime date) {
@@ -1243,7 +1443,25 @@ class _VanBookingLinkCustomerFormPageState
     return '$hour:$minute';
   }
 
+  Future<void> _pickPreferredTime() async {
+    final initial = RegExp(r'^\d{2}:\d{2}$').hasMatch(_preferredTimeWindow)
+        ? TimeOfDay(
+            hour: int.parse(_preferredTimeWindow.substring(0, 2)),
+            minute: int.parse(_preferredTimeWindow.substring(3, 5)),
+          )
+        : TimeOfDay.now();
+    final picked = await showTimePicker(context: context, initialTime: initial);
+    if (picked == null || !mounted) return;
+    setState(() {
+      _preferredTimeWindow = _formatTime(picked);
+      _preferredTimeController.text = _preferredTimeWindow;
+    });
+  }
+
   String _preferredTimeWindowLabel(String window) {
+    if (RegExp(r'^\d{2}:\d{2}$').hasMatch(window.trim())) {
+      return window.trim();
+    }
     switch (window.trim().toLowerCase()) {
       case 'morning':
         return 'Morning';
@@ -1259,13 +1477,17 @@ class _VanBookingLinkCustomerFormPageState
   Future<void> _pickPreferredDate() async {
     final now = DateTime.now();
     final today = DateUtils.dateOnly(now);
+    final noticeMinutes = ((_selectedService?.noticeHours ?? 0) * 60).round();
+    final earliest = DateUtils.dateOnly(
+      noticeMinutes > 0 ? now.add(Duration(minutes: noticeMinutes)) : now,
+    );
     final initial = _preferredDate == null
-        ? today
-        : (_preferredDate!.isBefore(today) ? today : _preferredDate!);
+        ? earliest
+        : (_preferredDate!.isBefore(earliest) ? earliest : _preferredDate!);
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: today,
+      firstDate: earliest.isBefore(today) ? today : earliest,
       lastDate: DateTime(now.year + 3),
     );
     if (picked == null || !mounted) {
@@ -1619,6 +1841,15 @@ class _VanBookingLinkCustomerFormPageState
 
       final address = sanitizeVanText(_addressController.text).trim();
       final postcode = _normalizePostcode(_postcodeController.text);
+      final genericDeliveryAddress = _usesGenericDeliveryAddress
+          ? [address, postcode].where((value) => value.isNotEmpty).join(', ')
+          : '';
+      final genericCollectionAddress = _usesGenericCollectionAddress
+          ? [address, postcode].where((value) => value.isNotEmpty).join(', ')
+          : '';
+      final genericReturnAddress = _usesGenericReturnAddress
+          ? [address, postcode].where((value) => value.isNotEmpty).join(', ')
+          : '';
       final startHandover = _effectiveStartHandover;
       final endHandover = _effectiveEndHandover;
       final destinationAddress = sanitizeVanText(
@@ -1626,10 +1857,10 @@ class _VanBookingLinkCustomerFormPageState
       ).trim();
       final returnAddress = endHandover == VanEndHandover.businessReturns
           ? (_returnAddressSameAsCollection ? address : destinationAddress)
-          : '';
+          : genericReturnAddress;
       final deliveryAddress = endHandover == VanEndHandover.businessDelivers
           ? destinationAddress
-          : '';
+          : genericDeliveryAddress;
       final collectionDate = _collectionDate?.toIso8601String();
       final collectionTime = _collectionTime == null
           ? ''
@@ -1693,6 +1924,17 @@ class _VanBookingLinkCustomerFormPageState
       final additionalNotes = sanitizeVanText(
         _timingNoteController.text,
       ).trim();
+      final showPreferredDate = _showsPreferredDate(service);
+      final showPreferredTime = _showsPreferredTime(service);
+      final showFlexibleTiming = _showsFlexibleTiming(service);
+      final preferredDateValue = showPreferredDate
+          ? _preferredDate?.toIso8601String()
+          : null;
+      final preferredTimeWindowValue = showPreferredTime
+          ? _preferredTimeWindow
+          : '';
+      final preferredIsFlexibleValue =
+          showFlexibleTiming && _preferredIsFlexible;
       final callableResult = await callable
           .call(<String, dynamic>{
             'ownerUid': normalizedOwnerUid,
@@ -1702,6 +1944,10 @@ class _VanBookingLinkCustomerFormPageState
             'requestType': service.serviceFlow.requestType.storageKey,
             'serviceFlow': service.serviceFlow.storageKey,
             'customerJourneyType': service.customerJourneyType.storageKey,
+            'pricingMode': service.pricingMode,
+            'fixedPriceAmount': service.fixedPriceAmount,
+            'fromPriceAmount': service.fromPriceAmount,
+            'fulfilmentType': _effectiveMovementValue ?? '',
             'customerName': sanitizeVanText(_nameController.text).trim(),
             'phoneNumber': sanitizeVanText(_phoneController.text).trim(),
             'customerEmail': sanitizeVanText(_emailController.text).trim(),
@@ -1710,7 +1956,7 @@ class _VanBookingLinkCustomerFormPageState
             'endHandover': endHandover?.storageKey ?? '',
             'collectionAddress': startHandover?.needsCustomerAddress == true
                 ? address
-                : '',
+                : genericCollectionAddress,
             'pickupAddress': _isBusinessDeliveryJourney ? address : '',
             'deliveryAddress': deliveryAddress,
             'returnAddress': returnAddress,
@@ -1727,12 +1973,12 @@ class _VanBookingLinkCustomerFormPageState
             'pickUpTime': deliveryTime,
             'postcode': service.hasHandoverConfiguration ? '' : postcode,
             'additionalNotes': additionalNotes,
-            'preferredDate': _preferredDate?.toIso8601String(),
-            'preferredDateAt': _preferredDate?.toIso8601String(),
-            'preferredTimeWindow': _preferredTimeWindow,
-            'preferredWindow': _preferredTimeWindow,
-            'preferredIsFlexible': _preferredIsFlexible,
-            'timingFlexible': _preferredIsFlexible,
+            'preferredDate': preferredDateValue,
+            'preferredDateAt': preferredDateValue,
+            'preferredTimeWindow': preferredTimeWindowValue,
+            'preferredWindow': preferredTimeWindowValue,
+            'preferredIsFlexible': preferredIsFlexibleValue,
+            'timingFlexible': preferredIsFlexibleValue,
             'preferredTimingNote': '',
             'timingNote': '',
             'photoFileNames': _selectedPhotos
@@ -1766,12 +2012,16 @@ class _VanBookingLinkCustomerFormPageState
                 'selectedServiceId': service.id,
                 'selectedServiceName': service.name.trim(),
                 'customerJourneyType': service.customerJourneyType.storageKey,
+                'pricingMode': service.pricingMode,
+                'fixedPriceAmount': service.fixedPriceAmount,
+                'fromPriceAmount': service.fromPriceAmount,
+                'fulfilmentType': _effectiveMovementValue ?? '',
                 'serviceFlow': service.serviceFlow.storageKey,
                 'startHandover': startHandover?.storageKey ?? '',
                 'endHandover': endHandover?.storageKey ?? '',
                 'collectionAddress': startHandover?.needsCustomerAddress == true
                     ? address
-                    : '',
+                    : genericCollectionAddress,
                 'pickupAddress': _isBusinessDeliveryJourney ? address : '',
                 'deliveryAddress': deliveryAddress,
                 'returnAddress': returnAddress,
@@ -1791,9 +2041,9 @@ class _VanBookingLinkCustomerFormPageState
                 'businessCollectionInstructions':
                     service.businessCollectionInstructions,
                 'customerPostcode': postcode,
-                'preferredDate': _preferredDate?.toIso8601String(),
-                'preferredTimeWindow': _preferredTimeWindow,
-                'preferredIsFlexible': _preferredIsFlexible,
+                'preferredDate': preferredDateValue,
+                'preferredTimeWindow': preferredTimeWindowValue,
+                'preferredIsFlexible': preferredIsFlexibleValue,
                 'preferredTimingNote': '',
                 'additionalNotes': additionalNotes,
                 'photoFileNames': _selectedPhotos
@@ -2190,6 +2440,7 @@ class _VanBookingLinkCustomerFormPageState
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedServiceId = value;
+                                    _selectedMovementValue = null;
                                     _selectedStartHandover = null;
                                     _selectedEndHandover = null;
                                     _returnAddressSameAsCollection = false;
@@ -2229,6 +2480,18 @@ class _VanBookingLinkCustomerFormPageState
                                   color: Colors.white.withValues(alpha: 0.82),
                                   height: 1.35,
                                   fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                            if (service != null &&
+                                _priceLabelForService(service).isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _priceLabelForService(service),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w900,
                                 ),
                               ),
                             ],
@@ -2349,6 +2612,37 @@ class _VanBookingLinkCustomerFormPageState
                         ),
                       ],
                       if (service != null &&
+                          _genericMovementChoiceGroup != null &&
+                          _genericMovementChoiceGroup!.options.length > 1) ...[
+                        const SizedBox(height: 12),
+                        _GlassCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _genericMovementChoiceGroup!.heading,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              for (final option
+                                  in _genericMovementChoiceGroup!.options)
+                                _HandoverRadioTile(
+                                  label: option.label,
+                                  selected:
+                                      _effectiveMovementValue == option.value,
+                                  onTap: () => setState(
+                                    () => _selectedMovementValue = option.value,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (service != null &&
                           service.hasHandoverConfiguration) ...[
                         const SizedBox(height: 12),
                         _GlassCard(
@@ -2380,67 +2674,77 @@ class _VanBookingLinkCustomerFormPageState
                               if (service
                                   .effectiveHandover
                                   .customerChoosesStart) ...[
-const SizedBox(height: 12),
-                                 Text(
-vanIsDogService(service.starterTemplateId)
-                                       ? 'How will your dog arrive?'
-                                       : 'How would you like to begin?',
-                                   style: TextStyle(
-                                     color: Colors.white,
-                                     fontWeight: FontWeight.w900,
-                                   ),
-                                 ),
-                                 const SizedBox(height: 7),
-                                 for (final value
-                                     in service.effectiveHandover.allowedStarts)
-                                   _HandoverRadioTile(
-                                     label:
-                                         value ==
-                                             VanStartHandover.customerDropsOff
-? (vanIsDogService(service.starterTemplateId)
+                                const SizedBox(height: 12),
+                                Text(
+                                  vanIsDogService(service.starterTemplateId)
+                                      ? 'How will your dog arrive?'
+                                      : 'How would you like to begin?',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                for (final value
+                                    in service.effectiveHandover.allowedStarts)
+                                  _HandoverRadioTile(
+                                    label:
+                                        value ==
+                                            VanStartHandover.customerDropsOff
+                                        ? (vanIsDogService(
+                                                service.starterTemplateId,
+                                              )
                                               ? "I'll drop them off"
                                               : "I'll drop it off")
-                                          : (vanIsDogService(service.starterTemplateId)
+                                        : (vanIsDogService(
+                                                service.starterTemplateId,
+                                              )
                                               ? 'Please collect them'
                                               : 'Please collect it'),
-                                     selected: _effectiveStartHandover == value,
-                                     onTap: () => setState(
-                                       () => _selectedStartHandover = value,
-                                     ),
-                                   ),
+                                    selected: _effectiveStartHandover == value,
+                                    onTap: () => setState(
+                                      () => _selectedStartHandover = value,
+                                    ),
+                                  ),
                               ],
                               if (service
                                   .effectiveHandover
                                   .customerChoosesEnd) ...[
-const SizedBox(height: 12),
-                                 Text(
-                                   _effectiveEndHandover ==
-                                           VanEndHandover.businessDelivers
-                                       ? 'How should it reach the destination?'
-: (vanIsDogService(service.starterTemplateId)
+                                const SizedBox(height: 12),
+                                Text(
+                                  _effectiveEndHandover ==
+                                          VanEndHandover.businessDelivers
+                                      ? 'How should it reach the destination?'
+                                      : (vanIsDogService(
+                                              service.starterTemplateId,
+                                            )
                                             ? 'How will your dog return?'
                                             : 'How would you like it returned?'),
-                                   style: TextStyle(
-                                     color: Colors.white,
-                                     fontWeight: FontWeight.w900,
-                                   ),
-                                 ),
-                                 const SizedBox(height: 7),
-                                 for (final value
-                                     in service.effectiveHandover.allowedEnds)
-                                   _HandoverRadioTile(
-                                     label: switch (value) {
-VanEndHandover.customerCollects =>
-                                          (vanIsDogService(service.starterTemplateId)
-                                              ? "I'll collect them"
-                                              : "I'll collect it"),
-                                        VanEndHandover.businessReturns =>
-                                          (vanIsDogService(service.starterTemplateId)
-                                              ? 'Please return them'
-                                              : 'Please return it'),
-                                       VanEndHandover.businessDelivers =>
-                                         'Please deliver it',
-                                     },
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                for (final value
+                                    in service.effectiveHandover.allowedEnds)
+                                  _HandoverRadioTile(
+                                    label: switch (value) {
+                                      VanEndHandover.customerCollects =>
+                                        (vanIsDogService(
+                                              service.starterTemplateId,
+                                            )
+                                            ? "I'll collect them"
+                                            : "I'll collect it"),
+                                      VanEndHandover.businessReturns =>
+                                        (vanIsDogService(
+                                              service.starterTemplateId,
+                                            )
+                                            ? 'Please return them'
+                                            : 'Please return it'),
+                                      VanEndHandover.businessDelivers =>
+                                        'Please deliver it',
+                                    },
                                     selected: _effectiveEndHandover == value,
                                     onTap: () => setState(
                                       () => _selectedEndHandover = value,
@@ -2594,17 +2898,16 @@ VanEndHandover.customerCollects =>
                           ),
                         ),
                       ],
-                      if (service?.showsBuiltInQuestion('address') == true &&
-                          !service!.hasHandoverConfiguration) ...[
+                      if (service != null &&
+                          service.showsBuiltInQuestion('address') &&
+                          _showsGenericAddress) ...[
                         const SizedBox(height: 12),
                         _GlassCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                service.requireAddress
-                                    ? 'Address or postcode'
-                                    : 'Address or postcode (optional)',
+                                _addressHeadingForService(service),
                                 style: const TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w900,
@@ -2625,8 +2928,8 @@ VanEndHandover.customerCollects =>
                               const SizedBox(height: 12),
                               _BookingTextField(
                                 controller: _addressController,
-                                label: 'Address',
-                                hint: 'Enter address',
+                                label: _addressFieldLabelForService(service),
+                                hint: _addressHintForService(service),
                                 icon: Icons.location_on_outlined,
                                 minLines: 2,
                                 maxLines: 3,
@@ -2757,29 +3060,32 @@ VanEndHandover.customerCollects =>
                           ),
                         ),
                       ],
-                      if (service != null) ...[
+                      if (service != null &&
+                          _showsPreferredTimingSection(service)) ...[
                         const SizedBox(height: 12),
                         _GlassCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _requiresPreferredTiming
-                                    ? 'Preferred date and time'
-                                    : 'Preferred date and time (optional)',
+                                _preferredTimingHeading(service),
                                 style: const TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
                                 ),
                               ),
-                              if (service
-                                  .effectiveRequestFlowOptions
-                                  .askPreferredDate) ...[
+                              if (_showsPreferredDate(service)) ...[
                                 const SizedBox(height: 10),
                                 _BookingTextField(
                                   controller: _preferredDateController,
-                                  label: 'Preferred date',
+                                  label: _builtInQuestionLabel(
+                                    service,
+                                    'preferred_date',
+                                    _isPreOrder
+                                        ? 'Collection Date'
+                                        : 'Preferred date',
+                                  ),
                                   hint: 'Choose a preferred date',
                                   icon: Icons.event_outlined,
                                   readOnly: true,
@@ -2787,73 +3093,148 @@ VanEndHandover.customerCollects =>
                                   autofillHints: const <String>[],
                                   textInputAction: TextInputAction.next,
                                 ),
-                              ],
-                              if (service
-                                  .effectiveRequestFlowOptions
-                                  .askPreferredTime) ...[
-                                const SizedBox(height: 10),
-                                DropdownButtonFormField<String>(
-                                  initialValue: _preferredTimeWindow,
-                                  isExpanded: true,
-                                  decoration: vanMateFieldDecoration(
-                                    label: 'Preferred time window',
-                                    hintText: 'Choose a preferred time',
-                                    labelOpacity: 0.68,
-                                    hintOpacity: 0.48,
+                                if (service
+                                    .builtInQuestionHelper('preferred_date')
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    service.builtInQuestionHelper(
+                                      'preferred_date',
+                                    ),
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.62,
+                                      ),
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                    ),
                                   ),
-                                  style: kVanMateFieldTextStyle,
-                                  dropdownColor: const Color(0xFF13233A),
-                                  iconEnabledColor: Colors.white,
-                                  items:
-                                      const <String>[
-                                            'morning',
-                                            'afternoon',
-                                            'evening',
-                                            'anytime',
-                                          ]
-                                          .map((value) {
-                                            return DropdownMenuItem<String>(
-                                              value: value,
-                                              child: Text(
-                                                _preferredTimeWindowLabel(
-                                                  value,
+                                ],
+                              ],
+                              if (_showsPreferredTime(service)) ...[
+                                const SizedBox(height: 10),
+                                if (_isPreOrder)
+                                  _BookingTextField(
+                                    controller: _preferredTimeController,
+                                    label: _builtInQuestionLabel(
+                                      service,
+                                      'preferred_time',
+                                      'Collection Time',
+                                    ),
+                                    hint: 'Choose a collection time',
+                                    icon: Icons.access_time_outlined,
+                                    readOnly: true,
+                                    onTap: _pickPreferredTime,
+                                    autofillHints: const <String>[],
+                                    textInputAction: TextInputAction.next,
+                                  )
+                                else
+                                  DropdownButtonFormField<String>(
+                                    initialValue: _preferredTimeWindow,
+                                    isExpanded: true,
+                                    decoration: vanMateFieldDecoration(
+                                      label: _builtInQuestionLabel(
+                                        service,
+                                        'preferred_time',
+                                        'Preferred time window',
+                                      ),
+                                      hintText: 'Choose a preferred time',
+                                      labelOpacity: 0.68,
+                                      hintOpacity: 0.48,
+                                    ),
+                                    style: kVanMateFieldTextStyle,
+                                    dropdownColor: const Color(0xFF13233A),
+                                    iconEnabledColor: Colors.white,
+                                    items:
+                                        const <String>[
+                                              'morning',
+                                              'afternoon',
+                                              'evening',
+                                              'anytime',
+                                            ]
+                                            .map((value) {
+                                              return DropdownMenuItem<String>(
+                                                value: value,
+                                                child: Text(
+                                                  _preferredTimeWindowLabel(
+                                                    value,
+                                                  ),
                                                 ),
-                                              ),
-                                            );
-                                          })
-                                          .toList(growable: false),
-                                  onChanged: (value) {
+                                              );
+                                            })
+                                            .toList(growable: false),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _preferredTimeWindow =
+                                            value?.trim().toLowerCase() ??
+                                            'anytime';
+                                      });
+                                    },
+                                  ),
+                                if (service
+                                    .builtInQuestionHelper('preferred_time')
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    service.builtInQuestionHelper(
+                                      'preferred_time',
+                                    ),
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.62,
+                                      ),
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                              if (_showsFlexibleTiming(service)) ...[
+                                const SizedBox(height: 8),
+                                CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  value: _preferredIsFlexible,
+                                  activeColor: const Color(0xFF58D0A4),
+                                  side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.42),
+                                  ),
+                                  title: Text(
+                                    _builtInQuestionLabel(
+                                      service,
+                                      'flexible_timing',
+                                      'Timing is flexible',
+                                    ),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  onChanged: (next) {
                                     setState(() {
-                                      _preferredTimeWindow =
-                                          value?.trim().toLowerCase() ??
-                                          'anytime';
+                                      _preferredIsFlexible = next ?? false;
                                     });
                                   },
                                 ),
-                              ],
-                              const SizedBox(height: 8),
-                              CheckboxListTile(
-                                contentPadding: EdgeInsets.zero,
-                                value: _preferredIsFlexible,
-                                activeColor: const Color(0xFF58D0A4),
-                                side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.42),
-                                ),
-                                title: const Text(
-                                  'Timing is flexible',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
+                                if (service
+                                    .builtInQuestionHelper('flexible_timing')
+                                    .isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    service.builtInQuestionHelper(
+                                      'flexible_timing',
+                                    ),
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.62,
+                                      ),
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                    ),
                                   ),
-                                ),
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                onChanged: (next) {
-                                  setState(() {
-                                    _preferredIsFlexible = next ?? false;
-                                  });
-                                },
-                              ),
+                                ],
+                              ],
                               if (_preferredTimingValidationMessage !=
                                   null) ...[
                                 const SizedBox(height: 6),

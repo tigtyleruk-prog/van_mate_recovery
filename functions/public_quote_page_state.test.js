@@ -52,6 +52,7 @@ const helperNames = [
   'quoteDisplayFingerprint',
   'customerJourneyType',
   'quoteResponseCopy',
+  'journeyStatusCopy',
   'quoteNeedsCustomerLocation',
   'quoteNeedsExactPin',
   'quoteContactNoun',
@@ -160,6 +161,34 @@ test('drop-off/pick-up flows request a pin only when configured', () => {
   );
   assert.match(pageSource, /dropOffDate: asDate\(data\.dropOffDate\)/);
   assert.match(pageSource, /pickUpDate: asDate\(data\.pickUpDate\)/);
+});
+
+test('hosted response copy uses journey-specific document wording', () => {
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(context.quoteResponseCopy({
+      customerJourneyType: 'preOrder',
+    }))),
+    {
+      helper: 'Use the buttons below to confirm your choice.',
+      accept: 'Accept Pre Order',
+      arrange: 'Accept Pre Order – arrange another time',
+      decline: 'Decline Pre Order',
+    },
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(context.quoteResponseCopy({
+      customerJourneyType: 'order',
+    }))),
+    {
+      helper: 'Use the buttons below to confirm your choice.',
+      accept: 'Accept order request',
+      arrange: 'Accept order request – arrange another time',
+      decline: 'Decline order request',
+    },
+  );
+  assert.equal(context.journeyStatusCopy({
+    customerJourneyType: 'preOrder',
+  }).ready, 'Order Summary ready');
 });
 
 test('Courier delivery quotes use collect-and-deliver labels and addresses', () => {

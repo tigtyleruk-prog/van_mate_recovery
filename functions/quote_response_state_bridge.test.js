@@ -27,6 +27,30 @@ test('collection Order Requests suppress exact pin after quote acceptance', () =
     __test__.shouldRequireExactPinAfterQuoteAccepted({
       configured: true,
       requestType: 'orderRequest',
+      fulfilmentType: 'localDelivery',
+    }),
+    true,
+  );
+  assert.equal(
+    __test__.shouldRequireExactPinAfterQuoteAccepted({
+      configured: true,
+      requestType: 'orderRequest',
+      fulfilmentType: 'nationwideDelivery',
+    }),
+    true,
+  );
+  assert.equal(
+    __test__.shouldRequireExactPinAfterQuoteAccepted({
+      configured: true,
+      requestType: 'orderRequest',
+      fulfilmentType: 'businessVisit',
+    }),
+    true,
+  );
+  assert.equal(
+    __test__.shouldRequireExactPinAfterQuoteAccepted({
+      configured: true,
+      requestType: 'orderRequest',
       fulfilmentType: '',
     }),
     true,

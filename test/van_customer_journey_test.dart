@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:van_mate_app/features/van_mate/helpers/van_customer_journey_theme.dart';
 import 'package:van_mate_app/features/van_mate/models/van_customer_journey.dart';
+import 'package:van_mate_app/features/van_mate/models/van_job_request_record.dart';
 import 'package:van_mate_app/features/van_mate/models/van_customer_request_flow.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.dart';
@@ -18,13 +19,20 @@ void main() {
     );
   });
 
-  test('journey copy and theme are centralized for all three types', () {
+  test('journey copy and theme are centralized for all customer journeys', () {
     expect(VanCustomerJourneyType.quote.copy.submitAction, 'Request quote');
     expect(
       VanCustomerJourneyType.booking.copy.businessAction,
       'Confirm booking',
     );
-    expect(VanCustomerJourneyType.order.copy.receivedHeading, 'Order received');
+    expect(
+      VanCustomerJourneyType.order.copy.receivedHeading,
+      'Order request received',
+    );
+    expect(
+      VanCustomerJourneyType.preOrder.copy.receivedHeading,
+      'Pre Order received',
+    );
     expect(
       VanCustomerJourneyType.quote.journeyTheme.accent,
       isNot(VanCustomerJourneyType.booking.journeyTheme.accent),
@@ -33,7 +41,36 @@ void main() {
       VanCustomerJourneyType.booking.journeyTheme.accent,
       isNot(VanCustomerJourneyType.order.journeyTheme.accent),
     );
+    expect(
+      VanCustomerJourneyType.preOrder.journeyTheme.accent,
+      isNot(VanCustomerJourneyType.order.journeyTheme.accent),
+    );
   });
+
+  test(
+    'pre orders use Order Summary wording while quotes keep quote wording',
+    () {
+      final preOrderMessage = buildVanQuoteMessage(
+        customerName: 'Sam',
+        jobTitle: 'Cupcakes',
+        quoteAmountText: 'GBP 24.00',
+        quoteResponseLink: 'https://example.com/quote/pre-order',
+        customerJourneyType: 'preOrder',
+      );
+      final quoteMessage = buildVanQuoteMessage(
+        customerName: 'Sam',
+        jobTitle: 'Bathroom work',
+        quoteAmountText: 'GBP 240.00',
+        quoteResponseLink: 'https://example.com/quote/quote',
+      );
+
+      expect(preOrderMessage, contains("Here's your Order Summary"));
+      expect(preOrderMessage, contains('Order total: GBP 24.00'));
+      expect(preOrderMessage, isNot(contains('Quote:')));
+      expect(quoteMessage, contains("Here's your quote"));
+      expect(quoteMessage, contains('Quote: GBP 240.00'));
+    },
+  );
 
   test('service JSON persists journey independently from request type', () {
     final now = DateTime(2026, 7, 18);
@@ -141,7 +178,10 @@ void main() {
     );
     expect(grooming.effectiveRequestFlowOptions.showDropOffDate, isTrue);
     expect(grooming.effectiveRequestFlowOptions.showPickupAddress, isFalse);
-    expect(cake.customerJourneyType.copy.receivedHeading, 'Order received');
+    expect(
+      cake.customerJourneyType.copy.receivedHeading,
+      'Order request received',
+    );
     expect(cake.effectiveRequestFlowOptions.showFulfilmentChoice, isFalse);
   });
 

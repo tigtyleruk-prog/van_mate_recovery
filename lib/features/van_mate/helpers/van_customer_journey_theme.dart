@@ -17,6 +17,10 @@ class VanCustomerJourneyTheme {
     accent: Color(0xFFFFA24C),
     icon: Icons.inventory_2_outlined,
   );
+  static const preOrder = VanCustomerJourneyTheme(
+    accent: Color(0xFF58D0A4),
+    icon: Icons.shopping_basket_outlined,
+  );
 
   final Color accent;
   final IconData icon;
@@ -30,5 +34,6 @@ extension VanCustomerJourneyThemeX on VanCustomerJourneyType {
     VanCustomerJourneyType.quote => VanCustomerJourneyTheme.quote,
     VanCustomerJourneyType.booking => VanCustomerJourneyTheme.booking,
     VanCustomerJourneyType.order => VanCustomerJourneyTheme.order,
+    VanCustomerJourneyType.preOrder => VanCustomerJourneyTheme.preOrder,
   };
 }

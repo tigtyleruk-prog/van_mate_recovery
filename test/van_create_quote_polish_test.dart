@@ -8,7 +8,10 @@ import 'package:van_mate_app/features/van_mate/pages/driver_customer_reply_mock_
 import 'package:van_mate_app/features/van_mate/services/van_job_services_storage.dart';
 import 'package:van_mate_app/features/van_mate/services/van_quote_extra_defaults_storage.dart';
 
-DriverCustomerReplyMockData _reply({String jobId = 'create-quote-polish'}) {
+DriverCustomerReplyMockData _reply({
+  String jobId = 'create-quote-polish',
+  String customerJourneyType = 'quote',
+}) {
   return DriverCustomerReplyMockData(
     jobId: jobId,
     customerName: 'Alex',
@@ -23,6 +26,7 @@ DriverCustomerReplyMockData _reply({String jobId = 'create-quote-polish'}) {
     customQuestionResponses: const <DriverCustomQuestionResponse>[],
     additionalNotes: '',
     hasReply: true,
+    customerJourneyType: customerJourneyType,
   );
 }
 
@@ -145,6 +149,45 @@ void main() {
     await tester.pump();
 
     expect(_amountText(tester), isEmpty);
+  });
+
+  testWidgets('Create Quote uses Order Summary wording for Pre Orders', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CreateQuotePage(
+          reply: _reply(
+            jobId: 'pre-order-response-wording',
+            customerJourneyType: 'preOrder',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.widgetWithText(TextField, 'Order total'), findsOneWidget);
+    expect(find.text('Order Summary details'), findsOneWidget);
+    expect(
+      find.text('Review the customer request and send an order summary.'),
+      findsOneWidget,
+    );
+
+    await tester.enterText(find.widgetWithText(TextField, 'Order total'), '24');
+    await tester.pump();
+
+    await tester.scrollUntilVisible(
+      find.text('Message preview'),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Message preview'));
+    await tester.pump();
+
+    expect(find.textContaining("Here's your Order Summary"), findsOneWidget);
+    expect(find.textContaining('Order total: £24.00'), findsOneWidget);
+    expect(find.textContaining('Quote: £24.00'), findsNothing);
+    expect(find.text('Order Summary response link ready'), findsOneWidget);
   });
 
   testWidgets('Create Quote refreshes saved custom extras while mounted', (

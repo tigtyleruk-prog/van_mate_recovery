@@ -9,34 +9,44 @@ import 'package:van_mate_app/features/van_mate/models/van_service_template.dart'
 import 'package:van_mate_app/features/van_mate/models/van_starter_capability_pack.dart';
 
 void main() {
-  test('Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services, Handyman, Window Cleaning, Photography and Bakery packs', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(9));
-    expect(kVanStarterCapabilityPacks, hasLength(9));
-    expect(kVanServiceTemplateCategories, isEmpty);
-    expect(findVanStarterCapabilityPackById('courier'), isNotNull);
-    expect(
-      findVanStarterCapabilityPackById('removals_man_with_van'),
-      isNotNull,
-    );
-    expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
-    expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
-    expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
-    expect(findVanStarterCapabilityPackById('handyman'), isNotNull);
-    expect(findVanStarterCapabilityPackById('window_cleaning'), isNotNull);
-    expect(findVanStarterCapabilityPackById('courier_business'), isNull);
-    expect(findVanServiceTemplateById('courier'), isNull);
-    expect(searchVanStarterCapabilityPacks('courier'), hasLength(1));
+  test(
+    'Courier and Removals remain installed beside the Cleaning, Gardening, Pet Services, Handyman, Window Cleaning, Photography, Bakery, Valeting and Food Van packs',
+    () {
+      expect(kVanBusinessTemplateLibrary, hasLength(11));
+      expect(kVanStarterCapabilityPacks, hasLength(11));
+      expect(kVanServiceTemplateCategories, isEmpty);
+      expect(findVanStarterCapabilityPackById('courier'), isNotNull);
+      expect(
+        findVanStarterCapabilityPackById('removals_man_with_van'),
+        isNotNull,
+      );
+      expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
+      expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
+      expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
+      expect(findVanStarterCapabilityPackById('handyman'), isNotNull);
+      expect(findVanStarterCapabilityPackById('window_cleaning'), isNotNull);
+      expect(findVanStarterCapabilityPackById('photography'), isNotNull);
+      expect(findVanStarterCapabilityPackById('bakery'), isNotNull);
+      expect(
+        findVanStarterCapabilityPackById('mobile_car_valeting'),
+        isNotNull,
+      );
+      expect(findVanStarterCapabilityPackById('mobile_food_van'), isNotNull);
+      expect(findVanStarterCapabilityPackById('courier_business'), isNull);
+      expect(findVanServiceTemplateById('courier'), isNull);
+      expect(searchVanStarterCapabilityPacks('courier'), hasLength(1));
 
-    final definition = kVanBusinessTemplateLibrary.singleWhere(
-      (item) => item.businessTypeId == 'courier',
-    );
-    expect(definition.categoryId, 'transport_delivery');
-    expect(definition.businessTypeId, 'courier');
-    expect(definition.services.map((service) => service.serviceId), <String>[
-      'courier_same_day_delivery',
-      'courier_scheduled_delivery',
-    ]);
-  });
+      final definition = kVanBusinessTemplateLibrary.singleWhere(
+        (item) => item.businessTypeId == 'courier',
+      );
+      expect(definition.categoryId, 'transport_delivery');
+      expect(definition.businessTypeId, 'courier');
+      expect(definition.services.map((service) => service.serviceId), <String>[
+        'courier_same_day_delivery',
+        'courier_scheduled_delivery',
+      ]);
+    },
+  );
 
   test('central template schema requires explicit service behaviour', () {
     const service = VanBusinessServiceTemplateDefinition(
@@ -803,9 +813,13 @@ void main() {
       'preferred time',
     };
 
-    expect(questions.map((question) => question.libraryId).toSet(), hasLength(37));
     expect(
-      questions.map((question) => question.text.trim().toLowerCase())
+      questions.map((question) => question.libraryId).toSet(),
+      hasLength(37),
+    );
+    expect(
+      questions
+          .map((question) => question.text.trim().toLowerCase())
           .toSet()
           .intersection(forbiddenCustomPrompts),
       isEmpty,
@@ -845,7 +859,8 @@ void main() {
     expect(
       maintenance.questions
           .singleWhere(
-            (question) => question.libraryId == 'gardening_maintenance_frequency',
+            (question) =>
+                question.libraryId == 'gardening_maintenance_frequency',
           )
           .helperText,
       contains('does not automatically create recurring bookings'),
@@ -853,7 +868,8 @@ void main() {
     expect(
       maintenance.questions
           .singleWhere(
-            (question) => question.libraryId == 'gardening_maintenance_access_issues',
+            (question) =>
+                question.libraryId == 'gardening_maintenance_access_issues',
           )
           .helperText,
       contains('Do not provide door, alarm or key-safe codes'),
@@ -869,7 +885,8 @@ void main() {
     expect(
       hedge.questions
           .singleWhere(
-            (question) => question.libraryId == 'gardening_hedge_parking_access',
+            (question) =>
+                question.libraryId == 'gardening_hedge_parking_access',
           )
           .helperText,
       contains('Do not provide door, alarm or key-safe codes'),
@@ -877,7 +894,9 @@ void main() {
     expect(
       clearance.questions
           .singleWhere(
-            (question) => question.libraryId == 'gardening_clearance_restricted_materials_details',
+            (question) =>
+                question.libraryId ==
+                'gardening_clearance_restricted_materials_details',
           )
           .helperText,
       contains('The business must confirm accepted waste'),
@@ -885,7 +904,8 @@ void main() {
     expect(
       clearance.questions
           .singleWhere(
-            (question) => question.libraryId == 'gardening_clearance_parking_access',
+            (question) =>
+                question.libraryId == 'gardening_clearance_parking_access',
           )
           .helperText,
       contains('Do not provide door, alarm or key-safe codes'),
@@ -925,41 +945,549 @@ void main() {
     }
   });
 
-  test('Window Cleaning pack has stable identity, aliases and four services', () {
+  test(
+    'Window Cleaning pack has stable identity, aliases and four services',
+    () {
+      final definition = kVanBusinessTemplateLibrary.singleWhere(
+        (item) => item.businessTypeId == 'window_cleaning',
+      );
+
+      expect(definition.categoryId, 'window_cleaning');
+      expect(definition.categoryName, 'Window Cleaning');
+      expect(definition.businessTypeName, 'Window Cleaning');
+      expect(definition.iconKey, 'home');
+      expect(definition.colorValue, 0xFF29B6F4);
+      expect(definition.featured, isTrue);
+      expect(
+        definition.searchAliases.map((alias) => alias.label),
+        containsAll(<String>[
+          'Window cleaner',
+          'Domestic window cleaner',
+          'Shopfront cleaner',
+          'Commercial window cleaner',
+          'Conservatory cleaning',
+          'One-off window cleaning',
+        ]),
+      );
+      expect(definition.services.map((service) => service.serviceId), <String>[
+        'window_cleaning_domestic',
+        'window_cleaning_commercial',
+        'window_cleaning_conservatory',
+        'window_cleaning_one_off',
+      ]);
+    },
+  );
+
+  test(
+    'All Window Cleaning services use one-address standard quote journeys',
+    () {
+      final services = kVanBusinessTemplateLibrary
+          .singleWhere(
+            (definition) => definition.businessTypeId == 'window_cleaning',
+          )
+          .services;
+
+      for (final service in services) {
+        expect(service.customerJourney, VanCustomerJourneyType.quote);
+        expect(service.requestType, VanCustomerRequestType.quoteRequest);
+        expect(service.startHandover, isNull);
+        expect(service.endHandover, isNull);
+        expect(service.requireAddress, isTrue);
+        expect(service.requestPhotos, isTrue);
+        expect(service.requestFlowOptions.askPreferredDate, isTrue);
+        expect(service.requestFlowOptions.askPreferredTime, isTrue);
+        expect(service.requestFlowOptions.showPickupAddress, isFalse);
+        expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+        expect(service.requestFlowOptions.showDropOffDate, isFalse);
+        expect(service.requestFlowOptions.showDropOffTime, isFalse);
+        expect(service.requestFlowOptions.showPickUpDate, isFalse);
+        expect(service.requestFlowOptions.showPickUpTime, isFalse);
+        expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+        expect(service.requestFlowOptions.showNotes, isFalse);
+        expect(
+          service.builtInQuestionKeys,
+          containsAll(<String>[
+            'address',
+            'phone',
+            'email',
+            'preferred_date',
+            'preferred_time',
+            'photos',
+          ]),
+        );
+        for (final key in <String>[
+          'address',
+          'preferred_date',
+          'preferred_time',
+          'phone',
+        ]) {
+          expect(
+            service.builtInQuestionSettings[key]?['required'],
+            isTrue,
+            reason: '${service.serviceId} should require $key',
+          );
+        }
+        expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+        expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+      }
+    },
+  );
+
+  test(
+    'Window Cleaning questions and extras are explicit, unique and safe',
+    () {
+      final services = kVanBusinessTemplateLibrary
+          .singleWhere(
+            (definition) => definition.businessTypeId == 'window_cleaning',
+          )
+          .services;
+      final questions = services
+          .expand((service) => service.questions)
+          .toList(growable: false);
+      final extras = services
+          .expand((service) => service.extras)
+          .toList(growable: false);
+
+      expect(
+        questions.map((question) => question.libraryId).toSet(),
+        hasLength(38),
+      );
+      expect(questions, hasLength(38));
+      expect(
+        questions.every(
+          (question) =>
+              VanCustomQuestionAnswerType.values.contains(question.answerType),
+        ),
+        isTrue,
+      );
+      expect(extras.map((extra) => extra.key).toSet(), hasLength(20));
+      expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
+      expect(
+        extras.every((extra) => extra.defaultChargeUnit == 'Fixed'),
+        isTrue,
+      );
+      expect(
+        extras.every(
+          (extra) =>
+              !RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
+        ),
+        isTrue,
+      );
+
+      final domestic = services.singleWhere(
+        (service) => service.serviceId == 'window_cleaning_domestic',
+      );
+      final commercial = services.singleWhere(
+        (service) => service.serviceId == 'window_cleaning_commercial',
+      );
+      final conservatory = services.singleWhere(
+        (service) => service.serviceId == 'window_cleaning_conservatory',
+      );
+      final oneOff = services.singleWhere(
+        (service) => service.serviceId == 'window_cleaning_one_off',
+      );
+
+      expect(domestic.questions, hasLength(9));
+      expect(commercial.questions, hasLength(10));
+      expect(conservatory.questions, hasLength(9));
+      expect(oneOff.questions, hasLength(10));
+      expect(domestic.extras, hasLength(5));
+      expect(commercial.extras, hasLength(5));
+      expect(conservatory.extras, hasLength(5));
+      expect(oneOff.extras, hasLength(5));
+
+      expect(
+        domestic.questions
+            .singleWhere(
+              (question) =>
+                  question.libraryId == 'window_cleaning_domestic_condition',
+            )
+            .helperText,
+        contains('may not be removable'),
+      );
+      expect(
+        commercial.questions
+            .singleWhere(
+              (question) =>
+                  question.libraryId == 'window_cleaning_commercial_condition',
+            )
+            .helperText,
+        contains('not guaranteed'),
+      );
+      expect(
+        commercial.questions
+            .singleWhere(
+              (question) =>
+                  question.libraryId == 'window_cleaning_commercial_height',
+            )
+            .helperText,
+        contains('suitable equipment and safe access'),
+      );
+      expect(
+        domestic.featureIds.contains(VanServiceCapabilityIds.recurring),
+        isFalse,
+      );
+      expect(
+        commercial.featureIds.contains(VanServiceCapabilityIds.recurring),
+        isFalse,
+      );
+      expect(
+        conservatory.featureIds.contains(VanServiceCapabilityIds.recurring),
+        isFalse,
+      );
+      expect(
+        oneOff.featureIds.contains(VanServiceCapabilityIds.recurring),
+        isFalse,
+      );
+      expect(
+        domestic.questions
+            .singleWhere(
+              (question) =>
+                  question.libraryId == 'window_cleaning_domestic_frequency',
+            )
+            .helperText,
+        contains('does not automatically create recurring bookings'),
+      );
+      expect(
+        commercial.questions
+            .singleWhere(
+              (question) =>
+                  question.libraryId == 'window_cleaning_commercial_frequency',
+            )
+            .helperText,
+        contains('does not automatically create recurring bookings'),
+      );
+      expect(
+        conservatory.questions
+            .singleWhere(
+              (question) =>
+                  question.libraryId ==
+                  'window_cleaning_conservatory_frequency',
+            )
+            .helperText,
+        contains('does not automatically create recurring bookings'),
+      );
+      expect(
+        oneOff.questions.any(
+          (question) =>
+              question.libraryId == 'window_cleaning_one_off_frequency',
+        ),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'Window Cleaning defaults preserve duration, notice, limits and schedule',
+    () {
+      final services = kVanBusinessTemplateLibrary
+          .singleWhere(
+            (definition) => definition.businessTypeId == 'window_cleaning',
+          )
+          .services;
+      final expected = <String, (int, int, int, List<int>)>{
+        'window_cleaning_domestic': (90, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
+        'window_cleaning_commercial': (180, 24, 3, <int>[1, 2, 3, 4, 5, 6]),
+        'window_cleaning_conservatory': (180, 48, 2, <int>[1, 2, 3, 4, 5, 6]),
+        'window_cleaning_one_off': (90, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
+      };
+
+      for (final service in services) {
+        final defaults = expected[service.serviceId]!;
+        expect(service.suggestedDurationMinutes, defaults.$1);
+        expect(service.suggestedNoticeHours, defaults.$2);
+        expect(service.maximumBookingsPerDay, defaults.$3);
+        expect(service.availability.map((day) => day.day), defaults.$4);
+        if (service.serviceId == 'window_cleaning_commercial') {
+          expect(
+            service.availability.every(
+              (day) => day.startMinutes == 420 && day.endMinutes == 1140,
+            ),
+            isTrue,
+          );
+        } else {
+          expect(
+            service.availability.every(
+              (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+            ),
+            isTrue,
+          );
+        }
+      }
+    },
+  );
+
+  test('Dog Day Care has stable identity, 10 questions and 5 extras', () {
     final definition = kVanBusinessTemplateLibrary.singleWhere(
-      (item) => item.businessTypeId == 'window_cleaning',
+      (item) => item.businessTypeId == 'pet_services',
+    );
+    final dayCare = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_day_care',
     );
 
-    expect(definition.categoryId, 'window_cleaning');
-    expect(definition.categoryName, 'Window Cleaning');
-    expect(definition.businessTypeName, 'Window Cleaning');
+    expect(dayCare.serviceId, 'pet_services_dog_day_care');
+    expect(dayCare.name, 'Dog Day Care');
+    expect(dayCare.customerJourney, VanCustomerJourneyType.quote);
+    expect(dayCare.requestType, VanCustomerRequestType.dropOffPickupRequest);
+    expect(dayCare.startHandover, VanStartHandover.customerDropsOff);
+    expect(dayCare.endHandover, VanEndHandover.customerCollects);
+    expect(dayCare.questions, hasLength(10));
+    expect(dayCare.extras, hasLength(5));
+    expect(dayCare.suggestedDurationMinutes, 480);
+    expect(dayCare.suggestedNoticeHours, 48);
+    expect(dayCare.maximumBookingsPerDay, 4);
+    expect(dayCare.requestPhotos, isTrue);
+    expect(dayCare.requireAddress, isFalse);
+    expect(dayCare.requestFlowOptions.showNotes, isFalse);
+    expect(dayCare.availability.map((day) => day.day), <int>[1, 2, 3, 4, 5]);
+    expect(
+      dayCare.availability.every(
+        (day) => day.startMinutes == 420 && day.endMinutes == 1080,
+      ),
+      isTrue,
+    );
+  });
+
+  test('Dog Day Care question and extra IDs are unique', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'pet_services',
+    );
+    final dayCare = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_day_care',
+    );
+
+    expect(dayCare.questions.map((q) => q.libraryId).toSet(), hasLength(10));
+    expect(
+      dayCare.questions.map((q) => q.libraryId).toSet(),
+      containsAll(<String>[
+        'pet_services_dog_day_care_dog_details',
+        'pet_services_dog_day_care_previous_attendance',
+        'pet_services_dog_day_care_vaccination_records',
+        'pet_services_dog_day_care_social_behaviour',
+        'pet_services_dog_day_care_behaviour_concerns',
+        'pet_services_dog_day_care_feeding',
+        'pet_services_dog_day_care_health',
+        'pet_services_dog_day_care_health_details',
+        'pet_services_dog_day_care_rest_routine',
+        'pet_services_dog_day_care_items',
+      ]),
+    );
+    expect(dayCare.extras.map((e) => e.key).toSet(), hasLength(5));
+    expect(
+      dayCare.extras.map((e) => e.key).toSet(),
+      containsAll(<String>[
+        'custom_extra_pet_services_dog_day_care_additional_dog',
+        'custom_extra_pet_services_dog_day_care_extended_care_hour',
+        'custom_extra_pet_services_dog_day_care_meal_preparation',
+        'custom_extra_pet_services_dog_day_care_medication_support',
+        'custom_extra_pet_services_dog_day_care_weekend_holiday',
+      ]),
+    );
+  });
+
+  test('Dog Day Care uses customer drop-off and collection', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'pet_services',
+    );
+    final dayCare = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_day_care',
+    );
+
+    expect(dayCare.startHandover, VanStartHandover.customerDropsOff);
+    expect(dayCare.endHandover, VanEndHandover.customerCollects);
+    expect(dayCare.requestFlowOptions.showDropOffDate, isTrue);
+    expect(dayCare.requestFlowOptions.showDropOffTime, isTrue);
+    expect(dayCare.requestFlowOptions.showPickUpDate, isTrue);
+    expect(dayCare.requestFlowOptions.showPickUpTime, isTrue);
+    expect(dayCare.requestFlowOptions.askPreferredDate, isFalse);
+    expect(dayCare.requestFlowOptions.askPreferredTime, isFalse);
+    expect(dayCare.requestFlowOptions.showNotes, isFalse);
+  });
+
+  test('Dog Boarding has stable identity, 14 questions and 5 extras', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'pet_services',
+    );
+    final boarding = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_boarding',
+    );
+
+    expect(boarding.serviceId, 'pet_services_dog_boarding');
+    expect(boarding.name, 'Dog Boarding');
+    expect(boarding.customerJourney, VanCustomerJourneyType.quote);
+    expect(boarding.requestType, VanCustomerRequestType.dropOffPickupRequest);
+    expect(boarding.startHandover, VanStartHandover.customerDropsOff);
+    expect(boarding.endHandover, VanEndHandover.customerCollects);
+    expect(boarding.questions, hasLength(14));
+    expect(boarding.extras, hasLength(5));
+    expect(boarding.suggestedNoticeHours, 72);
+    expect(boarding.maximumBookingsPerDay, 3);
+    expect(boarding.requestPhotos, isTrue);
+    expect(boarding.requireAddress, isFalse);
+    expect(boarding.requestFlowOptions.showNotes, isFalse);
+    expect(boarding.availability.map((day) => day.day), <int>[
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+    ]);
+    expect(
+      boarding.availability.every(
+        (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+      ),
+      isTrue,
+    );
+  });
+
+  test('Dog Boarding question and extra IDs are unique', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'pet_services',
+    );
+    final boarding = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_boarding',
+    );
+
+    expect(boarding.questions.map((q) => q.libraryId).toSet(), hasLength(14));
+    expect(
+      boarding.questions.map((q) => q.libraryId).toSet(),
+      containsAll(<String>[
+        'pet_services_dog_boarding_dog_count',
+        'pet_services_dog_boarding_dog_details',
+        'pet_services_dog_boarding_previous_stay',
+        'pet_services_dog_boarding_vaccination_records',
+        'pet_services_dog_boarding_social_behaviour',
+        'pet_services_dog_boarding_feeding_routine',
+        'pet_services_dog_boarding_sleeping_routine',
+        'pet_services_dog_boarding_exercise_toilet',
+        'pet_services_dog_boarding_behaviour_concerns',
+        'pet_services_dog_boarding_health',
+        'pet_services_dog_boarding_health_details',
+        'pet_services_dog_boarding_items',
+        'pet_services_dog_boarding_emergency_contact',
+        'pet_services_dog_boarding_safe_care_info',
+      ]),
+    );
+    expect(boarding.extras.map((e) => e.key).toSet(), hasLength(5));
+    expect(
+      boarding.extras.map((e) => e.key).toSet(),
+      containsAll(<String>[
+        'custom_extra_pet_services_dog_boarding_additional_dog',
+        'custom_extra_pet_services_dog_boarding_additional_night',
+        'custom_extra_pet_services_dog_boarding_special_feeding',
+        'custom_extra_pet_services_dog_boarding_medication_support',
+        'custom_extra_pet_services_dog_boarding_weekend_holiday',
+      ]),
+    );
+  });
+
+  test('Boarding supports separate arrival and collection dates', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'pet_services',
+    );
+    final boarding = definition.services.singleWhere(
+      (service) => service.serviceId == 'pet_services_dog_boarding',
+    );
+
+    expect(boarding.startHandover, VanStartHandover.customerDropsOff);
+    expect(boarding.endHandover, VanEndHandover.customerCollects);
+    expect(boarding.requestFlowOptions.showDropOffDate, isTrue);
+    expect(boarding.requestFlowOptions.showDropOffTime, isTrue);
+    expect(boarding.requestFlowOptions.showPickUpDate, isTrue);
+    expect(boarding.requestFlowOptions.showPickUpTime, isTrue);
+    expect(boarding.requestFlowOptions.showNotes, isFalse);
+  });
+
+  test('Dog Day Care and Boarding do not create recurring jobs', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'pet_services',
+    );
+
+    for (final service in definition.services) {
+      expect(
+        service.featureIds.contains(VanServiceCapabilityIds.recurring),
+        isFalse,
+      );
+    }
+  });
+
+  test('All pet services photos are optional and notes are disabled', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'pet_services',
+    );
+
+    for (final service in definition.services) {
+      expect(service.requestPhotos, isTrue);
+      expect(service.requestFlowOptions.showNotes, isFalse);
+      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+      expect(service.extras.map((e) => e.label), isNot(contains('Free')));
+      expect(service.extras.every((e) => e.defaultPrice == 0), isTrue);
+      expect(
+        service.extras.every((e) => e.defaultChargeUnit == 'Fixed'),
+        isTrue,
+      );
+    }
+  });
+
+  test('All Pet Services extra keys are globally unique', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'pet_services',
+    );
+    final allExtras = definition.services
+        .expand((service) => service.extras)
+        .toList(growable: false);
+    expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
+  });
+
+  test('Handyman pack has stable identity, aliases and four services', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'handyman',
+    );
+
+    expect(definition.categoryId, 'handyman');
+    expect(definition.categoryName, 'Handyman & General Services');
+    expect(definition.businessTypeName, 'Handyman & General Services');
     expect(definition.iconKey, 'home');
-    expect(definition.colorValue, 0xFF29B6F4);
+    expect(definition.colorValue, 0xFFFFC107);
     expect(definition.featured, isTrue);
+    expect(
+      definition.searchKeywords,
+      containsAll(<String>[
+        'handyman',
+        'general handyman',
+        'odd jobs',
+        'household jobs',
+        'small repairs',
+        'furniture assembly',
+        'flat-pack assembly',
+        'wall mounting',
+        'shelf fitting',
+      ]),
+    );
     expect(
       definition.searchAliases.map((alias) => alias.label),
       containsAll(<String>[
-        'Window cleaner',
-        'Domestic window cleaner',
-        'Shopfront cleaner',
-        'Commercial window cleaner',
-        'Conservatory cleaning',
-        'One-off window cleaning',
+        'Handyman',
+        'General Handyman',
+        'Odd Jobs',
+        'Small Repairs',
+        'Household Fixes',
+        'Flat-Pack Assembly',
       ]),
     );
     expect(definition.services.map((service) => service.serviceId), <String>[
-      'window_cleaning_domestic',
-      'window_cleaning_commercial',
-      'window_cleaning_conservatory',
-      'window_cleaning_one_off',
+      'handyman_general_visit',
+      'handyman_flat_pack_assembly',
+      'handyman_wall_mounting',
+      'handyman_minor_home_repairs',
     ]);
   });
 
-  test('All Window Cleaning services use one-address standard quote journeys', () {
+  test('All Handyman services use one-address standard quote journeys', () {
     final services = kVanBusinessTemplateLibrary
-        .singleWhere(
-          (definition) => definition.businessTypeId == 'window_cleaning',
-        )
+        .singleWhere((definition) => definition.businessTypeId == 'handyman')
         .services;
 
     for (final service in services) {
@@ -1007,11 +1535,9 @@ void main() {
     }
   });
 
-  test('Window Cleaning questions and extras are explicit, unique and safe', () {
+  test('Handyman questions and extras are explicit, unique and safe', () {
     final services = kVanBusinessTemplateLibrary
-        .singleWhere(
-          (definition) => definition.businessTypeId == 'window_cleaning',
-        )
+        .singleWhere((definition) => definition.businessTypeId == 'handyman')
         .services;
     final questions = services
         .expand((service) => service.questions)
@@ -1020,8 +1546,11 @@ void main() {
         .expand((service) => service.extras)
         .toList(growable: false);
 
-    expect(questions.map((question) => question.libraryId).toSet(), hasLength(38));
-    expect(questions, hasLength(38));
+    expect(
+      questions.map((question) => question.libraryId).toSet(),
+      hasLength(40),
+    );
+    expect(questions, hasLength(40));
     expect(
       questions.every(
         (question) =>
@@ -1030,6 +1559,7 @@ void main() {
       isTrue,
     );
     expect(extras.map((extra) => extra.key).toSet(), hasLength(20));
+    expect(extras, hasLength(20));
     expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
     expect(extras.every((extra) => extra.defaultChargeUnit == 'Fixed'), isTrue);
     expect(
@@ -1040,114 +1570,38 @@ void main() {
       isTrue,
     );
 
-    final domestic = services.singleWhere(
-      (service) => service.serviceId == 'window_cleaning_domestic',
+    final generalVisit = services.singleWhere(
+      (service) => service.serviceId == 'handyman_general_visit',
     );
-    final commercial = services.singleWhere(
-      (service) => service.serviceId == 'window_cleaning_commercial',
+    final flatPack = services.singleWhere(
+      (service) => service.serviceId == 'handyman_flat_pack_assembly',
     );
-    final conservatory = services.singleWhere(
-      (service) => service.serviceId == 'window_cleaning_conservatory',
+    final wallMounting = services.singleWhere(
+      (service) => service.serviceId == 'handyman_wall_mounting',
     );
-    final oneOff = services.singleWhere(
-      (service) => service.serviceId == 'window_cleaning_one_off',
+    final minorRepairs = services.singleWhere(
+      (service) => service.serviceId == 'handyman_minor_home_repairs',
     );
 
-    expect(domestic.questions, hasLength(9));
-    expect(commercial.questions, hasLength(10));
-    expect(conservatory.questions, hasLength(9));
-    expect(oneOff.questions, hasLength(10));
-    expect(domestic.extras, hasLength(5));
-    expect(commercial.extras, hasLength(5));
-    expect(conservatory.extras, hasLength(5));
-    expect(oneOff.extras, hasLength(5));
-
-    expect(
-      domestic.questions
-          .singleWhere(
-            (question) =>
-                question.libraryId == 'window_cleaning_domestic_condition',
-          )
-          .helperText,
-      contains('may not be removable'),
-    );
-    expect(
-      commercial.questions
-          .singleWhere(
-            (question) =>
-                question.libraryId == 'window_cleaning_commercial_condition',
-          )
-          .helperText,
-      contains('not guaranteed'),
-    );
-    expect(
-      commercial.questions
-          .singleWhere(
-            (question) =>
-                question.libraryId == 'window_cleaning_commercial_height',
-          )
-          .helperText,
-      contains('suitable equipment and safe access'),
-    );
-    expect(
-      domestic.featureIds.contains(VanServiceCapabilityIds.recurring),
-      isFalse,
-    );
-    expect(
-      commercial.featureIds.contains(VanServiceCapabilityIds.recurring),
-      isFalse,
-    );
-    expect(
-      conservatory.featureIds.contains(VanServiceCapabilityIds.recurring),
-      isFalse,
-    );
-    expect(
-      oneOff.featureIds.contains(VanServiceCapabilityIds.recurring),
-      isFalse,
-    );
-    expect(
-      domestic.questions
-          .singleWhere(
-            (question) =>
-                question.libraryId == 'window_cleaning_domestic_frequency',
-          )
-          .helperText,
-      contains('does not automatically create recurring bookings'),
-    );
-    expect(
-      commercial.questions
-          .singleWhere(
-            (question) =>
-                question.libraryId == 'window_cleaning_commercial_frequency',
-          )
-          .helperText,
-      contains('does not automatically create recurring bookings'),
-    );
-    expect(
-      conservatory.questions
-          .singleWhere(
-            (question) =>
-                question.libraryId == 'window_cleaning_conservatory_frequency',
-          )
-          .helperText,
-      contains('does not automatically create recurring bookings'),
-    );
-    expect(
-      oneOff.questions
-          .any((question) => question.libraryId == 'window_cleaning_one_off_frequency'),
-      isFalse,
-    );
+    expect(generalVisit.questions, hasLength(10));
+    expect(flatPack.questions, hasLength(10));
+    expect(wallMounting.questions, hasLength(10));
+    expect(minorRepairs.questions, hasLength(10));
+    expect(generalVisit.extras, hasLength(5));
+    expect(flatPack.extras, hasLength(5));
+    expect(wallMounting.extras, hasLength(5));
+    expect(minorRepairs.extras, hasLength(5));
   });
 
-  test('Window Cleaning defaults preserve duration, notice, limits and schedule', () {
+  test('Handyman defaults preserve duration, notice, limits and schedule', () {
     final services = kVanBusinessTemplateLibrary
-        .singleWhere((definition) => definition.businessTypeId == 'window_cleaning')
+        .singleWhere((definition) => definition.businessTypeId == 'handyman')
         .services;
     final expected = <String, (int, int, int, List<int>)>{
-      'window_cleaning_domestic': (90, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
-      'window_cleaning_commercial': (180, 24, 3, <int>[1, 2, 3, 4, 5, 6]),
-      'window_cleaning_conservatory': (180, 48, 2, <int>[1, 2, 3, 4, 5, 6]),
-      'window_cleaning_one_off': (90, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
+      'handyman_general_visit': (120, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
+      'handyman_flat_pack_assembly': (90, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
+      'handyman_wall_mounting': (90, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
+      'handyman_minor_home_repairs': (60, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
     };
 
     for (final service in services) {
@@ -1156,642 +1610,193 @@ void main() {
       expect(service.suggestedNoticeHours, defaults.$2);
       expect(service.maximumBookingsPerDay, defaults.$3);
       expect(service.availability.map((day) => day.day), defaults.$4);
-      if (service.serviceId == 'window_cleaning_commercial') {
-        expect(
-          service.availability.every(
-            (day) => day.startMinutes == 420 && day.endMinutes == 1140,
-          ),
-          isTrue,
-        );
-      } else {
-        expect(
-          service.availability.every(
-            (day) => day.startMinutes == 480 && day.endMinutes == 1080,
-          ),
-          isTrue,
-        );
-      }
-    }
-  });
-
-  test('Dog Day Care has stable identity, 10 questions and 5 extras', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-    final dayCare = definition.services.singleWhere(
-      (service) => service.serviceId == 'pet_services_dog_day_care',
-    );
-
-    expect(dayCare.serviceId, 'pet_services_dog_day_care');
-    expect(dayCare.name, 'Dog Day Care');
-    expect(dayCare.customerJourney, VanCustomerJourneyType.quote);
-    expect(dayCare.requestType, VanCustomerRequestType.dropOffPickupRequest);
-    expect(dayCare.startHandover, VanStartHandover.customerDropsOff);
-    expect(dayCare.endHandover, VanEndHandover.customerCollects);
-    expect(dayCare.questions, hasLength(10));
-    expect(dayCare.extras, hasLength(5));
-    expect(dayCare.suggestedDurationMinutes, 480);
-    expect(dayCare.suggestedNoticeHours, 48);
-    expect(dayCare.maximumBookingsPerDay, 4);
-    expect(dayCare.requestPhotos, isTrue);
-    expect(dayCare.requireAddress, isFalse);
-    expect(dayCare.requestFlowOptions.showNotes, isFalse);
-    expect(
-      dayCare.availability.map((day) => day.day),
-      <int>[1, 2, 3, 4, 5],
-    );
-    expect(
-      dayCare.availability.every(
-        (day) => day.startMinutes == 420 && day.endMinutes == 1080,
-      ),
-      isTrue,
-    );
-  });
-
-  test('Dog Day Care question and extra IDs are unique', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-    final dayCare = definition.services.singleWhere(
-      (service) => service.serviceId == 'pet_services_dog_day_care',
-    );
-
-    expect(
-      dayCare.questions.map((q) => q.libraryId).toSet(),
-      hasLength(10),
-    );
-    expect(
-      dayCare.questions.map((q) => q.libraryId).toSet(),
-      containsAll(<String>[
-        'pet_services_dog_day_care_dog_details',
-        'pet_services_dog_day_care_previous_attendance',
-        'pet_services_dog_day_care_vaccination_records',
-        'pet_services_dog_day_care_social_behaviour',
-        'pet_services_dog_day_care_behaviour_concerns',
-        'pet_services_dog_day_care_feeding',
-        'pet_services_dog_day_care_health',
-        'pet_services_dog_day_care_health_details',
-        'pet_services_dog_day_care_rest_routine',
-        'pet_services_dog_day_care_items',
-      ]),
-    );
-    expect(
-      dayCare.extras.map((e) => e.key).toSet(),
-      hasLength(5),
-    );
-    expect(
-      dayCare.extras.map((e) => e.key).toSet(),
-      containsAll(<String>[
-        'custom_extra_pet_services_dog_day_care_additional_dog',
-        'custom_extra_pet_services_dog_day_care_extended_care_hour',
-        'custom_extra_pet_services_dog_day_care_meal_preparation',
-        'custom_extra_pet_services_dog_day_care_medication_support',
-        'custom_extra_pet_services_dog_day_care_weekend_holiday',
-      ]),
-    );
-  });
-
-  test('Dog Day Care uses customer drop-off and collection', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-    final dayCare = definition.services.singleWhere(
-      (service) => service.serviceId == 'pet_services_dog_day_care',
-    );
-
-    expect(dayCare.startHandover, VanStartHandover.customerDropsOff);
-    expect(dayCare.endHandover, VanEndHandover.customerCollects);
-    expect(dayCare.requestFlowOptions.showDropOffDate, isTrue);
-    expect(dayCare.requestFlowOptions.showDropOffTime, isTrue);
-    expect(dayCare.requestFlowOptions.showPickUpDate, isTrue);
-    expect(dayCare.requestFlowOptions.showPickUpTime, isTrue);
-    expect(dayCare.requestFlowOptions.askPreferredDate, isFalse);
-    expect(dayCare.requestFlowOptions.askPreferredTime, isFalse);
-    expect(dayCare.requestFlowOptions.showNotes, isFalse);
-  });
-
-  test('Dog Boarding has stable identity, 14 questions and 5 extras', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-    final boarding = definition.services.singleWhere(
-      (service) => service.serviceId == 'pet_services_dog_boarding',
-    );
-
-    expect(boarding.serviceId, 'pet_services_dog_boarding');
-    expect(boarding.name, 'Dog Boarding');
-    expect(boarding.customerJourney, VanCustomerJourneyType.quote);
-    expect(boarding.requestType, VanCustomerRequestType.dropOffPickupRequest);
-    expect(boarding.startHandover, VanStartHandover.customerDropsOff);
-    expect(boarding.endHandover, VanEndHandover.customerCollects);
-    expect(boarding.questions, hasLength(14));
-    expect(boarding.extras, hasLength(5));
-    expect(boarding.suggestedNoticeHours, 72);
-    expect(boarding.maximumBookingsPerDay, 3);
-    expect(boarding.requestPhotos, isTrue);
-    expect(boarding.requireAddress, isFalse);
-    expect(boarding.requestFlowOptions.showNotes, isFalse);
-    expect(
-      boarding.availability.map((day) => day.day),
-      <int>[1, 2, 3, 4, 5, 6, 7],
-    );
-    expect(
-      boarding.availability.every(
-        (day) => day.startMinutes == 480 && day.endMinutes == 1080,
-      ),
-      isTrue,
-    );
-  });
-
-  test('Dog Boarding question and extra IDs are unique', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-    final boarding = definition.services.singleWhere(
-      (service) => service.serviceId == 'pet_services_dog_boarding',
-    );
-
-    expect(
-      boarding.questions.map((q) => q.libraryId).toSet(),
-      hasLength(14),
-    );
-    expect(
-      boarding.questions.map((q) => q.libraryId).toSet(),
-      containsAll(<String>[
-        'pet_services_dog_boarding_dog_count',
-        'pet_services_dog_boarding_dog_details',
-        'pet_services_dog_boarding_previous_stay',
-        'pet_services_dog_boarding_vaccination_records',
-        'pet_services_dog_boarding_social_behaviour',
-        'pet_services_dog_boarding_feeding_routine',
-        'pet_services_dog_boarding_sleeping_routine',
-        'pet_services_dog_boarding_exercise_toilet',
-        'pet_services_dog_boarding_behaviour_concerns',
-        'pet_services_dog_boarding_health',
-        'pet_services_dog_boarding_health_details',
-        'pet_services_dog_boarding_items',
-        'pet_services_dog_boarding_emergency_contact',
-        'pet_services_dog_boarding_safe_care_info',
-      ]),
-    );
-    expect(
-      boarding.extras.map((e) => e.key).toSet(),
-      hasLength(5),
-    );
-    expect(
-      boarding.extras.map((e) => e.key).toSet(),
-      containsAll(<String>[
-        'custom_extra_pet_services_dog_boarding_additional_dog',
-        'custom_extra_pet_services_dog_boarding_additional_night',
-        'custom_extra_pet_services_dog_boarding_special_feeding',
-        'custom_extra_pet_services_dog_boarding_medication_support',
-        'custom_extra_pet_services_dog_boarding_weekend_holiday',
-      ]),
-    );
-  });
-
-  test('Boarding supports separate arrival and collection dates', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-    final boarding = definition.services.singleWhere(
-      (service) => service.serviceId == 'pet_services_dog_boarding',
-    );
-
-    expect(boarding.startHandover, VanStartHandover.customerDropsOff);
-    expect(boarding.endHandover, VanEndHandover.customerCollects);
-    expect(boarding.requestFlowOptions.showDropOffDate, isTrue);
-    expect(boarding.requestFlowOptions.showDropOffTime, isTrue);
-    expect(boarding.requestFlowOptions.showPickUpDate, isTrue);
-    expect(boarding.requestFlowOptions.showPickUpTime, isTrue);
-    expect(boarding.requestFlowOptions.showNotes, isFalse);
-  });
-
-  test('Dog Day Care and Boarding do not create recurring jobs', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-
-    for (final service in definition.services) {
       expect(
-        service.featureIds.contains(VanServiceCapabilityIds.recurring),
-        isFalse,
-      );
-    }
-  });
-
-  test('All pet services photos are optional and notes are disabled', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-
-    for (final service in definition.services) {
-      expect(service.requestPhotos, isTrue);
-      expect(service.requestFlowOptions.showNotes, isFalse);
-      expect(
-        service.builtInQuestionSettings['photos']?['required'],
-        isFalse,
-      );
-      expect(service.extras.map((e) => e.label), isNot(contains('Free')));
-      expect(
-        service.extras.every((e) => e.defaultPrice == 0),
-        isTrue,
-      );
-      expect(
-        service.extras.every((e) => e.defaultChargeUnit == 'Fixed'),
+        service.availability.every(
+          (day) => day.startMinutes == 480 && day.endMinutes == 1080,
+        ),
         isTrue,
       );
     }
   });
 
-  test('All Pet Services extra keys are globally unique', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'pet_services');
-    final allExtras = definition.services
-        .expand((service) => service.extras)
-        .toList(growable: false);
-expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
-   });
+  test(
+    'General Handyman Visit warns all tasks may not be completed in one visit',
+    () {
+      final definition = kVanBusinessTemplateLibrary.singleWhere(
+        (item) => item.businessTypeId == 'handyman',
+      );
+      final service = definition.services.singleWhere(
+        (service) => service.serviceId == 'handyman_general_visit',
+      );
 
-   test('Handyman pack has stable identity, aliases and four services', () {
-     final definition = kVanBusinessTemplateLibrary.singleWhere(
-       (item) => item.businessTypeId == 'handyman',
-     );
+      final prioritiesQuestion = service.questions.singleWhere(
+        (question) => question.libraryId == 'handyman_general_visit_priorities',
+      );
+      expect(
+        prioritiesQuestion.helperText,
+        contains(
+          'may not be able to complete every requested job in one visit',
+        ),
+      );
 
-     expect(definition.categoryId, 'handyman');
-     expect(definition.categoryName, 'Handyman & General Services');
-     expect(definition.businessTypeName, 'Handyman & General Services');
-     expect(definition.iconKey, 'home');
-     expect(definition.colorValue, 0xFFFFC107);
-     expect(definition.featured, isTrue);
-     expect(
-       definition.searchKeywords,
-       containsAll(<String>[
-         'handyman',
-         'general handyman',
-         'odd jobs',
-         'household jobs',
-         'small repairs',
-         'furniture assembly',
-         'flat-pack assembly',
-         'wall mounting',
-         'shelf fitting',
-       ]),
-     );
-     expect(
-       definition.searchAliases.map((alias) => alias.label),
-       containsAll(<String>[
-         'Handyman',
-         'General Handyman',
-         'Odd Jobs',
-         'Small Repairs',
-         'Household Fixes',
-         'Flat-Pack Assembly',
-       ]),
-     );
-     expect(definition.services.map((service) => service.serviceId), <String>[
-       'handyman_general_visit',
-       'handyman_flat_pack_assembly',
-       'handyman_wall_mounting',
-       'handyman_minor_home_repairs',
-     ]);
-   });
+      final taskListQuestion = service.questions.singleWhere(
+        (question) => question.libraryId == 'handyman_general_visit_task_list',
+      );
+      expect(taskListQuestion.helperText, contains('not included'));
+    },
+  );
 
-   test('All Handyman services use one-address standard quote journeys', () {
-     final services = kVanBusinessTemplateLibrary
-         .singleWhere(
-           (definition) => definition.businessTypeId == 'handyman',
-         )
-         .services;
+  test('Flat-Pack wall fixing is subject to safe assessment', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'handyman',
+    );
+    final service = definition.services.singleWhere(
+      (service) => service.serviceId == 'handyman_flat_pack_assembly',
+    );
 
-     for (final service in services) {
-       expect(service.customerJourney, VanCustomerJourneyType.quote);
-       expect(service.requestType, VanCustomerRequestType.quoteRequest);
-       expect(service.startHandover, isNull);
-       expect(service.endHandover, isNull);
-       expect(service.requireAddress, isTrue);
-       expect(service.requestPhotos, isTrue);
-       expect(service.requestFlowOptions.askPreferredDate, isTrue);
-       expect(service.requestFlowOptions.askPreferredTime, isTrue);
-       expect(service.requestFlowOptions.showPickupAddress, isFalse);
-       expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
-       expect(service.requestFlowOptions.showDropOffDate, isFalse);
-       expect(service.requestFlowOptions.showDropOffTime, isFalse);
-       expect(service.requestFlowOptions.showPickUpDate, isFalse);
-       expect(service.requestFlowOptions.showPickUpTime, isFalse);
-       expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
-       expect(service.requestFlowOptions.showNotes, isFalse);
-       expect(
-         service.builtInQuestionKeys,
-         containsAll(<String>[
-           'address',
-           'phone',
-           'email',
-           'preferred_date',
-           'preferred_time',
-           'photos',
-         ]),
-       );
-       for (final key in <String>[
-         'address',
-         'preferred_date',
-         'preferred_time',
-         'phone',
-       ]) {
-         expect(
-           service.builtInQuestionSettings[key]?['required'],
-           isTrue,
-           reason: '${service.serviceId} should require $key',
-         );
-       }
-       expect(service.builtInQuestionSettings['email']?['required'], isFalse);
-       expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
-     }
-   });
+    final wallFixingQuestion = service.questions.singleWhere(
+      (question) => question.libraryId == 'handyman_flat_pack_wall_fixing',
+    );
+    expect(
+      wallFixingQuestion.helperText,
+      contains('subject to the business confirming'),
+    );
+    expect(wallFixingQuestion.helperText, contains('safe drilling location'));
+  });
 
-   test('Handyman questions and extras are explicit, unique and safe', () {
-     final services = kVanBusinessTemplateLibrary
-         .singleWhere(
-           (definition) => definition.businessTypeId == 'handyman',
-         )
-         .services;
-     final questions = services
-         .expand((service) => service.questions)
-         .toList(growable: false);
-     final extras = services
-         .expand((service) => service.extras)
-         .toList(growable: false);
+  test('No Handyman question implies regulated work is accepted', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'handyman',
+    );
 
-     expect(questions.map((question) => question.libraryId).toSet(), hasLength(40));
-     expect(questions, hasLength(40));
-     expect(
-       questions.every(
-         (question) =>
-             VanCustomQuestionAnswerType.values.contains(question.answerType),
-       ),
-       isTrue,
-     );
-     expect(extras.map((extra) => extra.key).toSet(), hasLength(20));
-     expect(extras, hasLength(20));
-     expect(extras.every((extra) => extra.defaultPrice == 0), isTrue);
-     expect(extras.every((extra) => extra.defaultChargeUnit == 'Fixed'), isTrue);
-     expect(
-       extras.every(
-         (extra) =>
-             !RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
-       ),
-       isTrue,
-     );
-
-     final generalVisit = services.singleWhere(
-       (service) => service.serviceId == 'handyman_general_visit',
-     );
-     final flatPack = services.singleWhere(
-       (service) => service.serviceId == 'handyman_flat_pack_assembly',
-     );
-     final wallMounting = services.singleWhere(
-       (service) => service.serviceId == 'handyman_wall_mounting',
-     );
-     final minorRepairs = services.singleWhere(
-       (service) => service.serviceId == 'handyman_minor_home_repairs',
-     );
-
-     expect(generalVisit.questions, hasLength(10));
-     expect(flatPack.questions, hasLength(10));
-     expect(wallMounting.questions, hasLength(10));
-     expect(minorRepairs.questions, hasLength(10));
-     expect(generalVisit.extras, hasLength(5));
-     expect(flatPack.extras, hasLength(5));
-     expect(wallMounting.extras, hasLength(5));
-     expect(minorRepairs.extras, hasLength(5));
-   });
-
-   test('Handyman defaults preserve duration, notice, limits and schedule', () {
-     final services = kVanBusinessTemplateLibrary
-         .singleWhere((definition) => definition.businessTypeId == 'handyman')
-         .services;
-     final expected = <String, (int, int, int, List<int>)>{
-       'handyman_general_visit': (120, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
-       'handyman_flat_pack_assembly': (90, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
-       'handyman_wall_mounting': (90, 24, 4, <int>[1, 2, 3, 4, 5, 6]),
-       'handyman_minor_home_repairs': (60, 24, 6, <int>[1, 2, 3, 4, 5, 6]),
-     };
-
-     for (final service in services) {
-       final defaults = expected[service.serviceId]!;
-       expect(service.suggestedDurationMinutes, defaults.$1);
-       expect(service.suggestedNoticeHours, defaults.$2);
-       expect(service.maximumBookingsPerDay, defaults.$3);
-       expect(service.availability.map((day) => day.day), defaults.$4);
-       expect(
-         service.availability.every(
-           (day) => day.startMinutes == 480 && day.endMinutes == 1080,
-         ),
-         isTrue,
-       );
-     }
-   });
-
-   test('General Handyman Visit warns all tasks may not be completed in one visit', () {
-     final definition = kVanBusinessTemplateLibrary
-         .singleWhere((item) => item.businessTypeId == 'handyman');
-     final service = definition.services.singleWhere(
-       (service) => service.serviceId == 'handyman_general_visit',
-     );
-
-     final prioritiesQuestion = service.questions.singleWhere(
-       (question) =>
-           question.libraryId == 'handyman_general_visit_priorities',
-     );
-     expect(
-       prioritiesQuestion.helperText,
-       contains('may not be able to complete every requested job in one visit'),
-     );
-
-     final taskListQuestion = service.questions.singleWhere(
-       (question) =>
-           question.libraryId == 'handyman_general_visit_task_list',
-     );
-     expect(
-       taskListQuestion.helperText,
-       contains('not included'),
-     );
-   });
-
-   test('Flat-Pack wall fixing is subject to safe assessment', () {
-     final definition = kVanBusinessTemplateLibrary
-         .singleWhere((item) => item.businessTypeId == 'handyman');
-     final service = definition.services.singleWhere(
-       (service) => service.serviceId == 'handyman_flat_pack_assembly',
-     );
-
-     final wallFixingQuestion = service.questions.singleWhere(
-       (question) =>
-           question.libraryId == 'handyman_flat_pack_wall_fixing',
-     );
-     expect(
-       wallFixingQuestion.helperText,
-       contains('subject to the business confirming'),
-     );
-     expect(
-       wallFixingQuestion.helperText,
-       contains('safe drilling location'),
-     );
-   });
-
-    test('No Handyman question implies regulated work is accepted', () {
-      final definition = kVanBusinessTemplateLibrary
-          .singleWhere((item) => item.businessTypeId == 'handyman');
-
-      for (final service in definition.services) {
-        for (final question in service.questions) {
-          if (service.serviceId == 'handyman_minor_home_repairs' &&
-              question.libraryId == 'handyman_minor_repairs_specialist_risk') {
-            continue;
-          }
-          expect(
-            question.text.toLowerCase(),
-            isNot(contains('electrical installation')),
-          );
-          expect(
-            question.text.toLowerCase(),
-            isNot(contains('gas work')),
-          );
-          expect(
-            question.text.toLowerCase(),
-            isNot(contains('boiler')),
-          );
-          expect(
-            question.text.toLowerCase(),
-            isNot(contains('structural alterations')),
-          );
-          expect(
-            question.text.toLowerCase(),
-            isNot(contains('roofing')),
-          );
-          expect(
-            question.text.toLowerCase(),
-            isNot(contains('major plumbing')),
-          );
+    for (final service in definition.services) {
+      for (final question in service.questions) {
+        if (service.serviceId == 'handyman_minor_home_repairs' &&
+            question.libraryId == 'handyman_minor_repairs_specialist_risk') {
+          continue;
         }
+        expect(
+          question.text.toLowerCase(),
+          isNot(contains('electrical installation')),
+        );
+        expect(question.text.toLowerCase(), isNot(contains('gas work')));
+        expect(question.text.toLowerCase(), isNot(contains('boiler')));
+        expect(
+          question.text.toLowerCase(),
+          isNot(contains('structural alterations')),
+        );
+        expect(question.text.toLowerCase(), isNot(contains('roofing')));
+        expect(question.text.toLowerCase(), isNot(contains('major plumbing')));
       }
-    });
+    }
+  });
 
-    test('Existing eight curated categories remain unchanged', () {
-      expect(kVanBusinessTemplateLibrary, hasLength(9));
-      expect(findVanStarterCapabilityPackById('courier'), isNotNull);
-      expect(
-        findVanStarterCapabilityPackById('removals_man_with_van'),
-        isNotNull,
-      );
-      expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
-      expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
-      expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
-      expect(findVanStarterCapabilityPackById('handyman'), isNotNull);
-      expect(findVanStarterCapabilityPackById('window_cleaning'), isNotNull);
-      expect(findVanStarterCapabilityPackById('photography'), isNotNull);
-    });
+  test('Existing eight curated categories remain unchanged', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(11));
+    expect(findVanStarterCapabilityPackById('courier'), isNotNull);
+    expect(
+      findVanStarterCapabilityPackById('removals_man_with_van'),
+      isNotNull,
+    );
+    expect(findVanStarterCapabilityPackById('cleaning'), isNotNull);
+    expect(findVanStarterCapabilityPackById('gardening'), isNotNull);
+    expect(findVanStarterCapabilityPackById('pet_services'), isNotNull);
+    expect(findVanStarterCapabilityPackById('handyman'), isNotNull);
+    expect(findVanStarterCapabilityPackById('window_cleaning'), isNotNull);
+    expect(findVanStarterCapabilityPackById('photography'), isNotNull);
+  });
 
-    test('Wall Mounting safe drilling and wall condition disclaimers', () {
-      final definition = kVanBusinessTemplateLibrary
-          .singleWhere((item) => item.businessTypeId == 'handyman');
-      final service = definition.services.singleWhere(
-        (service) => service.serviceId == 'handyman_wall_mounting',
-      );
+  test('Wall Mounting safe drilling and wall condition disclaimers', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'handyman',
+    );
+    final service = definition.services.singleWhere(
+      (service) => service.serviceId == 'handyman_wall_mounting',
+    );
 
-      final wallTypeQuestion = service.questions.singleWhere(
-        (question) =>
-            question.libraryId == 'handyman_wall_mounting_wall_type',
-      );
-      expect(
-        wallTypeQuestion.helperText,
-        contains('confirm the wall condition'),
-      );
-      expect(
-        wallTypeQuestion.helperText,
-        contains('suitable fixing method before drilling'),
-      );
+    final wallTypeQuestion = service.questions.singleWhere(
+      (question) => question.libraryId == 'handyman_wall_mounting_wall_type',
+    );
+    expect(wallTypeQuestion.helperText, contains('confirm the wall condition'));
+    expect(
+      wallTypeQuestion.helperText,
+      contains('suitable fixing method before drilling'),
+    );
 
-      final hiddenServicesQuestion = service.questions.singleWhere(
-        (question) =>
-            question.libraryId == 'handyman_wall_mounting_hidden_services',
-      );
-      expect(
-        hiddenServicesQuestion.helperText,
-        contains('Work may not proceed'),
-      );
-      expect(
-        hiddenServicesQuestion.helperText,
-        contains('safe drilling location cannot be confirmed'),
-      );
+    final hiddenServicesQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'handyman_wall_mounting_hidden_services',
+    );
+    expect(hiddenServicesQuestion.helperText, contains('Work may not proceed'));
+    expect(
+      hiddenServicesQuestion.helperText,
+      contains('safe drilling location cannot be confirmed'),
+    );
 
-      final fixingsExtra = service.extras.singleWhere(
-        (extra) => extra.key == 'custom_extra_handyman_wall_mounting_fixings',
-      );
-      expect(
-        fixingsExtra.label,
-        contains('subject to assessment'),
-      );
+    final fixingsExtra = service.extras.singleWhere(
+      (extra) => extra.key == 'custom_extra_handyman_wall_mounting_fixings',
+    );
+    expect(fixingsExtra.label, contains('subject to assessment'));
 
-      final heavyExtra = service.extras.singleWhere(
-        (extra) => extra.key == 'custom_extra_handyman_wall_mounting_heavy_item',
-      );
-      expect(
-        heavyExtra.label,
-        contains('subject to assessment'),
-      );
-    });
+    final heavyExtra = service.extras.singleWhere(
+      (extra) => extra.key == 'custom_extra_handyman_wall_mounting_heavy_item',
+    );
+    expect(heavyExtra.label, contains('subject to assessment'));
+  });
 
-    test('Minor Home Repairs excludes regulated and hazardous work', () {
-      final definition = kVanBusinessTemplateLibrary
-          .singleWhere((item) => item.businessTypeId == 'handyman');
-      final service = definition.services.singleWhere(
-        (service) => service.serviceId == 'handyman_minor_home_repairs',
-      );
+  test('Minor Home Repairs excludes regulated and hazardous work', () {
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'handyman',
+    );
+    final service = definition.services.singleWhere(
+      (service) => service.serviceId == 'handyman_minor_home_repairs',
+    );
 
-      expect(
-        service.description,
-        contains('Electrical, gas, structural, roofing and major plumbing work are not included'),
-      );
+    expect(
+      service.description,
+      contains(
+        'Electrical, gas, structural, roofing and major plumbing work are not included',
+      ),
+    );
 
-      final specialistQuestion = service.questions.singleWhere(
-        (question) =>
-            question.libraryId == 'handyman_minor_repairs_specialist_risk',
-      );
-      expect(
-        specialistQuestion.helperText,
-        contains('appropriately qualified specialist'),
-      );
-      expect(
-        specialistQuestion.helperText,
-        contains('are not included in this service'),
-      );
+    final specialistQuestion = service.questions.singleWhere(
+      (question) =>
+          question.libraryId == 'handyman_minor_repairs_specialist_risk',
+    );
+    expect(
+      specialistQuestion.helperText,
+      contains('appropriately qualified specialist'),
+    );
+    expect(
+      specialistQuestion.helperText,
+      contains('are not included in this service'),
+    );
 
-      final damageQuestion = service.questions.singleWhere(
-        (question) =>
-            question.libraryId == 'handyman_minor_repairs_damage_risk',
-      );
-      expect(
-        damageQuestion.helperText,
-        contains('Listing a concern does not mean'),
-      );
-      expect(
-        damageQuestion.helperText,
-        contains('hazardous or structural materials'),
-      );
+    final damageQuestion = service.questions.singleWhere(
+      (question) => question.libraryId == 'handyman_minor_repairs_damage_risk',
+    );
+    expect(
+      damageQuestion.helperText,
+      contains('Listing a concern does not mean'),
+    );
+    expect(
+      damageQuestion.helperText,
+      contains('hazardous or structural materials'),
+    );
 
-      final wasteExtra = service.extras.singleWhere(
-        (extra) => extra.key == 'custom_extra_handyman_minor_repairs_small_waste_removal',
-      );
-      expect(
-        wasteExtra.label,
-        contains('non-hazardous'),
-      );
-      expect(
-        wasteExtra.label,
-        isNot(contains('asbestos')),
-      );
-      expect(
-        wasteExtra.label,
-        isNot(contains('licensed')),
-      );
-    });
+    final wasteExtra = service.extras.singleWhere(
+      (extra) =>
+          extra.key ==
+          'custom_extra_handyman_minor_repairs_small_waste_removal',
+    );
+    expect(wasteExtra.label, contains('non-hazardous'));
+    expect(wasteExtra.label, isNot(contains('asbestos')));
+    expect(wasteExtra.label, isNot(contains('licensed')));
+  });
 
   test('Photography pack has stable identity, aliases and two services', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(9));
-    expect(kVanStarterCapabilityPacks, hasLength(9));
+    expect(kVanBusinessTemplateLibrary, hasLength(11));
+    expect(kVanStarterCapabilityPacks, hasLength(11));
     expect(findVanStarterCapabilityPackById('photography'), isNotNull);
 
     final definition = kVanBusinessTemplateLibrary.singleWhere(
@@ -1817,7 +1822,10 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
       ]),
     );
     expect(searchVanStarterCapabilityPacks('photographer'), hasLength(1));
-    expect(searchVanStarterCapabilityPacks('portrait photography'), hasLength(1));
+    expect(
+      searchVanStarterCapabilityPacks('portrait photography'),
+      hasLength(1),
+    );
     expect(definition.services.map((service) => service.serviceId), <String>[
       'photography_family_portrait',
       'photography_event',
@@ -1901,7 +1909,10 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
     expect(event.suggestedNoticeHours, 72);
     expect(event.maximumBookingsPerDay, 2);
     expect(event.availability.length, 7);
-    expect(event.availability.every((day) => day.day >= 1 && day.day <= 7), isTrue);
+    expect(
+      event.availability.every((day) => day.day >= 1 && day.day <= 7),
+      isTrue,
+    );
     expect(
       event.availability.every(
         (day) => day.startMinutes == 420 && day.endMinutes == 1200,
@@ -1934,9 +1945,13 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
       'preferred time',
     };
 
-    expect(questions.map((question) => question.libraryId).toSet(), hasLength(46));
     expect(
-      questions.map((question) => question.text.trim().toLowerCase())
+      questions.map((question) => question.libraryId).toSet(),
+      hasLength(46),
+    );
+    expect(
+      questions
+          .map((question) => question.text.trim().toLowerCase())
           .toSet()
           .intersection(forbiddenCustomPrompts),
       isEmpty,
@@ -1978,8 +1993,9 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
   });
 
   test('Family & Portrait Photography content is safe and explicit', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'photography');
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'photography',
+    );
     final service = definition.services.singleWhere(
       (service) => service.serviceId == 'photography_family_portrait',
     );
@@ -1995,7 +2011,8 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
 
     final imageQuestion = service.questions.singleWhere(
       (question) =>
-          question.libraryId == 'photography_family_portrait_image_requirements',
+          question.libraryId ==
+          'photography_family_portrait_image_requirements',
     );
     expect(
       imageQuestion.helperText,
@@ -2004,8 +2021,9 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
   });
 
   test('Event Photography content is safe and explicit', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'photography');
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'photography',
+    );
     final service = definition.services.singleWhere(
       (service) => service.serviceId == 'photography_event',
     );
@@ -2016,19 +2034,22 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
     );
     expect(
       restrictionQuestion.helperText,
-      contains('The photographer is not automatically responsible for arranging them'),
+      contains(
+        'The photographer is not automatically responsible for arranging them',
+      ),
     );
 
     final coverageQuestion = service.questions.singleWhere(
-      (question) =>
-          question.libraryId == 'photography_event_coverage_duration',
+      (question) => question.libraryId == 'photography_event_coverage_duration',
     );
     expect(coverageQuestion.helperText, contains('request only'));
-    expect(coverageQuestion.helperText, contains('confirm coverage and pricing'));
+    expect(
+      coverageQuestion.helperText,
+      contains('confirm coverage and pricing'),
+    );
 
     final imageUseQuestion = service.questions.singleWhere(
-      (question) =>
-          question.libraryId == 'photography_event_image_use',
+      (question) => question.libraryId == 'photography_event_image_use',
     );
     expect(
       imageUseQuestion.helperText,
@@ -2041,8 +2062,9 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
   });
 
   test('Photography services have no drone photography', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'photography');
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'photography',
+    );
 
     for (final service in definition.services) {
       expect(
@@ -2070,19 +2092,21 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
   });
 
   test('Property Photography content is safe and explicit', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'photography');
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'photography',
+    );
     final service = definition.services.singleWhere(
       (service) => service.serviceId == 'photography_property',
     );
 
     final readinessQuestion = service.questions.singleWhere(
-      (question) =>
-          question.libraryId == 'photography_property_readiness',
+      (question) => question.libraryId == 'photography_property_readiness',
     );
     expect(
       readinessQuestion.helperText,
-      contains('The photographer is not automatically responsible for cleaning'),
+      contains(
+        'The photographer is not automatically responsible for cleaning',
+      ),
     );
 
     final accessQuestion = service.questions.singleWhere(
@@ -2091,12 +2115,13 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
     );
     expect(
       accessQuestion.helperText,
-      contains('The photographer may decline areas that cannot be accessed safely'),
+      contains(
+        'The photographer may decline areas that cannot be accessed safely',
+      ),
     );
 
     final parkingQuestion = service.questions.singleWhere(
-      (question) =>
-          question.libraryId == 'photography_property_parking_access',
+      (question) => question.libraryId == 'photography_property_parking_access',
     );
     expect(
       parkingQuestion.helperText,
@@ -2113,24 +2138,25 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
   });
 
   test('Product Photography content is safe and explicit', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'photography');
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'photography',
+    );
     final service = definition.services.singleWhere(
       (service) => service.serviceId == 'photography_product',
     );
 
     final handlingQuestion = service.questions.singleWhere(
-      (question) =>
-          question.libraryId == 'photography_product_fragile_value',
+      (question) => question.libraryId == 'photography_product_fragile_value',
     );
     expect(
       handlingQuestion.helperText,
-      contains('Listing an item does not confirm that the photographer can accept'),
+      contains(
+        'Listing an item does not confirm that the photographer can accept',
+      ),
     );
 
     final intendedUseQuestion = service.questions.singleWhere(
-      (question) =>
-          question.libraryId == 'photography_product_intended_use',
+      (question) => question.libraryId == 'photography_product_intended_use',
     );
     expect(
       intendedUseQuestion.helperText,
@@ -2155,104 +2181,112 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
     expect(allQuestionIds, isNot(contains('insurance')));
   });
 
-  test('Property and Product Photography use standard one-address quote flows', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'photography');
+  test(
+    'Property and Product Photography use standard one-address quote flows',
+    () {
+      final definition = kVanBusinessTemplateLibrary.singleWhere(
+        (item) => item.businessTypeId == 'photography',
+      );
 
-    for (final service in definition.services) {
-      expect(service.customerJourney, VanCustomerJourneyType.quote);
-      expect(service.requestType, VanCustomerRequestType.quoteRequest);
-      expect(service.startHandover, isNull);
-      expect(service.endHandover, isNull);
-      expect(service.requireAddress, isTrue);
-      expect(service.requestPhotos, isTrue);
-      expect(service.requestFlowOptions.askPreferredDate, isTrue);
-      expect(service.requestFlowOptions.askPreferredTime, isTrue);
-      expect(service.requestFlowOptions.showPickupAddress, isFalse);
-      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
-      expect(service.requestFlowOptions.showDropOffDate, isFalse);
-      expect(service.requestFlowOptions.showDropOffTime, isFalse);
-      expect(service.requestFlowOptions.showPickUpDate, isFalse);
-      expect(service.requestFlowOptions.showPickUpTime, isFalse);
-      expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
-      expect(service.requestFlowOptions.showNotes, isFalse);
-      expect(
-        service.builtInQuestionKeys,
-        containsAll(<String>[
+      for (final service in definition.services) {
+        expect(service.customerJourney, VanCustomerJourneyType.quote);
+        expect(service.requestType, VanCustomerRequestType.quoteRequest);
+        expect(service.startHandover, isNull);
+        expect(service.endHandover, isNull);
+        expect(service.requireAddress, isTrue);
+        expect(service.requestPhotos, isTrue);
+        expect(service.requestFlowOptions.askPreferredDate, isTrue);
+        expect(service.requestFlowOptions.askPreferredTime, isTrue);
+        expect(service.requestFlowOptions.showPickupAddress, isFalse);
+        expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+        expect(service.requestFlowOptions.showDropOffDate, isFalse);
+        expect(service.requestFlowOptions.showDropOffTime, isFalse);
+        expect(service.requestFlowOptions.showPickUpDate, isFalse);
+        expect(service.requestFlowOptions.showPickUpTime, isFalse);
+        expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+        expect(service.requestFlowOptions.showNotes, isFalse);
+        expect(
+          service.builtInQuestionKeys,
+          containsAll(<String>[
+            'address',
+            'phone',
+            'email',
+            'preferred_date',
+            'preferred_time',
+            'photos',
+          ]),
+        );
+        for (final key in <String>[
           'address',
-          'phone',
-          'email',
           'preferred_date',
           'preferred_time',
-          'photos',
+          'phone',
+        ]) {
+          expect(
+            service.builtInQuestionSettings[key]?['required'],
+            isTrue,
+            reason: '${service.serviceId} should require $key',
+          );
+        }
+        expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+        expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+      }
+    },
+  );
+
+  test(
+    'Property and Product Photography extras are pricing modifiers only',
+    () {
+      final definition = kVanBusinessTemplateLibrary.singleWhere(
+        (item) => item.businessTypeId == 'photography',
+      );
+
+      for (final service in definition.services) {
+        for (final extra in service.extras) {
+          expect(extra.defaultPrice, equals(0));
+          expect(extra.defaultChargeUnit, equals('Fixed'));
+          expect(
+            RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
+            isFalse,
+          );
+        }
+      }
+
+      final property = definition.services.singleWhere(
+        (service) => service.serviceId == 'photography_property',
+      );
+      final propertyExtraKeys = property.extras.map((e) => e.key).toSet();
+      expect(
+        propertyExtraKeys,
+        containsAll(<String>[
+          'custom_extra_photography_property_additional_rooms',
+          'custom_extra_photography_property_exterior_garden',
+          'custom_extra_photography_property_twilight_session',
+          'custom_extra_photography_property_additional_property',
+          'custom_extra_photography_property_express_editing',
         ]),
       );
-      for (final key in <String>[
-        'address',
-        'preferred_date',
-        'preferred_time',
-        'phone',
-      ]) {
-        expect(
-          service.builtInQuestionSettings[key]?['required'],
-          isTrue,
-          reason: '${service.serviceId} should require $key',
-        );
-      }
-      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
-      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
-    }
-  });
 
-  test('Property and Product Photography extras are pricing modifiers only', () {
-    final definition = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'photography');
-
-    for (final service in definition.services) {
-      for (final extra in service.extras) {
-        expect(extra.defaultPrice, equals(0));
-        expect(extra.defaultChargeUnit, equals('Fixed'));
-        expect(
-          RegExp(r'\bfree\b', caseSensitive: false).hasMatch(extra.label),
-          isFalse,
-        );
-      }
-    }
-
-    final property = definition.services.singleWhere(
-      (service) => service.serviceId == 'photography_property',
-    );
-    final propertyExtraKeys = property.extras.map((e) => e.key).toSet();
-    expect(
-      propertyExtraKeys,
-      containsAll(<String>[
-        'custom_extra_photography_property_additional_rooms',
-        'custom_extra_photography_property_exterior_garden',
-        'custom_extra_photography_property_twilight_session',
-        'custom_extra_photography_property_additional_property',
-        'custom_extra_photography_property_express_editing',
-      ]),
-    );
-
-    final product = definition.services.singleWhere(
-      (service) => service.serviceId == 'photography_product',
-    );
-    final productExtraKeys = product.extras.map((e) => e.key).toSet();
-    expect(
-      productExtraKeys,
-      containsAll(<String>[
-        'custom_extra_photography_product_additional_product',
-        'custom_extra_photography_product_additional_image',
-        'custom_extra_photography_product_background_removal',
-        'custom_extra_photography_product_lifestyle_setup',
-        'custom_extra_photography_product_express_editing',
-      ]),
-    );
-  });
+      final product = definition.services.singleWhere(
+        (service) => service.serviceId == 'photography_product',
+      );
+      final productExtraKeys = product.extras.map((e) => e.key).toSet();
+      expect(
+        productExtraKeys,
+        containsAll(<String>[
+          'custom_extra_photography_product_additional_product',
+          'custom_extra_photography_product_additional_image',
+          'custom_extra_photography_product_background_removal',
+          'custom_extra_photography_product_lifestyle_setup',
+          'custom_extra_photography_product_express_editing',
+        ]),
+      );
+    },
+  );
 
   test('Bakery pack has stable identity and four order services', () {
-    expect(kVanBusinessTemplateLibrary, hasLength(9));
-    expect(kVanStarterCapabilityPacks, hasLength(9));
+    expect(kVanBusinessTemplateLibrary, hasLength(11));
+    expect(kVanStarterCapabilityPacks, hasLength(11));
     expect(findVanStarterCapabilityPackById('bakery'), isNotNull);
 
     final definition = kVanBusinessTemplateLibrary.singleWhere(
@@ -2304,51 +2338,62 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
     ]);
   });
 
-  test('Bakery services use the shared Order Request fulfilment flow', () {
-    final services = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'bakery')
-        .services;
+  test(
+    'Bakery services use the appropriate Order Request or Pre Order flow',
+    () {
+      final services = kVanBusinessTemplateLibrary
+          .singleWhere((item) => item.businessTypeId == 'bakery')
+          .services;
 
-    for (final service in services) {
-      expect(service.customerJourney, VanCustomerJourneyType.order);
-      expect(service.requestType, VanCustomerRequestType.orderRequest);
-      expect(service.requestFlowOptions.showFulfilmentChoice, isTrue);
-      expect(service.requireAddress, isFalse);
-      expect(service.requestFlowOptions.askPreferredDate, isTrue);
-      expect(service.requestFlowOptions.askPreferredTime, isTrue);
-      expect(service.requestFlowOptions.showNotes, isTrue);
-      expect(service.requestPhotos, isTrue);
-      expect(service.startHandover, isNull);
-      expect(service.endHandover, isNull);
-      expect(service.requestFlowOptions.showPickupAddress, isFalse);
-      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
-      expect(service.requestFlowOptions.showDropOffDate, isFalse);
-      expect(service.requestFlowOptions.showDropOffTime, isFalse);
-      expect(service.requestFlowOptions.showPickUpDate, isFalse);
-      expect(service.requestFlowOptions.showPickUpTime, isFalse);
-      expect(
-        service.builtInQuestionKeys,
-        containsAll(<String>[
-          'phone',
-          'email',
-          'preferred_date',
-          'preferred_time',
-          'photos',
-        ]),
-      );
-      expect(service.builtInQuestionSettings['phone']?['required'], isTrue);
-      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
-      expect(
-        service.builtInQuestionSettings['preferred_date']?['required'],
-        isTrue,
-      );
-      expect(
-        service.builtInQuestionSettings['preferred_time']?['required'],
-        isTrue,
-      );
-      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
-    }
-  });
+      for (final service in services) {
+        final isPreOrder =
+            service.serviceId == 'bakery_cupcakes_treat_boxes' ||
+            service.serviceId == 'bakery_brownies_traybakes';
+        expect(
+          service.customerJourney,
+          isPreOrder
+              ? VanCustomerJourneyType.preOrder
+              : VanCustomerJourneyType.order,
+        );
+        expect(service.requestType, VanCustomerRequestType.orderRequest);
+        expect(service.requestFlowOptions.showFulfilmentChoice, isTrue);
+        expect(service.requireAddress, isFalse);
+        expect(service.requestFlowOptions.askPreferredDate, isTrue);
+        expect(service.requestFlowOptions.askPreferredTime, isTrue);
+        expect(service.requestFlowOptions.showNotes, isTrue);
+        expect(service.requestPhotos, isTrue);
+        expect(service.startHandover, isNull);
+        expect(service.endHandover, isNull);
+        expect(service.requestFlowOptions.showPickupAddress, isFalse);
+        expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+        expect(service.requestFlowOptions.showDropOffDate, isFalse);
+        expect(service.requestFlowOptions.showDropOffTime, isFalse);
+        expect(service.requestFlowOptions.showPickUpDate, isFalse);
+        expect(service.requestFlowOptions.showPickUpTime, isFalse);
+        expect(
+          service.builtInQuestionKeys,
+          containsAll(<String>[
+            'phone',
+            'email',
+            'preferred_date',
+            'preferred_time',
+            'photos',
+          ]),
+        );
+        expect(service.builtInQuestionSettings['phone']?['required'], isTrue);
+        expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+        expect(
+          service.builtInQuestionSettings['preferred_date']?['required'],
+          isTrue,
+        );
+        expect(
+          service.builtInQuestionSettings['preferred_time']?['required'],
+          isTrue,
+        );
+        expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+      }
+    },
+  );
 
   test('Bakery services have final question and extra counts', () {
     final services = kVanBusinessTemplateLibrary
@@ -2461,71 +2506,657 @@ expect(allExtras.map((e) => e.key).toSet(), hasLength(allExtras.length));
     );
   });
 
-  test('Bakery custom questions do not duplicate built-in fields or fulfilment extras', () {
+  test(
+    'Bakery custom questions do not duplicate built-in fields or fulfilment extras',
+    () {
+      final services = kVanBusinessTemplateLibrary
+          .singleWhere((item) => item.businessTypeId == 'bakery')
+          .services;
+      final forbiddenQuestionTerms = <String>[
+        'collection or delivery',
+        'delivery address',
+        'preferred date',
+        'preferred time',
+        'phone',
+        'email',
+        'order notes',
+        'photo upload',
+      ];
+
+      for (final service in services) {
+        for (final question in service.questions) {
+          final text = question.text.toLowerCase();
+          for (final term in forbiddenQuestionTerms) {
+            expect(text, isNot(contains(term)));
+          }
+        }
+        expect(
+          service.extras.map((extra) => extra.label.toLowerCase()),
+          isNot(contains('collection')),
+        );
+        expect(
+          service.extras.map((extra) => extra.label.toLowerCase()),
+          isNot(contains('delivery')),
+        );
+      }
+    },
+  );
+
+  test(
+    'Bakery safety helpers keep allergen, copyright and logistics promises bounded',
+    () {
+      final services = kVanBusinessTemplateLibrary
+          .singleWhere((item) => item.businessTypeId == 'bakery')
+          .services;
+      const allergenSafeguards = <String>[
+        'does not guarantee that the business can accept the order',
+        'do not guarantee an allergen-free environment',
+        'Cross-contamination risks must be discussed directly',
+        'confirm whether it can fulfil the request safely',
+      ];
+
+      for (final service in services) {
+        final allText = <String>[
+          service.description,
+          service.suggestedCustomerMessage,
+          for (final question in service.questions) question.text,
+          for (final question in service.questions) question.helperText,
+          for (final extra in service.extras) extra.label,
+        ].join(' ');
+
+        final allergyDetails = service.questions.singleWhere(
+          (question) => question.libraryId.endsWith('_allergy_details'),
+        );
+        for (final safeguard in allergenSafeguards) {
+          expect(allergyDetails.helperText, contains(safeguard));
+        }
+        expect(allText, isNot(contains('allergen-free production')));
+        expect(allText, isNot(contains('licensed-character permission')));
+        expect(allText, isNot(contains('exact colour matching is guaranteed')));
+        expect(allText, isNot(contains('refrigerated transport is included')));
+        expect(allText, isNot(contains('national shipping is included')));
+        expect(allText, isNot(contains('venue setup is included')));
+      }
+    },
+  );
+
+  test('Mobile Car Valeting pack has stable identity and four services', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(11));
+    expect(kVanStarterCapabilityPacks, hasLength(11));
+    expect(findVanStarterCapabilityPackById('mobile_car_valeting'), isNotNull);
+
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'mobile_car_valeting',
+    );
+
+    expect(definition.categoryId, 'mobile_car_valeting');
+    expect(definition.categoryName, 'Mobile Car Valeting & Detailing');
+    expect(definition.businessTypeId, 'mobile_car_valeting');
+    expect(definition.businessTypeName, 'Mobile Car Valeting & Detailing');
+    expect(definition.iconKey, 'local_car_wash');
+    expect(definition.colorValue, 0xFF0097A7);
+    expect(definition.featured, isTrue);
+    expect(
+      definition.searchAliases.map((alias) => alias.label),
+      containsAll(<String>[
+        'Mobile Car Valeting',
+        'Car Valet',
+        'Car Wash',
+        'Interior Valet',
+        'Full Valet',
+        'Paint Enhancement',
+        'Machine Polish',
+        'Vehicle Detailing',
+      ]),
+    );
+    expect(definition.services.map((service) => service.serviceId), <String>[
+      'mobile_car_valeting_exterior_car_wash',
+      'mobile_car_valeting_interior_valet',
+      'mobile_car_valeting_full_valet',
+      'mobile_car_valeting_paint_enhancement',
+    ]);
+    expect(definition.services.map((service) => service.name), <String>[
+      'Exterior Car Wash',
+      'Interior Valet',
+      'Full Valet',
+      'Paint Enhancement / Machine Polish',
+    ]);
+  });
+
+  test('Mobile Car Valeting services use one-location quote flows', () {
     final services = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'bakery')
+        .singleWhere((item) => item.businessTypeId == 'mobile_car_valeting')
         .services;
-    final forbiddenQuestionTerms = <String>[
-      'collection or delivery',
-      'delivery address',
+
+    for (final service in services) {
+      expect(service.customerJourney, VanCustomerJourneyType.quote);
+      expect(service.requestType, VanCustomerRequestType.quoteRequest);
+      expect(service.requestFlowOptions.showFulfilmentChoice, isFalse);
+      expect(service.requestFlowOptions.askPreferredDate, isTrue);
+      expect(service.requestFlowOptions.askPreferredTime, isTrue);
+      expect(service.requestFlowOptions.showNotes, isTrue);
+      expect(service.requestFlowOptions.showPickupAddress, isFalse);
+      expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+      expect(service.requestFlowOptions.showDropOffDate, isFalse);
+      expect(service.requestFlowOptions.showDropOffTime, isFalse);
+      expect(service.requestFlowOptions.showPickUpDate, isFalse);
+      expect(service.requestFlowOptions.showPickUpTime, isFalse);
+      expect(service.startHandover, isNull);
+      expect(service.endHandover, isNull);
+      expect(service.requestPhotos, isTrue);
+      expect(service.requireAddress, isTrue);
+      expect(
+        service.builtInQuestionKeys,
+        containsAll(<String>[
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        ]),
+      );
+      expect(service.builtInQuestionSettings['address']?['required'], isTrue);
+      expect(service.builtInQuestionSettings['phone']?['required'], isTrue);
+      expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+      expect(
+        service.builtInQuestionSettings['preferred_date']?['required'],
+        isTrue,
+      );
+      expect(
+        service.builtInQuestionSettings['preferred_time']?['required'],
+        isTrue,
+      );
+      expect(service.builtInQuestionSettings['photos']?['required'], isFalse);
+    }
+  });
+
+  test('Mobile Car Valeting questions and extras are explicit and safe', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'mobile_car_valeting')
+        .services;
+    final exterior = services.singleWhere(
+      (service) => service.serviceId == 'mobile_car_valeting_exterior_car_wash',
+    );
+    final interior = services.singleWhere(
+      (service) => service.serviceId == 'mobile_car_valeting_interior_valet',
+    );
+    final full = services.singleWhere(
+      (service) => service.serviceId == 'mobile_car_valeting_full_valet',
+    );
+    final paint = services.singleWhere(
+      (service) => service.serviceId == 'mobile_car_valeting_paint_enhancement',
+    );
+
+    expect(exterior.questions, hasLength(8));
+    expect(interior.questions, hasLength(10));
+    expect(full.questions, hasLength(8));
+    expect(paint.questions, hasLength(7));
+    expect(exterior.extras, hasLength(5));
+    expect(interior.extras, hasLength(6));
+    expect(full.extras, hasLength(6));
+    expect(paint.extras, hasLength(4));
+
+    final questionIds = services
+        .expand((service) => service.questions)
+        .map((question) => question.libraryId)
+        .toSet();
+    expect(questionIds, hasLength(33));
+    expect(
+      questionIds,
+      containsAll(<String>[
+        'mobile_car_valeting_exterior_vehicle_type',
+        'mobile_car_valeting_exterior_vehicle_size',
+        'mobile_car_valeting_exterior_heavy_soiling',
+        'mobile_car_valeting_exterior_wheels_alloys',
+        'mobile_car_valeting_exterior_bodywork_concerns',
+        'mobile_car_valeting_exterior_water_access',
+        'mobile_car_valeting_exterior_electricity_access',
+        'mobile_car_valeting_exterior_working_space',
+        'mobile_car_valeting_interior_vehicle_type',
+        'mobile_car_valeting_interior_vehicle_size',
+        'mobile_car_valeting_interior_condition',
+        'mobile_car_valeting_interior_seat_material',
+        'mobile_car_valeting_interior_pet_hair',
+        'mobile_car_valeting_interior_spills_stains',
+        'mobile_car_valeting_interior_odours',
+        'mobile_car_valeting_interior_boot_cleaning',
+        'mobile_car_valeting_interior_child_seats',
+        'mobile_car_valeting_interior_priority_areas',
+        'mobile_car_valeting_full_vehicle_make_model',
+        'mobile_car_valeting_full_vehicle_size',
+        'mobile_car_valeting_full_water_supply',
+        'mobile_car_valeting_full_exterior_condition',
+        'mobile_car_valeting_full_interior_condition',
+        'mobile_car_valeting_full_electricity_access',
+        'mobile_car_valeting_full_working_space',
+        'mobile_car_valeting_full_priority_areas',
+        'mobile_car_valeting_paint_enhancement_vehicle_make_model',
+        'mobile_car_valeting_paint_enhancement_vehicle_size',
+        'mobile_car_valeting_paint_enhancement_paint_condition',
+        'mobile_car_valeting_paint_enhancement_scratches',
+        'mobile_car_valeting_paint_enhancement_garage_space',
+        'mobile_car_valeting_paint_enhancement_power_access',
+        'mobile_car_valeting_paint_enhancement_attention_areas',
+      ]),
+    );
+
+    final extraKeys = services
+        .expand((service) => service.extras)
+        .map((extra) => extra.key)
+        .toSet();
+    expect(extraKeys, hasLength(21));
+    expect(
+      extraKeys,
+      containsAll(<String>[
+        'custom_extra_mobile_car_valeting_exterior_wheel_deep_clean',
+        'custom_extra_mobile_car_valeting_exterior_wax_finish',
+        'custom_extra_mobile_car_valeting_exterior_large_vehicle_supplement',
+        'custom_extra_mobile_car_valeting_exterior_bug_tar_removal',
+        'custom_extra_mobile_car_valeting_exterior_interior_windows',
+        'custom_extra_mobile_car_valeting_interior_seat_shampoo',
+        'custom_extra_mobile_car_valeting_interior_pet_hair_removal',
+        'custom_extra_mobile_car_valeting_interior_boot_deep_clean',
+        'custom_extra_mobile_car_valeting_interior_odour_treatment',
+        'custom_extra_mobile_car_valeting_interior_fabric_protection',
+        'custom_extra_mobile_car_valeting_interior_child_seat_clean',
+        'custom_extra_mobile_car_valeting_full_machine_polish',
+        'custom_extra_mobile_car_valeting_full_clay_bar',
+        'custom_extra_mobile_car_valeting_full_ceramic_spray',
+        'custom_extra_mobile_car_valeting_full_engine_bay_clean',
+        'custom_extra_mobile_car_valeting_full_alloy_protection',
+        'custom_extra_mobile_car_valeting_full_leather_treatment',
+        'custom_extra_mobile_car_valeting_paint_enhancement_ceramic_coating',
+        'custom_extra_mobile_car_valeting_paint_enhancement_headlight_restoration',
+        'custom_extra_mobile_car_valeting_paint_enhancement_scratch_reduction',
+        'custom_extra_mobile_car_valeting_paint_enhancement_alloy_sealant',
+      ]),
+    );
+
+    final allText = <String>[
+      for (final service in services) service.description,
+      for (final service in services) service.suggestedCustomerMessage,
+      for (final service in services)
+        for (final question in service.questions) question.text,
+      for (final service in services)
+        for (final question in service.questions) question.helperText,
+      for (final service in services)
+        for (final extra in service.extras) extra.label,
+    ].join(' ').toLowerCase();
+
+    for (final forbidden in <String>[
+      'address?',
       'preferred date',
       'preferred time',
       'phone',
       'email',
-      'order notes',
-      'photo upload',
-    ];
-
-    for (final service in services) {
-      for (final question in service.questions) {
-        final text = question.text.toLowerCase();
-        for (final term in forbiddenQuestionTerms) {
-          expect(text, isNot(contains(term)));
-        }
-      }
-      expect(
-        service.extras.map((extra) => extra.label.toLowerCase()),
-        isNot(contains('collection')),
-      );
-      expect(
-        service.extras.map((extra) => extra.label.toLowerCase()),
-        isNot(contains('delivery')),
-      );
+      'what is the location',
+      'notes',
+      'guaranteed removal',
+      'guaranteed results',
+    ]) {
+      expect(allText, isNot(contains(forbidden)));
     }
+
+    expect(allText, contains('complete removal cannot be guaranteed'));
+    expect(allText, contains('full removal must be assessed'));
   });
 
-  test('Bakery safety helpers keep allergen, copyright and logistics promises bounded', () {
-    final services = kVanBusinessTemplateLibrary
-        .singleWhere((item) => item.businessTypeId == 'bakery')
-        .services;
-    const allergenSafeguards = <String>[
-      'does not guarantee that the business can accept the order',
-      'do not guarantee an allergen-free environment',
-      'Cross-contamination risks must be discussed directly',
-      'confirm whether it can fulfil the request safely',
-    ];
+  test('Mobile Car Valeting templates materialise independently', () {
+    final pack = findVanStarterCapabilityPackById('mobile_car_valeting')!;
+    final setups = pack.recommendationsFor(
+      pack.services.map((service) => service.id),
+    );
 
-    for (final service in services) {
-      final allText = <String>[
-        service.description,
-        service.suggestedCustomerMessage,
-        for (final question in service.questions) question.text,
-        for (final question in service.questions) question.helperText,
-        for (final extra in service.extras) extra.label,
-      ].join(' ');
-
-      final allergyDetails = service.questions.singleWhere(
-        (question) => question.libraryId.endsWith('_allergy_details'),
+    expect(setups, hasLength(4));
+    for (final setup in setups) {
+      expect(setup.journeyType, VanCustomerJourneyType.quote);
+      expect(setup.requestType, VanCustomerRequestType.quoteRequest);
+      expect(setup.requestFlowOptions.askPreferredDate, isTrue);
+      expect(setup.requestFlowOptions.askPreferredTime, isTrue);
+      expect(setup.requireAddress, isTrue);
+      expect(setup.requestPhotos, isTrue);
+      expect(
+        setup.builtInQuestionKeys,
+        containsAll(<String>[
+          'address',
+          'phone',
+          'email',
+          'preferred_date',
+          'preferred_time',
+          'photos',
+        ]),
       );
-      for (final safeguard in allergenSafeguards) {
-        expect(allergyDetails.helperText, contains(safeguard));
-      }
-      expect(allText, isNot(contains('allergen-free production')));
-      expect(allText, isNot(contains('licensed-character permission')));
-      expect(allText, isNot(contains('exact colour matching is guaranteed')));
-      expect(allText, isNot(contains('refrigerated transport is included')));
-      expect(allText, isNot(contains('national shipping is included')));
-      expect(allText, isNot(contains('venue setup is included')));
+      expect(
+        setup.questions.map((question) => question.libraryId).toSet(),
+        hasLength(setup.questions.length),
+        reason: '${setup.serviceKey} should not duplicate question IDs',
+      );
+      expect(
+        setup.extras.map((extra) => extra.key).toSet(),
+        hasLength(setup.extras.length),
+        reason: '${setup.serviceKey} should not duplicate extra keys',
+      );
+      expect(
+        setup.quoteExtraDefaults().orderedExtras.map((extra) => extra.key),
+        setup.extras.map((extra) => extra.key),
+      );
     }
+
+    final byService = <String, VanRecommendedServiceSetup>{
+      for (final setup in setups) setup.serviceKey: setup,
+    };
+    expect(
+      byService['mobile_car_valeting_full_valet']!.questions.map(
+        (question) => question.libraryId,
+      ),
+      isNot(contains('mobile_car_valeting_interior_pet_hair')),
+    );
+    expect(
+      byService['mobile_car_valeting_paint_enhancement']!.extras.map(
+        (extra) => extra.key,
+      ),
+      isNot(contains('custom_extra_mobile_car_valeting_full_machine_polish')),
+    );
+  });
+
+  test('Mobile Food Van pack has stable identity and one demo service', () {
+    expect(kVanBusinessTemplateLibrary, hasLength(11));
+    expect(kVanStarterCapabilityPacks, hasLength(11));
+    expect(findVanStarterCapabilityPackById('mobile_food_van'), isNotNull);
+
+    final definition = kVanBusinessTemplateLibrary.singleWhere(
+      (item) => item.businessTypeId == 'mobile_food_van',
+    );
+
+    expect(definition.categoryId, 'mobile_food_van');
+    expect(definition.categoryName, 'Mobile Food Van');
+    expect(definition.businessTypeId, 'mobile_food_van');
+    expect(definition.businessTypeName, 'Mobile Food Van');
+    expect(definition.iconKey, 'sparkle');
+    expect(definition.colorValue, 0xFFE45775);
+    expect(definition.featured, isTrue);
+    expect(
+      definition.searchAliases.map((alias) => alias.label),
+      containsAll(<String>[
+        'Burger Van',
+        'Food Van',
+        'Street Food Van',
+        'Mobile Catering',
+        'Hot Food Van',
+      ]),
+    );
+    expect(definition.services.map((service) => service.serviceId), <String>[
+      'mobile_food_van_burger_van',
+    ]);
+    expect(definition.services.single.name, 'Burger Van');
+  });
+
+  test('Mobile Food Van uses the existing Order Request flow', () {
+    final service = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'mobile_food_van')
+        .services
+        .single;
+
+    expect(service.customerJourney, VanCustomerJourneyType.preOrder);
+    expect(service.requestType, VanCustomerRequestType.orderRequest);
+    expect(service.requestFlowOptions.showFulfilmentChoice, isTrue);
+    expect(service.requestFlowOptions.askPreferredDate, isTrue);
+    expect(service.requestFlowOptions.askPreferredTime, isTrue);
+    expect(service.requestFlowOptions.showNotes, isTrue);
+    expect(service.requestFlowOptions.showPickupAddress, isFalse);
+    expect(service.requestFlowOptions.showDeliveryAddress, isFalse);
+    expect(service.requestFlowOptions.showDropOffDate, isFalse);
+    expect(service.requestFlowOptions.showDropOffTime, isFalse);
+    expect(service.requestFlowOptions.showPickUpDate, isFalse);
+    expect(service.requestFlowOptions.showPickUpTime, isFalse);
+    expect(service.startHandover, isNull);
+    expect(service.endHandover, isNull);
+    expect(service.requireAddress, isFalse);
+    expect(service.requestPhotos, isFalse);
+    expect(
+      service.builtInQuestionKeys,
+      containsAll(<String>[
+        'phone',
+        'email',
+        'preferred_date',
+        'preferred_time',
+      ]),
+    );
+    expect(service.builtInQuestionSettings['phone']?['required'], isTrue);
+    expect(service.builtInQuestionSettings['email']?['required'], isFalse);
+    expect(
+      service.builtInQuestionSettings['preferred_date']?['required'],
+      isFalse,
+    );
+    expect(service.builtInQuestionSettings['preferred_date']?['show'], isFalse);
+    expect(
+      service.builtInQuestionSettings['preferred_time']?['required'],
+      isTrue,
+    );
+    expect(service.builtInQuestionSettings['preferred_time']?['show'], isTrue);
+    expect(
+      service.builtInQuestionSettings['preferred_time']?['helperText'],
+      contains('collection time'),
+    );
+    expect(
+      service.builtInQuestionSettings['preferred_time']?['label'],
+      'Collection Time',
+    );
+    expect(
+      service.builtInQuestionSettings['flexible_timing']?['show'],
+      isFalse,
+    );
+  });
+
+  test(
+    'Mobile Food Van menu and preference questions are explicit and safe',
+    () {
+      final service = kVanBusinessTemplateLibrary
+          .singleWhere((item) => item.businessTypeId == 'mobile_food_van')
+          .services
+          .single;
+
+      expect(service.questions, hasLength(22));
+      expect(service.extras, hasLength(13));
+      expect(service.questions.map((question) => question.libraryId), <String>[
+        'mobile_food_van_burger_van_item_1_main_item',
+        'mobile_food_van_burger_van_item_1_quantity',
+        'mobile_food_van_burger_van_item_1_side',
+        'mobile_food_van_burger_van_item_1_sauce',
+        'mobile_food_van_burger_van_item_1_drink',
+        'mobile_food_van_burger_van_item_2_main_item',
+        'mobile_food_van_burger_van_item_2_quantity',
+        'mobile_food_van_burger_van_item_2_side',
+        'mobile_food_van_burger_van_item_2_sauce',
+        'mobile_food_van_burger_van_item_2_drink',
+        'mobile_food_van_burger_van_item_3_main_item',
+        'mobile_food_van_burger_van_item_3_quantity',
+        'mobile_food_van_burger_van_item_3_side',
+        'mobile_food_van_burger_van_item_3_sauce',
+        'mobile_food_van_burger_van_item_3_drink',
+        'mobile_food_van_burger_van_item_4_main_item',
+        'mobile_food_van_burger_van_item_4_quantity',
+        'mobile_food_van_burger_van_item_4_side',
+        'mobile_food_van_burger_van_item_4_sauce',
+        'mobile_food_van_burger_van_item_4_drink',
+        'mobile_food_van_burger_van_dietary_requirements',
+        'mobile_food_van_burger_van_anything_else',
+      ]);
+      expect(
+        service.questions.map((question) => question.libraryId).toSet(),
+        hasLength(22),
+      );
+      expect(service.extras.map((extra) => extra.key).toSet(), hasLength(13));
+      expect(service.extras.map((extra) => extra.label), <String>[
+        'Burger',
+        'Cheeseburger',
+        'Double Cheeseburger',
+        'Hot Dog',
+        'Bacon Bap',
+        'Sausage Bap',
+        'Chips',
+        'Loaded Fries',
+        'Tea',
+        'Coffee',
+        'Coke',
+        'Diet Coke',
+        'Water',
+      ]);
+
+      final mainItem = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'mobile_food_van_burger_van_item_1_main_item',
+      );
+      expect(mainItem.answerType, VanCustomQuestionAnswerType.multipleChoice);
+      expect(mainItem.choiceOptions, <String>[
+        'Burger',
+        'Cheeseburger',
+        'Double Cheeseburger',
+        'Hot Dog',
+        'Bacon Bap',
+        'Sausage Bap',
+      ]);
+      expect(mainItem.requiredByDefault, isTrue);
+
+      final quantity = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'mobile_food_van_burger_van_item_1_quantity',
+      );
+      expect(quantity.answerType, VanCustomQuestionAnswerType.multipleChoice);
+      expect(quantity.choiceOptions, <String>['1', '2', '3', '4', '5+']);
+
+      final side = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'mobile_food_van_burger_van_item_1_side',
+      );
+      expect(side.answerType, VanCustomQuestionAnswerType.multipleChoice);
+      expect(side.choiceOptions, <String>['None', 'Chips', 'Loaded Fries']);
+
+      final sauce = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'mobile_food_van_burger_van_item_1_sauce',
+      );
+      expect(sauce.answerType, VanCustomQuestionAnswerType.multipleChoice);
+      expect(sauce.choiceOptions, <String>[
+        'None',
+        'Tomato Ketchup',
+        'Brown Sauce',
+        'BBQ Sauce',
+        'Burger Sauce',
+        'Mayonnaise',
+        'Mustard',
+        'Chilli Sauce',
+      ]);
+
+      final drink = service.questions.singleWhere(
+        (question) =>
+            question.libraryId == 'mobile_food_van_burger_van_item_1_drink',
+      );
+      expect(drink.answerType, VanCustomQuestionAnswerType.multipleChoice);
+      expect(drink.choiceOptions, <String>[
+        'None',
+        'Tea',
+        'Coffee',
+        'Coke',
+        'Diet Coke',
+        'Water',
+      ]);
+
+      final optionalMainItems = service.questions
+          .where(
+            (question) =>
+                question.libraryId.endsWith('_main_item') &&
+                question.libraryId !=
+                    'mobile_food_van_burger_van_item_1_main_item',
+          )
+          .toList(growable: false);
+      expect(optionalMainItems, hasLength(3));
+      for (final question in optionalMainItems) {
+        expect(question.requiredByDefault, isFalse);
+        expect(question.choiceOptions.first, 'None');
+        expect(question.choiceOptions.skip(1), mainItem.choiceOptions);
+      }
+      expect(
+        service.questions
+            .where(
+              (question) =>
+                  question.libraryId.contains('_item_2_') ||
+                  question.libraryId.contains('_item_3_') ||
+                  question.libraryId.contains('_item_4_'),
+            )
+            .every((question) => !question.requiredByDefault),
+        isTrue,
+      );
+
+      final dietary = service.questions.singleWhere(
+        (question) =>
+            question.libraryId ==
+            'mobile_food_van_burger_van_dietary_requirements',
+      );
+      expect(dietary.answerType, VanCustomQuestionAnswerType.longText);
+      expect(dietary.helperText, contains('confirm whether it can prepare'));
+      expect(dietary.requiredByDefault, isFalse);
+
+      final allQuestionText = service.questions
+          .map((question) => question.text.toLowerCase())
+          .join(' ');
+      for (final forbidden in <String>[
+        'collection time',
+        'customer details',
+        'phone',
+        'email',
+        'order notes',
+        'invoice',
+        'price',
+        'basket',
+        'cart',
+      ]) {
+        expect(allQuestionText, isNot(contains(forbidden)));
+      }
+    },
+  );
+
+  test('Mobile Food Van template materialises independently', () {
+    final pack = findVanStarterCapabilityPackById('mobile_food_van')!;
+    final setup = pack.recommendationsFor(const <String>[
+      'mobile_food_van_burger_van',
+    ]).single;
+
+    expect(setup.packId, 'mobile_food_van');
+    expect(setup.serviceKey, 'mobile_food_van_burger_van');
+    expect(setup.name, 'Burger Van');
+    expect(setup.journeyType, VanCustomerJourneyType.preOrder);
+    expect(setup.requestType, VanCustomerRequestType.orderRequest);
+    expect(setup.requestFlowOptions.showFulfilmentChoice, isTrue);
+    expect(setup.requireAddress, isFalse);
+    expect(setup.questions, hasLength(22));
+    expect(setup.extras, hasLength(13));
+    expect(
+      setup.questions.map((question) => question.libraryId).toSet(),
+      hasLength(setup.questions.length),
+    );
+    expect(
+      setup.extras.map((extra) => extra.key).toSet(),
+      hasLength(setup.extras.length),
+    );
+    expect(
+      setup.quoteExtraDefaults().orderedExtras.map((extra) => extra.label),
+      <String>[
+        'Burger',
+        'Cheeseburger',
+        'Double Cheeseburger',
+        'Hot Dog',
+        'Bacon Bap',
+        'Sausage Bap',
+        'Chips',
+        'Loaded Fries',
+        'Tea',
+        'Coffee',
+        'Coke',
+        'Diet Coke',
+        'Water',
+      ],
+    );
   });
 }

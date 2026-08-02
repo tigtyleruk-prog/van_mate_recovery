@@ -808,7 +808,7 @@ void main() {
           state.pendingJobs.single,
           request: state.requestForJob(request.jobId),
         ).primaryChipLabel,
-        'Order confirmed',
+        'Order request confirmed',
       );
       expect(state.pendingJobs.single.isHiddenFromNormalLists, isFalse);
 
@@ -853,7 +853,7 @@ void main() {
           state.pendingJobs.single,
           request: state.requestForJob(deliveryRequest.jobId),
         ).primaryChipLabel,
-        'Order confirmed',
+        'Order request confirmed',
       );
     } finally {
       state.debugResetStateForTest();
