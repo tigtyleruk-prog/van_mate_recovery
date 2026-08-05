@@ -327,6 +327,18 @@ test('automatic movement choices are inferred and checked from the capability co
   );
 });
 
+test('hosted submission resolves fulfilment options in its own scope', () => {
+  const bookingLinkSource = fs.readFileSync(
+    path.join(__dirname, '..', 'web', 'booking_link.html'),
+    'utf8',
+  );
+  assert.match(
+    bookingLinkSource,
+    /const flowOptions = flowOptionsForService\(service, flow\.requestType\);\s+const handover = handoverForService\(service\);\s+const fulfilmentOptions = fulfilmentOptionsForService\(service, flowOptions\);\s+const selectedFulfilmentType = fulfilmentOptions\.length > 0/s,
+  );
+  assert.match(bookingLinkSource, /Powered by Business Mate/);
+});
+
 test('hidden built-in address question suppresses generic address validation', () => {
   assert.equal(
     validate({

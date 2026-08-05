@@ -4,15 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>Van Mate quote</title>
-  <meta name="description" content="Review and respond to a Van Mate quote." />
-  <meta property="og:title" content="Van Mate quote" />
-  <meta property="og:description" content="Review and respond to a Van Mate quote." />
+  <title>Business Mate quote</title>
+  <meta name="description" content="Review and respond to a Business Mate quote." />
+  <meta property="og:title" content="Business Mate quote" />
+  <meta property="og:description" content="Review and respond to a Business Mate quote." />
   <meta property="og:type" content="website" />
   <meta property="og:url" id="ogUrl" content="" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Van Mate quote" />
-  <meta name="twitter:description" content="Review and respond to a Van Mate quote." />
+  <meta name="twitter:title" content="Business Mate quote" />
+  <meta name="twitter:description" content="Review and respond to a Business Mate quote." />
   <style>
     :root {
       color-scheme: dark;
@@ -639,7 +639,7 @@
 <body>
   <main class="page">
     <section class="hero">
-      <div class="eyebrow" id="heroEyebrow">Van Mate quote</div>
+      <div class="eyebrow" id="heroEyebrow">Business Mate quote</div>
       <h1 id="heroTitle">Review your quote</h1>
       <p class="lede" id="heroLede">Check the quote details below, then choose an option.</p>
     </section>
@@ -664,7 +664,7 @@
           <button id="declineButton" type="button" class="warning">Decline quote</button>
         </div>
         <p id="respondStatus" class="footer hidden" aria-live="polite"></p>
-        <p class="footer">Van Mate updates the job automatically after your choice.</p>
+        <p class="footer">Business Mate updates the job automatically after your choice.</p>
       </article>
 
       <article id="arrangeTimeCard" class="card hidden">
@@ -723,7 +723,7 @@
 
   <div id="safetyModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="safetyModalTitle">
-      <div class="eyebrow">Van Mate</div>
+      <div class="eyebrow">Business Mate</div>
       <h2 id="safetyModalTitle" class="modal-title">Are you at the exact spot now?</h2>
       <p class="modal-text">
         Only use current location if you are there now. If you are not there, choose the spot on the map instead.
@@ -738,7 +738,7 @@
 
   <div id="mapModal" class="modal-overlay" aria-hidden="true">
     <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="mapModalTitle">
-      <div class="eyebrow">Van Mate</div>
+      <div class="eyebrow">Business Mate</div>
       <h2 id="mapModalTitle" class="modal-title">Choose the exact spot</h2>
       <p class="modal-text">Move the map until the crosshair is on the exact entrance, bay, gate, pickup point, or drop-off point.</p>
       <div class="map-shell">
@@ -764,7 +764,7 @@
       tabindex="-1"
     >
       <div class="decline-modal-header">
-        <div class="eyebrow">Van Mate</div>
+        <div class="eyebrow">Business Mate</div>
         <h2 id="declineModalTitle" class="modal-title">Decline quote?</h2>
         <p class="modal-text">Optional: let the business know why.</p>
       </div>
@@ -1608,7 +1608,7 @@
         returnAddressSameAsCollection: asBool(data.returnAddressSameAsCollection),
         handoverSummary: text(data.handoverSummary),
         customerName: text(data.customerName || data.publicCustomerName, "Customer"),
-        businessName: text(data.businessName || data.companyName, "Van Mate"),
+        businessName: text(data.businessName || data.companyName, "Business Mate"),
         jobTitle: text(data.jobTitle || data.publicJobTitle || data.jobDescription, "Job"),
         address: text(data.address || data.publicAddressSummary, ""),
         proposedDate: String(data.proposedDate || "").trim(),
@@ -1795,11 +1795,11 @@
         return;
       }
 
-      document.title = `${journeyStatusCopy(quote).ready} | Van Mate`;
+      document.title = `${journeyStatusCopy(quote).ready} | Business Mate`;
       const journey = customerJourneyType(quote);
       const documentName = journey === "preorder" ? "Order Summary" : "Quote";
       const documentNameLower = documentName.toLowerCase();
-      heroEyebrow.textContent = `Van Mate ${documentNameLower}`;
+      heroEyebrow.textContent = `Business Mate ${documentNameLower}`;
       heroTitle.textContent = `Review your ${documentNameLower}`;
       heroLede.textContent = `Check the ${documentNameLower} details below, then choose an option.`;
       arrangeTimeTitle.textContent = `Accept ${journey === "preorder" ? "Pre Order" : documentNameLower} - arrange another time`;
@@ -1807,7 +1807,7 @@
       declineModalTitle.textContent = `Decline ${journey === "preorder" ? "Pre Order" : documentNameLower}?`;
       const journeyAccent = journey === "booking" ? "#9b7cff" : (journey === "order" ? "#ffa24c" : "#4a7dff");
       document.documentElement.style.setProperty("--accent", journeyAccent);
-      const metadataTitle = `${journeyStatusCopy(quote).ready} | Van Mate`;
+      const metadataTitle = `${journeyStatusCopy(quote).ready} | Business Mate`;
       const metadataDescription = `Review and respond to this ${journey}.`;
       document.querySelector('meta[property="og:title"]')?.setAttribute("content", metadataTitle);
       document.querySelector('meta[property="og:description"]')?.setAttribute("content", metadataDescription);
@@ -2199,7 +2199,7 @@
           statusPill.className = "status-pill warning";
           statusPill.textContent = "Missing quote link";
           title.textContent = "Missing quote link";
-          description.textContent = "Open the full Van Mate quote link again so the quote can be identified.";
+          description.textContent = "Open the full Business Mate quote link again so the quote can be identified.";
           setBanner("Missing quote link. Please reopen the quote from the original message.", "error");
           acceptButton.disabled = true;
           arrangeTimeButton.disabled = true;

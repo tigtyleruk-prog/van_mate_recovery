@@ -35,23 +35,41 @@ import 'van_add_drop_page.dart';
 import '../widgets/van_current_job_sheet.dart';
 import '../widgets/van_first_use_help_dialog.dart';
 import '../widgets/van_mate_bottom_nav.dart';
-import '../widgets/van_guide_dialog.dart';
 import '../widgets/van_premium_gate_sheet.dart';
 import 'van_route_templates_sheet.dart';
 import 'van_home_page.dart';
+import 'van_insights_page.dart';
 import 'van_places_page.dart';
 import 'van_map_page.dart';
 import 'jobs_calendar_page.dart';
 import 'van_incoming_requests_page.dart';
+import 'van_payments_page.dart';
 import 'van_invoice_history_page.dart';
 import 'van_invoice_preview_page.dart';
 
 part 'route_page.dart';
 part 'today_page.dart';
 
-enum VanTab { home, today, map, places, route }
+enum VanTab {
+  home,
+  calendar,
+  businessHub,
+  routing,
+  insights,
+  today,
+  map,
+  places,
+  route,
+}
 
-const List<VanTab> _mainTabs = <VanTab>[
+const List<VanTab> _workspaceTabs = <VanTab>[
+  VanTab.calendar,
+  VanTab.businessHub,
+  VanTab.routing,
+  VanTab.insights,
+];
+
+const List<VanTab> _routingTabs = <VanTab>[
   VanTab.today,
   VanTab.map,
   VanTab.places,
@@ -75,6 +93,7 @@ class _VanFirebasePageState extends State<VanFirebasePage>
   StreamSubscription<VanRoute?>? _routeSubscription;
 
   VanTab _selectedTab = VanTab.home;
+  VanTab _lastRoutingTab = VanTab.today;
   String? _currentUserId;
   String? _loadError;
   List<VanPlace> _savedPlaces = const <VanPlace>[];
@@ -2892,20 +2911,40 @@ class _VanFirebasePageState extends State<VanFirebasePage>
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                     child: VanMateBottomNav(
-                      items: _mainTabs
+                      items: _workspaceTabs
                           .map(
-                            (tab) =>
-                                VanMateBottomNavItem(label: _tabLabel(tab)),
+                            (tab) => VanMateBottomNavItem(
+                              label: _tabLabel(tab),
+                              icon: _tabIcon(tab),
+                            ),
                           )
                           .toList(growable: false),
-                      selectedIndex: _mainTabs.contains(_selectedTab)
-                          ? _mainTabs.indexOf(_selectedTab)
-                          : null,
+                      selectedIndex: _workspaceTabFor(_selectedTab) == null
+                          ? null
+                          : _workspaceTabs.indexOf(
+                              _workspaceTabFor(_selectedTab)!,
+                            ),
                       onSelected: (index) {
-                        _switchTab(_mainTabs[index]);
+                        _switchTab(_workspaceTabs[index]);
                       },
                     ),
                   ),
+                  if (_routingTabs.contains(_selectedTab))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: VanMateBottomNav(
+                        items: _routingTabs
+                            .map(
+                              (tab) =>
+                                  VanMateBottomNavItem(label: _tabLabel(tab)),
+                            )
+                            .toList(growable: false),
+                        selectedIndex: _routingTabs.indexOf(_selectedTab),
+                        onSelected: (index) {
+                          _switchTab(_routingTabs[index]);
+                        },
+                      ),
+                    ),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -2938,7 +2977,7 @@ class _VanFirebasePageState extends State<VanFirebasePage>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(width: 96),
+              const SizedBox(width: 40),
               Expanded(
                 child: GestureDetector(
                   onTap: () => _switchTab(VanTab.home),
@@ -2947,7 +2986,7 @@ class _VanFirebasePageState extends State<VanFirebasePage>
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: 12),
                       child: Text(
-                        'Van Mate',
+                        'Business Mate',
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -2963,39 +3002,33 @@ class _VanFirebasePageState extends State<VanFirebasePage>
                   ),
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _VanHeaderIconButton(
-                    icon: Icons.help_outline_rounded,
-                    onTap: () => showVanMateGuideDialog(context),
-                  ),
-                  const SizedBox(width: 10),
-                  _VanHeaderIconButton(
-                    icon: Icons.person_outline_rounded,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          settings: const RouteSettings(
-                            name: ProfilePage.routeName,
-                          ),
-                          builder: (_) => const ProfilePage(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+              _VanHeaderIconButton(
+                icon: Icons.person_outline_rounded,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      settings: const RouteSettings(
+                        name: ProfilePage.routeName,
+                      ),
+                      builder: (_) => const ProfilePage(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          _headerSubtitle(),
-          style: TextStyle(
-            fontSize: 13.4,
-            fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.72),
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            _headerSubtitle(),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13.4,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.72),
+            ),
           ),
         ),
       ],
@@ -3006,6 +3039,14 @@ class _VanFirebasePageState extends State<VanFirebasePage>
     switch (tab) {
       case VanTab.home:
         return 'Home';
+      case VanTab.calendar:
+        return 'Calendar';
+      case VanTab.businessHub:
+        return 'Hub';
+      case VanTab.routing:
+        return 'Routing';
+      case VanTab.insights:
+        return 'Insights';
       case VanTab.today:
         return 'Today';
       case VanTab.map:
@@ -3015,6 +3056,35 @@ class _VanFirebasePageState extends State<VanFirebasePage>
       case VanTab.route:
         return 'Route';
     }
+  }
+
+  IconData _tabIcon(VanTab tab) {
+    switch (tab) {
+      case VanTab.calendar:
+        return Icons.calendar_month_outlined;
+      case VanTab.businessHub:
+        return Icons.business_center_outlined;
+      case VanTab.routing:
+        return Icons.map_outlined;
+      case VanTab.insights:
+        return Icons.insights_outlined;
+      case VanTab.home:
+      case VanTab.today:
+      case VanTab.map:
+      case VanTab.places:
+      case VanTab.route:
+        return Icons.circle_outlined;
+    }
+  }
+
+  VanTab? _workspaceTabFor(VanTab tab) {
+    if (_workspaceTabs.contains(tab)) {
+      return tab;
+    }
+    if (_routingTabs.contains(tab)) {
+      return VanTab.routing;
+    }
+    return null;
   }
 
   Widget _buildTabBody(double bottomInset) {
@@ -3027,15 +3097,23 @@ class _VanFirebasePageState extends State<VanFirebasePage>
             _isInitializing && _savedPlaces.isEmpty && _activeRoute == null,
         loadError: _loadError,
         onRetry: _initialize,
-        onOpenCalendar: () {
-          Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const JobsCalendarPage()));
-        },
-        onOpenBusinessHub: () {
-          unawaited(openVanBusinessHubPage(context));
-        },
+        onOpenCalendar: () => _switchTab(VanTab.calendar),
+        onOpenIncomingJobs: () =>
+            unawaited(openVanIncomingRequestsPage(context)),
+        onOpenPayments: () => unawaited(openVanPaymentsPage(context)),
       );
+    }
+
+    if (_selectedTab == VanTab.calendar) {
+      return JobsCalendarPage(onBack: () => _switchTab(VanTab.home));
+    }
+
+    if (_selectedTab == VanTab.businessHub) {
+      return const VanBusinessHubPage();
+    }
+
+    if (_selectedTab == VanTab.insights) {
+      return const VanInsightsPage();
     }
 
     if (_selectedTab == VanTab.places) {
@@ -3082,6 +3160,10 @@ class _VanFirebasePageState extends State<VanFirebasePage>
       case VanTab.today:
         return _VanTodayPage(state: this);
       case VanTab.home:
+      case VanTab.calendar:
+      case VanTab.businessHub:
+      case VanTab.routing:
+      case VanTab.insights:
         return const SizedBox.shrink();
       case VanTab.map:
         final previewRoute = _mapTabRoutePreviewEnabled
@@ -3116,9 +3198,13 @@ class _VanFirebasePageState extends State<VanFirebasePage>
   }
 
   void _switchTab(VanTab tab) {
+    final target = tab == VanTab.routing ? _lastRoutingTab : tab;
     setState(() {
-      _selectedTab = tab;
-      if (tab != VanTab.map) {
+      _selectedTab = target;
+      if (_routingTabs.contains(target)) {
+        _lastRoutingTab = target;
+      }
+      if (target != VanTab.map) {
         _mapTabRoutePreviewEnabled = false;
       }
     });
@@ -3219,7 +3305,15 @@ class _VanFirebasePageState extends State<VanFirebasePage>
   String _headerSubtitle() {
     switch (_selectedTab) {
       case VanTab.home:
-        return 'Your driver overview at a glance';
+        return 'Run your business smarter.';
+      case VanTab.calendar:
+        return 'Plan your work';
+      case VanTab.businessHub:
+        return 'Run your business';
+      case VanTab.routing:
+        return 'Complete today\'s work';
+      case VanTab.insights:
+        return 'Grow your business';
       case VanTab.today:
         return 'Your delivery day at a glance';
       case VanTab.map:

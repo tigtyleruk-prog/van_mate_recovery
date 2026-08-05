@@ -3715,6 +3715,10 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     );
   });
 
+  console.info(
+    `[BookingLinkSubmit] fulfilment validation ownerUid=${ownerUid} serviceId=${serviceId} received=${readString(data.fulfilmentType) || '(empty)'} normalized=${fulfilmentType || '(empty)'} deliveryAddressReceived=${readString(data.deliveryAddress) ? 'present' : 'empty'} deliveryAddressLength=${readString(data.deliveryAddress).length} deliveryAddressResolved=${deliveryAddress ? 'present' : 'empty'} deliveryAddressResolvedLength=${deliveryAddress.length} requestType=${requestType} showFulfilmentChoice=${requestFlowOptions.showFulfilmentChoice} usesAutomaticFulfilment=${usesAutomaticFulfilment}`,
+  );
+
   const addressValidationError = bookingLinkAddressValidationError({
     requireAddress,
     showAddress,

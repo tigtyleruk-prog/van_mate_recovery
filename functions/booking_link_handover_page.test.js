@@ -598,6 +598,48 @@ test('hosted submission validates before loading and always restores retry state
   assert.doesNotMatch(submitSource, /state\.selectedPhotos\s*=\s*\[\]/);
 });
 
+test('delivery selection writes the canonical value used by validation and submission', () => {
+  const service = {
+    requestType: 'orderRequest',
+    serviceCapabilityIds: ['local_delivery'],
+    requestFlowOptions: { showFulfilmentChoice: true },
+  };
+  const classToggles = [];
+  context.selectedService = () => service;
+  context.fulfilmentChoiceGroup = { querySelectorAll: () => [] };
+  context.orderDeliveryAddressWrap = {
+    classList: {
+      toggle: (name, hidden) => classToggles.push([name, hidden]),
+    },
+  };
+  context.orderDeliveryAddress = { value: '20 Delivery Street, E1 1AA' };
+  context.fulfilmentType.value = '';
+  context.logFulfilmentState = () => {};
+  vm.runInContext(readFunction('setFulfilmentChoice'), context);
+
+  context.setFulfilmentChoice('localDelivery');
+
+  assert.equal(context.fulfilmentType.value, 'localDelivery');
+  assert.deepEqual(classToggles, [['hidden', false]]);
+  assert.match(
+    readFunction('renderFulfilmentChoice'),
+    /const current = options\.some\(\(option\) => option\.value === readText\(fulfilmentType\.value\)\)/,
+  );
+  const submitSource = readFunction('submitRequest');
+  assert.match(
+    submitSource,
+    /fulfilmentType: selectedFulfilmentType/,
+  );
+  assert.match(
+    submitSource,
+    /const selectedOrderDeliveryAddress = isDeliveryFulfilment\(selectedFulfilmentType\)\s*\? readText\(orderDeliveryAddress\.value\)/,
+  );
+  assert.match(
+    submitSource,
+    /isDeliveryFulfilment\(selectedFulfilmentType\)\s*\? selectedOrderDeliveryAddress/,
+  );
+});
+
 test('hosted submission has a retryable timeout and stable request identity', () => {
   assert.match(pageSource, /const SUBMISSION_TIMEOUT_MS = 45 \* 1000/);
   assert.match(pageSource, /Request timed out\. Check your connection and try again\./);

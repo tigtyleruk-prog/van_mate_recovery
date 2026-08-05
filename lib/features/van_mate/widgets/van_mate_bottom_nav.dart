@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 class VanMateBottomNavItem {
   final String label;
+  final IconData? icon;
 
-  const VanMateBottomNavItem({required this.label});
+  const VanMateBottomNavItem({required this.label, this.icon});
 }
 
 class VanMateBottomNav extends StatelessWidget {
@@ -26,10 +27,11 @@ class VanMateBottomNav extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(
-                right: index == items.length - 1 ? 0 : 6,
+                right: index == items.length - 1 ? 0 : 4,
               ),
               child: _VanMateBottomNavButton(
                 label: items[index].label,
+                icon: items[index].icon,
                 selected: selectedIndex == index,
                 onTap: () => onSelected(index),
               ),
@@ -43,11 +45,13 @@ class VanMateBottomNav extends StatelessWidget {
 
 class _VanMateBottomNavButton extends StatelessWidget {
   final String label;
+  final IconData? icon;
   final bool selected;
   final VoidCallback onTap;
 
   const _VanMateBottomNavButton({
     required this.label,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
@@ -56,12 +60,12 @@ class _VanMateBottomNavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           gradient: selected
               ? const LinearGradient(
                   colors: [Color(0xFF3F67FF), Color(0xFF6D97FF)],
@@ -75,19 +79,40 @@ class _VanMateBottomNavButton extends StatelessWidget {
           ),
         ),
         child: Center(
-          child: Text(
-            label,
-            maxLines: 1,
-            softWrap: false,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.clip,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              height: 1.0,
-            ),
-          ),
+          child: icon == null
+              ? Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1.0,
+                  ),
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 15, color: Colors.white),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );

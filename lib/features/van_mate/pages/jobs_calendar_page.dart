@@ -37,10 +37,12 @@ class JobsCalendarPage extends StatefulWidget {
     super.key,
     this.jobDeletionService,
     this.refreshOnInit = true,
+    this.onBack,
   });
 
   final VanJobDeletionService? jobDeletionService;
   final bool refreshOnInit;
+  final VoidCallback? onBack;
 
   @override
   State<JobsCalendarPage> createState() => _JobsCalendarPageState();
@@ -2128,7 +2130,9 @@ class _JobsCalendarPageState extends State<JobsCalendarPage>
                           Row(
                             children: [
                               _JobsBackButton(
-                                onTap: () => Navigator.of(context).pop(),
+                                onTap:
+                                    widget.onBack ??
+                                    () => Navigator.of(context).pop(),
                               ),
                               const Spacer(),
                             ],

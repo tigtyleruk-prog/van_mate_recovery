@@ -1,16 +1,20 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../helpers/van_text_formatters.dart';
 import '../services/van_first_use_help_service.dart';
 import '../widgets/van_first_use_help_dialog.dart';
+import 'driver_customer_reply_mock_page.dart';
 
 class VanHomePage extends StatefulWidget {
   final bool isLoading;
   final String? loadError;
   final Future<void> Function() onRetry;
   final VoidCallback onOpenCalendar;
-  final VoidCallback onOpenBusinessHub;
+  final VoidCallback onOpenIncomingJobs;
+  final VoidCallback onOpenPayments;
 
   const VanHomePage({
     super.key,
@@ -18,7 +22,8 @@ class VanHomePage extends StatefulWidget {
     required this.loadError,
     required this.onRetry,
     required this.onOpenCalendar,
-    required this.onOpenBusinessHub,
+    required this.onOpenIncomingJobs,
+    required this.onOpenPayments,
   });
 
   @override
@@ -45,11 +50,13 @@ class _VanHomePageState extends State<VanHomePage> {
 
     final helpService = VanMateFirstUseHelpService.instance;
     await helpService.ensureLoaded();
-    if (!mounted ||
-        await helpService.hasSeen(VanMateFirstUseHelpKeys.seenHomeIntro)) {
+    if (!mounted) {
       return;
     }
-    if (!mounted) {
+    final hasSeenIntro = await helpService.hasSeen(
+      VanMateFirstUseHelpKeys.seenHomeIntro,
+    );
+    if (!mounted || hasSeenIntro) {
       return;
     }
 
@@ -58,11 +65,10 @@ class _VanHomePageState extends State<VanHomePage> {
       await showVanMateFirstUseHelpDialog(
         context,
         storageKey: VanMateFirstUseHelpKeys.seenHomeIntro,
-        title: 'Welcome to Van Mate 👋',
+        title: 'Welcome to Business Mate',
         body:
-            'Use Calendar to plan and manage your jobs.\n\n'
-            'Use Business Hub to handle the business side: booking link, requests, quotes, invoices, payments and customer history.\n\n'
-            'Keep it simple: get the job, do the job, invoice the job.',
+            'Home gives you a quick view of what needs attention today.\n\n'
+            'Use Calendar to plan work, Business Hub to run the business, and Routing to complete the day.',
       );
     } finally {
       _introVisible = false;
@@ -71,90 +77,157 @@ class _VanHomePageState extends State<VanHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Column(
+    return AnimatedBuilder(
+      animation: DriverReplyMockState.instance,
+      builder: (context, _) {
+        final overview = _BusinessOverview.fromState(
+          DriverReplyMockState.instance,
+        );
+        return SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
               key: const ValueKey('home_tab'),
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HeroCard(
-                  isLoading: widget.isLoading,
-                  onOpenCalendar: widget.onOpenCalendar,
-                  onOpenBusinessHub: widget.onOpenBusinessHub,
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight > 48
+                      ? constraints.maxHeight - 48
+                      : 0,
                 ),
-                if (widget.loadError != null) ...[
-                  const SizedBox(height: 12),
-                  _ErrorCard(message: widget.loadError!, onRetry: widget.onRetry),
-                ],
-              ],
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 760),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _BusinessDeskHero(overview: overview),
+                        if (widget.loadError != null) ...[
+                          const SizedBox(height: 16),
+                          _ErrorCard(
+                            message: widget.loadError!,
+                            onRetry: widget.onRetry,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
+        );
+      },
+    );
+  }
+}
+
+class _BusinessDeskHero extends StatelessWidget {
+  const _BusinessDeskHero({required this.overview});
+
+  final _BusinessOverview overview;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF0A1930),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 20,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AspectRatio(aspectRatio: 1.27, child: const _BusinessDeskArtwork()),
+            Container(height: 1, color: Colors.white.withValues(alpha: 0.09)),
+            const SizedBox(height: 8),
+            _LiveOverviewRow(overview: overview),
+          ],
         ),
       ),
     );
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  final bool isLoading;
-  final VoidCallback onOpenCalendar;
-  final VoidCallback onOpenBusinessHub;
+class _BusinessDeskArtwork extends StatefulWidget {
+  const _BusinessDeskArtwork();
 
-  const _HeroCard({
-    required this.isLoading,
-    required this.onOpenCalendar,
-    required this.onOpenBusinessHub,
-  });
+  @override
+  State<_BusinessDeskArtwork> createState() => _BusinessDeskArtworkState();
+}
+
+class _BusinessDeskArtworkState extends State<_BusinessDeskArtwork>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ambientController;
+
+  @override
+  void initState() {
+    super.initState();
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ambientController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 15, 18, 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.11),
-            Colors.white.withValues(alpha: 0.05),
-          ],
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 24,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final narrow = constraints.maxWidth < 560;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) => AnimatedBuilder(
+        animation: _ambientController,
+        builder: (context, _) {
+          final phase = _ambientController.value;
+          final shimmerProgress = (phase / 0.18).clamp(0.0, 1.0);
+          final shimmerOpacity = phase < 0.18
+              ? math.sin(shimmerProgress * math.pi) * 0.16
+              : 0.0;
+          return Stack(
+            fit: StackFit.expand,
             children: [
-              _HeroCopy(theme: theme, isLoading: isLoading),
-              const SizedBox(height: 6),
-              if (narrow) ...[
-                const _VanHeroImage(compact: true),
-              ] else ...[
-                const _VanHeroImage(compact: false),
-              ],
-              const SizedBox(height: 14),
-              _HeroShortcuts(
-                onOpenCalendar: onOpenCalendar,
-                onOpenBusinessHub: onOpenBusinessHub,
+              const ColoredBox(color: Color(0xFF0A1930)),
+              Image.asset(
+                'assets/images/Laptop.png',
+                fit: BoxFit.contain,
+                alignment: Alignment.topCenter,
+                filterQuality: FilterQuality.high,
+              ),
+              Positioned(
+                left: constraints.maxWidth * 0.60,
+                top: constraints.maxHeight * 0.20,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: shimmerOpacity,
+                    child: Transform.scale(
+                      scale: 0.72 + shimmerProgress * 0.34,
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 16,
+                        color: Color(0xFF75A6FF),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: constraints.maxWidth * 0.09,
+                top: constraints.maxHeight * 0.33,
+                width: constraints.maxWidth * 0.09,
+                height: constraints.maxHeight * 0.13,
+                child: IgnorePointer(child: _MugSteam(progress: phase)),
               ),
             ],
           );
@@ -164,332 +237,342 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-class _HeroShortcuts extends StatelessWidget {
-  final VoidCallback onOpenCalendar;
-  final VoidCallback onOpenBusinessHub;
+class _MugSteam extends StatelessWidget {
+  const _MugSteam({required this.progress});
 
-  const _HeroShortcuts({
-    required this.onOpenCalendar,
-    required this.onOpenBusinessHub,
-  });
+  final double progress;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _HeroShortcutButton(
-            label: 'Calendar',
-            icon: Icons.calendar_month_rounded,
-            accent: const Color(0xFF5F95FF),
-            onTap: onOpenCalendar,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _HeroShortcutButton(
-            label: 'Business Hub',
-            icon: Icons.business_center_rounded,
-            accent: const Color(0xFF58D0A4),
-            onTap: onOpenBusinessHub,
-          ),
-        ),
-      ],
-    );
+    return CustomPaint(painter: _MugSteamPainter(progress));
   }
 }
 
-class _HeroShortcutButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color accent;
-  final VoidCallback onTap;
+class _MugSteamPainter extends CustomPainter {
+  const _MugSteamPainter(this.progress);
 
-  const _HeroShortcutButton({
-    required this.label,
-    required this.icon,
-    required this.accent,
-    required this.onTap,
-  });
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFCFE8FF).withValues(alpha: 0.18)
+      ..strokeWidth = 1.1
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final sway = math.sin(progress * math.pi * 2) * size.width * 0.08;
+
+    for (var index = 0; index < 3; index++) {
+      final startX = size.width * (0.22 + index * 0.28);
+      final path = Path()
+        ..moveTo(startX, size.height)
+        ..cubicTo(
+          startX + sway,
+          size.height * 0.7,
+          startX - sway,
+          size.height * 0.35,
+          startX + sway * 0.3,
+          0,
+        );
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MugSteamPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+class _LiveOverviewRow extends StatelessWidget {
+  const _LiveOverviewRow({required this.overview});
+
+  final _BusinessOverview overview;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Ink(
-          height: 64,
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withValues(alpha: 0.09),
-                Colors.white.withValues(alpha: 0.04),
-              ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 16, 10, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "TODAY'S OVERVIEW",
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w900,
+              color: Colors.white.withValues(alpha: 0.62),
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-            boxShadow: [
-              BoxShadow(
-                color: accent.withValues(alpha: 0.12),
-                blurRadius: 22,
-                offset: const Offset(0, 10),
-              ),
-            ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: accent.withValues(alpha: 0.16),
-                  border: Border.all(color: accent.withValues(alpha: 0.26)),
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: Colors.white, size: 15),
-              ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                    height: 1.0,
+          const SizedBox(height: 7),
+          FractionallySizedBox(
+            widthFactor: 0.34,
+            alignment: Alignment.centerLeft,
+            child: Container(
+              height: 1.5,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(99),
+                color: const Color(0xFF4F8DFF).withValues(alpha: 0.68),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4F8DFF).withValues(alpha: 0.16),
+                    blurRadius: 5,
                   ),
-                ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _OverviewValue(
+                icon: Icons.calendar_today_rounded,
+                label: 'Today',
+                value: '${overview.jobsToday} Jobs',
+              ),
+              const _OverviewDivider(),
+              _OverviewValue(
+                icon: Icons.markunread_outlined,
+                label: 'New',
+                value: '${overview.newRequests}',
+              ),
+              const _OverviewDivider(),
+              _OverviewValue(
+                icon: Icons.payments_outlined,
+                label: 'Due',
+                value: overview.outstandingAmount == 0
+                    ? 'Paid'
+                    : formatCurrency(overview.outstandingAmount),
+              ),
+              const _OverviewDivider(),
+              _OverviewValue(
+                icon: Icons.schedule_rounded,
+                label: 'Next Job',
+                value: overview.nextJobTimeLabel,
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _HeroCopy extends StatelessWidget {
-  final ThemeData theme;
-  final bool isLoading;
+class _OverviewValue extends StatelessWidget {
+  const _OverviewValue({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
-  const _HeroCopy({required this.theme, required this.isLoading});
+  final IconData icon;
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Van Mate',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            height: 1.0,
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, size: 13, color: const Color(0xFF78D8C0)),
+          const SizedBox(height: 5),
+          SizedBox(
+            height: 20,
+            child: Center(
+              child: Text(
+                label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 8.4,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white.withValues(alpha: 0.62),
+                ),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Built for delivery drivers.',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.primary.withValues(alpha: 0.95),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFEAF3FF),
+                ),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          isLoading
-              ? 'Loading your driver dashboard.'
-              : 'Routes, stops, and saved drops in one clean view.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.white.withValues(alpha: 0.78),
-            height: 1.4,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _VanHeroImage extends StatelessWidget {
-  final bool compact;
-
-  const _VanHeroImage({required this.compact});
+class _OverviewDivider extends StatelessWidget {
+  const _OverviewDivider();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: compact ? 216 : 196,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFF1A2740).withValues(alpha: 0.98),
-            const Color(0xFF070B12).withValues(alpha: 0.99),
-          ],
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF4A7DFF).withValues(alpha: 0.12),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            right: compact ? -18 : -22,
-            top: compact ? -18 : -24,
-            child: Container(
-              width: compact ? 136 : 120,
-              height: compact ? 136 : 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF6A8FFF).withValues(alpha: 0.20),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: compact ? 16 : 18,
-            right: compact ? 16 : 18,
-            top: compact ? 34 : 30,
-            bottom: compact ? 10 : 12,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: Alignment.topCenter,
-                    radius: 0.95,
-                    colors: [
-                      const Color(0xFF6887C0).withValues(alpha: 0.16),
-                      const Color(0xFF1B2432).withValues(alpha: 0.00),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            top: compact ? 34 : 30,
-            left: compact ? 12 : 10,
-            right: compact ? 12 : 10,
-            bottom: compact ? 5 : 7,
-            child: ClipRect(
-              child: Align(
-                alignment: Alignment.topCenter,
-                heightFactor: compact ? 0.89 : 0.87,
-                child: Stack(
-                  alignment: Alignment.topCenter,
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      left: compact ? 16 : 24,
-                      right: compact ? 16 : 24,
-                      bottom: compact ? 3 : 5,
-                      child: Container(
-                        height: compact ? 13 : 15,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF05080D,
-                              ).withValues(alpha: 0.66),
-                              blurRadius: compact ? 16 : 20,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                          gradient: const RadialGradient(
-                            colors: [
-                              Color(0xFF354D77),
-                              Color(0xFF101826),
-                              Colors.transparent,
-                            ],
-                            stops: [0.0, 0.68, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Image.asset(
-                      'assets/images/van_mate_van_home.png',
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      width: 1,
+      height: 48,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: Colors.white.withValues(alpha: 0.10),
+    );
+  }
+}
+
+enum _OverviewDestination { calendar, incomingJobs, payments }
+
+class _BusinessNotification {
+  const _BusinessNotification({required this.badge, required this.destination});
+
+  final String badge;
+  final _OverviewDestination destination;
+}
+
+class _BusinessOverview {
+  const _BusinessOverview({
+    required this.jobsToday,
+    required this.newRequests,
+    required this.quotesAwaiting,
+    required this.outstandingAmount,
+    required this.nextJob,
+  });
+
+  final int jobsToday;
+  final int newRequests;
+  final int quotesAwaiting;
+  final double outstandingAmount;
+  final DriverCustomerReplyMockData? nextJob;
+
+  factory _BusinessOverview.fromState(DriverReplyMockState state) {
+    final now = DateTime.now();
+    final today = DateUtils.dateOnly(now);
+    final jobs = state.allJobs;
+    final scheduledToday =
+        jobs.where((job) {
+          final date = _scheduledMoment(job);
+          return date != null &&
+              DateUtils.isSameDay(date, today) &&
+              job.isScheduledInCalendarState &&
+              !job.isCompletedJob;
+        }).toList()..sort(
+          (a, b) => _scheduledMoment(a)!.compareTo(_scheduledMoment(b)!),
+        );
+    final upcoming = scheduledToday.where((job) {
+      final date = _scheduledMoment(job);
+      return date != null && !date.isBefore(now);
+    }).toList();
+    final invoices = state.savedInvoiceHistory;
+    final outstandingAmount = invoices
+        .where((entry) => entry.draft.isUnpaid)
+        .fold<double>(0, (total, entry) => total + entry.draft.totalDue);
+    return _BusinessOverview(
+      jobsToday: scheduledToday.length,
+      newRequests: jobs.where((job) => job.isPendingCustomerRequest).length,
+      quotesAwaiting: jobs
+          .where((job) => job.isQuoteAwaitingCustomerResponse)
+          .length,
+      outstandingAmount: outstandingAmount,
+      nextJob: upcoming.isEmpty ? null : upcoming.first,
+    );
+  }
+
+  static DateTime? _scheduledMoment(DriverCustomerReplyMockData job) {
+    if (job.scheduledAt != null) {
+      return job.scheduledAt;
+    }
+    if (job.agreedDateTime != null) {
+      return job.agreedDateTime;
+    }
+    return DateTime.tryParse(job.scheduledDate);
+  }
+
+  String get nextJobTimeLabel {
+    final job = nextJob;
+    if (job == null) {
+      return 'Clear';
+    }
+    final time = job.jobTimeLabel.trim().isNotEmpty
+        ? job.jobTimeLabel.trim()
+        : job.scheduledStartTime.trim();
+    return time.isEmpty ? 'Scheduled' : time;
+  }
+
+  _BusinessNotification get notification {
+    if (newRequests > 0) {
+      return _BusinessNotification(
+        badge: '$newRequests',
+        destination: _OverviewDestination.incomingJobs,
+      );
+    }
+    if (quotesAwaiting > 0) {
+      return _BusinessNotification(
+        badge: '$quotesAwaiting',
+        destination: _OverviewDestination.incomingJobs,
+      );
+    }
+    if (outstandingAmount > 0) {
+      return const _BusinessNotification(
+        badge: '!',
+        destination: _OverviewDestination.payments,
+      );
+    }
+    if (nextJob != null) {
+      return const _BusinessNotification(
+        badge: '✓',
+        destination: _OverviewDestination.calendar,
+      );
+    }
+    return const _BusinessNotification(
+      badge: '✓',
+      destination: _OverviewDestination.calendar,
     );
   }
 }
 
 class _ErrorCard extends StatelessWidget {
+  const _ErrorCard({required this.message, required this.onRetry});
+
   final String message;
   final Future<void> Function() onRetry;
 
-  const _ErrorCard({required this.message, required this.onRetry});
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: theme.colorScheme.error.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.error.withValues(alpha: 0.12),
         border: Border.all(
-          color: theme.colorScheme.error.withValues(alpha: 0.25),
+          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.25),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Sync issue',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           Text(
             message,
-            style: theme.textTheme.bodyMedium?.copyWith(
+            style: TextStyle(
               color: Colors.white.withValues(alpha: 0.82),
               height: 1.35,
             ),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: () {
-              unawaited(onRetry());
-            },
+            onPressed: () => unawaited(onRetry()),
             child: const Text('Retry'),
           ),
         ],

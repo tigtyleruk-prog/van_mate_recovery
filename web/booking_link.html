@@ -595,7 +595,7 @@
       <div id="successRequestId" class="helper" style="margin-top: 12px;"></div>
     </section>
 
-    <p class="footer">Powered by Van Mate</p>
+    <p class="footer">Powered by Business Mate</p>
   </main>
 
   <script>
@@ -1416,6 +1416,36 @@
       return "";
     }
 
+    function logFulfilmentState(stage, service, options, payloadFulfilmentType) {
+      const selectedButton = fulfilmentChoiceGroup.querySelector(".choice-btn.active");
+      console.info("[BookingLink] fulfilment state", {
+        stage,
+        serviceId: readText(service && service.id),
+        hiddenInputCount: document.querySelectorAll("#fulfilmentType").length,
+        hiddenInputValue: readText(fulfilmentType.value),
+        selectedButtonValue: readText(selectedButton && selectedButton.dataset.value),
+        validatorValue: readText(fulfilmentType.value),
+        payloadFulfilmentType: readText(payloadFulfilmentType),
+        availableValues: (options || []).map((option) => readText(option && option.value)),
+      });
+    }
+
+    function logOrderDeliveryAddressState(stage, service, payloadDeliveryAddress) {
+      const value = readText(orderDeliveryAddress.value);
+      const payloadValue = readText(payloadDeliveryAddress);
+      console.info("[BookingLink] order delivery address state", {
+        stage,
+        serviceId: readText(service && service.id),
+        inputCount: document.querySelectorAll("#orderDeliveryAddress").length,
+        isVisible: !orderDeliveryAddressWrap.classList.contains("hidden"),
+        inputHasValue: Boolean(value),
+        inputLength: value.length,
+        validatorHasValue: Boolean(value),
+        payloadHasValue: Boolean(payloadValue),
+        payloadLength: payloadValue.length,
+      });
+    }
+
     function setFulfilmentChoice(value) {
       const service = selectedService();
       const options = service
@@ -1435,6 +1465,7 @@
       if (!isDeliveryFulfilment(selected)) {
         orderDeliveryAddress.value = "";
       }
+      logFulfilmentState("after_choice", service, options);
     }
 
     function renderFulfilmentChoice(service, flowOptions) {
@@ -2109,6 +2140,8 @@
       const flowOptions = flowOptionsForService(service, flow.requestType);
       const handover = handoverForService(service);
       const fulfilmentOptions = fulfilmentOptionsForService(service, flowOptions);
+      logFulfilmentState("validator", service, fulfilmentOptions);
+      logOrderDeliveryAddressState("validator", service);
       const showPreferredDate = showsPreferredDate(service, flowOptions);
       const showPreferredTime = showsPreferredTime(service, flowOptions);
       const showFlexibleTiming = showsFlexibleTiming(service, flowOptions);
@@ -2343,6 +2376,21 @@
         console.warn("[BookingLink] submit blocked", { reason: "already_submitted" });
         return;
       }
+      const selectedBeforeValidation = selectedService();
+      logFulfilmentState(
+        "before_validation",
+        selectedBeforeValidation,
+        selectedBeforeValidation
+          ? fulfilmentOptionsForService(
+              selectedBeforeValidation,
+              flowOptionsForService(
+                selectedBeforeValidation,
+                inferredRequestType(selectedBeforeValidation),
+              ),
+            )
+          : [],
+      );
+      logOrderDeliveryAddressState("before_validation", selectedBeforeValidation);
       if (!validateSubmission()) {
         console.warn("[BookingLink] submit blocked", { reason: "validation_failed" });
         return;
@@ -2355,6 +2403,24 @@
       const flow = requestFlowForService(service);
       const flowOptions = flowOptionsForService(service, flow.requestType);
       const handover = handoverForService(service);
+      const fulfilmentOptions = fulfilmentOptionsForService(service, flowOptions);
+      const selectedFulfilmentType = fulfilmentOptions.length > 0
+        ? readText(fulfilmentType.value)
+        : "";
+      const selectedOrderDeliveryAddress = isDeliveryFulfilment(selectedFulfilmentType)
+        ? readText(orderDeliveryAddress.value)
+        : "";
+      logFulfilmentState(
+        "payload",
+        service,
+        fulfilmentOptions,
+        selectedFulfilmentType,
+      );
+      logOrderDeliveryAddressState(
+        "payload",
+        service,
+        selectedOrderDeliveryAddress,
+      );
 
       const collectedAnswers = linkedQuestionsForService(service)
         .map((question, index) => ({
@@ -2467,9 +2533,7 @@
           customerEmail: readText(customerEmail.value),
           address: readText(address.value),
           postcode: normalizePostcode(postcode.value),
-          fulfilmentType: fulfilmentOptions.length > 0
-            ? readText(fulfilmentType.value)
-            : "",
+          fulfilmentType: selectedFulfilmentType,
           pickupAddress: handover && handover.start === "businessCollects"
             ? readText(collectionAddress.value)
             : isCollectionFulfilment(readText(fulfilmentType.value))
@@ -2480,8 +2544,8 @@
           deliveryAddress:
             handover && handover.end === "businessDelivers"
               ? readText(returnAddress.value)
-              : isDeliveryFulfilment(readText(fulfilmentType.value))
-              ? readText(orderDeliveryAddress.value)
+              : isDeliveryFulfilment(selectedFulfilmentType)
+              ? selectedOrderDeliveryAddress
               : flowOptions.showDeliveryAddress
                 ? readText(deliveryAddress.value)
                 : "",
@@ -2663,6 +2727,9 @@
       if (postcode.value !== normalized) {
         postcode.value = normalized;
       }
+    });
+    orderDeliveryAddress.addEventListener("input", () => {
+      logOrderDeliveryAddressState("after_input", selectedService());
     });
     takePhotoButton.addEventListener("click", () => {
       const photoLimit = photoLimitForService();

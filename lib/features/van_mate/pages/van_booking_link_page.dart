@@ -2299,7 +2299,7 @@ class _VanBookingLinkCustomerFormPageState
                       const SizedBox(height: 14),
                       Center(
                         child: Text(
-                          'Powered by Van Mate',
+                          'Powered by Business Mate',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.58),
                             fontWeight: FontWeight.w700,
@@ -3348,7 +3348,7 @@ class _VanBookingLinkCustomerFormPageState
                       const SizedBox(height: 14),
                       Center(
                         child: Text(
-                          'Powered by Van Mate',
+                          'Powered by Business Mate',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.58),
                             fontWeight: FontWeight.w700,
