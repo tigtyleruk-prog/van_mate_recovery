@@ -477,6 +477,7 @@ class DriverCustomerReplyMockData {
     required this.checklistResponses,
     required this.customQuestionResponses,
     required this.additionalNotes,
+    this.businessProfileId = '',
     this.hasReply = false,
     this.hasExactPin = false,
     this.customerEmail = '',
@@ -592,6 +593,7 @@ class DriverCustomerReplyMockData {
   final List<String> checklistItems;
   final List<String> customQuestions;
   final String status;
+  final String businessProfileId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? draftSavedAt;
@@ -1444,6 +1446,7 @@ class DriverCustomerReplyMockData {
     String? phoneNumber,
     String? customerEmail,
     String? postcode,
+    String? businessProfileId,
     String? notesMessage,
     bool? requestExactPin,
     bool? requestPhotos,
@@ -1555,6 +1558,7 @@ class DriverCustomerReplyMockData {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       customerEmail: customerEmail ?? this.customerEmail,
       postcode: postcode ?? this.postcode,
+      businessProfileId: businessProfileId ?? this.businessProfileId,
       notesMessage: notesMessage ?? this.notesMessage,
       requestExactPin: requestExactPin ?? this.requestExactPin,
       requestPhotos: requestPhotos ?? this.requestPhotos,
@@ -1693,6 +1697,7 @@ class DriverCustomerReplyMockData {
       'customerEmail': customerEmail,
       'postcode': postcode,
       'notesMessage': notesMessage,
+      'businessProfileId': businessProfileId,
       'requestExactPin': requestExactPin,
       'requestPhotos': requestPhotos,
       'requiresExactPinAfterQuoteAccepted': requiresExactPinAfterQuoteAccepted,
@@ -2026,6 +2031,7 @@ class DriverCustomerReplyMockData {
         effectiveJson['postcode'],
         fallback: _jsonText(effectiveJson['customerPostcode']),
       ),
+      businessProfileId: _jsonText(effectiveJson['businessProfileId']),
       notesMessage: _jsonText(effectiveJson['notesMessage']),
       requestExactPin:
           _jsonText(effectiveJson['requestType']).trim().toLowerCase() ==
@@ -4589,21 +4595,33 @@ class DriverReplyMockState extends ChangeNotifier {
   Future<void> _syncPublicQuoteForJob(
     String? jobId, {
     Map<String, dynamic> extraData = const <String, dynamic>{},
+    DriverCustomerReplyMockData? jobToPublish,
   }) async {
     final normalizedJobId = jobId?.trim() ?? '';
-    final job = normalizedJobId.isNotEmpty
-        ? _jobsById[normalizedJobId]
-        : activeJob;
+    final job =
+        jobToPublish ??
+        (normalizedJobId.isNotEmpty ? _jobsById[normalizedJobId] : activeJob);
     if (job == null) {
       return;
     }
 
+    final publisher = _publicQuotePublisherForTest;
+    if (publisher != null) {
+      await publisher(job, extraData);
+      return;
+    }
     await VanPublicQuoteCloudService.instance.saveQuote(
       job: job,
       extraData: extraData,
       source: 'van_mate.public_quote',
     );
   }
+
+  Future<void> Function(
+    DriverCustomerReplyMockData job,
+    Map<String, dynamic> extraData,
+  )?
+  _publicQuotePublisherForTest;
 
   DriverCustomerReplyMockData? _latestJob() {
     final jobs = this.jobs.toList(growable: true);
@@ -5290,6 +5308,7 @@ class DriverReplyMockState extends ChangeNotifier {
     _cloudVanJobIds.clear();
     _deletingJobIds.clear();
     _jobDeletionService = VanJobDeletionService.instance;
+    _publicQuotePublisherForTest = null;
     _announcedReplyJobIds.clear();
     _announcedExactPinJobIds.clear();
     _announcedExactPinEventTimes.clear();
@@ -5303,6 +5322,17 @@ class DriverReplyMockState extends ChangeNotifier {
   @visibleForTesting
   void debugSetJobDeletionServiceForTest(VanJobDeletionService service) {
     _jobDeletionService = service;
+  }
+
+  @visibleForTesting
+  void debugSetPublicQuotePublisherForTest(
+    Future<void> Function(
+      DriverCustomerReplyMockData job,
+      Map<String, dynamic> extraData,
+    )?
+    publisher,
+  ) {
+    _publicQuotePublisherForTest = publisher;
   }
 
   @visibleForTesting
@@ -7905,7 +7935,10 @@ class DriverReplyMockState extends ChangeNotifier {
     debugPrint(
       '[QuoteSend] jobId=${jobId ?? '(active)'} quoteId=${normalizedQuoteResponseId.isEmpty ? '(none)' : normalizedQuoteResponseId} requestId=${activeJob?.requestId ?? _jobsById[jobId ?? '']?.requestId ?? '(none)'} requiresExactPinAfterQuoteAccepted=${activeJob?.requiresExactPinAfterQuoteAccepted ?? _jobsById[jobId ?? '']?.requiresExactPinAfterQuoteAccepted ?? false}',
     );
-    _updateJob(jobId, (job) {
+    final sentAt = DateTime.now();
+    DriverCustomerReplyMockData buildUpdatedJob(
+      DriverCustomerReplyMockData job,
+    ) {
       if (job.isCancelled) {
         return job;
       }
@@ -7924,9 +7957,9 @@ class DriverReplyMockState extends ChangeNotifier {
       }
       return job.copyWith(
         quoteAmount: amount ?? job.quoteAmount,
-        quoteSavedAt: job.quoteSavedAt ?? DateTime.now(),
-        quoteSentAt: value ? DateTime.now() : job.quoteSentAt,
-        quoteOpenedAt: value ? DateTime.now() : job.quoteOpenedAt,
+        quoteSavedAt: job.quoteSavedAt ?? sentAt,
+        quoteSentAt: value ? sentAt : job.quoteSentAt,
+        quoteOpenedAt: value ? sentAt : job.quoteOpenedAt,
         currentQuoteId: value ? normalizedQuoteResponseId : job.currentQuoteId,
         quoteResponseId: value
             ? normalizedQuoteResponseId
@@ -7975,7 +8008,7 @@ class DriverReplyMockState extends ChangeNotifier {
         quoteTimingChoice: value ? '' : job.quoteTimingChoice,
         agreedDateTime: value ? null : job.agreedDateTime,
         requestStatus: value ? 'quote_sent' : job.requestStatus,
-        requestUpdatedAt: value ? DateTime.now() : job.requestUpdatedAt,
+        requestUpdatedAt: value ? sentAt : job.requestUpdatedAt,
         proposedDate: value ? proposedDate : job.proposedDate,
         proposedStartTime: value ? proposedStartTime : job.proposedStartTime,
         acceptedProposedDate: value ? '' : job.acceptedProposedDate,
@@ -7995,31 +8028,74 @@ class DriverReplyMockState extends ChangeNotifier {
             : job.status,
         quoteHistory: nextQuoteHistory,
       );
-    });
-    if (value) {
-      await _syncPublicQuoteForJob(
-        jobId,
-        extraData: <String, dynamic>{
-          ...publicQuoteData,
-          'quoteSent': true,
-          'quoteResponse': 'pending',
-          'quoteAccepted': false,
-          'quoteDeclined': false,
-          'quoteRespondedAt': null,
-          'quoteAcceptedAt': null,
-          'quoteDeclinedAt': null,
-          'quoteResponseStatus': '',
-          'quoteTimingChoice': '',
-          'agreedDateTime': null,
-          'acceptedProposedDate': '',
-          'acceptedProposedStartTime': '',
-          'status': 'quote_sent',
-          'requestStatus': 'quote_sent',
-          'quoteStatus': 'sent',
-          'supersedesQuoteId': supersedesQuoteId,
-        },
-      );
     }
+
+    if (value) {
+      if (existingJob == null || existingJob.isCancelled) {
+        return;
+      }
+      final jobForPublication = buildUpdatedJob(existingJob);
+      final quoteIdForDiag = normalizedQuoteResponseId;
+      final jobIdForDiag = resolvedJobId ?? '(active)';
+      final existingRequestId = existingJob.requestId?.trim() ?? '';
+      final requestIdForDiag = existingRequestId.isNotEmpty
+          ? existingRequestId
+          : '(none)';
+      final requestTypeForDiag = existingJob.requestType.trim().isNotEmpty
+          ? existingJob.requestType.trim()
+          : '(none)';
+      final customerJourneyTypeForDiag =
+          existingJob.customerJourneyType.trim().isNotEmpty
+          ? existingJob.customerJourneyType.trim()
+          : '(none)';
+      try {
+        await _syncPublicQuoteForJob(
+          jobId,
+          jobToPublish: jobForPublication,
+          extraData: <String, dynamic>{
+            ...publicQuoteData,
+            'quoteSent': true,
+            'quoteResponse': 'pending',
+            'quoteAccepted': false,
+            'quoteDeclined': false,
+            'quoteRespondedAt': null,
+            'quoteAcceptedAt': null,
+            'quoteDeclinedAt': null,
+            'quoteResponseStatus': '',
+            'quoteTimingChoice': '',
+            'agreedDateTime': null,
+            'acceptedProposedDate': '',
+            'acceptedProposedStartTime': '',
+            'status': 'quote_sent',
+            'requestStatus': 'quote_sent',
+            'quoteStatus': 'sent',
+            'supersedesQuoteId': supersedesQuoteId,
+          },
+        );
+      } catch (error, stackTrace) {
+        var uidPresent = false;
+        try {
+          uidPresent = VanFirebaseAuthService.instance.currentUser != null;
+        } catch (_) {
+          // Diagnostics must never hide the original quote publish failure.
+        }
+        debugPrint(
+          '[QuoteSend][Diag] saveQuote failed type=${error.runtimeType} quoteId=$quoteIdForDiag jobId=$jobIdForDiag requestId=$requestIdForDiag uidPresent=$uidPresent requestType=$requestTypeForDiag customerJourneyType=$customerJourneyTypeForDiag',
+        );
+        if (error is FirebaseException) {
+          debugPrint(
+            '[QuoteSend][Diag] FirebaseException plugin=${error.plugin} code=${error.code} message=${error.message}',
+          );
+        }
+        if (kDebugMode) {
+          debugPrintStack(stackTrace: stackTrace);
+        }
+        rethrow;
+      }
+      _updateJob(resolvedJobId, (_) => jobForPublication);
+      return;
+    }
+    _updateJob(jobId, buildUpdatedJob);
     return;
   }
 
@@ -13200,12 +13276,21 @@ class _CreateQuotePageState extends State<CreateQuotePage>
       }
     } catch (error, stackTrace) {
       debugPrint('[QuoteSend] publish or handoff failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
+      debugPrint('[QuoteSend] error type=${error.runtimeType}');
+      if (error is FirebaseException) {
+        debugPrint(
+          '[QuoteSend] FirebaseException plugin=${error.plugin} code=${error.code} message=${error.message}',
+        );
+      }
+      if (kDebugMode) {
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      final diagRef = kDebugMode ? ' [DEV:${error.runtimeType}]' : '';
       if (mounted) {
         _showSnack(
           quotePublished
-              ? '$_responseDocumentName published, but the message could not be opened. Please try again.'
-              : 'Could not publish the customer $_responseDocumentLower link. Please try again.',
+              ? '$_responseDocumentName published, but the message could not be opened. Please try again.$diagRef'
+              : 'Could not publish the customer $_responseDocumentLower link. Please try again.$diagRef',
         );
       }
     } finally {
@@ -15358,9 +15443,20 @@ class _DriverQuoteMockPageState extends State<DriverQuoteMockPage> {
       if (!mounted) return;
       setState(() => _sent = true);
       _showSnack('Quote sent');
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('[QuoteSend] publish failed: $error');
+      debugPrint('[QuoteSend] error type=${error.runtimeType}');
+      if (error is FirebaseException) {
+        debugPrint(
+          '[QuoteSend] FirebaseException plugin=${error.plugin} code=${error.code} message=${error.message}',
+        );
+      }
+      if (kDebugMode) {
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      final diagRef = kDebugMode ? ' [DEV:${error.runtimeType}]' : '';
       if (!mounted) return;
-      _showSnack('Could not send the quote. Please try again.');
+      _showSnack('Could not send the quote. Please try again.$diagRef');
     } finally {
       if (mounted) {
         setState(() => _sendingQuote = false);

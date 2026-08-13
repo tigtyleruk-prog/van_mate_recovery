@@ -14,6 +14,13 @@ test('request and quote mirror triggers reject deletion tombstones', () => {
   assert.match(indexSource, /sourceRef: afterSnap\.ref/);
 });
 
+test('mirrors do not rehabilitate a job once it is archived or deleted', () => {
+  assert.match(indexSource,
+    /existingJobArchived[\s\S]*reason=job_hidden deleted=\$\{existingJobDeleted\} archived=\$\{existingJobArchived\}/);
+  assert.match(indexSource,
+    /existingJobDeleted[\s\S]*VanQuoteResponseMirror[\s\S]*reason=job_hidden/);
+});
+
 test('clients cannot read or write deletion control documents', () => {
   assert.match(rulesSource,
     /match \/van_job_deletion_tombstones\/\{jobId\} \{\s*allow read, write: if false;/);

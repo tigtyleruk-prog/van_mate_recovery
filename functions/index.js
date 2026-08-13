@@ -5,7 +5,7 @@ const {
   onDocumentUpdated,
   onDocumentWritten,
 } = require('firebase-functions/v2/firestore');
-const { HttpsError, onCall } = require('firebase-functions/v2/https');
+const { HttpsError, onCall, onRequest } = require('firebase-functions/v2/https');
 const {
   bookingLinkAddressValidationError,
   bookingLinkRequestDocumentId,
@@ -16,6 +16,9 @@ const {
   createDeletionCoordinator,
   createFirestoreDeletionRepository,
 } = require('./business_mate_job_deletion');
+const {
+  recordBelongsToBusiness,
+} = require('./business_profile_scoping');
 
 admin.initializeApp();
 
@@ -1361,23 +1364,46 @@ function customerJourneyForLegacyRequestType(requestType) {
   return 'quote';
 }
 
-function normalizeServiceFlow(value, legacyRequestType = 'quoteRequest') {
+function reconcileServiceFlowAndRequestType(value, legacyRequestType = 'quoteRequest') {
+  const requestType = normalizeCustomerRequestType(legacyRequestType);
   const normalized = readString(value).toLowerCase();
+  if (normalized === 'order' || requestType === 'orderRequest') {
+    return { serviceFlow: 'order', requestType: 'orderRequest' };
+  }
   if (normalized === 'pickupdelivery' || normalized === 'pickupdeliveryrequest') {
-    return 'pickupDelivery';
+    return { serviceFlow: 'pickupDelivery', requestType: 'pickupDeliveryRequest' };
   }
   if (normalized === 'dropoffpickup' || normalized === 'dropoffpickuprequest') {
-    return 'dropOffPickup';
+    return { serviceFlow: 'dropOffPickup', requestType: 'dropOffPickupRequest' };
   }
-  if (normalized === 'standard') return 'standard';
-  if (legacyRequestType === 'pickupDeliveryRequest') return 'pickupDelivery';
-  if (legacyRequestType === 'dropOffPickupRequest') return 'dropOffPickup';
-  return 'standard';
+  if (normalized === 'standard') {
+    return {
+      serviceFlow: 'standard',
+      requestType: requestType === 'bookingRequest' ? 'bookingRequest' : 'quoteRequest',
+    };
+  }
+  return {
+    serviceFlow: requestType === 'pickupDeliveryRequest'
+      ? 'pickupDelivery'
+      : requestType === 'dropOffPickupRequest'
+        ? 'dropOffPickup'
+        : requestType === 'bookingRequest'
+          ? 'standard'
+          : 'quoteRequest' === requestType
+            ? 'standard'
+            : 'order',
+    requestType,
+  };
+}
+
+function normalizeServiceFlow(value, legacyRequestType = 'quoteRequest') {
+  return reconcileServiceFlowAndRequestType(value, legacyRequestType).serviceFlow;
 }
 
 function requestTypeForServiceFlow(serviceFlow) {
   if (serviceFlow === 'pickupDelivery') return 'pickupDeliveryRequest';
   if (serviceFlow === 'dropOffPickup') return 'dropOffPickupRequest';
+  if (serviceFlow === 'order') return 'orderRequest';
   return 'quoteRequest';
 }
 
@@ -1963,6 +1989,10 @@ function buildRequestJobMirror({
     id: jobId,
     ownerUid,
     jobId,
+    businessProfileId: firstNonEmpty([
+      readString(after.businessProfileId),
+      readString(existingJob.businessProfileId),
+    ]),
     status: normalizedStatus,
     customerName: firstNonEmpty([
       readString(after.publicCustomerName),
@@ -2421,6 +2451,10 @@ function buildQuoteJobMirror({
     id: jobId,
     ownerUid,
     jobId,
+    businessProfileId: firstNonEmpty([
+      readString(after.businessProfileId),
+      readString(existingJob.businessProfileId),
+    ]),
     requestId: firstNonEmpty([after.requestId, existingJob.requestId]),
     proposedDate: firstNonEmpty([
       readString(after.proposedDate),
@@ -3406,11 +3440,12 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     selectedService.requestType,
     requestedRequestType,
   );
-  const serviceFlow = normalizeServiceFlow(
+  const reconciledFlow = reconcileServiceFlowAndRequestType(
     selectedService.serviceFlow,
     legacyRequestType,
   );
-  const requestType = requestTypeForServiceFlow(serviceFlow);
+  const serviceFlow = reconciledFlow.serviceFlow;
+  const requestType = reconciledFlow.requestType;
   const legacyJourney = customerJourneyForLegacyRequestType(legacyRequestType);
   const customerJourneyType = normalizeCustomerJourneyType(
     selectedService.customerJourneyType,
@@ -3622,6 +3657,9 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
   const showsFlexibleTiming =
     (showsPreferredDate || showsPreferredTime) &&
     showsConfiguredBuiltInQuestion(selectedService, 'flexible_timing', true);
+  const cleanupClearsFulfilment =
+    !usesAutomaticFulfilment &&
+    (requestType !== 'orderRequest' || !requestFlowOptions.showFulfilmentChoice);
   if (supportsStructuredRequestFlow) {
     if (!usesAutomaticFulfilment &&
       (requestType !== 'orderRequest' || !requestFlowOptions.showFulfilmentChoice)) {
@@ -3737,7 +3775,7 @@ exports.submitBookingLinkRequest = onCall(async (request) => {
     deliveryAddress,
     collectionAddress,
     returnAddress,
-  });
+  }  );
   if (addressValidationError) {
     console.warn(
       `[BookingLinkSubmit] validation failed ownerUid=${ownerUid} serviceId=${serviceId} reason=${addressValidationError.code}`,
@@ -4510,14 +4548,6 @@ function buildBusinessDeletionPlan({ ownerUid, businessProfileId, publicConfigId
     publicConfigId: expectedPublicConfigId,
     configDocuments,
   };
-}
-
-function recordBelongsToBusiness(data, businessProfileId) {
-  const recordProfileId = readString(data && data.businessProfileId);
-  if (recordProfileId) {
-    return recordProfileId === businessProfileId;
-  }
-  return businessProfileId === DEFAULT_BUSINESS_PROFILE_ID;
 }
 
 function shouldPreserveBusinessJob(data) {
@@ -6212,6 +6242,7 @@ exports.__test__ = {
   buildDriverJobQuoteResponsePayload,
   buildDriverJobExactLocationPayload,
   buildLinkedRequestQuoteStateUpdate,
+  buildRequestJobMirror,
   buildQuoteJobMirror,
   buildCustomerReplyNotificationBody,
   buildVanQuoteResponseToken,
@@ -6222,4 +6253,7 @@ exports.__test__ = {
   isPublicQuoteCurrentForJob,
   assertPublicQuoteIsCurrent,
   publicQuoteActionAlreadyApplied,
+  normalizeServiceFlow,
+  requestTypeForServiceFlow,
+  reconcileServiceFlowAndRequestType,
 };

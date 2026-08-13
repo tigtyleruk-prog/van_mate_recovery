@@ -44,8 +44,8 @@ test('secondary business deletion cannot target another booking link', () => {
   );
 });
 
-test('legacy unscoped records belong only to the default business', () => {
-  assert.equal(recordBelongsToBusiness({}, 'default_business'), true);
+test('unscoped records are ambiguous for every business profile', () => {
+  assert.equal(recordBelongsToBusiness({}, 'default_business'), false);
   assert.equal(recordBelongsToBusiness({}, 'garden_team_42'), false);
   assert.equal(
     recordBelongsToBusiness(

@@ -101,6 +101,79 @@ void main() {
     );
   });
 
+  test(
+    'conflicting stored order flow fields reconcile to order consistently',
+    () {
+      final cases = <Map<String, dynamic>>[
+        {'serviceFlow': 'order', 'requestType': 'orderRequest'},
+        {'serviceFlow': 'standard', 'requestType': 'orderRequest'},
+        {'requestType': 'orderRequest'},
+        {'serviceFlow': 'order'},
+      ];
+
+      for (final fields in cases) {
+        for (final schemaVersion in <int>[0, 1]) {
+          final json = <String, dynamic>{
+            'id': 'order-${fields.hashCode}-$schemaVersion',
+            'name': 'Order service',
+            'capabilitySchemaVersion': schemaVersion,
+            'linkedQuestionIds': <String>[],
+            'quoteExtraDefaults': <String, dynamic>{},
+            ...fields,
+          };
+          final restored = VanJobService.fromJson(json);
+          expect(restored.serviceFlow, VanServiceFlow.order);
+          expect(restored.requestType, VanCustomerRequestType.orderRequest);
+        }
+      }
+    },
+  );
+
+  test(
+    'genuine standard quote and existing movement mappings remain stable',
+    () {
+      final standard = VanJobService.fromJson(<String, dynamic>{
+        'id': 'standard-quote',
+        'name': 'Standard quote',
+        'serviceFlow': 'standard',
+        'requestType': 'quoteRequest',
+      });
+      expect(standard.serviceFlow, VanServiceFlow.standard);
+      expect(standard.requestType, VanCustomerRequestType.quoteRequest);
+
+      for (final requestType in <VanCustomerRequestType>[
+        VanCustomerRequestType.pickupDeliveryRequest,
+        VanCustomerRequestType.dropOffPickupRequest,
+      ]) {
+        final restored = VanJobService.fromJson(<String, dynamic>{
+          'id': requestType.storageKey,
+          'name': requestType.storageKey,
+          'requestType': requestType.storageKey,
+        });
+        expect(restored.requestType, requestType);
+        expect(restored.serviceFlow, requestType.serviceFlow);
+      }
+    },
+  );
+
+  test(
+    'order and orderRequest round trip without changing canonical fields',
+    () {
+      final json = <String, dynamic>{
+        'id': 'order-round-trip',
+        'name': 'Order service',
+        'serviceFlow': 'order',
+        'requestType': 'orderRequest',
+        'customerJourneyType': 'preOrder',
+      };
+      final restored = VanJobService.fromJson(json);
+      final serialized = restored.toJson();
+      expect(serialized['serviceFlow'], 'order');
+      expect(serialized['requestType'], 'orderRequest');
+      expect(serialized['customerJourneyType'], 'preOrder');
+    },
+  );
+
   test('all nine journey and service flow combinations save and load', () {
     final now = DateTime(2026, 7, 19);
     for (final journey in VanCustomerJourneyType.values) {
@@ -214,7 +287,7 @@ void main() {
     );
     expect(
       VanJobService.fromJson(legacy('orderRequest')).serviceFlow,
-      VanServiceFlow.standard,
+      VanServiceFlow.order,
     );
     expect(
       VanJobService.fromJson(

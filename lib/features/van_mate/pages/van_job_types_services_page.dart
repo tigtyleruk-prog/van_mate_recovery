@@ -1422,6 +1422,7 @@ class _VanJobServiceDetailPageState extends State<VanJobServiceDetailPage> {
 
     switch (service.serviceFlow) {
       case VanServiceFlow.standard:
+      case VanServiceFlow.order:
         tiles.add(
           _flowOptionSwitch(
             label: 'Customer address',

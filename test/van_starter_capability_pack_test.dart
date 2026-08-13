@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:van_mate_app/features/van_mate/models/van_customer_journey.dart';
 import 'package:van_mate_app/features/van_mate/models/van_customer_request_flow.dart';
 import 'package:van_mate_app/features/van_mate/models/van_custom_job_question.dart';
+import 'package:van_mate_app/features/van_mate/models/van_job_service.dart';
 import 'package:van_mate_app/features/van_mate/models/van_quote_extra_defaults.dart';
 import 'package:van_mate_app/features/van_mate/models/van_service_capability.dart';
 import 'package:van_mate_app/features/van_mate/models/van_service_handover.dart';
@@ -2394,6 +2395,135 @@ void main() {
       }
     },
   );
+
+  test('Bakery services expose exactly collection and local delivery', () {
+    final services = kVanBusinessTemplateLibrary
+        .singleWhere((item) => item.businessTypeId == 'bakery')
+        .services;
+    const expectedMovementIds = <String>{
+      VanServiceCapabilityIds.customerVisitsBusiness,
+      VanServiceCapabilityIds.localDelivery,
+    };
+
+    for (final service in services) {
+      final capabilityIds = <String>{
+        ...service.featureIds,
+        ...service.bookingOptionIds,
+      };
+      expect(
+        capabilityIds
+            .where(
+              (id) =>
+                  findVanServiceCapability(id)?.group ==
+                  VanServiceCapabilityGroup.fulfilment,
+            )
+            .toSet(),
+        expectedMovementIds,
+      );
+      final contract = resolveVanCapabilityContract(
+        capabilityIds,
+        recommendedNoticeHours: service.suggestedNoticeHours,
+      );
+      expect(contract.movementCapabilityIds, containsAll(expectedMovementIds));
+      expect(contract.movementCapabilityIds, hasLength(2));
+      expect(contract.movementChoiceGroups, hasLength(1));
+      expect(contract.movementChoiceGroups.single.id, 'receive');
+      expect(
+        contract.movementChoiceGroups.single.options.map(
+          (option) => option.value,
+        ),
+        ['collection', 'localDelivery'],
+      );
+      expect(service.requestFlowOptions.showFulfilmentChoice, isTrue);
+      expect(service.requestType, VanCustomerRequestType.orderRequest);
+      expect(service.requestType.serviceFlow, VanServiceFlow.order);
+    }
+  });
+
+  test(
+    'all Bakery materialised services preserve capabilities and flow on round trip',
+    () {
+      final services = kVanBusinessTemplateLibrary
+          .singleWhere((item) => item.businessTypeId == 'bakery')
+          .services;
+      final now = DateTime(2026, 7, 21);
+
+      for (final recommendation in services) {
+        final setup = findVanStarterCapabilityPackById(
+          'bakery',
+        )!.recommendationsFor(<String>[recommendation.serviceId]).single;
+        final service = VanJobService(
+          id: setup.serviceKey,
+          name: setup.name,
+          description: setup.description,
+          isActive: true,
+          requestPhotos: setup.requestPhotos,
+          requireAddress: setup.requireAddress,
+          requestExactPinAfterQuoteAccepted: false,
+          requestType: setup.requestType,
+          customerJourneyType: setup.journeyType,
+          requestFlowOptions: setup.requestFlowOptions,
+          linkedQuestionIds: const <String>[],
+          quoteExtraDefaults: setup.quoteExtraDefaults(),
+          createdAt: now,
+          updatedAt: now,
+          serviceCapabilityIds: setup.capabilityIds,
+          capabilitySchemaVersion: 1,
+        );
+        final restored = VanJobService.fromJson(service.toJson());
+        expect(restored.requestType, VanCustomerRequestType.orderRequest);
+        expect(restored.serviceFlow, VanServiceFlow.order);
+        expect(
+          restored.serviceCapabilityIds.toSet(),
+          setup.capabilityIds.toSet(),
+        );
+        expect(restored.capabilityContract.movementChoiceGroups, hasLength(1));
+        expect(
+          restored.capabilityContract.movementChoiceGroups.single.options.map(
+            (option) => option.value,
+          ),
+          ['collection', 'localDelivery'],
+        );
+      }
+    },
+  );
+
+  test('Bakery Order Request services materialise with serviceFlow order', () {
+    final setup = findVanStarterCapabilityPackById('bakery')!
+        .recommendationsFor(const <String>[
+          'bakery_custom_event_business_bakes',
+        ])
+        .single;
+    final now = DateTime(2026, 7, 21);
+    final service = VanJobService(
+      id: setup.serviceKey,
+      name: setup.name,
+      description: setup.description,
+      isActive: true,
+      requestPhotos: setup.requestPhotos,
+      requireAddress: setup.requireAddress,
+      requestExactPinAfterQuoteAccepted: false,
+      requestType: setup.requestType,
+      customerJourneyType: setup.journeyType,
+      requestFlowOptions: setup.requestFlowOptions,
+      linkedQuestionIds: const <String>[],
+      quoteExtraDefaults: setup.quoteExtraDefaults(),
+      createdAt: now,
+      updatedAt: now,
+      selectedBuiltInQuestionKeys: setup.builtInQuestionKeys.toList(
+        growable: false,
+      ),
+      builtInQuestionSettings: setup.builtInQuestionSettings,
+    );
+
+    final json = service.toJson();
+    expect(json['serviceFlow'], 'order');
+    expect(json['requestType'], 'orderRequest');
+
+    final restored = VanJobService.fromJson(json);
+    expect(restored.serviceFlow, VanServiceFlow.order);
+    expect(restored.requestType, VanCustomerRequestType.orderRequest);
+  });
 
   test('Bakery services have final question and extra counts', () {
     final services = kVanBusinessTemplateLibrary

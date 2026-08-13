@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:van_mate_app/features/van_mate/helpers/van_quote_ui_status.dart';
@@ -6,6 +8,38 @@ import 'package:van_mate_app/features/van_mate/pages/driver_customer_reply_mock_
 import 'package:van_mate_app/features/van_mate/pages/job_detail_page.dart';
 
 void main() {
+  test(
+    'successful calendar add navigates only after the calendar write succeeds',
+    () {
+      final source = File(
+        'lib/features/van_mate/pages/job_detail_page.dart',
+      ).readAsStringSync();
+      final flowStart = source.indexOf(
+        'Future<void> _openAddToCalendarFlow({bool addToCalendar = true})',
+      );
+      final flowEnd = source.indexOf(
+        'final shouldAskForAcceptanceConfirmation =',
+        flowStart,
+      );
+      final calendarFlow = source.substring(flowStart, flowEnd);
+      final persistIndex = calendarFlow.indexOf('persistScheduledJob(');
+      final failedWriteReturnIndex = calendarFlow.indexOf(
+        "_showSnack('Could not save this job to Calendar. Please try again.');",
+      );
+      final successSnackIndex = calendarFlow.indexOf(
+        "_showSnack('Job added to calendar.');",
+      );
+      final navigationIndex = calendarFlow.indexOf(
+        'await _openCalendarQuickLink();',
+      );
+
+      expect(persistIndex, greaterThanOrEqualTo(0));
+      expect(failedWriteReturnIndex, greaterThan(persistIndex));
+      expect(successSnackIndex, greaterThan(failedWriteReturnIndex));
+      expect(navigationIndex, greaterThan(successSnackIndex));
+    },
+  );
+
   test('quote awaiting customer response never prompts set agreed time', () {
     final job = DriverCustomerReplyMockData(
       jobId: 'awaiting-quote-response',

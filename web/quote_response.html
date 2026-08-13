@@ -1451,6 +1451,80 @@
       return copies[journey] || copies.quote;
     }
 
+    function publicQuotePresentationFor(quote) {
+      const journey = customerJourneyType(quote);
+      const requestType = normaliseRequestFlowValue(quote && quote.requestType);
+      const serviceFlow = requestType === "orderrequest"
+        ? "order"
+        : (requestType === "pickupdeliveryrequest"
+            ? "pickupdelivery"
+            : (requestType === "dropoffpickuprequest" ? "dropoffpickup" : "standard"));
+      const fulfilmentValue = normaliseRequestFlowValue(quote && quote.fulfilmentType);
+      const fulfilment = fulfilmentValue === "collection"
+        ? { value: "collection", label: "Collection" }
+        : (fulfilmentValue === "delivery" || fulfilmentValue === "localdelivery"
+            ? { value: "localDelivery", label: "Local delivery" }
+            : (fulfilmentValue === "nationwidedelivery"
+                ? { value: "nationwideDelivery", label: "Nationwide delivery" }
+                : { value: "", label: "" }));
+      const handover = handoverForQuote(quote);
+      const isPreOrder = journey === "preorder";
+      const responseCopy = isPreOrder
+        ? {
+            helper: "Use the buttons below to confirm your choice.",
+            accept: "Accept Pre Order",
+            arrange: "Accept Pre Order – arrange another time",
+            decline: "Decline Pre Order",
+          }
+        : {
+            helper: "Use the buttons below to confirm your choice.",
+            accept: "Accept quote",
+            arrange: "Accept quote – arrange another time",
+            decline: "Decline quote",
+          };
+      const statusCopy = isPreOrder
+        ? {
+            ready: "Order Summary ready",
+            accepted: "Order confirmed",
+            declined: "Order Summary declined",
+            amount: "Order total",
+          }
+        : {
+            ready: "Quote ready to review",
+            accepted: "Quote accepted",
+            declined: "Quote declined",
+            amount: "Quote total",
+          };
+      const location = handover || fulfilment.value === "collection"
+        ? null
+        : (fulfilment.value === "localDelivery" || fulfilment.value === "nationwideDelivery"
+            ? {
+                label: "Delivery address",
+                value: text(quote && (quote.deliveryAddress || quote.address), ""),
+              }
+            : (serviceFlow === "standard"
+                ? { label: "Service location", value: text(quote && quote.address, "") }
+                : null));
+      return {
+        journey,
+        serviceFlow,
+        documentName: isPreOrder ? "Order Summary" : "Quote",
+        responseCopy,
+        statusCopy,
+        fulfilment,
+        location,
+        showEstimatedDuration: !isPreOrder && serviceFlow === "standard" && !handover,
+        proposedTimeLabel: fulfilment.value === "collection"
+          ? "Proposed collection time"
+          : ((fulfilment.value === "localDelivery" || fulfilment.value === "nationwideDelivery")
+              ? "Proposed delivery time"
+              : (serviceFlow === "order" ? "Proposed date/time" : "Proposed appointment")),
+        confirmArrangeLabel: isPreOrder
+          ? "Accept Pre Order and send time"
+          : "Accept quote and send time",
+      };
+    }
+
     function quoteNeedsCustomerLocation(quote) {
       if (!quote) {
         return false;
@@ -1603,6 +1677,7 @@
           (normaliseRequestFlowValue(data.endHandover) === "businessdelivers"
             ? data.returnAddress
             : ""),
+          "",
         ),
         returnAddress: text(data.returnAddress),
         returnAddressSameAsCollection: asBool(data.returnAddressSameAsCollection),
@@ -1795,9 +1870,10 @@
         return;
       }
 
-      document.title = `${journeyStatusCopy(quote).ready} | Business Mate`;
-      const journey = customerJourneyType(quote);
-      const documentName = journey === "preorder" ? "Order Summary" : "Quote";
+      const presentation = publicQuotePresentationFor(quote);
+      document.title = `${presentation.statusCopy.ready} | Business Mate`;
+      const journey = presentation.journey;
+      const documentName = presentation.documentName;
       const documentNameLower = documentName.toLowerCase();
       heroEyebrow.textContent = `Business Mate ${documentNameLower}`;
       heroTitle.textContent = `Review your ${documentNameLower}`;
@@ -1807,7 +1883,7 @@
       declineModalTitle.textContent = `Decline ${journey === "preorder" ? "Pre Order" : documentNameLower}?`;
       const journeyAccent = journey === "booking" ? "#9b7cff" : (journey === "order" ? "#ffa24c" : "#4a7dff");
       document.documentElement.style.setProperty("--accent", journeyAccent);
-      const metadataTitle = `${journeyStatusCopy(quote).ready} | Business Mate`;
+      const metadataTitle = `${presentation.statusCopy.ready} | Business Mate`;
       const metadataDescription = `Review and respond to this ${journey}.`;
       document.querySelector('meta[property="og:title"]')?.setAttribute("content", metadataTitle);
       document.querySelector('meta[property="og:description"]')?.setAttribute("content", metadataDescription);
@@ -1821,11 +1897,9 @@
       const awaitingAgreedTime = quote.schedulingStatus === "awaiting_agreed_time";
       const needsExactPin = quoteNeedsExactPin(quote);
       const hasExactPin = quoteHasExactPin(quote);
-      const needsCustomerLocation = quoteNeedsCustomerLocation(quote);
       const contactNoun = quoteContactNoun(quote);
-      const collectionOrder = isCollectionOrder(quote);
-      const responseCopy = quoteResponseCopy(quote);
-      const journeyCopy = journeyStatusCopy(quote);
+      const responseCopy = presentation.responseCopy;
+      const journeyCopy = presentation.statusCopy;
       const hasSelectedExactPin = Boolean(state.selectedExactPin);
       const currentLocationCaptured =
         state.selectedExactPin &&
@@ -1838,9 +1912,7 @@
       statusPill.textContent = accepted
         ? (needsExactPin
             ? `${documentName} accepted, exact location needed`
-            : (collectionOrder
-                ? "Order accepted"
-                : (awaitingAgreedTime ? `${journeyCopy.accepted}, time to arrange` : journeyCopy.accepted)))
+            : (awaitingAgreedTime ? `${journeyCopy.accepted}, time to arrange` : journeyCopy.accepted))
         : (declined ? journeyCopy.declined : journeyCopy.ready);
 
       if (pending) {
@@ -1859,9 +1931,7 @@
               ? exactPinPrompt(quote)
               : (awaitingAgreedTime
                   ? `${documentName} accepted. The business will contact you to arrange the time.`
-                  : (collectionOrder
-                      ? "Your order has been accepted."
-                      : `Your response has been sent to the ${contactNoun}.`)))
+                  : `Your response has been sent to the ${contactNoun}.`))
           : `This ${documentNameLower} has been declined.`;
       }
 
@@ -1871,7 +1941,7 @@
       renderRow("Customer", quote.customerName);
       renderRow(journey === "preorder" ? "Items" : "Job", quote.jobTitle);
       if (proposedAppointment) {
-        renderRow(proposedTimeLabel(quote), proposedAppointment);
+        renderRow(presentation.proposedTimeLabel, proposedAppointment);
       }
       if (handoverView) {
         renderRow("Handover", handoverView.summary);
@@ -1891,18 +1961,22 @@
         }
       } else if (!proposedAppointment) {
         renderRow(
-          proposedTimeLabel(quote),
+          presentation.proposedTimeLabel,
           formatDate(quote.scheduledAt, `${quote.jobDateLabel} ${quote.jobTimeLabel}`.trim()),
         );
       }
-      if (Number.isFinite(quote.estimatedDurationMinutes) && quote.estimatedDurationMinutes > 0) {
+      if (presentation.showEstimatedDuration &&
+          Number.isFinite(quote.estimatedDurationMinutes) && quote.estimatedDurationMinutes > 0) {
         renderRow("Estimated duration", `${quote.estimatedDurationMinutes} minutes`);
       }
       if (quote.proposedAppointmentNote) {
         renderRow("Appointment note", formatDetails(quote.proposedAppointmentNote));
       }
-      if (needsCustomerLocation && quote.address) {
-        renderRow(isDeliveryOrder(quote) ? "Delivery location" : "Job location", quote.address);
+      if (presentation.fulfilment.label) {
+        renderRow("Fulfilment", presentation.fulfilment.label);
+      }
+      if (presentation.location && presentation.location.value) {
+        renderRow(presentation.location.label, presentation.location.value);
       }
       renderRow(journeyCopy.amount, formatMoney(quote.quoteAmount), "quote-amount-row");
       if (quote.quoteExtras.length) {
@@ -1964,7 +2038,7 @@
       confirmArrangeTimeButton.textContent =
         state.saving && state.selectedDecision === "accept_arrange"
           ? "Saving acceptance..."
-          : (customerJourneyType(quote) === "preorder" ? "Accept Pre Order and send time" : (customerJourneyType(quote) === "order" ? "Accept order request and send time" : "Accept quote and send time"));
+          : presentation.confirmArrangeLabel;
       declineButton.textContent =
         state.saving && state.selectedDecision === "decline"
           ? "Saving response..."
@@ -2019,9 +2093,7 @@
         }
 
         heroLede.textContent = accepted
-          ? (collectionOrder
-              ? "Your order has been accepted.\nThe business will confirm collection details if needed.\n\nYou can close this page now."
-              : hasExactPin
+          ? (hasExactPin
               ? (awaitingAgreedTime
                   ? `${documentName} accepted. The business will contact you to arrange the time.\nYour exact location has been sent to the ${contactNoun}.\n\nYou can close this page now.`
                   : `Your exact location has been sent to the ${contactNoun}.\n\nYou can close this page now.`)
@@ -2033,9 +2105,7 @@
         content.classList.add("hidden");
         setBanner(
           accepted
-            ? (collectionOrder
-                ? "Your order has been accepted. The business will confirm collection details if needed."
-                : hasExactPin
+            ? (hasExactPin
                 ? (awaitingAgreedTime
                     ? `${documentName} accepted. The business will contact you to arrange the time. Exact location sent.`
                     : `${documentName} accepted. Exact location sent.`)

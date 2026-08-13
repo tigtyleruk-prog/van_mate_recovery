@@ -1,6 +1,9 @@
 'use strict';
 
 const crypto = require('crypto');
+const {
+  recordBelongsToBusiness,
+} = require('./business_profile_scoping');
 
 const DEFAULT_BUSINESS_PROFILE_ID = 'default_business';
 const DELETION_TOMBSTONE_SUBCOLLECTION = 'van_job_deletion_tombstones';
@@ -23,16 +26,6 @@ function normalizeBusinessProfileId(value) {
     readString(value) || DEFAULT_BUSINESS_PROFILE_ID,
     'businessProfileId',
   );
-}
-
-function recordBusinessProfileId(record) {
-  return readString(record && record.businessProfileId) ||
-    DEFAULT_BUSINESS_PROFILE_ID;
-}
-
-function recordBelongsToBusiness(record, businessProfileId) {
-  return recordBusinessProfileId(record) ===
-    normalizeBusinessProfileId(businessProfileId);
 }
 
 function recordOwnedBy(record, ownerUid) {
@@ -86,11 +79,8 @@ function resolveDeletionIdentity({
   if (!privateJob) {
     throw new Error('No owned canonical request or job could be resolved.');
   }
-  if (profile !== DEFAULT_BUSINESS_PROFILE_ID) {
-    throw new Error('A profile-less legacy job can only be deleted from default_business.');
-  }
   if (!recordBelongsToBusiness(privateJob, profile)) {
-    throw new Error('The legacy job belongs to another business profile.');
+    throw new Error('The legacy job is unscoped or belongs to another business profile.');
   }
   const jobId = requireDocumentId(
     readString(privateJob.jobId) || targetJobId,
@@ -105,7 +95,8 @@ function resolveDeletionIdentity({
 }
 
 function quoteBelongsToIdentity(record, identity) {
-  if (!recordOwnedBy(record, identity.ownerUid)) return false;
+  if (!recordOwnedBy(record, identity.ownerUid) ||
+      !recordBelongsToBusiness(record, identity.businessProfileId)) return false;
   const jobMatches = [record.jobId, record.linkedJobId]
     .map(readString)
     .filter(Boolean)
@@ -151,8 +142,9 @@ function buildDeletionPlan({
   const quoteIds = new Set(verifiedQuotes.map((item) => readString(item.id)).filter(Boolean));
   const verifiedTokens = tokenRecords.filter((item) => {
     const data = item.data || {};
-    return quoteBelongsToIdentity(data, identity) ||
-      quoteIds.has(readString(data.quoteResponseId || data.quoteId));
+    return recordBelongsToBusiness(data, identity.businessProfileId) &&
+      (quoteBelongsToIdentity(data, identity) ||
+       quoteIds.has(readString(data.quoteResponseId || data.quoteId)));
   });
   const storage = classifyStoragePaths(storagePaths, identity);
   const requestPaths = identity.requestId ? [
@@ -459,9 +451,7 @@ function createFirestoreDeletionRepository({ admin, db, bucket }) {
         }
         for (const record of scope.jobs) {
           if (isHiddenRecord(record.data)) continue;
-          const explicitProfile = readString(record.data.businessProfileId);
-          if (explicitProfile && explicitProfile !== businessProfileId) continue;
-          if (!explicitProfile && businessProfileId !== DEFAULT_BUSINESS_PROFILE_ID) continue;
+          if (!recordBelongsToBusiness(record.data, businessProfileId)) continue;
           if (selection === 'test_jobs' && !isMarkedTestRecord(record.data)) continue;
           candidates.push({
             jobId: readString(record.data.jobId) || record.id,

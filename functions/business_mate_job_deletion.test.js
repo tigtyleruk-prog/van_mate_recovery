@@ -56,23 +56,20 @@ test('another owner or business cannot authorize deletion', () => {
   }), /another business/);
 });
 
-test('profile-less legacy jobs are restricted to default_business', () => {
+test('profile-less legacy jobs are preserved for every business profile', () => {
   assert.throws(() => resolveDeletionIdentity({
     ownerUid: 'owner-1',
     businessProfileId: 'courier-1',
     target: { jobId: 'legacy-job' },
     privateJob: { jobId: 'legacy-job' },
-  }), /only be deleted from default_business/);
+  }), /unscoped or belongs to another/);
 
-  assert.deepEqual(resolveDeletionIdentity({
+  assert.throws(() => resolveDeletionIdentity({
     ownerUid: 'owner-1',
     businessProfileId: 'default_business',
     target: { jobId: 'legacy-job' },
     privateJob: { jobId: 'legacy-job' },
-  }), {
-    ownerUid: 'owner-1', businessProfileId: 'default_business',
-    jobId: 'legacy-job', requestId: '',
-  });
+  }), /unscoped or belongs to another/);
 });
 
 test('plan deletes exact job graph and preserves invoices and ambiguous records', () => {
@@ -83,12 +80,14 @@ test('plan deletes exact job graph and preserves invoices and ambiguous records'
   const plan = buildDeletionPlan({
     identity,
     quoteRecords: [
-      { id: 'quote-1', data: { ownerUid: 'owner-1', jobId: 'job-1' } },
-      { id: 'other-quote', data: { ownerUid: 'owner-1', jobId: 'job-2' } },
+      { id: 'quote-1', data: { ownerUid: 'owner-1', businessProfileId: 'courier-1', jobId: 'job-1' } },
+      { id: 'other-quote', data: { ownerUid: 'owner-1', businessProfileId: 'courier-1', jobId: 'job-2' } },
+      { id: 'unscoped-quote', data: { ownerUid: 'owner-1', jobId: 'job-1' } },
     ],
     tokenRecords: [
-      { id: 'token-1', data: { ownerUid: 'owner-1', quoteResponseId: 'quote-1' } },
-      { id: 'token-2', data: { ownerUid: 'owner-1', jobId: 'job-2' } },
+      { id: 'token-1', data: { ownerUid: 'owner-1', businessProfileId: 'courier-1', quoteResponseId: 'quote-1' } },
+      { id: 'token-2', data: { ownerUid: 'owner-1', businessProfileId: 'courier-1', jobId: 'job-2' } },
+      { id: 'unscoped-token', data: { ownerUid: 'owner-1', quoteResponseId: 'quote-1' } },
     ],
     invoiceRecords: [{ path: 'users/owner-1/van_invoices/job-1' }],
     ambiguousRecords: [{ path: 'van_pin_requests/unknown' }],

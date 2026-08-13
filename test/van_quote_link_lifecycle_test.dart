@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:van_mate_app/features/van_mate/models/van_job_request_record.dart';
+import 'package:van_mate_app/features/van_mate/pages/driver_customer_reply_mock_page.dart';
 
 void main() {
   const quoteId = 'job-quote-link-123';
@@ -146,5 +147,50 @@ void main() {
     expect(extraDataIndex, greaterThanOrEqualTo(0));
     expect(protectedLinkIndex, greaterThan(extraDataIndex));
     expect(protectedTokenIndex, greaterThan(extraDataIndex));
+  });
+
+  test('orderRequest job preserves requestType and customerJourneyType through quote publish payload', () {
+    final source = File(
+      'lib/features/van_mate/services/van_public_quote_cloud_service.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("'requestType': job.requestType.trim()"));
+    expect(source, contains('customerJourneyType'));
+    expect(source, contains('job.customerJourneyType.trim()'));
+  });
+
+  test('orderRequest with serviceFlow order resolves a stable quote response id and valid link', () {
+    final job = DriverCustomerReplyMockData(
+      jobId: 'order-request-job-1',
+      requestId: 'order-request-1',
+      requestType: 'orderRequest',
+      customerJourneyType: 'order',
+      customerName: 'Bakery Customer',
+      jobTitle: 'Celebration Cake',
+      scheduledAt: null,
+      jobDateLabel: '',
+      jobTimeLabel: '',
+      address: '',
+      phoneNumber: '',
+      exactPinShared: false,
+      checklistResponses: const <DriverChecklistResponse>[],
+      customQuestionResponses: const <DriverCustomQuestionResponse>[],
+      additionalNotes: '',
+      status: 'quoteSent',
+      requestStatus: 'quote_sent',
+      quoteStatus: 'sent',
+      quoteResponseStatus: '',
+    );
+
+    final quoteId = DriverReplyMockState.instance.resolveQuoteResponseIdForJob(
+      job,
+    );
+    expect(quoteId, 'order-request-job-1');
+
+    final link = DriverReplyMockState.instance.resolveQuoteResponseLinkForJob(
+      job,
+    );
+    expect(isCompleteVanQuoteResponseLink(link), isTrue);
+    expect(link, '$vanQuoteResponseHostedBaseUrl/quote/${buildVanQuoteResponseToken(quoteId)}');
   });
 }

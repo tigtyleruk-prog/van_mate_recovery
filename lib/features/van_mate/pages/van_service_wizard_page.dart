@@ -203,7 +203,8 @@ class _VanServiceCreationEntryPageState
       _usesFromPrice ? parseCurrencyValue(_fromPriceController.text) : 0;
   bool get _isUnchangedStandardWithoutFullHandover =>
       _source != null &&
-      _source!.serviceFlow == VanServiceFlow.standard &&
+      (_source!.serviceFlow == VanServiceFlow.standard ||
+          _source!.serviceFlow == VanServiceFlow.order) &&
       !_source!.hasHandoverConfiguration &&
       !_handoverTouched &&
       !(_allowedStarts.isNotEmpty && _allowedEnds.isNotEmpty);

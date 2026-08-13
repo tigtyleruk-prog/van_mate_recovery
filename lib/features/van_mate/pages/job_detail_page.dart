@@ -1967,6 +1967,7 @@ class _JobDetailPageState extends State<JobDetailPage>
       }
       setState(() {});
       _showSnack('Job added to calendar.');
+      await _openCalendarQuickLink();
       return;
     }
 

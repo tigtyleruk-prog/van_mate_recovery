@@ -39,6 +39,7 @@ function readFunction(name) {
 }
 
 const helperNames = [
+  'text',
   'quoteHasExactPin',
   'normaliseRequestFlowValue',
   'isOrderRequest',
@@ -51,6 +52,7 @@ const helperNames = [
   'customerHandoverView',
   'quoteDisplayFingerprint',
   'customerJourneyType',
+  'publicQuotePresentationFor',
   'quoteResponseCopy',
   'journeyStatusCopy',
   'quoteNeedsCustomerLocation',
@@ -191,6 +193,97 @@ test('hosted response copy uses journey-specific document wording', () => {
   }).ready, 'Order Summary ready');
 });
 
+test('Order Request quote presentation describes the business quote, not the original request', () => {
+  const presentation = context.publicQuotePresentationFor({
+    requestType: 'orderRequest',
+    customerJourneyType: 'order',
+  });
+
+  assert.equal(presentation.statusCopy.ready, 'Quote ready to review');
+  assert.equal(presentation.statusCopy.amount, 'Quote total');
+  assert.equal(presentation.responseCopy.accept, 'Accept quote');
+  assert.equal(presentation.responseCopy.decline, 'Decline quote');
+  assert.match(presentation.responseCopy.arrange, /^Accept quote/);
+  assert.match(presentation.responseCopy.arrange, /arrange another time$/);
+  assert.equal(presentation.serviceFlow, 'order');
+  assert.equal(presentation.showEstimatedDuration, false);
+});
+
+test('public quote presentation normalises fulfilment once and selects non-duplicated locations', () => {
+  const collection = context.publicQuotePresentationFor({
+    requestType: 'orderRequest',
+    fulfilmentType: 'collection',
+    address: 'Customer address must not be shown',
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(collection.fulfilment)), {
+    value: 'collection',
+    label: 'Collection',
+  });
+  assert.equal(collection.location, null);
+  assert.equal(collection.proposedTimeLabel, 'Proposed collection time');
+
+  for (const value of ['delivery', 'localDelivery', 'localdelivery']) {
+    const delivery = context.publicQuotePresentationFor({
+      requestType: 'orderRequest',
+      fulfilmentType: value,
+      deliveryAddress: '20 Delivery Street',
+    });
+    assert.equal(delivery.fulfilment.label, 'Local delivery', value);
+    assert.equal(delivery.location.label, 'Delivery address', value);
+    assert.equal(delivery.location.value, '20 Delivery Street', value);
+    assert.equal(delivery.proposedTimeLabel, 'Proposed delivery time', value);
+  }
+
+  for (const value of ['nationwideDelivery', 'nationwidedelivery']) {
+    const delivery = context.publicQuotePresentationFor({
+      requestType: 'orderRequest',
+      fulfilmentType: value,
+      deliveryAddress: 'Nationwide destination',
+    });
+    assert.equal(delivery.fulfilment.label, 'Nationwide delivery', value);
+    assert.equal(delivery.location.label, 'Delivery address', value);
+  }
+});
+
+test('duration remains useful for appointments and is hidden for product and handover flows', () => {
+  const appointment = context.publicQuotePresentationFor({
+    requestType: 'quoteRequest',
+    address: '1 Service Road',
+  });
+  assert.equal(appointment.showEstimatedDuration, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(appointment.location)), {
+    label: 'Service location',
+    value: '1 Service Road',
+  });
+
+  const pickupDelivery = context.publicQuotePresentationFor({
+    requestType: 'pickupDeliveryRequest',
+    startHandover: 'businessCollects',
+    endHandover: 'businessDelivers',
+    address: 'Do not duplicate handover location',
+  });
+  assert.equal(pickupDelivery.showEstimatedDuration, false);
+  assert.equal(pickupDelivery.location, null);
+
+  const dropOffPickup = context.publicQuotePresentationFor({
+    requestType: 'dropOffPickupRequest',
+  });
+  assert.equal(dropOffPickup.showEstimatedDuration, false);
+});
+
+test('Pre Order presentation retains its existing customer-facing terminology', () => {
+  const presentation = context.publicQuotePresentationFor({
+    customerJourneyType: 'preOrder',
+  });
+  assert.equal(presentation.documentName, 'Order Summary');
+  assert.equal(presentation.statusCopy.ready, 'Order Summary ready');
+  assert.equal(presentation.statusCopy.amount, 'Order total');
+  assert.equal(presentation.responseCopy.accept, 'Accept Pre Order');
+  assert.equal(presentation.responseCopy.decline, 'Decline Pre Order');
+  assert.match(presentation.responseCopy.arrange, /^Accept Pre Order/);
+  assert.equal(presentation.showEstimatedDuration, false);
+});
+
 test('Courier delivery quotes use collect-and-deliver labels and addresses', () => {
   const quote = {
     requestType: 'pickupDeliveryRequest',
@@ -245,7 +338,7 @@ test('the proposed quote appointment is rendered separately from requested journ
   assert.ok(proposedIndex < handoverIndex);
   assert.match(
     renderSource,
-    /renderRow\(proposedTimeLabel\(quote\), proposedAppointment\)/,
+    /renderRow\(presentation\.proposedTimeLabel, proposedAppointment\)/,
   );
   assert.match(renderSource, /`Requested: \$\{/);
   assert.doesNotMatch(
@@ -254,20 +347,30 @@ test('the proposed quote appointment is rendered separately from requested journ
   );
 });
 
-test('public quote publishing and hosted rendering use explicit delivery fields', () => {
+test('Order Request local delivery preserves its explicit delivery address for the public quote', () => {
   assert.match(
     quotePublisherSource,
     /effectiveHandover\.end == VanEndHandover\.businessDelivers/,
   );
   assert.match(
     quotePublisherSource,
-    /'deliveryAddress': isBusinessDelivery \? destinationAddress : ''/,
+    /isVanPublicQuoteDeliveryFulfilment\(\s*job\.fulfilmentType,?\s*\)/,
+  );
+  assert.match(
+    quotePublisherSource,
+    /'deliveryAddress': isBusinessDelivery\s*\? destinationAddress\s*:\s*\(isFulfilmentDelivery \? job\.address\.trim\(\) : ''\)/,
   );
   assert.match(
     pageSource,
     /normaliseRequestFlowValue\(data\.endHandover\) === "businessdelivers"/,
   );
   assert.match(pageSource, /addressLabel: "Delivery address"/);
+});
+
+test('public quote action labels use correctly encoded punctuation', () => {
+  assert.match(pageSource, /Accept quote – arrange another time/);
+  assert.match(pageSource, /Accept Pre Order – arrange another time/);
+  assert.doesNotMatch(pageSource, /â€“/);
 });
 
 test('quote page is versioned and served with no-store cache headers', () => {

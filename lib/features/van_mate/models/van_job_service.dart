@@ -659,19 +659,13 @@ class VanJobService {
       serviceId: id,
       serviceName: name,
     );
-    final legacyRequestType = vanCustomerRequestTypeFromStorage(
-      json['requestType'],
-      fallback: requestTypeFallback,
+    final resolvedFlow = resolveVanRequestFlow(
+      serviceFlow: json['serviceFlow'],
+      requestType: json['requestType'],
+      fallbackRequestType: requestTypeFallback,
     );
-    final storedCapabilitySchemaVersion = readInt('capabilitySchemaVersion', 0);
-    final resolvedServiceFlow = vanServiceFlowFromStorage(
-      json['serviceFlow'],
-      legacyRequestType: legacyRequestType,
-    );
-    final resolvedRequestType = storedCapabilitySchemaVersion > 0
-        ? legacyRequestType
-        : resolvedServiceFlow.requestType;
-    final legacyJourney = switch (legacyRequestType) {
+    final resolvedRequestType = resolvedFlow.requestType;
+    final legacyJourney = switch (resolvedRequestType) {
       VanCustomerRequestType.bookingRequest => VanCustomerJourneyType.booking,
       VanCustomerRequestType.orderRequest => VanCustomerJourneyType.order,
       VanCustomerRequestType.quoteRequest ||
@@ -783,7 +777,7 @@ class VanJobService {
       starterPackId: readText('starterPackId'),
       starterCapabilityIds: readStringList('starterCapabilityIds'),
       serviceCapabilityIds: readStringList('serviceCapabilityIds'),
-      capabilitySchemaVersion: storedCapabilitySchemaVersion,
+      capabilitySchemaVersion: readInt('capabilitySchemaVersion', 0),
       capabilityGeneratedQuestionIds: readStringList(
         'capabilityGeneratedQuestionIds',
       ),

@@ -1,0 +1,7 @@
+﻿adb.exe : - waiting for device -
+At line:4 char:1
++ & "C:\Users\dave\AppData\Local\Android\sdk\platform-tools\adb.exe" -s ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (- waiting for device -:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

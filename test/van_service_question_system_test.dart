@@ -38,7 +38,7 @@ void main() {
     ).copyWith(requestType: VanCustomerRequestType.orderRequest);
     expect(
       VanJobService.fromJson(orderService.toJson()).requestType,
-      VanCustomerRequestType.quoteRequest,
+      VanCustomerRequestType.orderRequest,
     );
 
     final legacyJson = orderService.toJson()

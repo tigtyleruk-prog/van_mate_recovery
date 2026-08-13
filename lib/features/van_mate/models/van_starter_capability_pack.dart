@@ -416,6 +416,8 @@ const List<String> _bakeryFeatureIds = <String>[
   VanServiceCapabilityIds.booking,
   VanServiceCapabilityIds.placeOrder,
   VanServiceCapabilityIds.preOrder,
+  VanServiceCapabilityIds.customerVisitsBusiness,
+  VanServiceCapabilityIds.localDelivery,
   VanServiceCapabilityIds.customQuote,
   VanServiceCapabilityIds.estimatedDuration,
   VanServiceCapabilityIds.leadTime,
@@ -425,6 +427,8 @@ const List<String> _bakeryFeatureIds = <String>[
 const List<String> _bakeryPreOrderFeatureIds = <String>[
   VanServiceCapabilityIds.booking,
   VanServiceCapabilityIds.preOrder,
+  VanServiceCapabilityIds.customerVisitsBusiness,
+  VanServiceCapabilityIds.localDelivery,
   VanServiceCapabilityIds.customQuote,
   VanServiceCapabilityIds.estimatedDuration,
   VanServiceCapabilityIds.leadTime,

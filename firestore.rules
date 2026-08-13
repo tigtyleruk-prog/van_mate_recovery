@@ -22,7 +22,10 @@ service cloud.firestore {
     }
 
     function isPublicJobRequestOwner() {
-      return signedIn() && resource.data.ownerUid == request.auth.uid;
+      return signedIn()
+        && (resource == null
+          ? false
+          : resource.data.get('ownerUid', '') == request.auth.uid);
     }
 
     function isPublicJobRequestOwnerCreate() {
@@ -69,7 +72,10 @@ service cloud.firestore {
     }
 
     function isPublicJobQuoteOwner() {
-      return signedIn() && resource.data.ownerUid == request.auth.uid;
+      return signedIn()
+        && (resource == null
+          ? false
+          : resource.data.get('ownerUid', '') == request.auth.uid);
     }
 
     function isPublicJobQuoteOwnerCreate() {
@@ -79,7 +85,16 @@ service cloud.firestore {
     }
 
     function isPublicJobQuoteTokenOwner() {
-      return signedIn() && resource.data.ownerUid == request.auth.uid;
+      return signedIn()
+        && (resource == null
+          ? false
+          : resource.data.get('ownerUid', '') == request.auth.uid);
+    }
+
+    function isArchivedReadOnly() {
+      return resource == null
+        ? false
+        : resource.data.get('archivedReadOnly', false) == true;
     }
 
     function isPublicJobQuoteTokenOwnerCreate() {
@@ -317,21 +332,21 @@ service cloud.firestore {
           && !exists(/databases/$(database)/documents/users/$(userId)/van_job_deletion_tombstones/$(jobId));
         allow update, delete: if signedIn()
           && request.auth.uid == userId
-          && resource.data.archivedReadOnly != true;
+          && !isArchivedReadOnly();
       }
 
       match /van_quotes/{quoteId} {
         allow read, create: if signedIn() && request.auth.uid == userId;
         allow update, delete: if signedIn()
           && request.auth.uid == userId
-          && resource.data.archivedReadOnly != true;
+          && !isArchivedReadOnly();
       }
 
       match /van_invoices/{invoiceId} {
         allow read, create: if signedIn() && request.auth.uid == userId;
         allow update, delete: if signedIn()
           && request.auth.uid == userId
-          && resource.data.archivedReadOnly != true;
+          && !isArchivedReadOnly();
       }
 
       match /van_business_profile/{profileId} {
@@ -422,7 +437,9 @@ service cloud.firestore {
     }
 
     match /public_quote_responses/{quoteId} {
-      allow get: if request.auth == null || isPublicJobQuoteOwner();
+      allow get: if request.auth == null
+        || isPublicJobQuoteOwner()
+        || !exists(/databases/$(database)/documents/public_quote_responses/$(quoteId));
       allow list: if isPublicJobQuoteOwner();
       allow create: if isPublicJobQuoteOwnerCreate();
       allow update: if isPublicJobQuoteOwner()
@@ -432,7 +449,12 @@ service cloud.firestore {
     }
 
     match /public_quote_response_tokens/{token} {
-      allow get: if request.auth == null || isPublicJobQuoteTokenOwner();
+      allow get: if request.auth == null
+        // A first-publish transaction must read its deterministic token id
+        // before creating it. A missing document exposes no token data; an
+        // existing token remains readable only by its owner.
+        || !exists(/databases/$(database)/documents/public_quote_response_tokens/$(token))
+        || isPublicJobQuoteTokenOwner();
       allow list: if isPublicJobQuoteTokenOwner();
       allow create: if isPublicJobQuoteTokenOwnerCreate();
       allow update, delete: if isPublicJobQuoteTokenOwner();

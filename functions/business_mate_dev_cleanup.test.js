@@ -159,6 +159,14 @@ test('candidate filtering rejects other businesses and protects financial record
     ),
     false,
   );
+  assert.equal(
+    recordBelongsToTarget(
+      { ownerUid: 'test_owner_123' },
+      target,
+      { requireOwner: true },
+    ),
+    false,
+  );
   assert.equal(hasProtectedFinancialData({ invoiceNumber: 'INV-100' }), true);
   assert.equal(hasProtectedFinancialData({ paid: true }), true);
   assert.equal(hasProtectedFinancialData({ requestStatus: 'pending' }), false);

@@ -10,6 +10,47 @@ import 'van_firestore_payload_builder.dart';
 import 'van_firebase_auth_service.dart';
 import 'van_firebase_debug_logging.dart';
 
+/// Chooses the profile scope for a quote publish without allowing an empty
+/// request value to erase an already-scoped document.
+String resolveVanQuoteBusinessProfileId(Iterable<dynamic> values) {
+  for (final value in values) {
+    final normalized = value?.toString().trim() ?? '';
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
+  }
+  return '';
+}
+
+bool isVanPublicQuoteDeliveryFulfilment(String value) {
+  switch (value.trim().toLowerCase()) {
+    case 'delivery':
+    case 'localdelivery':
+    case 'nationwidedelivery':
+      return true;
+    default:
+      return false;
+  }
+}
+
+Map<String, dynamic> buildVanQuoteBusinessProfileFields({
+  required String requestedBusinessProfileId,
+  Map<String, dynamic> existingJob = const <String, dynamic>{},
+  Map<String, dynamic> existingQuote = const <String, dynamic>{},
+  Map<String, dynamic> existingToken = const <String, dynamic>{},
+}) {
+  final businessProfileId = resolveVanQuoteBusinessProfileId(<dynamic>[
+    requestedBusinessProfileId,
+    existingJob['businessProfileId'],
+    existingQuote['businessProfileId'],
+    existingToken['businessProfileId'],
+  ]);
+  if (businessProfileId.isEmpty) {
+    return const <String, dynamic>{};
+  }
+  return <String, dynamic>{'businessProfileId': businessProfileId};
+}
+
 class VanPublicQuoteDeleteResult {
   const VanPublicQuoteDeleteResult({
     this.deletedQuotes = 0,
@@ -27,13 +68,21 @@ class VanPublicQuoteCloudService {
     FirebaseFirestore? firestore,
     VanFirebaseAuthService? authService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _authService = authService ?? VanFirebaseAuthService.instance;
+       _ensureCurrentUid =
+           (authService ?? VanFirebaseAuthService.instance).ensureCurrentUid;
+
+  @visibleForTesting
+  VanPublicQuoteCloudService.forTesting({
+    FirebaseFirestore? firestore,
+    required Future<String?> Function({String source}) ensureCurrentUid,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _ensureCurrentUid = ensureCurrentUid;
 
   static final VanPublicQuoteCloudService instance =
       VanPublicQuoteCloudService._();
 
   final FirebaseFirestore _firestore;
-  final VanFirebaseAuthService _authService;
+  final Future<String?> Function({String source}) _ensureCurrentUid;
 
   CollectionReference<Map<String, dynamic>> _publicQuotes() {
     return _firestore.collection('public_quote_responses');
@@ -170,9 +219,7 @@ class VanPublicQuoteCloudService {
     Map<String, dynamic> extraData = const <String, dynamic>{},
     String source = 'van_mate.public_quote',
   }) async {
-    final normalizedOwnerUid = await _authService.ensureCurrentUid(
-      source: source,
-    );
+    final normalizedOwnerUid = await _ensureCurrentUid(source: source);
     if (normalizedOwnerUid == null || normalizedOwnerUid.trim().isEmpty) {
       logVanFirebaseSkip(
         reason: 'public quote save skipped',
@@ -266,10 +313,17 @@ class VanPublicQuoteCloudService {
         effectiveHandover.end == VanEndHandover.businessDelivers;
     final isBusinessReturn =
         effectiveHandover.end == VanEndHandover.businessReturns;
+    // For automatic Order Request delivery, address is the canonical
+    // publicAddressSummary. The Booking Link submit path derives it directly
+    // from deliveryAddress, so preserve it as the public delivery field.
+    final isFulfilmentDelivery = isVanPublicQuoteDeliveryFulfilment(
+      job.fulfilmentType,
+    );
     final quotePublishKey =
         extraData['quotePublishKey']?.toString().trim() ?? '';
     final requestedSupersedesQuoteId =
         extraData['supersedesQuoteId']?.toString().trim() ?? '';
+    final requestedBusinessProfileId = job.businessProfileId.trim();
 
     final payload = buildVanCloudDocPayload(
       id: docId,
@@ -290,7 +344,9 @@ class VanPublicQuoteCloudService {
         'allowedStartHandoverOptions': job.allowedStartHandoverOptions,
         'allowedEndHandoverOptions': job.allowedEndHandoverOptions,
         'collectionAddress': job.collectionAddress.trim(),
-        'deliveryAddress': isBusinessDelivery ? destinationAddress : '',
+        'deliveryAddress': isBusinessDelivery
+            ? destinationAddress
+            : (isFulfilmentDelivery ? job.address.trim() : ''),
         'returnAddress': isBusinessReturn ? destinationAddress : '',
         'returnAddressSameAsCollection':
             isBusinessReturn && job.returnAddressSameAsCollection,
@@ -423,6 +479,11 @@ class VanPublicQuoteCloudService {
       uid: normalizedOwnerUid,
       source: source,
     );
+    if (kDebugMode) {
+      debugPrint(
+        '[PublicQuoteSave] stage=pre_transaction quoteId=$docId jobId=${job.jobId.trim()} requestId=${job.requestId?.trim() ?? '(none)'} requestType=${job.requestType.trim()} customerJourneyType=${job.customerJourneyType.trim()}',
+      );
+    }
     try {
       final quoteRef = _publicQuotes().doc(docId);
       final jobRef = _firestore
@@ -431,8 +492,18 @@ class VanPublicQuoteCloudService {
           .collection('van_jobs')
           .doc(job.jobId.trim());
       await _firestore.runTransaction((transaction) async {
+        if (kDebugMode) {
+          debugPrint('[PublicQuoteSave] stage=reading_docs quoteId=$docId');
+        }
         final jobSnapshot = await transaction.get(jobRef);
         final jobData = jobSnapshot.data() ?? const <String, dynamic>{};
+        final currentSnapshot = await transaction.get(quoteRef);
+        final tokenRef = quoteResponseToken.isNotEmpty
+            ? _publicQuoteTokens().doc(quoteResponseToken)
+            : null;
+        final tokenSnapshot = tokenRef == null
+            ? null
+            : await transaction.get(tokenRef);
         final jobCurrentQuoteId =
             jobData['currentQuoteId']?.toString().trim().isNotEmpty == true
             ? jobData['currentQuoteId'].toString().trim()
@@ -440,7 +511,11 @@ class VanPublicQuoteCloudService {
         final previousQuoteId = requestedSupersedesQuoteId.isNotEmpty
             ? requestedSupersedesQuoteId
             : jobCurrentQuoteId;
-        final currentSnapshot = await transaction.get(quoteRef);
+        if (kDebugMode) {
+          debugPrint(
+            '[PublicQuoteSave] stage=reading_current_quote quoteId=$docId',
+          );
+        }
         DocumentSnapshot<Map<String, dynamic>>? previousSnapshot;
         if (previousQuoteId.isNotEmpty && previousQuoteId != docId) {
           previousSnapshot = await transaction.get(
@@ -449,6 +524,28 @@ class VanPublicQuoteCloudService {
         }
 
         final currentData = currentSnapshot.data() ?? const <String, dynamic>{};
+        final tokenData = tokenSnapshot?.data() ?? const <String, dynamic>{};
+        final businessProfileFields = buildVanQuoteBusinessProfileFields(
+          requestedBusinessProfileId: requestedBusinessProfileId,
+          existingJob: jobData,
+          existingQuote: currentData,
+          existingToken: tokenData,
+        );
+        if (!jobSnapshot.exists) {
+          transaction.set(jobRef, <String, dynamic>{
+            'ownerUid': normalizedOwnerUid,
+            'jobId': job.jobId.trim(),
+            'requestId': job.requestId?.trim() ?? '',
+            'requestType': job.requestType.trim(),
+            'customerJourneyType': job.customerJourneyType.trim().isEmpty
+                ? 'quote'
+                : job.customerJourneyType.trim(),
+            'createdAt': (job.createdAt ?? job.quoteSavedAt ?? DateTime.now())
+                .toIso8601String(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            ...businessProfileFields,
+          }, SetOptions(merge: true));
+        }
         final previousData =
             previousSnapshot?.data() ?? const <String, dynamic>{};
         final existingPublishKey =
@@ -471,6 +568,7 @@ class VanPublicQuoteCloudService {
             : baseVersion + 1;
         final versionedPayload = <String, dynamic>{
           ...payload,
+          ...businessProfileFields,
           'currentQuoteId': docId,
           'quoteVersion': quoteVersion,
           'supersedesQuoteId': previousQuoteId != docId
@@ -491,6 +589,7 @@ class VanPublicQuoteCloudService {
                 'supersededByQuoteId': docId,
                 'supersededAt': FieldValue.serverTimestamp(),
                 'updatedAt': FieldValue.serverTimestamp(),
+                ...businessProfileFields,
               }, SetOptions(merge: true));
           final previousToken =
               previousData['quoteResponseToken']?.toString().trim() ?? '';
@@ -501,10 +600,14 @@ class VanPublicQuoteCloudService {
                   'quoteResponseId': docId,
                   'supersededQuoteId': previousQuoteId,
                   'updatedAt': FieldValue.serverTimestamp(),
+                  ...businessProfileFields,
                 }, SetOptions(merge: true));
           }
         }
 
+        if (kDebugMode) {
+          debugPrint('[PublicQuoteSave] stage=committing quoteId=$docId');
+        }
         transaction.set(quoteRef, versionedPayload, SetOptions(merge: true));
         transaction.set(jobRef, <String, dynamic>{
           'currentQuoteId': docId,
@@ -512,6 +615,7 @@ class VanPublicQuoteCloudService {
           'quoteVersion': quoteVersion,
           'quotePublishKey': quotePublishKey,
           'updatedAt': FieldValue.serverTimestamp(),
+          ...businessProfileFields,
         }, SetOptions(merge: true));
         if (quoteResponseToken.isNotEmpty) {
           transaction.set(
@@ -530,14 +634,18 @@ class VanPublicQuoteCloudService {
                 'quoteResponseId': docId,
                 'quoteResponseToken': quoteResponseToken,
                 'quoteResponseLink': quoteResponseLink,
+                ...businessProfileFields,
               },
             ),
             SetOptions(merge: true),
           );
         }
       });
+      if (kDebugMode) {
+        debugPrint('[PublicQuoteSave] stage=post_transaction quoteId=$docId');
+      }
       debugPrint(
-        '[PublicQuoteSave] quoteId=$docId requestId=${job.requestId?.trim().isNotEmpty == true ? job.requestId : '(none)'} requiresExactPinAfterQuoteAccepted=${job.requiresExactPinAfterQuoteAccepted} requestExactPin=${job.requestExactPin} exactPinSaved=${job.exactPinSaved}',
+        '[PublicQuoteSave] quoteId=$docId requestId=${job.requestId?.trim().isNotEmpty == true ? job.requestId : '(none)'} requestType=${job.requestType.trim()} customerJourneyType=${job.customerJourneyType.trim()} requiresExactPinAfterQuoteAccepted=${job.requiresExactPinAfterQuoteAccepted} requestExactPin=${job.requestExactPin} exactPinSaved=${job.exactPinSaved}',
       );
       logVanFirebaseWriteSuccess(
         collectionPath: collectionPath,

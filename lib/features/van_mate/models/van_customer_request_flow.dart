@@ -6,19 +6,21 @@ enum VanCustomerRequestType {
   pickupDeliveryRequest,
 }
 
-enum VanServiceFlow { standard, pickupDelivery, dropOffPickup }
+enum VanServiceFlow { standard, order, pickupDelivery, dropOffPickup }
 
 const List<VanServiceFlow> kVanServiceFlows = VanServiceFlow.values;
 
 extension VanServiceFlowX on VanServiceFlow {
   String get storageKey => switch (this) {
     VanServiceFlow.standard => 'standard',
+    VanServiceFlow.order => 'order',
     VanServiceFlow.pickupDelivery => 'pickupDelivery',
     VanServiceFlow.dropOffPickup => 'dropOffPickup',
   };
 
   String get label => switch (this) {
     VanServiceFlow.standard => 'Standard service',
+    VanServiceFlow.order => 'Order service',
     VanServiceFlow.pickupDelivery => 'Pickup / delivery',
     VanServiceFlow.dropOffPickup => 'Drop-off / pick-up',
   };
@@ -26,6 +28,8 @@ extension VanServiceFlowX on VanServiceFlow {
   String get description => switch (this) {
     VanServiceFlow.standard =>
       'For services carried out at one location without a handover journey.',
+    VanServiceFlow.order =>
+      'For made-to-order products and services with collection or delivery.',
     VanServiceFlow.pickupDelivery =>
       'For services that collect from one address and deliver to another.',
     VanServiceFlow.dropOffPickup =>
@@ -34,9 +38,62 @@ extension VanServiceFlowX on VanServiceFlow {
 
   VanCustomerRequestType get requestType => switch (this) {
     VanServiceFlow.standard => VanCustomerRequestType.quoteRequest,
+    VanServiceFlow.order => VanCustomerRequestType.orderRequest,
     VanServiceFlow.pickupDelivery =>
       VanCustomerRequestType.pickupDeliveryRequest,
     VanServiceFlow.dropOffPickup => VanCustomerRequestType.dropOffPickupRequest,
+  };
+}
+
+class VanResolvedRequestFlow {
+  const VanResolvedRequestFlow({
+    required this.serviceFlow,
+    required this.requestType,
+  });
+
+  final VanServiceFlow serviceFlow;
+  final VanCustomerRequestType requestType;
+}
+
+VanResolvedRequestFlow resolveVanRequestFlow({
+  Object? serviceFlow,
+  Object? requestType,
+  VanCustomerRequestType fallbackRequestType =
+      VanCustomerRequestType.quoteRequest,
+}) {
+  final parsedRequestType = vanCustomerRequestTypeFromStorage(
+    requestType,
+    fallback: fallbackRequestType,
+  );
+  final normalizedFlow = serviceFlow?.toString().trim().toLowerCase() ?? '';
+
+  if (normalizedFlow == 'order' ||
+      parsedRequestType == VanCustomerRequestType.orderRequest) {
+    return const VanResolvedRequestFlow(
+      serviceFlow: VanServiceFlow.order,
+      requestType: VanCustomerRequestType.orderRequest,
+    );
+  }
+
+  return switch (normalizedFlow) {
+    'pickupdelivery' || 'pickupdeliveryrequest' => const VanResolvedRequestFlow(
+      serviceFlow: VanServiceFlow.pickupDelivery,
+      requestType: VanCustomerRequestType.pickupDeliveryRequest,
+    ),
+    'dropoffpickup' || 'dropoffpickuprequest' => const VanResolvedRequestFlow(
+      serviceFlow: VanServiceFlow.dropOffPickup,
+      requestType: VanCustomerRequestType.dropOffPickupRequest,
+    ),
+    'standard' => VanResolvedRequestFlow(
+      serviceFlow: VanServiceFlow.standard,
+      requestType: parsedRequestType == VanCustomerRequestType.bookingRequest
+          ? VanCustomerRequestType.bookingRequest
+          : VanCustomerRequestType.quoteRequest,
+    ),
+    _ => VanResolvedRequestFlow(
+      serviceFlow: parsedRequestType.serviceFlow,
+      requestType: parsedRequestType,
+    ),
   };
 }
 
@@ -45,14 +102,11 @@ VanServiceFlow vanServiceFlowFromStorage(
   VanCustomerRequestType legacyRequestType =
       VanCustomerRequestType.quoteRequest,
 }) {
-  final normalized = value?.toString().trim().toLowerCase() ?? '';
-  return switch (normalized) {
-    'pickupdelivery' ||
-    'pickupdeliveryrequest' => VanServiceFlow.pickupDelivery,
-    'dropoffpickup' || 'dropoffpickuprequest' => VanServiceFlow.dropOffPickup,
-    'standard' => VanServiceFlow.standard,
-    _ => legacyRequestType.serviceFlow,
-  };
+  return resolveVanRequestFlow(
+    serviceFlow: value,
+    requestType: legacyRequestType.storageKey,
+    fallbackRequestType: legacyRequestType,
+  ).serviceFlow;
 }
 
 class VanCustomerRequestFlowOptions {
@@ -183,8 +237,8 @@ extension VanCustomerRequestTypeX on VanCustomerRequestType {
       VanServiceFlow.pickupDelivery,
     VanCustomerRequestType.dropOffPickupRequest => VanServiceFlow.dropOffPickup,
     VanCustomerRequestType.quoteRequest ||
-    VanCustomerRequestType.bookingRequest ||
-    VanCustomerRequestType.orderRequest => VanServiceFlow.standard,
+    VanCustomerRequestType.bookingRequest => VanServiceFlow.standard,
+    VanCustomerRequestType.orderRequest => VanServiceFlow.order,
   };
 
   String get storageKey => switch (this) {
@@ -256,6 +310,6 @@ bool isVanCustomerRequestBuiltInQuestion(
           text == 'event date' ||
           text == 'event time' ||
           text == 'location',
-    VanServiceFlow.standard => false,
+    VanServiceFlow.standard || VanServiceFlow.order => false,
   };
 }

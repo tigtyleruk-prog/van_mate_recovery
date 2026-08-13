@@ -9,6 +9,11 @@ const {
   bookingLinkRequestDocumentId,
   withTimeout,
 } = require('./booking_link_address_validation');
+const {
+  reconcileServiceFlowAndRequestType,
+  normalizeServiceFlow,
+  requestTypeForServiceFlow,
+} = require('./index').__test__;
 
 const functionSource = fs.readFileSync(
   path.join(__dirname, 'index.js'),
@@ -34,6 +39,40 @@ function validate(overrides = {}) {
     ...overrides,
   });
 }
+
+test('canonical flow reconciliation resolves order mismatches deterministically', () => {
+  const cases = [
+    ['order', 'orderRequest'],
+    ['standard', 'orderRequest'],
+    ['', 'orderRequest'],
+    ['order', 'quoteRequest'],
+    ['', ''],
+  ];
+  for (const [serviceFlow, requestType] of cases) {
+    const resolved = reconcileServiceFlowAndRequestType(
+      serviceFlow,
+      requestType || 'quoteRequest',
+    );
+    if (serviceFlow === 'order' || requestType === 'orderRequest') {
+      assert.deepEqual(resolved, {
+        serviceFlow: 'order',
+        requestType: 'orderRequest',
+      });
+    }
+  }
+  assert.deepEqual(
+    reconcileServiceFlowAndRequestType('standard', 'quoteRequest'),
+    { serviceFlow: 'standard', requestType: 'quoteRequest' },
+  );
+  assert.deepEqual(
+    reconcileServiceFlowAndRequestType('', 'pickupDeliveryRequest'),
+    { serviceFlow: 'pickupDelivery', requestType: 'pickupDeliveryRequest' },
+  );
+  assert.deepEqual(
+    reconcileServiceFlowAndRequestType('', 'dropOffPickupRequest'),
+    { serviceFlow: 'dropOffPickup', requestType: 'dropOffPickupRequest' },
+  );
+});
 
 test('business collects and returns accepts collection for both addresses', () => {
   assert.equal(
@@ -404,5 +443,45 @@ test('photo upload timeout becomes a handled failure path', async () => {
   assert.match(
     functionSource,
     /catch \(error\) {[\s\S]*photoUploadFailed = true;[\s\S]*uploadedPhotos = \[\];/,
+  );
+});
+
+test('normalizeServiceFlow preserves order flow for orderRequest legacy type', () => {
+  assert.equal(normalizeServiceFlow('order', 'orderRequest'), 'order');
+});
+
+test('normalizeServiceFlow preserves order flow when serviceFlow is order', () => {
+  assert.equal(normalizeServiceFlow('order', 'quoteRequest'), 'order');
+});
+
+test('requestTypeForServiceFlow maps order to orderRequest', () => {
+  assert.equal(requestTypeForServiceFlow('order'), 'orderRequest');
+});
+
+test('order request with delivery fulfilment type and delivery address passes validation', () => {
+  assert.equal(
+    validate({
+      supportsHandover: false,
+      requestType: 'orderRequest',
+      requestFlowOptions: { showFulfilmentChoice: true },
+      usesAutomaticFulfilment: false,
+      fulfilmentType: 'delivery',
+      deliveryAddress: '20 Delivery Street, E1 1AA',
+    }),
+    null,
+  );
+});
+
+test('order request with collection fulfilment type and collection address passes validation', () => {
+  assert.equal(
+    validate({
+      supportsHandover: false,
+      requestType: 'orderRequest',
+      requestFlowOptions: { showFulfilmentChoice: true },
+      usesAutomaticFulfilment: false,
+      fulfilmentType: 'collection',
+      collectionAddress: '10 Collection Road, SW1A 1AA',
+    }),
+    null,
   );
 });

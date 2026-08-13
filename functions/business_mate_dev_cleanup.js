@@ -1,5 +1,8 @@
 'use strict';
 
+const {
+  recordBelongsToBusiness,
+} = require('./business_profile_scoping');
 const DEFAULT_BUSINESS_PROFILE_ID = 'default_business';
 const FORBIDDEN_PROJECT_MARKERS = ['prod', 'production', 'live'];
 const DEVELOPMENT_MARKERS = ['dev', 'development', 'test', 'testing', 'sandbox', 'demo', 'local', 'emulator'];
@@ -126,11 +129,8 @@ function ownershipStatus(data, target, { requireOwner = false } = {}) {
   const owner = clean(record.ownerUid || record.ownerId);
   if (owner && owner !== target.ownerUid) return 'other';
   if (requireOwner && !owner) return 'uncertain';
-  const profile = clean(record.businessProfileId);
-  if (profile) return profile === target.businessProfileId ? 'match' : 'other';
-  return target.businessProfileId === DEFAULT_BUSINESS_PROFILE_ID
-    ? 'match'
-    : 'uncertain';
+  if (recordBelongsToBusiness(record, target.businessProfileId)) return 'match';
+  return clean(record.businessProfileId) ? 'other' : 'uncertain';
 }
 
 function recordBelongsToTarget(data, target, { requireOwner = false } = {}) {
